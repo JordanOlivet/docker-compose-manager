@@ -29,7 +29,12 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.Username).IsUnique();
             entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
             entity.Property(e => e.PasswordHash).IsRequired();
-            entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
+            // Configure Role relationship instead of trying to map the Role object as a scalar
+            entity.Property(e => e.RoleId).IsRequired();
+            entity.HasOne(e => e.Role)
+                .WithMany()
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Role configuration
