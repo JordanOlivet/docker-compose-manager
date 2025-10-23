@@ -5,9 +5,11 @@ public class AuditLog
     public int Id { get; set; }
     public int? UserId { get; set; }
     public required string Action { get; set; }
-    public string? EntityType { get; set; }
-    public string? EntityId { get; set; }
-    public string? Changes { get; set; } // JSON string with before/after state
+    public string? ResourceType { get; set; } // Type of resource (container, file, project, user, etc.)
+    public string? ResourceId { get; set; } // ID or identifier of the resource
+    public string? Details { get; set; } // Additional details about the action
+    public string? BeforeState { get; set; } // JSON string with state before change
+    public string? AfterState { get; set; } // JSON string with state after change
     public required string IpAddress { get; set; }
     public string? UserAgent { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

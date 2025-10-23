@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<ComposeFile> ComposeFiles { get; set; } = null!;
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+    public DbSet<Operation> Operations { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -91,6 +92,22 @@ public class AppDbContext : DbContext
             entity.Property(e => e.IpAddress).IsRequired().HasMaxLength(50);
             entity.HasOne(e => e.User)
                 .WithMany(u => u.AuditLogs)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Operation configuration
+        modelBuilder.Entity<Operation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.OperationId).IsUnique();
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.StartedAt);
+            entity.Property(e => e.OperationId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.HasOne(e => e.User)
+                .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });

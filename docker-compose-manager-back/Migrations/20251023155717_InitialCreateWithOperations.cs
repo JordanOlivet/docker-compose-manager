@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace docker_compose_manager_back.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialCreateWithOperations : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -115,9 +115,11 @@ namespace docker_compose_manager_back.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     UserId = table.Column<int>(type: "INTEGER", nullable: true),
                     Action = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    EntityType = table.Column<string>(type: "TEXT", nullable: true),
-                    EntityId = table.Column<string>(type: "TEXT", nullable: true),
-                    Changes = table.Column<string>(type: "TEXT", nullable: true),
+                    ResourceType = table.Column<string>(type: "TEXT", nullable: true),
+                    ResourceId = table.Column<string>(type: "TEXT", nullable: true),
+                    Details = table.Column<string>(type: "TEXT", nullable: true),
+                    BeforeState = table.Column<string>(type: "TEXT", nullable: true),
+                    AfterState = table.Column<string>(type: "TEXT", nullable: true),
                     IpAddress = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
                     UserAgent = table.Column<string>(type: "TEXT", nullable: true),
                     Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
@@ -129,6 +131,35 @@ namespace docker_compose_manager_back.Migrations
                     table.PrimaryKey("PK_AuditLogs", x => x.Id);
                     table.ForeignKey(
                         name: "FK_AuditLogs_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Operations",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    OperationId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    UserId = table.Column<int>(type: "INTEGER", nullable: true),
+                    Type = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Progress = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProjectPath = table.Column<string>(type: "TEXT", nullable: true),
+                    ProjectName = table.Column<string>(type: "TEXT", nullable: true),
+                    Logs = table.Column<string>(type: "TEXT", nullable: true),
+                    StartedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    CompletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Operations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Operations_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -218,6 +249,27 @@ namespace docker_compose_manager_back.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Operations_OperationId",
+                table: "Operations",
+                column: "OperationId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Operations_StartedAt",
+                table: "Operations",
+                column: "StartedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Operations_Status",
+                table: "Operations",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Operations_UserId",
+                table: "Operations",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Roles_Name",
                 table: "Roles",
                 column: "Name",
@@ -252,6 +304,9 @@ namespace docker_compose_manager_back.Migrations
 
             migrationBuilder.DropTable(
                 name: "ComposeFiles");
+
+            migrationBuilder.DropTable(
+                name: "Operations");
 
             migrationBuilder.DropTable(
                 name: "Roles");

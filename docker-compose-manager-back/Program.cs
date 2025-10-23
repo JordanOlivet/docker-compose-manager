@@ -1,4 +1,8 @@
 using docker_compose_manager_back.Data;
+using docker_compose_manager_back.Middleware;
+using docker_compose_manager_back.Hubs;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -62,7 +66,24 @@ builder.Services.AddCors(options =>
 // Register application services
 builder.Services.AddScoped<docker_compose_manager_back.Services.JwtTokenService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.AuthService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.FileService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.ComposeService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.AuditService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.OperationService>();
 builder.Services.AddSingleton<docker_compose_manager_back.Services.DockerService>();
+
+// Register background services
+builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
+
+// Add FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+// Add Rate Limiting
+builder.Services.ConfigureRateLimiting();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add controllers
 builder.Services.AddControllers();
@@ -104,9 +125,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Add Error Handling Middleware first
+app.UseMiddleware<ErrorHandlingMiddleware>();
+
 app.UseSerilogRequestLogging();
 
 app.UseCors();
+
+// Add Rate Limiting
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -117,6 +144,9 @@ app.MapGet("/health", () => Results.Ok(new { status = "Healthy", timestamp = Dat
    .WithTags("Health");
 
 app.MapControllers();
+
+// Map SignalR Hub
+app.MapHub<LogsHub>("/hubs/logs");
 
 // Log when application is ready
 IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();

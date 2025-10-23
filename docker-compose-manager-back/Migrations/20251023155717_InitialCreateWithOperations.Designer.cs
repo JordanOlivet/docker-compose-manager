@@ -11,8 +11,8 @@ using docker_compose_manager_back.Data;
 namespace docker_compose_manager_back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251023152938_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251023155717_InitialCreateWithOperations")]
+    partial class InitialCreateWithOperations
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -63,13 +63,13 @@ namespace docker_compose_manager_back.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Changes")
+                    b.Property<string>("AfterState")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("EntityId")
+                    b.Property<string>("BeforeState")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("EntityType")
+                    b.Property<string>("Details")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ErrorMessage")
@@ -78,6 +78,12 @@ namespace docker_compose_manager_back.Migrations
                     b.Property<string>("IpAddress")
                         .IsRequired()
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResourceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResourceType")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("Success")
@@ -174,6 +180,65 @@ namespace docker_compose_manager_back.Migrations
                             IsReadOnly = false,
                             Path = "/compose-files"
                         });
+                });
+
+            modelBuilder.Entity("docker_compose_manager_back.Models.Operation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Logs")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OperationId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProjectName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProjectPath")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("StartedAt");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Operations");
                 });
 
             modelBuilder.Entity("docker_compose_manager_back.Models.Role", b =>
@@ -340,6 +405,16 @@ namespace docker_compose_manager_back.Migrations
                         .IsRequired();
 
                     b.Navigation("ComposePath");
+                });
+
+            modelBuilder.Entity("docker_compose_manager_back.Models.Operation", b =>
+                {
+                    b.HasOne("docker_compose_manager_back.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("docker_compose_manager_back.Models.Session", b =>

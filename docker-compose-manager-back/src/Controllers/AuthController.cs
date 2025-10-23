@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.Middleware;
 
 namespace docker_compose_manager_back.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[EnableRateLimiting(RateLimitingConfiguration.AuthPolicy)]
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
