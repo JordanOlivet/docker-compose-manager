@@ -5,6 +5,8 @@ import {
   Package,
   Container,
   ClipboardList,
+  Users,
+  FileOutput,
   Settings
 } from 'lucide-react';
 
@@ -24,7 +26,9 @@ const navItems: NavItem[] = [
   { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers' },
   { to: '/compose/files', icon: <FileText className="w-5 h-5" />, label: 'Compose Files' },
   { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Projects' },
+  { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer' },
   { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs' },
+  { to: '/users', icon: <Users className="w-5 h-5" />, label: 'User Management' },
   { to: '/settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
 ];
 

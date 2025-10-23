@@ -101,13 +101,20 @@ public class LogsHub : Hub
 
             _logger.LogInformation("Starting container log stream for {ContainerId}", containerId);
 
-            // In a production system, you would use Docker API's log streaming capability
-            // For now, we send a message that this feature is coming soon
-            await Clients.Caller.SendAsync(
-                "LogError",
-                "Container log streaming will be implemented in a future update",
-                cancellationToken: cts.Token
-            );
+            // Get container logs
+            var logs = await _dockerService.GetContainerLogsAsync(containerId, tail, timestamps: true);
+
+            if (logs != null && logs.Any())
+            {
+                // Send logs line by line to simulate streaming
+                foreach (var logLine in logs)
+                {
+                    if (cts.Token.IsCancellationRequested)
+                        break;
+
+                    await Clients.Caller.SendAsync("ReceiveLogs", logLine, cts.Token);
+                }
+            }
 
             await Clients.Caller.SendAsync("StreamComplete", cancellationToken: cts.Token);
         }

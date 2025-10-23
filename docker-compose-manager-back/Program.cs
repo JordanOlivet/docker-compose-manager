@@ -66,9 +66,10 @@ builder.Services.AddCors(options =>
 // Register application services
 builder.Services.AddScoped<docker_compose_manager_back.Services.JwtTokenService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.AuthService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.IUserService, docker_compose_manager_back.Services.UserService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.FileService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.ComposeService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.AuditService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.IAuditService, docker_compose_manager_back.Services.AuditService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.OperationService>();
 builder.Services.AddSingleton<docker_compose_manager_back.Services.DockerService>();
 

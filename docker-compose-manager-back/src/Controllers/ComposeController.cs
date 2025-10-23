@@ -617,4 +617,167 @@ public class ComposeController : ControllerBase
             return StatusCode(500, ApiResponse.Fail<string>("Error getting logs", "SERVER_ERROR"));
         }
     }
+
+    /// <summary>
+    /// Get available compose file templates
+    /// </summary>
+    [HttpGet("templates")]
+    public ActionResult<ApiResponse<List<ComposeTemplateDto>>> GetTemplates()
+    {
+        try
+        {
+            var templates = new List<ComposeTemplateDto>
+            {
+                new ComposeTemplateDto(
+                    "wordpress",
+                    "WordPress + MySQL",
+                    "Complete WordPress installation with MySQL database",
+                    @"version: '3.8'
+
+services:
+  wordpress:
+    image: wordpress:latest
+    ports:
+      - ""80:80""
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress_data:/var/www/html
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  wordpress_data:
+  db_data:"
+                ),
+                new ComposeTemplateDto(
+                    "nginx-php",
+                    "Nginx + PHP-FPM",
+                    "Web server with Nginx and PHP-FPM",
+                    @"version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - ""80:80""
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./www:/var/www/html
+    depends_on:
+      - php
+
+  php:
+    image: php:8.2-fpm
+    volumes:
+      - ./www:/var/www/html"
+                ),
+                new ComposeTemplateDto(
+                    "postgres-redis",
+                    "PostgreSQL + Redis",
+                    "PostgreSQL database with Redis cache",
+                    @"version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - ""5432:5432""
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - ""6379:6379""
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:"
+                ),
+                new ComposeTemplateDto(
+                    "traefik",
+                    "Traefik Reverse Proxy",
+                    "Traefik reverse proxy with Let's Encrypt",
+                    @"version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+    ports:
+      - ""80:80""
+      - ""443:443""
+      - ""8080:8080""
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme.json:/acme.json
+    labels:
+      - traefik.enable=true"
+                ),
+                new ComposeTemplateDto(
+                    "monitoring",
+                    "Prometheus + Grafana",
+                    "Monitoring stack with Prometheus and Grafana",
+                    @"version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - ""9090:9090""
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - ""3000:3000""
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:"
+                )
+            };
+
+            return Ok(ApiResponse.Ok(templates, "Templates retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting compose templates");
+            return StatusCode(500, ApiResponse.Fail<List<ComposeTemplateDto>>("Error getting templates", "SERVER_ERROR"));
+        }
+    }
 }
+
+public record ComposeTemplateDto(string Id, string Name, string Description, string Content);

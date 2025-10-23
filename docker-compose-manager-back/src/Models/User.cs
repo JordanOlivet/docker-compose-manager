@@ -5,7 +5,11 @@ public class User
     public int Id { get; set; }
     public required string Username { get; set; }
     public required string PasswordHash { get; set; }
-    public required string Role { get; set; }
+
+    // Role relationship
+    public int RoleId { get; set; }
+    public Role? Role { get; set; }
+
     public bool IsEnabled { get; set; } = true;
     public bool MustChangePassword { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

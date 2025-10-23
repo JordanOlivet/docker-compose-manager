@@ -15,7 +15,9 @@
       "Bash(dotnet build:*)",
       "Bash(npm run build:*)",
       "Bash(dotnet run)",
-      "Bash(dotnet ef migrations:*)"
+      "Bash(dotnet ef migrations:*)",
+      "Bash(dotnet test:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

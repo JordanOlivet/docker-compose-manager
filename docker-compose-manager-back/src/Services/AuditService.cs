@@ -5,7 +5,29 @@ using docker_compose_manager_back.Models;
 
 namespace docker_compose_manager_back.Services;
 
-public class AuditService
+public interface IAuditService
+{
+    Task LogAsync(
+        int? userId,
+        string action,
+        string resourceType,
+        string resourceId,
+        string details,
+        string? ipAddress,
+        string? userAgent);
+
+    Task LogActionAsync(
+        int? userId,
+        string action,
+        string ipAddress,
+        string? details = null,
+        string? resourceType = null,
+        string? resourceId = null,
+        object? before = null,
+        object? after = null);
+}
+
+public class AuditService : IAuditService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<AuditService> _logger;
@@ -14,6 +36,28 @@ public class AuditService
     {
         _context = context;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Logs an audit entry (simplified signature for common use cases)
+    /// </summary>
+    public async Task LogAsync(
+        int? userId,
+        string action,
+        string resourceType,
+        string resourceId,
+        string details,
+        string? ipAddress,
+        string? userAgent)
+    {
+        await LogActionAsync(
+            userId: userId,
+            action: action,
+            ipAddress: ipAddress ?? "unknown",
+            details: details,
+            resourceType: resourceType,
+            resourceId: resourceId
+        );
     }
 
     /// <summary>

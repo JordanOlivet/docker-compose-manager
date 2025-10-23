@@ -32,11 +32,12 @@ public record MountDto(
 );
 
 public record ContainerStatsDto(
-    string ContainerId,
     double CpuPercentage,
     ulong MemoryUsage,
     ulong MemoryLimit,
     double MemoryPercentage,
-    ulong NetworkRx,
-    ulong NetworkTx
+    long NetworkRx,
+    long NetworkTx,
+    long BlockRead,
+    long BlockWrite
 );

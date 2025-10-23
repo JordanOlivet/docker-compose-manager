@@ -149,4 +149,62 @@ public class ContainersController : ControllerBase
                 "Failed to remove container", "DOCKER_OPERATION_FAILED"));
         }
     }
+
+    /// <summary>
+    /// Get container logs
+    /// </summary>
+    /// <param name="id">Container ID</param>
+    /// <param name="tail">Number of lines to tail (default 100)</param>
+    /// <param name="timestamps">Include timestamps (default false)</param>
+    /// <returns>Container logs</returns>
+    [HttpGet("{id}/logs")]
+    [ProducesResponseType(typeof(ApiResponse<List<string>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<List<string>>>> GetContainerLogs(
+        string id,
+        [FromQuery] int tail = 100,
+        [FromQuery] bool timestamps = false)
+    {
+        try
+        {
+            var logs = await _dockerService.GetContainerLogsAsync(id, tail, timestamps);
+            return Ok(ApiResponse.Ok(logs, $"Retrieved {logs.Count} log lines"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving logs for container {ContainerId}", id);
+            return StatusCode(500, ApiResponse.Fail<List<string>>(
+                "Failed to retrieve container logs", "DOCKER_OPERATION_FAILED"));
+        }
+    }
+
+    /// <summary>
+    /// Get container statistics
+    /// </summary>
+    /// <param name="id">Container ID</param>
+    /// <returns>Container statistics (CPU, memory, network, I/O)</returns>
+    [HttpGet("{id}/stats")]
+    [ProducesResponseType(typeof(ApiResponse<ContainerStatsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<ContainerStatsDto>>> GetContainerStats(string id)
+    {
+        try
+        {
+            var stats = await _dockerService.GetContainerStatsAsync(id);
+
+            if (stats == null)
+            {
+                return NotFound(ApiResponse.Fail<ContainerStatsDto>(
+                    "Container not found or unable to retrieve stats", "RESOURCE_NOT_FOUND"));
+            }
+
+            return Ok(ApiResponse.Ok(stats));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stats for container {ContainerId}", id);
+            return StatusCode(500, ApiResponse.Fail<ContainerStatsDto>(
+                "Failed to retrieve container stats", "DOCKER_OPERATION_FAILED"));
+        }
+    }
 }

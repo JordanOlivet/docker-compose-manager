@@ -360,6 +360,159 @@ public class ComposeService
     }
 
     /// <summary>
+    /// Lists all compose projects with their status
+    /// </summary>
+    public async Task<List<DTOs.ComposeProjectDto>> ListProjectsAsync()
+    {
+        List<DTOs.ComposeProjectDto> projectDtos = new();
+
+        try
+        {
+            // Discover all project directories
+            List<string> projectPaths = await DiscoverComposeProjectsAsync();
+
+            foreach (string projectPath in projectPaths)
+            {
+                try
+                {
+                    string projectName = GetProjectName(projectPath);
+                    List<string> composeFiles = GetComposeFiles(projectPath);
+
+                    // Get services status for this project
+                    var services = await GetProjectServicesAsync(projectPath);
+
+                    // Determine overall project status
+                    string status = DetermineProjectStatus(services);
+
+                    projectDtos.Add(new DTOs.ComposeProjectDto(
+                        Name: projectName,
+                        Path: projectPath,
+                        Status: status,
+                        Services: services,
+                        ComposeFiles: composeFiles,
+                        LastUpdated: DateTime.UtcNow
+                    ));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error getting status for project at {ProjectPath}", projectPath);
+                }
+            }
+
+            _logger.LogInformation("Listed {Count} compose projects", projectDtos.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing compose projects");
+        }
+
+        return projectDtos;
+    }
+
+    /// <summary>
+    /// Gets services for a specific project
+    /// </summary>
+    private async Task<List<DTOs.ComposeServiceDto>> GetProjectServicesAsync(string projectPath)
+    {
+        List<DTOs.ComposeServiceDto> services = new();
+
+        try
+        {
+            bool isV2 = await IsComposeV2Available();
+            string command = isV2 ? "docker" : "docker-compose";
+            string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps --format json" : $"-f {GetMainComposeFile(projectPath)} ps";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = command,
+                Arguments = args,
+                WorkingDirectory = projectPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process? process = Process.Start(psi);
+            if (process != null)
+            {
+                string output = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+                {
+                    // Parse output to extract service information
+                    // For simplicity, we'll parse the text output
+                    var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines.Skip(1)) // Skip header line
+                    {
+                        var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 3)
+                        {
+                            services.Add(new DTOs.ComposeServiceDto(
+                                Name: parts[0],
+                                Image: parts.Length > 1 ? parts[1] : null,
+                                Status: parts.Length > 2 ? parts[2] : "unknown",
+                                Ports: new List<string>(),
+                                Replicas: null,
+                                Health: null
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error getting services for project at {ProjectPath}", projectPath);
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Determines the overall status of a project based on its services
+    /// </summary>
+    private string DetermineProjectStatus(List<DTOs.ComposeServiceDto> services)
+    {
+        if (services.Count == 0)
+            return "down";
+
+        int runningCount = services.Count(s => s.Status.Contains("running", StringComparison.OrdinalIgnoreCase) ||
+                                               s.Status.Contains("up", StringComparison.OrdinalIgnoreCase));
+
+        if (runningCount == services.Count)
+            return "running";
+        else if (runningCount > 0)
+            return "degraded";
+        else
+            return "stopped";
+    }
+
+    /// <summary>
+    /// Gets the main compose file for a project
+    /// </summary>
+    private string GetMainComposeFile(string projectPath)
+    {
+        string[] patterns = new[]
+        {
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml"
+        };
+
+        foreach (var pattern in patterns)
+        {
+            string filePath = Path.Combine(projectPath, pattern);
+            if (File.Exists(filePath))
+                return filePath;
+        }
+
+        return Path.Combine(projectPath, "docker-compose.yml"); // Default fallback
+    }
+
+    /// <summary>
     /// Gets the project name from a directory
     /// </summary>
     public string GetProjectName(string projectPath)

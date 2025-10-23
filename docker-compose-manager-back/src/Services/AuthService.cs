@@ -21,7 +21,9 @@ public class AuthService
 
     public async Task<(bool Success, LoginResponse? Response, string? Error)> LoginAsync(LoginRequest request, string ipAddress, string deviceInfo)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Username == request.Username);
 
         if (user == null || !user.IsEnabled)
         {
@@ -64,7 +66,7 @@ public class AuthService
             accessToken,
             refreshToken,
             user.Username,
-            user.Role,
+            user.Role?.Name ?? "user",
             user.MustChangePassword
         );
 
@@ -75,6 +77,7 @@ public class AuthService
     {
         var session = await _context.Sessions
             .Include(s => s.User)
+                .ThenInclude(u => u.Role)
             .FirstOrDefaultAsync(s => s.RefreshToken == refreshToken);
 
         if (session == null || session.ExpiresAt < DateTime.UtcNow || !session.User.IsEnabled)
@@ -98,7 +101,7 @@ public class AuthService
             accessToken,
             newRefreshToken,
             session.User.Username,
-            session.User.Role,
+            session.User.Role?.Name ?? "user",
             session.User.MustChangePassword
         );
 
