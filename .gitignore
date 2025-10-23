@@ -1,0 +1,26 @@
+# Backend
+docker-compose-manager-back/bin/
+docker-compose-manager-back/obj/
+docker-compose-manager-back/Data/*.db
+docker-compose-manager-back/Data/*.db-*
+docker-compose-manager-back/logs/
+
+# Frontend
+docker-compose-manager-front/node_modules/
+docker-compose-manager-front/dist/
+docker-compose-manager-front/.vite/
+
+# Environment files
+.env
+!.env.example
+
+# IDE
+.vs/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
