@@ -1,3 +1,9 @@
+// Re-export all types from individual modules
+export * from './compose';
+export * from './operations';
+export * from './audit';
+
+// Base types
 export interface User {
   id: number;
   username: string;
