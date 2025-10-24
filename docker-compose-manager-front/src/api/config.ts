@@ -1,4 +1,4 @@
-import apiClient from './client';
+import { apiClient } from './client';
 
 export interface ComposePath {
   id: number;
@@ -20,6 +20,18 @@ export interface UpdateComposePathRequest {
 export interface UpdateSettingRequest {
   value: string;
   description?: string;
+}
+
+export interface DirectoryInfo {
+  name: string;
+  path: string;
+  isAccessible: boolean;
+}
+
+export interface DirectoryBrowseResult {
+  currentPath: string;
+  parentPath?: string;
+  directories: DirectoryInfo[];
 }
 
 const configApi = {
@@ -75,6 +87,21 @@ const configApi = {
    */
   deleteSetting: async (key: string): Promise<void> => {
     await apiClient.delete(`/config/settings/${key}`);
+  },
+
+  /**
+   * Browse filesystem directories
+   */
+  browseDirectories: async (path?: string): Promise<DirectoryBrowseResult> => {
+    // Use URLSearchParams to properly encode the path parameter
+    const params = new URLSearchParams();
+    if (path) {
+      params.append('path', path);
+    }
+    const queryString = params.toString();
+    const url = queryString ? `/config/browse?${queryString}` : '/config/browse';
+    const response = await apiClient.get(url);
+    return response.data.data;
   },
 };
 

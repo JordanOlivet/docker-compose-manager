@@ -12,10 +12,10 @@ namespace docker_compose_manager_back.Controllers;
 [Authorize]
 public class AuditController : ControllerBase
 {
-    private readonly AuditService _auditService;
+    private readonly IAuditService _auditService;
     private readonly ILogger<AuditController> _logger;
 
-    public AuditController(AuditService auditService, ILogger<AuditController> logger)
+    public AuditController(IAuditService auditService, ILogger<AuditController> logger)
     {
         _auditService = auditService;
         _logger = logger;

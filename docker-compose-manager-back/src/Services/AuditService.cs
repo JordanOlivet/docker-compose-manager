@@ -25,6 +25,30 @@ public interface IAuditService
         string? resourceId = null,
         object? before = null,
         object? after = null);
+
+    Task<(List<AuditLog> Logs, int TotalCount)> GetAuditLogsAsync(
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        int? userId = null,
+        string? action = null,
+        string? resourceType = null,
+        int pageNumber = 1,
+        int pageSize = 50);
+
+    Task<AuditLog?> GetAuditLogByIdAsync(int id);
+
+    Task<List<AuditLog>> GetUserAuditLogsAsync(int userId, int limit = 100);
+
+    Task<List<AuditLog>> GetResourceAuditLogsAsync(
+        string resourceType,
+        string resourceId,
+        int limit = 100);
+
+    Task<int> PurgeOldLogsAsync(DateTime beforeDate);
+
+    Task<List<string>> GetDistinctActionsAsync();
+
+    Task<List<string>> GetDistinctResourceTypesAsync();
 }
 
 public class AuditService : IAuditService
@@ -346,14 +370,29 @@ public static class AuditActions
     // Compose project actions
     public const string ComposeUp = "compose.up";
     public const string ComposeDown = "compose.down";
+    public const string ComposeStart = "compose.start";
+    public const string ComposeStop = "compose.stop";
+    public const string ComposeRestart = "compose.restart";
     public const string ComposeLogs = "compose.logs";
     public const string ComposeList = "compose.list";
+    public const string ComposeValidate = "compose.validate";
+    public const string ComposeDuplicate = "compose.duplicate";
+    public const string ComposeDownload = "compose.download";
 
     // User management
     public const string UserCreate = "user.create";
     public const string UserUpdate = "user.update";
     public const string UserDelete = "user.delete";
     public const string UserList = "user.list";
+    public const string ProfileUpdate = "profile.update";
+    public const string ProfileView = "profile.view";
+
+    // Role management
+    public const string RoleCreate = "role.create";
+    public const string RoleUpdate = "role.update";
+    public const string RoleDelete = "role.delete";
+    public const string RoleList = "role.list";
+    public const string RoleView = "role.view";
 
     // Settings
     public const string SettingsUpdate = "settings.update";

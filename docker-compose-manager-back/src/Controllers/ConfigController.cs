@@ -173,6 +173,129 @@ public class ConfigController : ControllerBase
 
     #endregion
 
+    #region Directory Browser
+
+    /// <summary>
+    /// Browse filesystem directories (for folder picker)
+    /// </summary>
+    [HttpGet("browse")]
+    [ProducesResponseType(typeof(ApiResponse<DirectoryBrowseResult>), StatusCodes.Status200OK)]
+    public ActionResult<ApiResponse<DirectoryBrowseResult>> BrowseDirectories([FromQuery] string? path = null)
+    {
+        try
+        {
+            // Default to root directories if no path provided
+            string currentPath = path ?? string.Empty;
+
+            // Validate and normalize path
+            if (!string.IsNullOrEmpty(currentPath))
+            {
+                try
+                {
+                    currentPath = Path.GetFullPath(currentPath);
+                    if (!Directory.Exists(currentPath))
+                    {
+                        return BadRequest(ApiResponse.Fail<DirectoryBrowseResult>("Directory does not exist"));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Invalid path provided: {Path}", currentPath);
+                    return BadRequest(ApiResponse.Fail<DirectoryBrowseResult>("Invalid path"));
+                }
+            }
+
+            var result = new DirectoryBrowseResult
+            {
+                CurrentPath = currentPath,
+                Directories = new List<DirectoryBrowseInfo>()
+            };
+
+            if (string.IsNullOrEmpty(currentPath))
+            {
+                // Return root drives/directories
+                if (OperatingSystem.IsWindows())
+                {
+                    var drives = DriveInfo.GetDrives()
+                        .Where(d => d.IsReady)
+                        .Select(d => new DirectoryBrowseInfo
+                        {
+                            Name = d.Name,
+                            Path = d.RootDirectory.FullName,
+                            IsAccessible = true
+                        })
+                        .ToList();
+                    result.Directories = drives;
+                }
+                else
+                {
+                    // Unix-like systems start from root
+                    result.CurrentPath = "/";
+                    currentPath = "/";
+                }
+            }
+
+            if (!string.IsNullOrEmpty(currentPath))
+            {
+                try
+                {
+                    var dirInfo = new System.IO.DirectoryInfo(currentPath);
+
+                    // Get parent directory info
+                    if (dirInfo.Parent != null)
+                    {
+                        result.ParentPath = dirInfo.Parent.FullName;
+                    }
+
+                    // Get subdirectories
+                    var directories = dirInfo.GetDirectories()
+                        .OrderBy(d => d.Name)
+                        .Select(d =>
+                        {
+                            bool isAccessible = true;
+                            try
+                            {
+                                // Test if we can access the directory
+                                _ = d.GetDirectories();
+                            }
+                            catch
+                            {
+                                isAccessible = false;
+                            }
+
+                            return new DirectoryBrowseInfo
+                            {
+                                Name = d.Name,
+                                Path = d.FullName,
+                                IsAccessible = isAccessible
+                            };
+                        })
+                        .ToList();
+
+                    result.Directories = directories;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return StatusCode(403, ApiResponse.Fail<DirectoryBrowseResult>("Access denied to this directory"));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error browsing directory: {Path}", currentPath);
+                    return StatusCode(500, ApiResponse.Fail<DirectoryBrowseResult>("Error reading directory"));
+                }
+            }
+
+            return Ok(ApiResponse.Ok(result, "Directory contents retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in directory browser");
+            return StatusCode(500, ApiResponse.Fail<DirectoryBrowseResult>("Failed to browse directories"));
+        }
+    }
+
+    #endregion
+
     #region Application Settings
 
     /// <summary>
@@ -277,3 +400,18 @@ public class ConfigController : ControllerBase
 public record AddComposePathRequest(string Path, bool IsReadOnly = false);
 public record UpdateComposePathRequest(bool? IsReadOnly, bool? IsEnabled);
 public record UpdateSettingRequest(string Value, string? Description = null);
+
+// DTOs for Directory Browser
+public class DirectoryBrowseResult
+{
+    public string CurrentPath { get; set; } = string.Empty;
+    public string? ParentPath { get; set; }
+    public List<DirectoryBrowseInfo> Directories { get; set; } = new();
+}
+
+public class DirectoryBrowseInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public bool IsAccessible { get; set; }
+}

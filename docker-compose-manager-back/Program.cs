@@ -1,6 +1,7 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Middleware;
 using docker_compose_manager_back.Hubs;
+using docker_compose_manager_back.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -133,16 +134,82 @@ app.UseSerilogRequestLogging();
 
 app.UseCors();
 
+// Add Security Headers
+app.UseSecurityHeaders();
+
 // Add Rate Limiting
 app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Health check endpoint
-app.MapGet("/health", () => Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow }))
+// Health check endpoint with DB and Docker verification
+app.MapGet("/health", async (AppDbContext dbContext, DockerService dockerService) =>
+{
+    var checks = new Dictionary<string, object>();
+    var startTime = DateTime.UtcNow;
+    bool isHealthy = true;
+
+    // Check Database
+    try
+    {
+        await dbContext.Database.CanConnectAsync();
+        var userCount = await dbContext.Users.CountAsync();
+        checks["database"] = new
+        {
+            status = "Healthy",
+            description = "SQLite database is accessible",
+            userCount = userCount
+        };
+    }
+    catch (Exception ex)
+    {
+        isHealthy = false;
+        checks["database"] = new
+        {
+            status = "Unhealthy",
+            description = "Cannot connect to database",
+            error = ex.Message
+        };
+    }
+
+    // Check Docker
+    try
+    {
+        var containers = await dockerService.ListContainersAsync(true);
+        checks["docker"] = new
+        {
+            status = "Healthy",
+            description = "Docker daemon is reachable",
+            containerCount = containers.Count
+        };
+    }
+    catch (Exception ex)
+    {
+        isHealthy = false;
+        checks["docker"] = new
+        {
+            status = "Unhealthy",
+            description = "Cannot connect to Docker daemon",
+            error = ex.Message
+        };
+    }
+
+    var totalDuration = DateTime.UtcNow - startTime;
+
+    var response = new
+    {
+        status = isHealthy ? "Healthy" : "Unhealthy",
+        checks = checks,
+        totalDuration = totalDuration.ToString(@"hh\:mm\:ss\.fffffff"),
+        timestamp = DateTime.UtcNow
+    };
+
+    return isHealthy ? Results.Ok(response) : Results.StatusCode(503);
+})
    .WithName("HealthCheck")
-   .WithTags("Health");
+   .WithTags("Health")
+   .AllowAnonymous();
 
 app.MapControllers();
 

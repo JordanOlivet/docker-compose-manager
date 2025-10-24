@@ -19,15 +19,14 @@ export function Login() {
     try {
       const response = await authApi.login({ username, password });
 
-      const user = {
-        id: 0,
-        username: response.username,
-        role: response.role,
-        isEnabled: true,
-        mustChangePassword: response.mustChangePassword,
-        createdAt: new Date().toISOString(),
-      };
+      // Store tokens first so they're available for the /me request
+      localStorage.setItem('accessToken', response.accessToken);
+      localStorage.setItem('refreshToken', response.refreshToken);
 
+      // Fetch complete user data from /me endpoint
+      const user = await authApi.getCurrentUser();
+
+      // Update the store with complete user data
       login(response.accessToken, response.refreshToken, user);
 
       if (response.mustChangePassword) {
@@ -36,6 +35,9 @@ export function Login() {
         navigate('/');
       }
     } catch (err: any) {
+      // Clear tokens if login fails
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);

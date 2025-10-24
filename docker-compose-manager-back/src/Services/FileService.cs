@@ -316,14 +316,15 @@ public class FileService
                 }
                 else
                 {
-                    // Create new record
+                    // Create new record (discovered file)
                     ComposeFile newFile = new ComposeFile
                     {
                         ComposePathId = composePath.Id,
                         FileName = fileName,
                         FullPath = filePath,
                         LastModified = fileInfo.LastWriteTimeUtc,
-                        LastScanned = DateTime.UtcNow
+                        LastScanned = DateTime.UtcNow,
+                        IsDiscovered = true // File was discovered by scanner
                     };
 
                     _context.ComposeFiles.Add(newFile);

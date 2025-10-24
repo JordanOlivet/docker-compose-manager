@@ -1,4 +1,4 @@
-import apiClient from './client';
+import { apiClient } from './client';
 
 export interface User {
   id: number;
@@ -27,8 +27,11 @@ const usersApi = {
    * Get all users (admin only)
    */
   list: async (): Promise<User[]> => {
-    const response = await apiClient.get('/users');
-    return response.data.data;
+    const response = await apiClient.get('/users', {
+      params: { pageSize: 1000 } // Get all users without pagination
+    });
+    // Backend returns paginated response with Items property
+    return response.data.data.items || response.data.data.Items || [];
   },
 
   /**

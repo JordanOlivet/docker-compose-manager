@@ -4,8 +4,10 @@ import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MainLayout } from './components/layout';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import Containers from './pages/Containers';
 import { ComposeFiles } from './pages/ComposeFiles';
 import { ComposeEditor } from './pages/ComposeEditor';
 import { ComposeProjects } from './pages/ComposeProjects';
@@ -27,8 +29,9 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
           <Toaster
             position="top-right"
             toastOptions={{
@@ -72,6 +75,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <Dashboard />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/containers"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Containers />
                   </MainLayout>
                 </ProtectedRoute>
               }
@@ -160,6 +173,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

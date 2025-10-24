@@ -17,7 +17,11 @@
       "Bash(dotnet run)",
       "Bash(dotnet ef migrations:*)",
       "Bash(dotnet test:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npm run dev:*)",
+      "Bash(dir:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(tasklist:*)"
     ],
     "deny": [],
     "ask": []

@@ -23,24 +23,52 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Get all users
+    /// Get all users with pagination, filtering, and sorting
     /// </summary>
-    /// <returns>List of users</returns>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 20, max: 100)</param>
+    /// <param name="search">Search term for username</param>
+    /// <param name="role">Filter by role</param>
+    /// <param name="isEnabled">Filter by enabled status</param>
+    /// <param name="sortBy">Sort field (username, createdAt, lastLoginAt)</param>
+    /// <param name="sortDescending">Sort descending (default: false)</param>
+    /// <returns>Paginated list of users</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<List<UserDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<UserDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<ApiResponse<List<UserDto>>>> GetAllUsers()
+    public async Task<ActionResult<ApiResponse<PaginatedResponse<UserDto>>>> GetAllUsers(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? role = null,
+        [FromQuery] bool? isEnabled = null,
+        [FromQuery] string? sortBy = "username",
+        [FromQuery] bool sortDescending = false)
     {
         try
         {
-            var users = await _userService.GetAllUsersAsync();
-            return Ok(ApiResponse.Ok(users, "Users retrieved successfully"));
+            // Validate pagination parameters
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
+
+            var paginatedResult = await _userService.GetAllUsersAsync(
+                pageNumber,
+                pageSize,
+                search,
+                role,
+                isEnabled,
+                sortBy,
+                sortDescending
+            );
+
+            return Ok(ApiResponse.Ok(paginatedResult, "Users retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving users");
-            return StatusCode(500, ApiResponse.Fail<List<UserDto>>("Failed to retrieve users"));
+            return StatusCode(500, ApiResponse.Fail<PaginatedResponse<UserDto>>("Failed to retrieve users"));
         }
     }
 

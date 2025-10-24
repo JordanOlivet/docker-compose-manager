@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useAuth } from './useAuth';
 import { useAuthStore } from '../stores/authStore';
 
@@ -29,6 +29,9 @@ describe('useAuth', () => {
         id: 1,
         username: 'admin',
         role: 'admin',
+        isEnabled: true,
+        mustChangePassword: false,
+        createdAt: new Date().toISOString(),
       },
       accessToken: 'token',
       refreshToken: 'refresh',
@@ -49,6 +52,9 @@ describe('useAuth', () => {
         id: 2,
         username: 'user',
         role: 'user',
+        isEnabled: true,
+        mustChangePassword: false,
+        createdAt: new Date().toISOString(),
       },
       accessToken: 'token',
       refreshToken: 'refresh',

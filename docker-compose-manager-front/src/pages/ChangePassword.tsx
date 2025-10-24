@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authApi from '../api/auth';
+import { authApi } from '../api/auth';
 import { useToast } from '../hooks/useToast';
 
 export default function ChangePassword() {

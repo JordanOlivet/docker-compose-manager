@@ -43,7 +43,7 @@ export const ComposeEditor = () => {
   // Update state when file data loads
   useEffect(() => {
     if (fileData) {
-      setFilePath(fileData.filePath);
+      setFilePath(fileData.fullPath);
       setContent(fileData.content);
       setEtag(fileData.etag);
       setHasChanges(false);
@@ -136,7 +136,7 @@ export const ComposeEditor = () => {
               {isEditMode ? 'Edit Compose File' : 'Create Compose File'}
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              {isEditMode ? fileData?.filePath : 'Create a new Docker Compose configuration file'}
+              {isEditMode ? fileData?.fullPath : 'Create a new Docker Compose configuration file'}
             </p>
           </div>
           <div className="flex gap-3">

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import configApi, { ComposePath } from '../api/config';
+import configApi, { type ComposePath } from '../api/config';
 import { useToast } from '../hooks/useToast';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { FolderPicker } from '../components/common/FolderPicker';
 
 export default function Settings() {
   const [showAddPath, setShowAddPath] = useState(false);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [newPath, setNewPath] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(false);
 
@@ -120,14 +122,26 @@ export default function Settings() {
             <form onSubmit={handleAddPath} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Directory Path</label>
-                <input
-                  type="text"
-                  value={newPath}
-                  onChange={(e) => setNewPath(e.target.value)}
-                  placeholder="/path/to/compose/files"
-                  className="w-full border rounded px-3 py-2"
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newPath}
+                    onChange={(e) => setNewPath(e.target.value)}
+                    placeholder="/path/to/compose/files"
+                    className="flex-1 border rounded px-3 py-2"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowFolderPicker(true)}
+                    className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                    </svg>
+                    Browse
+                  </button>
+                </div>
               </div>
               <div className="flex items-center">
                 <input
@@ -153,6 +167,17 @@ export default function Settings() {
             </form>
           </div>
         </div>
+      )}
+
+      {showFolderPicker && (
+        <FolderPicker
+          initialPath={newPath}
+          onSelect={(path) => {
+            setNewPath(path);
+            setShowFolderPicker(false);
+          }}
+          onCancel={() => setShowFolderPicker(false)}
+        />
       )}
     </div>
   );

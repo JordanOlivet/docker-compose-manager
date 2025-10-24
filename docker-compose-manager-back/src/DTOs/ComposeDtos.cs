@@ -11,9 +11,12 @@ public record ComposeFileDto(
     int Id,
     string FileName,
     string FullPath,
+    string Directory,
     long Size,
     DateTime LastModified,
-    DateTime LastScanned
+    DateTime LastScanned,
+    int ComposePathId,
+    bool IsDiscovered
 );
 
 /// <summary>
@@ -61,7 +64,7 @@ public record ComposeProjectDto(
 );
 
 /// <summary>
-/// Service within a compose project
+/// Service within a compose project (detailed view)
 /// </summary>
 public record ComposeServiceDto(
     string Name,
@@ -70,6 +73,28 @@ public record ComposeServiceDto(
     List<string> Ports,
     int? Replicas,
     string? Health
+);
+
+/// <summary>
+/// Service status (simplified view - for docker compose ps)
+/// </summary>
+public record ComposeServiceStatusDto(
+    string Name,
+    string State,
+    string Status
+);
+
+/// <summary>
+/// Detailed information about a compose project
+/// </summary>
+public record ComposeProjectDetailsDto(
+    string Name,
+    string Path,
+    bool IsRunning,
+    int TotalServices,
+    int RunningServices,
+    int StoppedServices,
+    List<ComposeServiceStatusDto> Services
 );
 
 /// <summary>
@@ -166,4 +191,27 @@ public record ComposePathDto(
 public record AddComposePathRequest(
     string Path,
     bool IsReadOnly = false
+);
+
+// ============================================
+// Compose File Validation DTOs
+// ============================================
+
+/// <summary>
+/// Result of compose file validation
+/// </summary>
+public class ComposeValidationResult
+{
+    public bool IsValid { get; set; }
+    public bool YamlValid { get; set; }
+    public string? YamlError { get; set; }
+    public List<string> Warnings { get; set; } = new();
+    public int ServiceCount { get; set; }
+}
+
+/// <summary>
+/// Request to duplicate a compose file
+/// </summary>
+public record DuplicateFileRequest(
+    string? NewFileName = null
 );

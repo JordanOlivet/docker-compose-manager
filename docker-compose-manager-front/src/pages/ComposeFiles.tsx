@@ -177,7 +177,7 @@ export const ComposeFiles = () => {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <FileText className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-900">{file.name}</span>
+                            <span className="text-sm font-medium text-gray-900">{file.fileName}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
@@ -232,7 +232,7 @@ export const ComposeFiles = () => {
         title="Delete Compose File"
         message={
           <>
-            Are you sure you want to delete <strong>{fileToDelete?.name}</strong>?
+            Are you sure you want to delete <strong>{fileToDelete?.fileName}</strong>?
             <br />
             This action cannot be undone.
           </>

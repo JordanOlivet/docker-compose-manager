@@ -89,7 +89,7 @@ public class ComposeService
     /// <summary>
     /// Executes a docker compose command
     /// </summary>
-    private async Task<(int ExitCode, string Output, string Error)> ExecuteComposeCommandAsync(
+    public async Task<(int ExitCode, string Output, string Error)> ExecuteComposeCommandAsync(
         string workingDirectory,
         string arguments,
         CancellationToken cancellationToken = default)

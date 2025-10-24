@@ -18,7 +18,7 @@ public class ComposeController : ControllerBase
     private readonly FileService _fileService;
     private readonly ComposeService _composeService;
     private readonly OperationService _operationService;
-    private readonly AuditService _auditService;
+    private readonly IAuditService _auditService;
     private readonly ILogger<ComposeController> _logger;
 
     public ComposeController(
@@ -26,7 +26,7 @@ public class ComposeController : ControllerBase
         FileService fileService,
         ComposeService composeService,
         OperationService operationService,
-        AuditService auditService,
+        IAuditService auditService,
         ILogger<ComposeController> logger)
     {
         _context = context;
@@ -72,13 +72,17 @@ public class ComposeController : ControllerBase
                 var (success, fileInfo, _) = await _fileService.GetFileInfoAsync(file.FullPath);
                 if (success && fileInfo != null)
                 {
+                    string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
                     fileDtos.Add(new ComposeFileDto(
                         file.Id,
                         file.FileName,
                         file.FullPath,
+                        directory,
                         fileInfo.Length,
                         file.LastModified,
-                        file.LastScanned
+                        file.LastScanned,
+                        file.ComposePathId,
+                        file.IsDiscovered
                     ));
                 }
             }
@@ -187,6 +191,22 @@ public class ComposeController : ControllerBase
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(validationError ?? "Invalid YAML", "INVALID_YAML"));
             }
 
+            // Validate path is in a configured ComposePath
+            var (pathValid, pathError, allowedPath) = await _fileService.ValidateFilePathAsync(request.FilePath);
+            if (!pathValid || allowedPath == null)
+            {
+                return BadRequest(ApiResponse.Fail<ComposeFileDto>(pathError ?? "Invalid file path", "INVALID_PATH"));
+            }
+
+            // Check if file already exists in database
+            ComposeFile? existingFile = await _context.ComposeFiles
+                .FirstOrDefaultAsync(cf => cf.FullPath == request.FilePath);
+
+            if (existingFile != null)
+            {
+                return Conflict(ApiResponse.Fail<ComposeFileDto>("File already exists", "FILE_EXISTS"));
+            }
+
             // Write file
             var (success, error) = await _fileService.WriteFileAsync(request.FilePath, request.Content, createBackup: false);
             if (!success)
@@ -194,27 +214,34 @@ public class ComposeController : ControllerBase
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(error ?? "Error writing file", "WRITE_ERROR"));
             }
 
-            // Sync database
-            await _fileService.SyncDatabaseWithDiscoveredFilesAsync();
-
-            // Get the created file
-            ComposeFile? file = await _context.ComposeFiles
-                .FirstOrDefaultAsync(cf => cf.FullPath == request.FilePath);
-
-            if (file == null)
+            // Create database entry manually (not discovered, but manually created)
+            string fileName = Path.GetFileName(request.FilePath);
+            ComposeFile file = new()
             {
-                return StatusCode(500, ApiResponse.Fail<ComposeFileDto>("File created but not found in database", "SYNC_ERROR"));
-            }
+                ComposePathId = allowedPath.Id,
+                FileName = fileName,
+                FullPath = request.FilePath,
+                LastModified = DateTime.UtcNow,
+                LastScanned = DateTime.UtcNow,
+                IsDiscovered = false // Manually created, not discovered
+            };
+
+            _context.ComposeFiles.Add(file);
+            await _context.SaveChangesAsync();
 
             var (_, fileInfo, _) = await _fileService.GetFileInfoAsync(file.FullPath);
 
+            string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
             ComposeFileDto dto = new(
                 file.Id,
                 file.FileName,
                 file.FullPath,
+                directory,
                 fileInfo?.Length ?? 0,
                 file.LastModified,
-                file.LastScanned
+                file.LastScanned,
+                file.ComposePathId,
+                file.IsDiscovered
             );
 
             await _auditService.LogActionAsync(
@@ -285,13 +312,17 @@ public class ComposeController : ControllerBase
 
             var (_, fileInfo, _) = await _fileService.GetFileInfoAsync(file.FullPath);
 
+            string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
             ComposeFileDto dto = new(
                 file.Id,
                 file.FileName,
                 file.FullPath,
+                directory,
                 fileInfo?.Length ?? 0,
                 file.LastModified,
-                file.LastScanned
+                file.LastScanned,
+                file.ComposePathId,
+                file.IsDiscovered
             );
 
             await _auditService.LogActionAsync(
@@ -357,6 +388,274 @@ public class ComposeController : ControllerBase
         {
             _logger.LogError(ex, "Error deleting compose file: {Id}", id);
             return StatusCode(500, ApiResponse.Fail<bool>("Error deleting file", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Validate YAML syntax and docker-compose structure of a compose file
+    /// </summary>
+    [HttpPost("files/{id}/validate")]
+    public async Task<ActionResult<ApiResponse<ComposeValidationResult>>> ValidateFile(int id)
+    {
+        try
+        {
+            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
+            if (file == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeValidationResult>("File not found", "FILE_NOT_FOUND"));
+            }
+
+            // Read file content
+            var (readSuccess, content, readError) = await _fileService.ReadFileAsync(file.FullPath);
+            if (!readSuccess || content == null)
+            {
+                return BadRequest(ApiResponse.Fail<ComposeValidationResult>(
+                    readError ?? "Error reading file", "READ_ERROR"));
+            }
+
+            // Validate YAML syntax
+            var (isValidYaml, yamlError) = _fileService.ValidateYamlSyntax(content);
+
+            var validationResult = new ComposeValidationResult
+            {
+                IsValid = isValidYaml,
+                YamlValid = isValidYaml,
+                YamlError = yamlError,
+                Warnings = new List<string>(),
+                ServiceCount = 0
+            };
+
+            if (isValidYaml)
+            {
+                // Additional docker-compose specific validation
+                try
+                {
+                    // Check for required 'services' key
+                    if (!content.Contains("services:"))
+                    {
+                        validationResult.IsValid = false;
+                        validationResult.Warnings.Add("Missing 'services:' key - not a valid docker-compose file");
+                    }
+                    else
+                    {
+                        // Try to count services (basic parsing)
+                        var lines = content.Split('\n');
+                        int serviceCount = 0;
+                        bool inServices = false;
+
+                        foreach (var line in lines)
+                        {
+                            var trimmed = line.TrimStart();
+                            if (trimmed.StartsWith("services:"))
+                            {
+                                inServices = true;
+                                continue;
+                            }
+
+                            if (inServices && trimmed.Length > 0 && !trimmed.StartsWith("#"))
+                            {
+                                // Check if this is a service definition (not indented or less indented)
+                                if (line.StartsWith("  ") && !line.StartsWith("    "))
+                                {
+                                    serviceCount++;
+                                }
+                                // If we hit another top-level key, stop counting
+                                else if (!line.StartsWith(" ") && !trimmed.StartsWith("services:"))
+                                {
+                                    break;
+                                }
+                            }
+                        }
+
+                        validationResult.ServiceCount = serviceCount;
+
+                        if (serviceCount == 0)
+                        {
+                            validationResult.Warnings.Add("No services defined in compose file");
+                        }
+                    }
+
+                    // Check for common issues
+                    if (content.Contains("version:"))
+                    {
+                        validationResult.Warnings.Add("Version field is deprecated in docker-compose v2+");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    validationResult.Warnings.Add($"Could not perform full validation: {ex.Message}");
+                }
+            }
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                "compose.file_validate",
+                GetUserIpAddress(),
+                $"Validated compose file: {file.FileName} (valid: {validationResult.IsValid})",
+                resourceType: "compose_file",
+                resourceId: id.ToString()
+            );
+
+            return Ok(ApiResponse.Ok(validationResult, "File validation completed"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating compose file: {Id}", id);
+            return StatusCode(500, ApiResponse.Fail<ComposeValidationResult>("Error validating file", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Duplicate/clone a compose file
+    /// </summary>
+    [HttpPost("files/{id}/duplicate")]
+    public async Task<ActionResult<ApiResponse<ComposeFileDto>>> DuplicateFile(
+        int id,
+        [FromBody] DuplicateFileRequest request)
+    {
+        try
+        {
+            ComposeFile? sourceFile = await _context.ComposeFiles
+                .Include(cf => cf.ComposePath)
+                .FirstOrDefaultAsync(cf => cf.Id == id);
+
+            if (sourceFile == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeFileDto>("Source file not found", "FILE_NOT_FOUND"));
+            }
+
+            // Read source file content
+            var (readSuccess, content, readError) = await _fileService.ReadFileAsync(sourceFile.FullPath);
+            if (!readSuccess || content == null)
+            {
+                return BadRequest(ApiResponse.Fail<ComposeFileDto>(
+                    readError ?? "Error reading source file", "READ_ERROR"));
+            }
+
+            // Determine new file path
+            string newFileName = !string.IsNullOrWhiteSpace(request.NewFileName)
+                ? request.NewFileName
+                : $"{Path.GetFileNameWithoutExtension(sourceFile.FileName)}-copy{Path.GetExtension(sourceFile.FileName)}";
+
+            // Ensure .yml or .yaml extension
+            if (!newFileName.EndsWith(".yml") && !newFileName.EndsWith(".yaml"))
+            {
+                newFileName += ".yml";
+            }
+
+            string newFilePath = Path.Combine(sourceFile.ComposePath.Path, newFileName);
+
+            // Check if file already exists
+            if (System.IO.File.Exists(newFilePath))
+            {
+                return Conflict(ApiResponse.Fail<ComposeFileDto>(
+                    $"File '{newFileName}' already exists", "FILE_EXISTS"));
+            }
+
+            // Validate path
+            var (isValid, validationError, allowedPath) = await _fileService.ValidateFilePathAsync(newFilePath);
+            if (!isValid)
+            {
+                return BadRequest(ApiResponse.Fail<ComposeFileDto>(
+                    validationError ?? "Invalid file path", "INVALID_PATH"));
+            }
+
+            // Write new file
+            var (writeSuccess, writeError) = await _fileService.WriteFileAsync(newFilePath, content, createBackup: false);
+            if (!writeSuccess)
+            {
+                return BadRequest(ApiResponse.Fail<ComposeFileDto>(
+                    writeError ?? "Error writing file", "WRITE_ERROR"));
+            }
+
+            // Create database record
+            ComposeFile newFile = new()
+            {
+                ComposePathId = sourceFile.ComposePathId,
+                FileName = newFileName,
+                FullPath = newFilePath,
+                LastModified = DateTime.UtcNow,
+                LastScanned = DateTime.UtcNow
+            };
+
+            _context.ComposeFiles.Add(newFile);
+            await _context.SaveChangesAsync();
+
+            var (_, fileInfo, _) = await _fileService.GetFileInfoAsync(newFilePath);
+
+            string directory = Path.GetDirectoryName(newFile.FullPath) ?? string.Empty;
+            ComposeFileDto dto = new(
+                newFile.Id,
+                newFile.FileName,
+                newFile.FullPath,
+                directory,
+                fileInfo?.Length ?? 0,
+                newFile.LastModified,
+                newFile.LastScanned,
+                newFile.ComposePathId,
+                newFile.IsDiscovered
+            );
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                AuditActions.FileCreate,
+                GetUserIpAddress(),
+                $"Duplicated compose file: {sourceFile.FileName} -> {newFileName}",
+                resourceType: "compose_file",
+                resourceId: newFile.Id.ToString(),
+                after: new { sourceId = id, newId = newFile.Id }
+            );
+
+            _logger.LogInformation("Compose file {SourceFile} duplicated to {NewFile}", sourceFile.FileName, newFileName);
+
+            return CreatedAtAction(nameof(GetFile), new { id = newFile.Id }, ApiResponse.Ok(dto, "File duplicated successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error duplicating compose file: {Id}", id);
+            return StatusCode(500, ApiResponse.Fail<ComposeFileDto>("Error duplicating file", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Download a compose file
+    /// </summary>
+    [HttpGet("files/{id}/download")]
+    public async Task<IActionResult> DownloadFile(int id)
+    {
+        try
+        {
+            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
+            if (file == null)
+            {
+                return NotFound(ApiResponse.Fail<object>("File not found", "FILE_NOT_FOUND"));
+            }
+
+            // Read file content
+            var (success, content, error) = await _fileService.ReadFileAsync(file.FullPath);
+            if (!success || content == null)
+            {
+                return BadRequest(ApiResponse.Fail<object>(
+                    error ?? "Error reading file", "READ_ERROR"));
+            }
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                "compose.file_download",
+                GetUserIpAddress(),
+                $"Downloaded compose file: {file.FileName}",
+                resourceType: "compose_file",
+                resourceId: id.ToString()
+            );
+
+            // Return file as attachment
+            byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(content);
+            return File(fileBytes, "application/x-yaml", file.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading compose file: {Id}", id);
+            return StatusCode(500, ApiResponse.Fail<object>("Error downloading file", "SERVER_ERROR"));
         }
     }
 
@@ -776,6 +1075,292 @@ volumes:
         {
             _logger.LogError(ex, "Error getting compose templates");
             return StatusCode(500, ApiResponse.Fail<List<ComposeTemplateDto>>("Error getting templates", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Get detailed information about a specific compose project
+    /// </summary>
+    [HttpGet("projects/{projectName}")]
+    public async Task<ActionResult<ApiResponse<ComposeProjectDetailsDto>>> GetProjectDetails(string projectName)
+    {
+        try
+        {
+            // Find project path
+            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+            if (projectPath == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeProjectDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            // Get project status by running docker compose ps
+            var (psExitCode, psOutput, psError) = await _composeService.ExecuteComposeCommandAsync(
+                projectPath,
+                "ps --format json"
+            );
+            bool psSuccess = psExitCode == 0;
+
+            List<ComposeServiceStatusDto> services = new();
+            if (psSuccess && !string.IsNullOrWhiteSpace(psOutput))
+            {
+                try
+                {
+                    // Parse JSON output
+                    var jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(psOutput);
+                    if (jsonServices != null)
+                    {
+                        foreach (var svc in jsonServices)
+                        {
+                            services.Add(new ComposeServiceStatusDto(
+                                svc.GetProperty("Service").GetString() ?? "unknown",
+                                svc.GetProperty("State").GetString() ?? "unknown",
+                                svc.GetProperty("Status").GetString() ?? ""
+                            ));
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback: treat output as text
+                    _logger.LogWarning("Could not parse docker compose ps JSON output");
+                }
+            }
+
+            var projectDetails = new ComposeProjectDetailsDto(
+                projectName,
+                projectPath,
+                services.Any(s => s.State == "running"),
+                services.Count,
+                services.Count(s => s.State == "running"),
+                services.Count(s => s.State != "running"),
+                services
+            );
+
+            return Ok(ApiResponse.Ok(projectDetails, "Project details retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting project details for: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeProjectDetailsDto>("Error getting project details", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Start compose services (docker compose start)
+    /// </summary>
+    [HttpPost("projects/{projectName}/start")]
+    public async Task<ActionResult<ApiResponse<bool>>> StartProject(string projectName)
+    {
+        try
+        {
+            // Find project path
+            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+            if (projectPath == null)
+            {
+                return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+                projectPath,
+                "start"
+            );
+            bool success = exitCode == 0;
+
+            if (!success)
+            {
+                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error starting project", "START_ERROR"));
+            }
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                AuditActions.ComposeStart,
+                GetUserIpAddress(),
+                $"Started compose project: {projectName}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            _logger.LogInformation("Compose project {ProjectName} started", projectName);
+
+            return Ok(ApiResponse.Ok(true, "Project started successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error starting project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<bool>("Error starting project", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Stop compose services (docker compose stop)
+    /// </summary>
+    [HttpPost("projects/{projectName}/stop")]
+    public async Task<ActionResult<ApiResponse<bool>>> StopProject(string projectName)
+    {
+        try
+        {
+            // Find project path
+            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+            if (projectPath == null)
+            {
+                return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+                projectPath,
+                "stop"
+            );
+            bool success = exitCode == 0;
+
+            if (!success)
+            {
+                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error stopping project", "STOP_ERROR"));
+            }
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                AuditActions.ComposeStop,
+                GetUserIpAddress(),
+                $"Stopped compose project: {projectName}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            _logger.LogInformation("Compose project {ProjectName} stopped", projectName);
+
+            return Ok(ApiResponse.Ok(true, "Project stopped successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error stopping project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<bool>("Error stopping project", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Restart compose services (docker compose restart)
+    /// </summary>
+    [HttpPost("projects/{projectName}/restart")]
+    public async Task<ActionResult<ApiResponse<bool>>> RestartProject(string projectName)
+    {
+        try
+        {
+            // Find project path
+            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+            if (projectPath == null)
+            {
+                return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+                projectPath,
+                "restart"
+            );
+            bool success = exitCode == 0;
+
+            if (!success)
+            {
+                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error restarting project", "RESTART_ERROR"));
+            }
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                AuditActions.ComposeRestart,
+                GetUserIpAddress(),
+                $"Restarted compose project: {projectName}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            _logger.LogInformation("Compose project {ProjectName} restarted", projectName);
+
+            return Ok(ApiResponse.Ok(true, "Project restarted successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error restarting project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<bool>("Error restarting project", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Get status of all services in a compose project (docker compose ps)
+    /// </summary>
+    [HttpGet("projects/{projectName}/ps")]
+    public async Task<ActionResult<ApiResponse<List<ComposeServiceStatusDto>>>> GetProjectServices(string projectName)
+    {
+        try
+        {
+            // Find project path
+            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+            if (projectPath == null)
+            {
+                return NotFound(ApiResponse.Fail<List<ComposeServiceStatusDto>>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+                projectPath,
+                "ps --format json"
+            );
+            bool success = exitCode == 0;
+
+            if (!success)
+            {
+                return BadRequest(ApiResponse.Fail<List<ComposeServiceStatusDto>>(error ?? "Error getting services", "PS_ERROR"));
+            }
+
+            List<ComposeServiceStatusDto> services = new();
+
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                try
+                {
+                    // Parse JSON output
+                    var jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(output);
+                    if (jsonServices != null)
+                    {
+                        foreach (var svc in jsonServices)
+                        {
+                            services.Add(new ComposeServiceStatusDto(
+                                svc.GetProperty("Service").GetString() ?? "unknown",
+                                svc.GetProperty("State").GetString() ?? "unknown",
+                                svc.GetProperty("Status").GetString() ?? ""
+                            ));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not parse docker compose ps JSON output");
+                    // Return empty list if parsing fails
+                }
+            }
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                "compose.ps",
+                GetUserIpAddress(),
+                $"Retrieved services status for project: {projectName}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            return Ok(ApiResponse.Ok(services, "Services status retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting services for project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<List<ComposeServiceStatusDto>>("Error getting services", "SERVER_ERROR"));
         }
     }
 }

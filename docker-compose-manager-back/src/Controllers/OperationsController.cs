@@ -13,12 +13,12 @@ namespace docker_compose_manager_back.Controllers;
 public class OperationsController : ControllerBase
 {
     private readonly OperationService _operationService;
-    private readonly AuditService _auditService;
+    private readonly IAuditService _auditService;
     private readonly ILogger<OperationsController> _logger;
 
     public OperationsController(
         OperationService operationService,
-        AuditService auditService,
+        IAuditService auditService,
         ILogger<OperationsController> logger)
     {
         _operationService = operationService;

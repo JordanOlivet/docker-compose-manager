@@ -26,4 +26,19 @@ public record UserDto(
 
 public record CreateUserRequest(string Username, string Password, string Role);
 
-public record UpdateUserRequest(string? Role, bool? IsEnabled, string? NewPassword);
+public record UpdateUserRequest(string? Username = null, string? Role = null, bool? IsEnabled = null, string? NewPassword = null);
+
+public record UpdateProfileRequest(string? Username = null);
+
+/// <summary>
+/// Generic paginated response
+/// </summary>
+public record PaginatedResponse<T>(
+    List<T> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalPages,
+    int TotalItems,
+    bool HasNext,
+    bool HasPrevious
+);

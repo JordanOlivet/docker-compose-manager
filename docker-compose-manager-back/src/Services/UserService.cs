@@ -8,6 +8,14 @@ namespace docker_compose_manager_back.Services;
 public interface IUserService
 {
     Task<List<UserDto>> GetAllUsersAsync();
+    Task<PaginatedResponse<UserDto>> GetAllUsersAsync(
+        int pageNumber,
+        int pageSize,
+        string? search,
+        string? role,
+        bool? isEnabled,
+        string? sortBy,
+        bool sortDescending);
     Task<UserDto?> GetUserByIdAsync(int id);
     Task<UserDto> CreateUserAsync(CreateUserRequest request);
     Task<UserDto> UpdateUserAsync(int id, UpdateUserRequest request);
@@ -45,6 +53,90 @@ public class UserService : IUserService
             u.CreatedAt,
             u.LastLoginAt
         )).ToList();
+    }
+
+    public async Task<PaginatedResponse<UserDto>> GetAllUsersAsync(
+        int pageNumber,
+        int pageSize,
+        string? search,
+        string? role,
+        bool? isEnabled,
+        string? sortBy,
+        bool sortDescending)
+    {
+        // Start with base query
+        IQueryable<User> query = _context.Users.Include(u => u.Role);
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string searchLower = search.ToLower();
+            query = query.Where(u => u.Username.ToLower().Contains(searchLower));
+        }
+
+        // Apply role filter
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            query = query.Where(u => u.Role != null && u.Role.Name == role);
+        }
+
+        // Apply enabled status filter
+        if (isEnabled.HasValue)
+        {
+            query = query.Where(u => u.IsEnabled == isEnabled.Value);
+        }
+
+        // Apply sorting
+        query = sortBy?.ToLower() switch
+        {
+            "username" => sortDescending
+                ? query.OrderByDescending(u => u.Username)
+                : query.OrderBy(u => u.Username),
+            "createdat" => sortDescending
+                ? query.OrderByDescending(u => u.CreatedAt)
+                : query.OrderBy(u => u.CreatedAt),
+            "lastloginat" => sortDescending
+                ? query.OrderByDescending(u => u.LastLoginAt)
+                : query.OrderBy(u => u.LastLoginAt),
+            _ => sortDescending
+                ? query.OrderByDescending(u => u.Username)
+                : query.OrderBy(u => u.Username)
+        };
+
+        // Get total count before pagination
+        int totalItems = await query.CountAsync();
+
+        // Apply pagination
+        List<User> users = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        // Map to DTOs
+        List<UserDto> userDtos = users.Select(u => new UserDto(
+            u.Id,
+            u.Username,
+            u.Role?.Name ?? "user",
+            u.IsEnabled,
+            u.MustChangePassword,
+            u.CreatedAt,
+            u.LastLoginAt
+        )).ToList();
+
+        // Calculate pagination metadata
+        int totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+        bool hasNext = pageNumber < totalPages;
+        bool hasPrevious = pageNumber > 1;
+
+        return new PaginatedResponse<UserDto>(
+            userDtos,
+            pageNumber,
+            pageSize,
+            totalPages,
+            totalItems,
+            hasNext,
+            hasPrevious
+        );
     }
 
     public async Task<UserDto?> GetUserByIdAsync(int id)

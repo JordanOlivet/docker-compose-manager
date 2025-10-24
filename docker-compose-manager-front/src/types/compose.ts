@@ -1,20 +1,20 @@
 // Compose File Types
 export interface ComposeFile {
   id: number;
-  filePath: string;
-  name: string;
+  fileName: string;
+  fullPath: string;
   directory: string;
   size: number;
   lastModified: string;
-  isDiscovered: boolean;
+  lastScanned: string;
   composePathId: number;
-  createdAt: string;
-  updatedAt?: string;
+  isDiscovered: boolean;
 }
 
 export interface ComposeFileContent {
   id: number;
-  filePath: string;
+  fileName: string;
+  fullPath: string;
   content: string;
   etag: string;
   lastModified: string;

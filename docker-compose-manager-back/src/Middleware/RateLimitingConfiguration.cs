@@ -6,6 +6,7 @@ namespace docker_compose_manager_back.Middleware;
 public static class RateLimitingConfiguration
 {
     public const string AuthPolicy = "auth";
+    public const string RefreshPolicy = "refresh";
     public const string GeneralApiPolicy = "api";
 
     public static void ConfigureRateLimiting(this IServiceCollection services)
@@ -16,6 +17,15 @@ public static class RateLimitingConfiguration
             options.AddFixedWindowLimiter(AuthPolicy, limiterOptions =>
             {
                 limiterOptions.PermitLimit = 5;
+                limiterOptions.Window = TimeSpan.FromMinutes(15);
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 0; // No queueing
+            });
+
+            // Refresh token endpoint: 10 attempts per 15 minutes per IP
+            options.AddFixedWindowLimiter(RefreshPolicy, limiterOptions =>
+            {
+                limiterOptions.PermitLimit = 10;
                 limiterOptions.Window = TimeSpan.FromMinutes(15);
                 limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                 limiterOptions.QueueLimit = 0; // No queueing

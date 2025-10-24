@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Play, Square, Trash2 } from 'lucide-react';
-import signalRService from '../services/signalRService';
+import { signalRService } from '../services/signalRService';
 import { useToast } from '../hooks/useToast';
 
 type LogEntry = {

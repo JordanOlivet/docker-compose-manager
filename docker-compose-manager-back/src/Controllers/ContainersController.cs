@@ -19,12 +19,51 @@ public class ContainersController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// List all containers with optional filters
+    /// </summary>
+    /// <param name="all">Include stopped containers (default: true)</param>
+    /// <param name="status">Filter by status (running, exited, paused, etc.)</param>
+    /// <param name="name">Filter by container name (partial match)</param>
+    /// <param name="image">Filter by image name (partial match)</param>
+    /// <returns>List of containers matching filters</returns>
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<ContainerDto>>>> GetContainers([FromQuery] bool all = true)
+    public async Task<ActionResult<ApiResponse<List<ContainerDto>>>> GetContainers(
+        [FromQuery] bool all = true,
+        [FromQuery] string? status = null,
+        [FromQuery] string? name = null,
+        [FromQuery] string? image = null)
     {
         try
         {
             var containers = await _dockerService.ListContainersAsync(all);
+
+            // Apply client-side filtering
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                string statusLower = status.ToLower();
+                containers = containers.Where(c =>
+                    c.Status.ToLower().Contains(statusLower) ||
+                    c.State.ToLower().Contains(statusLower)
+                ).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                string nameLower = name.ToLower();
+                containers = containers.Where(c =>
+                    c.Name.ToLower().Contains(nameLower)
+                ).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(image))
+            {
+                string imageLower = image.ToLower();
+                containers = containers.Where(c =>
+                    c.Image.ToLower().Contains(imageLower)
+                ).ToList();
+            }
+
             return Ok(ApiResponse.Ok(containers));
         }
         catch (Exception ex)
