@@ -1719,8 +1719,3 @@ ComposePaths__1__IsReadOnly=true
    - Per-user limits stored in memory cache
    - Sliding window algorithm
    - Redis optional for multi-instance deployments
-
----
-
-**Document Version**: 1.0
-**Last Updated**: 2024-01-15

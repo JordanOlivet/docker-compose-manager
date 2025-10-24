@@ -1,0 +1,57 @@
+services:
+  backend:
+    build:
+      context: ./docker-compose-manager-back
+      dockerfile: Dockerfile
+    container_name: docker-manager-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Database__ConnectionString=Data Source=/app/data/app.db
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=docker-compose-manager
+      - Jwt__Audience=docker-compose-manager-client
+      - Jwt__ExpirationMinutes=60
+      - Jwt__RefreshExpirationDays=7
+      - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock}
+      - Cors__Origins__0=http://localhost:3000
+    volumes:
+      # Database persistence
+      - backend-data:/app/data
+      # Docker socket access (CRITICAL - grants root access to host)
+      # Linux:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Windows (uncomment and comment line above):
+      # - //./pipe/docker_engine://./pipe/docker_engine
+      # Compose files to manage (optional)
+      # - ${COMPOSE_FILES_PATH:-./compose-files}:/compose-files:ro
+    networks:
+      - docker-manager-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./docker-compose-manager-front
+      dockerfile: Dockerfile
+    container_name: docker-manager-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - docker-manager-network
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+    driver: local
+
+networks:
+  docker-manager-network:
+    driver: bridge

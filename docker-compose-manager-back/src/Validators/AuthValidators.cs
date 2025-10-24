@@ -1,0 +1,143 @@
+using FluentValidation;
+using docker_compose_manager_back.DTOs;
+
+namespace docker_compose_manager_back.Validators;
+
+/// <summary>
+/// Validator for login requests
+/// </summary>
+public class LoginRequestValidator : AbstractValidator<LoginRequest>
+{
+    public LoginRequestValidator()
+    {
+        RuleFor(x => x.Username)
+            .NotEmpty().WithMessage("Username is required")
+            .Length(3, 100).WithMessage("Username must be between 3 and 100 characters");
+
+        RuleFor(x => x.Password)
+            .NotEmpty().WithMessage("Password is required")
+            .MinimumLength(6).WithMessage("Password must be at least 6 characters");
+    }
+}
+
+/// <summary>
+/// Validator for refresh token requests
+/// </summary>
+public class RefreshTokenRequestValidator : AbstractValidator<RefreshTokenRequest>
+{
+    public RefreshTokenRequestValidator()
+    {
+        RuleFor(x => x.RefreshToken)
+            .NotEmpty().WithMessage("Refresh token is required")
+            .MinimumLength(20).WithMessage("Invalid refresh token format");
+    }
+}
+
+/// <summary>
+/// Validator for change password requests
+/// </summary>
+public class ChangePasswordRequestValidator : AbstractValidator<ChangePasswordRequest>
+{
+    public ChangePasswordRequestValidator()
+    {
+        RuleFor(x => x.CurrentPassword)
+            .NotEmpty().WithMessage("Current password is required");
+
+        RuleFor(x => x.NewPassword)
+            .NotEmpty().WithMessage("New password is required")
+            .MinimumLength(8).WithMessage("Password must be at least 8 characters")
+            .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
+            .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
+            .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
+            .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character")
+            .Must(password => !ContainsWeakPattern(password))
+                .WithMessage("Password contains a common weak pattern");
+
+        RuleFor(x => x.NewPassword)
+            .NotEqual(x => x.CurrentPassword)
+            .WithMessage("New password must be different from current password");
+    }
+
+    private static bool ContainsWeakPattern(string password)
+    {
+        string[] weakPatterns = { "12345", "password", "qwerty", "abc123", "admin" };
+        string lowerPassword = password.ToLower();
+        return weakPatterns.Any(pattern => lowerPassword.Contains(pattern));
+    }
+}
+
+/// <summary>
+/// Validator for create user requests
+/// </summary>
+public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
+{
+    public CreateUserRequestValidator()
+    {
+        RuleFor(x => x.Username)
+            .NotEmpty().WithMessage("Username is required")
+            .Length(3, 100).WithMessage("Username must be between 3 and 100 characters")
+            .Matches(@"^[a-zA-Z0-9_-]+$").WithMessage("Username can only contain letters, numbers, hyphens and underscores");
+
+        RuleFor(x => x.Password)
+            .NotEmpty().WithMessage("Password is required")
+            .MinimumLength(8).WithMessage("Password must be at least 8 characters")
+            .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
+            .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
+            .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
+            .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character");
+
+        RuleFor(x => x.Role)
+            .NotEmpty().WithMessage("Role is required")
+            .Must(role => role == "admin" || role == "user")
+            .WithMessage("Role must be 'admin' or 'user'");
+    }
+}
+
+/// <summary>
+/// Validator for update user requests
+/// </summary>
+public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
+{
+    public UpdateUserRequestValidator()
+    {
+        When(x => !string.IsNullOrEmpty(x.Username), () =>
+        {
+            RuleFor(x => x.Username)
+                .Length(3, 100).WithMessage("Username must be between 3 and 100 characters")
+                .Matches(@"^[a-zA-Z0-9_-]+$").WithMessage("Username can only contain letters, numbers, hyphens and underscores");
+        });
+
+        When(x => !string.IsNullOrEmpty(x.Role), () =>
+        {
+            RuleFor(x => x.Role)
+                .Must(role => role == "admin" || role == "user")
+                .WithMessage("Role must be 'admin' or 'user'");
+        });
+
+        When(x => !string.IsNullOrEmpty(x.NewPassword), () =>
+        {
+            RuleFor(x => x.NewPassword)
+                .MinimumLength(8).WithMessage("Password must be at least 8 characters")
+                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
+                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
+                .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
+                .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character");
+        });
+    }
+}
+
+/// <summary>
+/// Validator for update profile requests
+/// </summary>
+public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequest>
+{
+    public UpdateProfileRequestValidator()
+    {
+        When(x => !string.IsNullOrEmpty(x.Username), () =>
+        {
+            RuleFor(x => x.Username)
+                .Length(3, 100).WithMessage("Username must be between 3 and 100 characters")
+                .Matches(@"^[a-zA-Z0-9_-]+$").WithMessage("Username can only contain letters, numbers, hyphens and underscores");
+        });
+    }
+}
