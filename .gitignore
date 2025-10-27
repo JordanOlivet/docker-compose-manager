@@ -23,3 +23,4 @@ docker-compose-manager-front/.vite/
 # OS
 .DS_Store
 Thumbs.db
+docker-compose-manager-front/.vscode/chrome-debug-profile

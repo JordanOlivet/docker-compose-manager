@@ -7,35 +7,12 @@
         {
             "type": "chrome",
             "request": "launch",
-            "name": "Launch Frontend with Dev Server",
+            "name": "Launch Frontend with Dev Server (Dedicated Debug Profile)",
             "url": "http://localhost:5173",
             "webRoot": "${workspaceFolder}",
             "preLaunchTask": "npm: dev",
             "timeout": 30000,
-            "runtimeArgs": [
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process"
-            ]
-        },
-        {
-            "type": "msedge",
-            "request": "launch",
-            "name": "Launch Frontend with Dev Server (Edge)",
-            "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "npm: dev",
-            "timeout": 30000,
-            "runtimeArgs": [
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process"
-            ]
-        },
-        {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Launch Chrome (Server Already Running)",
-            "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}"
+            "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile"
         }
     ]
 }
