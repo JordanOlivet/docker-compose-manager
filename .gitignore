@@ -16,7 +16,6 @@ docker-compose-manager-front/.vite/
 
 # IDE
 .vs/
-.vscode/
 *.swp
 *.swo
 *~
