@@ -16,7 +16,6 @@ docker-compose-manager-front/.vite/
 
 # IDE
 .vs/
-.vscode/
 *.swp
 *.swo
 *~
@@ -24,3 +23,4 @@ docker-compose-manager-front/.vite/
 # OS
 .DS_Store
 Thumbs.db
+docker-compose-manager-front/.vscode/chrome-debug-profile
