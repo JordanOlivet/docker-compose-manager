@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -69,7 +69,7 @@ public class ComposeController : ControllerBase
 
             foreach (ComposeFile file in files)
             {
-                var (success, fileInfo, _) = await _fileService.GetFileInfoAsync(file.FullPath);
+                (bool success, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(file.FullPath);
                 if (success && fileInfo != null)
                 {
                     string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
@@ -117,7 +117,7 @@ public class ComposeController : ControllerBase
                 return NotFound(ApiResponse.Fail<ComposeFileContentDto>("File not found", "FILE_NOT_FOUND"));
             }
 
-            var (success, content, error) = await _fileService.ReadFileAsync(file.FullPath);
+            (bool success, string content, string error) = await _fileService.ReadFileAsync(file.FullPath);
             if (!success || content == null)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileContentDto>(error ?? "Error reading file", "READ_ERROR"));
@@ -185,14 +185,14 @@ public class ComposeController : ControllerBase
         try
         {
             // Validate YAML syntax
-            var (isValid, validationError) = _fileService.ValidateYamlSyntax(request.Content);
+            (bool isValid, string validationError) = _fileService.ValidateYamlSyntax(request.Content);
             if (!isValid)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(validationError ?? "Invalid YAML", "INVALID_YAML"));
             }
 
             // Validate path is in a configured ComposePath
-            var (pathValid, pathError, allowedPath) = await _fileService.ValidateFilePathAsync(request.FilePath);
+            (bool pathValid, string pathError, ComposePath allowedPath) = await _fileService.ValidateFilePathAsync(request.FilePath);
             if (!pathValid || allowedPath == null)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(pathError ?? "Invalid file path", "INVALID_PATH"));
@@ -208,7 +208,7 @@ public class ComposeController : ControllerBase
             }
 
             // Write file
-            var (success, error) = await _fileService.WriteFileAsync(request.FilePath, request.Content, createBackup: false);
+            (bool success, string error) = await _fileService.WriteFileAsync(request.FilePath, request.Content, createBackup: false);
             if (!success)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(error ?? "Error writing file", "WRITE_ERROR"));
@@ -229,7 +229,7 @@ public class ComposeController : ControllerBase
             _context.ComposeFiles.Add(file);
             await _context.SaveChangesAsync();
 
-            var (_, fileInfo, _) = await _fileService.GetFileInfoAsync(file.FullPath);
+            (bool _, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(file.FullPath);
 
             string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
             ComposeFileDto dto = new(
@@ -278,7 +278,7 @@ public class ComposeController : ControllerBase
             }
 
             // Read current content for ETag validation and audit
-            var (readSuccess, currentContent, _) = await _fileService.ReadFileAsync(file.FullPath);
+            (bool readSuccess, string currentContent, string _) = await _fileService.ReadFileAsync(file.FullPath);
             if (!readSuccess || currentContent == null)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>("Error reading current file", "READ_ERROR"));
@@ -293,14 +293,14 @@ public class ComposeController : ControllerBase
             }
 
             // Validate YAML syntax
-            var (isValid, validationError) = _fileService.ValidateYamlSyntax(request.Content);
+            (bool isValid, string validationError) = _fileService.ValidateYamlSyntax(request.Content);
             if (!isValid)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(validationError ?? "Invalid YAML", "INVALID_YAML"));
             }
 
             // Write file (with backup)
-            var (success, error) = await _fileService.WriteFileAsync(file.FullPath, request.Content, createBackup: true);
+            (bool success, string error) = await _fileService.WriteFileAsync(file.FullPath, request.Content, createBackup: true);
             if (!success)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(error ?? "Error writing file", "WRITE_ERROR"));
@@ -310,7 +310,7 @@ public class ComposeController : ControllerBase
             file.LastModified = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            var (_, fileInfo, _) = await _fileService.GetFileInfoAsync(file.FullPath);
+            (bool _, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(file.FullPath);
 
             string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
             ComposeFileDto dto = new(
@@ -363,7 +363,7 @@ public class ComposeController : ControllerBase
             string fileName = file.FileName;
 
             // Delete file from filesystem
-            var (success, error) = await _fileService.DeleteFileAsync(filePath);
+            (bool success, string error) = await _fileService.DeleteFileAsync(filePath);
             if (!success)
             {
                 return BadRequest(ApiResponse.Fail<bool>(error ?? "Error deleting file", "DELETE_ERROR"));
@@ -406,7 +406,7 @@ public class ComposeController : ControllerBase
             }
 
             // Read file content
-            var (readSuccess, content, readError) = await _fileService.ReadFileAsync(file.FullPath);
+            (bool readSuccess, string content, string readError) = await _fileService.ReadFileAsync(file.FullPath);
             if (!readSuccess || content == null)
             {
                 return BadRequest(ApiResponse.Fail<ComposeValidationResult>(
@@ -414,9 +414,9 @@ public class ComposeController : ControllerBase
             }
 
             // Validate YAML syntax
-            var (isValidYaml, yamlError) = _fileService.ValidateYamlSyntax(content);
+            (bool isValidYaml, string yamlError) = _fileService.ValidateYamlSyntax(content);
 
-            var validationResult = new ComposeValidationResult
+            ComposeValidationResult validationResult = new()
             {
                 IsValid = isValidYaml,
                 YamlValid = isValidYaml,
@@ -439,13 +439,13 @@ public class ComposeController : ControllerBase
                     else
                     {
                         // Try to count services (basic parsing)
-                        var lines = content.Split('\n');
+                        string[] lines = content.Split('\n');
                         int serviceCount = 0;
                         bool inServices = false;
 
-                        foreach (var line in lines)
+                        foreach (string line in lines)
                         {
-                            var trimmed = line.TrimStart();
+                            string trimmed = line.TrimStart();
                             if (trimmed.StartsWith("services:"))
                             {
                                 inServices = true;
@@ -525,7 +525,7 @@ public class ComposeController : ControllerBase
             }
 
             // Read source file content
-            var (readSuccess, content, readError) = await _fileService.ReadFileAsync(sourceFile.FullPath);
+            (bool readSuccess, string content, string readError) = await _fileService.ReadFileAsync(sourceFile.FullPath);
             if (!readSuccess || content == null)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(
@@ -553,7 +553,7 @@ public class ComposeController : ControllerBase
             }
 
             // Validate path
-            var (isValid, validationError, allowedPath) = await _fileService.ValidateFilePathAsync(newFilePath);
+            (bool isValid, string validationError, ComposePath allowedPath) = await _fileService.ValidateFilePathAsync(newFilePath);
             if (!isValid)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(
@@ -561,7 +561,7 @@ public class ComposeController : ControllerBase
             }
 
             // Write new file
-            var (writeSuccess, writeError) = await _fileService.WriteFileAsync(newFilePath, content, createBackup: false);
+            (bool writeSuccess, string writeError) = await _fileService.WriteFileAsync(newFilePath, content, createBackup: false);
             if (!writeSuccess)
             {
                 return BadRequest(ApiResponse.Fail<ComposeFileDto>(
@@ -581,7 +581,7 @@ public class ComposeController : ControllerBase
             _context.ComposeFiles.Add(newFile);
             await _context.SaveChangesAsync();
 
-            var (_, fileInfo, _) = await _fileService.GetFileInfoAsync(newFilePath);
+            (bool _, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(newFilePath);
 
             string directory = Path.GetDirectoryName(newFile.FullPath) ?? string.Empty;
             ComposeFileDto dto = new(
@@ -632,7 +632,7 @@ public class ComposeController : ControllerBase
             }
 
             // Read file content
-            var (success, content, error) = await _fileService.ReadFileAsync(file.FullPath);
+            (bool success, string content, string error) = await _fileService.ReadFileAsync(file.FullPath);
             if (!success || content == null)
             {
                 return BadRequest(ApiResponse.Fail<object>(
@@ -677,15 +677,91 @@ public class ComposeController : ControllerBase
             foreach (string projectPath in projectPaths)
             {
                 string projectName = _composeService.GetProjectName(projectPath);
-                var (success, output, _) = await _composeService.ListServicesAsync(projectPath);
+                (bool success, string output, string _) = await _composeService.ListServicesAsync(projectPath);
 
                 List<ComposeServiceDto> services = new();
                 string status = "unknown";
 
-                if (success)
+                if (success && !string.IsNullOrWhiteSpace(output))
                 {
-                    // Parse services from output (simplified - would need proper JSON parsing in production)
-                    status = "up";
+                    try
+                    {
+                        // Parse NDJSON output from docker compose ps (each line is a separate JSON object)
+                        string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                        foreach (string line in lines)
+                        {
+                            if (string.IsNullOrWhiteSpace(line)) { continue; }
+
+                            try
+                            {
+                                System.Text.Json.JsonElement svc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(line);
+
+                                // Extract service information from JSON
+                                string serviceName = svc.TryGetProperty("Service", out System.Text.Json.JsonElement svcName)
+                                    ? svcName.GetString() ?? "unknown"
+                                    : "unknown";
+
+                                string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement state)
+                                    ? state.GetString() ?? "unknown"
+                                    : "unknown";
+
+                                string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement img)
+                                    ? img.GetString() ?? "unknown"
+                                    : "unknown";
+
+                                // Parse ports
+                                List<string> ports = new();
+                                if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers) && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                                {
+                                    foreach (System.Text.Json.JsonElement publisher in publishers.EnumerateArray())
+                                    {
+                                        if (publisher.TryGetProperty("URL", out System.Text.Json.JsonElement url) &&
+                                            publisher.TryGetProperty("PublishedPort", out System.Text.Json.JsonElement publishedPort) &&
+                                            publisher.TryGetProperty("TargetPort", out System.Text.Json.JsonElement targetPort))
+                                        {
+                                            string portMapping = $"{url.GetString()}:{publishedPort.GetInt32()}->{targetPort.GetInt32()}";
+                                            ports.Add(portMapping);
+                                        }
+                                    }
+                                }
+
+                                services.Add(new ComposeServiceDto(
+                                    Name: serviceName,
+                                    Image: serviceImage,
+                                    Status: serviceState,
+                                    Ports: ports,
+                                    Replicas: null,
+                                    Health: svc.TryGetProperty("Health", out System.Text.Json.JsonElement health) ? health.GetString() : null
+                                ));
+                            }
+                            catch (System.Text.Json.JsonException lineEx)
+                            {
+                                _logger.LogWarning(lineEx, "Failed to parse JSON line for project {ProjectName}: {Line}", projectName, line);
+                            }
+                        }
+
+                        // Determine overall project status based on service states
+                        if (services.Count > 0)
+                        {
+                            status = DetermineProjectStatus(services);
+                        }
+                        else
+                        {
+                            // No services found - project is down
+                            status = "down";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse docker compose ps output for project: {ProjectName}", projectName);
+                        status = "unknown";
+                    }
+                }
+                else
+                {
+                    // Command failed or no output - project is likely down
+                    status = "down";
                 }
 
                 projects.Add(new ComposeProjectDto(
@@ -694,7 +770,7 @@ public class ComposeController : ControllerBase
                     status,
                     services,
                     _composeService.GetComposeFiles(projectPath),
-                    null
+                    DateTime.UtcNow
                 ));
             }
 
@@ -712,6 +788,43 @@ public class ComposeController : ControllerBase
             _logger.LogError(ex, "Error listing compose projects");
             return StatusCode(500, ApiResponse.Fail<List<ComposeProjectDto>>("Error listing projects", "SERVER_ERROR"));
         }
+    }
+
+    /// <summary>
+    /// Determines the overall status of a project based on its services
+    /// </summary>
+    private string DetermineProjectStatus(List<ComposeServiceDto> services)
+    {
+        if (services.Count == 0)
+            return "down";
+
+        int runningCount = services.Count(s =>
+            s.Status.Equals("running", StringComparison.OrdinalIgnoreCase));
+
+        int exitedCount = services.Count(s =>
+            s.Status.Equals("exited", StringComparison.OrdinalIgnoreCase));
+
+        int restartingCount = services.Count(s =>
+            s.Status.Equals("restarting", StringComparison.OrdinalIgnoreCase));
+
+        // All services running - project is fully up
+        if (runningCount == services.Count)
+            return "running";
+
+        // Some services running - project is degraded
+        if (runningCount > 0)
+            return "degraded";
+
+        // No services running but some are restarting
+        if (restartingCount > 0)
+            return "restarting";
+
+        // All services exited or stopped
+        if (exitedCount > 0)
+            return "exited";
+
+        // Default to stopped
+        return "stopped";
     }
 
     /// <summary>
@@ -746,7 +859,7 @@ public class ComposeController : ControllerBase
             {
                 await _operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
 
-                var (success, output, error) = await _composeService.UpProjectAsync(
+                (bool success, string output, string error) = await _composeService.UpProjectAsync(
                     projectPath,
                     request.Build,
                     request.Detach,
@@ -823,7 +936,7 @@ public class ComposeController : ControllerBase
             {
                 await _operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
 
-                var (success, output, error) = await _composeService.DownProjectAsync(
+                (bool success, string output, string error) = await _composeService.DownProjectAsync(
                     projectPath,
                     request.RemoveVolumes,
                     request.RemoveImages
@@ -887,7 +1000,7 @@ public class ComposeController : ControllerBase
                 return NotFound(ApiResponse.Fail<string>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            var (success, output, error) = await _composeService.GetLogsAsync(
+            (bool success, string output, string error) = await _composeService.GetLogsAsync(
                 projectPath,
                 serviceName,
                 tail,
@@ -925,7 +1038,7 @@ public class ComposeController : ControllerBase
     {
         try
         {
-            var templates = new List<ComposeTemplateDto>
+            List<ComposeTemplateDto> templates = new()
             {
                 new ComposeTemplateDto(
                     "wordpress",
@@ -1096,7 +1209,7 @@ volumes:
             }
 
             // Get project status by running docker compose ps
-            var (psExitCode, psOutput, psError) = await _composeService.ExecuteComposeCommandAsync(
+            (int psExitCode, string psOutput, string psError) = await _composeService.ExecuteComposeCommandAsync(
                 projectPath,
                 "ps --format json"
             );
@@ -1108,10 +1221,10 @@ volumes:
                 try
                 {
                     // Parse JSON output
-                    var jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(psOutput);
+                    List<System.Text.Json.JsonElement>? jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(psOutput);
                     if (jsonServices != null)
                     {
-                        foreach (var svc in jsonServices)
+                        foreach (System.Text.Json.JsonElement svc in jsonServices)
                         {
                             services.Add(new ComposeServiceStatusDto(
                                 svc.GetProperty("Service").GetString() ?? "unknown",
@@ -1128,7 +1241,7 @@ volumes:
                 }
             }
 
-            var projectDetails = new ComposeProjectDetailsDto(
+            ComposeProjectDetailsDto projectDetails = new(
                 projectName,
                 projectPath,
                 services.Any(s => s.State == "running"),
@@ -1164,7 +1277,7 @@ volumes:
                 return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
                 projectPath,
                 "start"
             );
@@ -1212,7 +1325,7 @@ volumes:
                 return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
                 projectPath,
                 "stop"
             );
@@ -1260,7 +1373,7 @@ volumes:
                 return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
                 projectPath,
                 "restart"
             );
@@ -1308,7 +1421,7 @@ volumes:
                 return NotFound(ApiResponse.Fail<List<ComposeServiceStatusDto>>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            var (exitCode, output, error) = await _composeService.ExecuteComposeCommandAsync(
+            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
                 projectPath,
                 "ps --format json"
             );
@@ -1326,10 +1439,10 @@ volumes:
                 try
                 {
                     // Parse JSON output
-                    var jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(output);
+                    List<System.Text.Json.JsonElement>? jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(output);
                     if (jsonServices != null)
                     {
-                        foreach (var svc in jsonServices)
+                        foreach (System.Text.Json.JsonElement svc in jsonServices)
                         {
                             services.Add(new ComposeServiceStatusDto(
                                 svc.GetProperty("Service").GetString() ?? "unknown",

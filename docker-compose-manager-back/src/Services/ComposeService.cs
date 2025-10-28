@@ -1,10 +1,8 @@
+using docker_compose_manager_back.Data;
 using System.Diagnostics;
 using System.Text;
-using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using docker_compose_manager_back.Data;
 
 namespace docker_compose_manager_back.Services;
 
@@ -39,7 +37,7 @@ public class ComposeService
         try
         {
             // Try docker compose version (v2)
-            ProcessStartInfo psi = new ProcessStartInfo
+            ProcessStartInfo psi = new()
             {
                 FileName = "docker",
                 Arguments = "compose version",
@@ -96,7 +94,7 @@ public class ComposeService
     {
         bool isV2 = await IsComposeV2Available();
 
-        ProcessStartInfo psi = new ProcessStartInfo
+        ProcessStartInfo psi = new()
         {
             FileName = isV2 ? "docker" : "docker-compose",
             Arguments = isV2 ? $"compose {arguments}" : arguments,
@@ -177,7 +175,7 @@ public class ComposeService
 
             string arguments = string.Join(" ", args);
 
-            var (exitCode, output, error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
 
             bool success = exitCode == 0;
             _logger.LogInformation(
@@ -219,7 +217,7 @@ public class ComposeService
 
             string arguments = string.Join(" ", args);
 
-            var (exitCode, output, error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
 
             bool success = exitCode == 0;
             _logger.LogInformation(
@@ -251,9 +249,9 @@ public class ComposeService
                 return (false, "", "Project directory not found");
             }
 
-            var (exitCode, output, error) = await ExecuteComposeCommandAsync(
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
                 projectPath,
-                "ps --format json",
+                $"-p {Path.GetFileName(projectPath)} ps --format json",
                 cancellationToken
             );
 
@@ -290,7 +288,7 @@ public class ComposeService
 
             string arguments = string.Join(" ", args);
 
-            var (exitCode, output, error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
 
             return (exitCode == 0, output, error);
         }
@@ -309,7 +307,7 @@ public class ComposeService
     {
         try
         {
-            var (success, content, error) = await _fileService.ReadFileAsync(filePath);
+            (bool success, string content, string error) = await _fileService.ReadFileAsync(filePath);
             if (!success || content == null)
             {
                 return (false, null, error);
@@ -337,11 +335,7 @@ public class ComposeService
             List<string> composeFiles = await _fileService.DiscoverComposeFilesAsync();
 
             // Group files by directory (each directory with a docker-compose.yml is a project)
-            var projectPaths = composeFiles
-                .Where(f => Path.GetFileName(f).Equals("docker-compose.yml", StringComparison.OrdinalIgnoreCase) ||
-                           Path.GetFileName(f).Equals("docker-compose.yaml", StringComparison.OrdinalIgnoreCase) ||
-                           Path.GetFileName(f).Equals("compose.yml", StringComparison.OrdinalIgnoreCase) ||
-                           Path.GetFileName(f).Equals("compose.yaml", StringComparison.OrdinalIgnoreCase))
+            List<string?> projectPaths = composeFiles
                 .Select(f => Path.GetDirectoryName(f))
                 .Where(d => !string.IsNullOrEmpty(d))
                 .Distinct()
@@ -379,7 +373,7 @@ public class ComposeService
                     List<string> composeFiles = GetComposeFiles(projectPath);
 
                     // Get services status for this project
-                    var services = await GetProjectServicesAsync(projectPath);
+                    List<DTOs.ComposeServiceDto> services = await GetProjectServicesAsync(projectPath);
 
                     // Determine overall project status
                     string status = DetermineProjectStatus(services);
@@ -422,7 +416,7 @@ public class ComposeService
             string command = isV2 ? "docker" : "docker-compose";
             string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps --format json" : $"-f {GetMainComposeFile(projectPath)} ps";
 
-            ProcessStartInfo psi = new ProcessStartInfo
+            ProcessStartInfo psi = new()
             {
                 FileName = command,
                 Arguments = args,
@@ -443,10 +437,10 @@ public class ComposeService
                 {
                     // Parse output to extract service information
                     // For simplicity, we'll parse the text output
-                    var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var line in lines.Skip(1)) // Skip header line
+                    string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string? line in lines.Skip(1)) // Skip header line
                     {
-                        var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                         if (parts.Length >= 3)
                         {
                             services.Add(new DTOs.ComposeServiceDto(
@@ -502,7 +496,7 @@ public class ComposeService
             "compose.yaml"
         };
 
-        foreach (var pattern in patterns)
+        foreach (string pattern in patterns)
         {
             string filePath = Path.Combine(projectPath, pattern);
             if (File.Exists(filePath))
