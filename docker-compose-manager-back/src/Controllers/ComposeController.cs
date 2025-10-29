@@ -20,6 +20,7 @@ public class ComposeController : ControllerBase
     private readonly OperationService _operationService;
     private readonly IAuditService _auditService;
     private readonly ILogger<ComposeController> _logger;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
 
     public ComposeController(
         AppDbContext context,
@@ -27,7 +28,8 @@ public class ComposeController : ControllerBase
         ComposeService composeService,
         OperationService operationService,
         IAuditService auditService,
-        ILogger<ComposeController> logger)
+        ILogger<ComposeController> logger,
+        IServiceScopeFactory serviceScopeFactory)
     {
         _context = context;
         _fileService = fileService;
@@ -35,6 +37,7 @@ public class ComposeController : ControllerBase
         _operationService = operationService;
         _auditService = auditService;
         _logger = logger;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     private int? GetCurrentUserId()
@@ -857,27 +860,34 @@ public class ComposeController : ControllerBase
             // Start compose up in background
             _ = Task.Run(async () =>
             {
-                await _operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                (bool success, string output, string error) = await _composeService.UpProjectAsync(
-                    projectPath,
-                    request.Build,
-                    request.Detach,
-                    request.ForceRecreate
-                );
-
-                await _operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
+                // Create a new scope for the background task to avoid DbContext disposal issues
+                using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    await _operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
+                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
 
-                await _operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
+                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                    (bool success, string output, string error) = await composeService.UpProjectAsync(
+                        projectPath,
+                        request.Build,
+                        request.Detach,
+                        request.ForceRecreate
+                    );
+
+                    await operationService.AppendLogsAsync(operation.OperationId, output);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                    }
+
+                    await operationService.UpdateOperationStatusAsync(
+                        operation.OperationId,
+                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        100,
+                        success ? null : error
+                    );
+                }
             });
 
             await _auditService.LogActionAsync(
@@ -934,26 +944,33 @@ public class ComposeController : ControllerBase
             // Start compose down in background
             _ = Task.Run(async () =>
             {
-                await _operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                (bool success, string output, string error) = await _composeService.DownProjectAsync(
-                    projectPath,
-                    request.RemoveVolumes,
-                    request.RemoveImages
-                );
-
-                await _operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
+                // Create a new scope for the background task to avoid DbContext disposal issues
+                using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    await _operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
+                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
 
-                await _operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
+                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                    (bool success, string output, string error) = await composeService.DownProjectAsync(
+                        projectPath,
+                        request.RemoveVolumes,
+                        request.RemoveImages
+                    );
+
+                    await operationService.AppendLogsAsync(operation.OperationId, output);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                    }
+
+                    await operationService.UpdateOperationStatusAsync(
+                        operation.OperationId,
+                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        100,
+                        success ? null : error
+                    );
+                }
             });
 
             await _auditService.LogActionAsync(
@@ -1264,7 +1281,7 @@ volumes:
     /// Start compose services (docker compose start)
     /// </summary>
     [HttpPost("projects/{projectName}/start")]
-    public async Task<ActionResult<ApiResponse<bool>>> StartProject(string projectName)
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> StartProject(string projectName)
     {
         try
         {
@@ -1274,37 +1291,85 @@ volumes:
 
             if (projectPath == null)
             {
-                return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
+                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
+            // Create operation tracking
+            Operation operation = await _operationService.CreateOperationAsync(
+                OperationType.ComposeStart,
+                GetCurrentUserId(),
                 projectPath,
-                "start"
+                projectName
             );
-            bool success = exitCode == 0;
 
-            if (!success)
+            // Start compose start in background
+            _ = Task.Run(async () =>
             {
-                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error starting project", "START_ERROR"));
-            }
+                // Create a new scope for the background task to avoid DbContext disposal issues
+                using (var scope = _serviceScopeFactory.CreateScope())
+                {
+                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                    // Find the compose file
+                    string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
+                    if (composeFile == null)
+                    {
+                        await operationService.UpdateOperationStatusAsync(
+                            operation.OperationId,
+                            OperationStatus.Failed,
+                            100,
+                            "No compose file found in project directory"
+                        );
+                        return;
+                    }
+
+                    (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
+                        projectPath,
+                        "start",
+                        composeFile
+                    );
+
+                    bool success = exitCode == 0;
+
+                    await operationService.AppendLogsAsync(operation.OperationId, output);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                    }
+
+                    await operationService.UpdateOperationStatusAsync(
+                        operation.OperationId,
+                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        100,
+                        success ? null : error
+                    );
+                }
+            });
 
             await _auditService.LogActionAsync(
                 GetCurrentUserId(),
                 AuditActions.ComposeStart,
                 GetUserIpAddress(),
-                $"Started compose project: {projectName}",
+                $"Started compose start: {projectName}",
                 resourceType: "compose_project",
                 resourceId: projectName
             );
 
-            _logger.LogInformation("Compose project {ProjectName} started", projectName);
+            ComposeOperationResponse response = new(
+                operation.OperationId,
+                OperationStatus.Pending,
+                $"Compose start started for project: {projectName}"
+            );
 
-            return Ok(ApiResponse.Ok(true, "Project started successfully"));
+            return Ok(ApiResponse.Ok(response));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error starting project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<bool>("Error starting project", "SERVER_ERROR"));
+            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error starting project", "SERVER_ERROR"));
         }
     }
 
@@ -1312,7 +1377,7 @@ volumes:
     /// Stop compose services (docker compose stop)
     /// </summary>
     [HttpPost("projects/{projectName}/stop")]
-    public async Task<ActionResult<ApiResponse<bool>>> StopProject(string projectName)
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> StopProject(string projectName)
     {
         try
         {
@@ -1322,37 +1387,85 @@ volumes:
 
             if (projectPath == null)
             {
-                return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
+                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
+            // Create operation tracking
+            Operation operation = await _operationService.CreateOperationAsync(
+                OperationType.ComposeStop,
+                GetCurrentUserId(),
                 projectPath,
-                "stop"
+                projectName
             );
-            bool success = exitCode == 0;
 
-            if (!success)
+            // Start compose stop in background
+            _ = Task.Run(async () =>
             {
-                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error stopping project", "STOP_ERROR"));
-            }
+                // Create a new scope for the background task to avoid DbContext disposal issues
+                using (var scope = _serviceScopeFactory.CreateScope())
+                {
+                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                    // Find the compose file
+                    string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
+                    if (composeFile == null)
+                    {
+                        await operationService.UpdateOperationStatusAsync(
+                            operation.OperationId,
+                            OperationStatus.Failed,
+                            100,
+                            "No compose file found in project directory"
+                        );
+                        return;
+                    }
+
+                    (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
+                        projectPath,
+                        "stop",
+                        composeFile
+                    );
+
+                    bool success = exitCode == 0;
+
+                    await operationService.AppendLogsAsync(operation.OperationId, output);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                    }
+
+                    await operationService.UpdateOperationStatusAsync(
+                        operation.OperationId,
+                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        100,
+                        success ? null : error
+                    );
+                }
+            });
 
             await _auditService.LogActionAsync(
                 GetCurrentUserId(),
                 AuditActions.ComposeStop,
                 GetUserIpAddress(),
-                $"Stopped compose project: {projectName}",
+                $"Started compose stop: {projectName}",
                 resourceType: "compose_project",
                 resourceId: projectName
             );
 
-            _logger.LogInformation("Compose project {ProjectName} stopped", projectName);
+            ComposeOperationResponse response = new(
+                operation.OperationId,
+                OperationStatus.Pending,
+                $"Compose stop started for project: {projectName}"
+            );
 
-            return Ok(ApiResponse.Ok(true, "Project stopped successfully"));
+            return Ok(ApiResponse.Ok(response));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error stopping project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<bool>("Error stopping project", "SERVER_ERROR"));
+            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error stopping project", "SERVER_ERROR"));
         }
     }
 
@@ -1360,7 +1473,7 @@ volumes:
     /// Restart compose services (docker compose restart)
     /// </summary>
     [HttpPost("projects/{projectName}/restart")]
-    public async Task<ActionResult<ApiResponse<bool>>> RestartProject(string projectName)
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> RestartProject(string projectName)
     {
         try
         {
@@ -1370,37 +1483,85 @@ volumes:
 
             if (projectPath == null)
             {
-                return NotFound(ApiResponse.Fail<bool>("Project not found", "PROJECT_NOT_FOUND"));
+                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
-            (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
+            // Create operation tracking
+            Operation operation = await _operationService.CreateOperationAsync(
+                OperationType.ComposeRestart,
+                GetCurrentUserId(),
                 projectPath,
-                "restart"
+                projectName
             );
-            bool success = exitCode == 0;
 
-            if (!success)
+            // Start compose restart in background
+            _ = Task.Run(async () =>
             {
-                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error restarting project", "RESTART_ERROR"));
-            }
+                // Create a new scope for the background task to avoid DbContext disposal issues
+                using (var scope = _serviceScopeFactory.CreateScope())
+                {
+                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                    // Find the compose file
+                    string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
+                    if (composeFile == null)
+                    {
+                        await operationService.UpdateOperationStatusAsync(
+                            operation.OperationId,
+                            OperationStatus.Failed,
+                            100,
+                            "No compose file found in project directory"
+                        );
+                        return;
+                    }
+
+                    (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
+                        projectPath,
+                        "restart",
+                        composeFile
+                    );
+
+                    bool success = exitCode == 0;
+
+                    await operationService.AppendLogsAsync(operation.OperationId, output);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                    }
+
+                    await operationService.UpdateOperationStatusAsync(
+                        operation.OperationId,
+                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        100,
+                        success ? null : error
+                    );
+                }
+            });
 
             await _auditService.LogActionAsync(
                 GetCurrentUserId(),
                 AuditActions.ComposeRestart,
                 GetUserIpAddress(),
-                $"Restarted compose project: {projectName}",
+                $"Started compose restart: {projectName}",
                 resourceType: "compose_project",
                 resourceId: projectName
             );
 
-            _logger.LogInformation("Compose project {ProjectName} restarted", projectName);
+            ComposeOperationResponse response = new(
+                operation.OperationId,
+                OperationStatus.Pending,
+                $"Compose restart started for project: {projectName}"
+            );
 
-            return Ok(ApiResponse.Ok(true, "Project restarted successfully"));
+            return Ok(ApiResponse.Ok(response));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error restarting project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<bool>("Error restarting project", "SERVER_ERROR"));
+            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error restarting project", "SERVER_ERROR"));
         }
     }
 

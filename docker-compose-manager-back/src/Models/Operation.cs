@@ -29,6 +29,8 @@ public static class OperationType
     public const string ComposeBuild = "compose_build";
     public const string ComposePull = "compose_pull";
     public const string ComposeRestart = "compose_restart";
+    public const string ComposeStart = "compose_start";
+    public const string ComposeStop = "compose_stop";
 }
 
 /// <summary>

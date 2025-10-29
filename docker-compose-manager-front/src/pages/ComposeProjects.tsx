@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { Play, Square, RotateCcw, RefreshCw, Eye, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Play, Square, RotateCcw, RefreshCw, Eye, Trash2, Hammer, Zap } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { composeApi } from '../api';
-import { LoadingSpinner, ErrorDisplay, ConfirmDialog, StatusBadge } from '../components/common';
-import type { ComposeProject } from '../types';
+import { LoadingSpinner, ErrorDisplay, ConfirmDialog, StatusBadge, SplitButton } from '../components/common';
+import { ProjectStatus, type ComposeProject } from '../types';
+import { signalRService } from '../services/signalRService';
 
 interface ProjectAction {
   project: ComposeProject | null;
-  type: 'up' | 'down' | 'restart' | 'stop' | 'start';
+  type: 'up' | 'down' | 'restart' | 'stop' | 'start' | 'up-build' | 'up-recreate' | 'up-build-recreate';
 }
 
 export const ComposeProjects = () => {
@@ -24,12 +25,14 @@ export const ComposeProjects = () => {
   } = useQuery({
     queryKey: ['composeProjects'],
     queryFn: composeApi.listProjects,
-    refetchInterval: 10000, // Refetch every 10 seconds
+    // Removed automatic polling - we use SignalR for real-time updates now
+    refetchInterval: false,
   });
 
   // Up mutation
   const upMutation = useMutation({
-    mutationFn: (projectName: string) => composeApi.upProject(projectName, { detach: true }),
+    mutationFn: ({ projectName, options }: { projectName: string; options?: { build?: boolean; detach?: boolean; forceRecreate?: boolean } }) =>
+      composeApi.upProject(projectName, options || { detach: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['composeProjects'] });
       setActionDialogOpen(false);
@@ -77,6 +80,51 @@ export const ComposeProjects = () => {
     },
   });
 
+  // Setup SignalR connection for real-time updates
+  useEffect(() => {
+    const connectAndListen = async () => {
+      try {
+        console.log('Connecting to SignalR operations hub...');
+        // Connect to the operations hub
+        await signalRService.connect();
+        console.log('Connected to SignalR operations hub successfully');
+
+        // Listen for operation updates
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const handleOperationUpdate = (update: any) => {
+          console.log('Operation update received:', update);
+          console.log('Update status:', update.status, 'Type:', update.type);
+
+          // Only react to completed or failed compose operations
+          const statusMatch = update.status === 'completed' || update.status === 'failed';
+          const typeMatch = update.type && update.type.toLowerCase().includes('compose');
+
+          console.log('Status match:', statusMatch, 'Type match:', typeMatch);
+
+          if (statusMatch && typeMatch) {
+            console.log('✅ Refreshing compose projects list...');
+            // Immediately refetch projects to show the new state
+            queryClient.invalidateQueries({ queryKey: ['composeProjects'] });
+          } else {
+            console.log('❌ Not refreshing - conditions not met');
+          }
+        };
+
+        signalRService.onOperationUpdate(handleOperationUpdate);
+
+        // Cleanup on unmount
+        return () => {
+          console.log('Cleaning up SignalR connection');
+          signalRService.offOperationUpdate(handleOperationUpdate);
+        };
+      } catch (error) {
+        console.error('Failed to connect to SignalR:', error);
+      }
+    };
+
+    connectAndListen();
+  }, [queryClient]);
+
   const handleAction = (project: ComposeProject, type: ProjectAction['type']) => {
     setCurrentAction({ project, type });
     setActionDialogOpen(true);
@@ -89,7 +137,16 @@ export const ComposeProjects = () => {
 
     switch (currentAction.type) {
       case 'up':
-        upMutation.mutate(projectName);
+        upMutation.mutate({ projectName, options: { detach: true } });
+        break;
+      case 'up-build':
+        upMutation.mutate({ projectName, options: { detach: true, build: true } });
+        break;
+      case 'up-recreate':
+        upMutation.mutate({ projectName, options: { detach: true, forceRecreate: true } });
+        break;
+      case 'up-build-recreate':
+        upMutation.mutate({ projectName, options: { detach: true, build: true, forceRecreate: true } });
         break;
       case 'down':
         downMutation.mutate(projectName);
@@ -110,7 +167,10 @@ export const ComposeProjects = () => {
     if (!action) return '';
 
     const actionMessages = {
-      up: 'start and build (if needed) all services',
+      up: 'start all services',
+      'up-build': 'start and build all services',
+      'up-recreate': 'recreate and start all services (force recreate)',
+      'up-build-recreate': 'rebuild, recreate and start all services (build + force recreate)',
       down: 'stop and remove all containers, networks, and optionally volumes',
       restart: 'restart all services',
       stop: 'stop all services without removing them',
@@ -199,17 +259,32 @@ export const ComposeProjects = () => {
                     <StatusBadge status={project.status} />
                   </div>
                   <div className="flex gap-2">
-                    {project.status === 'Stopped' || project.status === 'Partial' ? (
-                      <button
+                    {project.status === ProjectStatus.Down || project.status === ProjectStatus.Stopped || project.status === ProjectStatus.Partial ? (
+                      <SplitButton
+                        label="Start"
+                        icon={<Play className="w-4 h-4" />}
                         onClick={() => handleAction(project, 'up')}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                        title="Start project"
-                      >
-                        <Play className="w-4 h-4" />
-                        Start
-                      </button>
+                        variant="primary"
+                        menuItems={[
+                          {
+                            label: 'Start + Build',
+                            icon: <Hammer className="w-4 h-4" />,
+                            onClick: () => handleAction(project, 'up-build'),
+                          },
+                          {
+                            label: 'Force Recreate',
+                            icon: <Zap className="w-4 h-4" />,
+                            onClick: () => handleAction(project, 'up-recreate'),
+                          },
+                          {
+                            label: 'Build + Force Recreate',
+                            icon: <RefreshCw className="w-4 h-4" />,
+                            onClick: () => handleAction(project, 'up-build-recreate'),
+                          },
+                        ]}
+                      />
                     ) : null}
-                    {project.status === 'Running' || project.status === 'Partial' ? (
+                    {project.status === ProjectStatus.Running || project.status === ProjectStatus.Partial ? (
                       <>
                         <button
                           onClick={() => handleAction(project, 'restart')}

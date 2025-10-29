@@ -63,30 +63,30 @@ export interface ActiveOperationsCountResponse {
 
 // Operation Type
 export const OperationType = {
-  ComposeUp: 'ComposeUp',
-  ComposeDown: 'ComposeDown',
-  ComposeRestart: 'ComposeRestart',
-  ComposeStop: 'ComposeStop',
-  ComposeStart: 'ComposeStart',
-  ComposePull: 'ComposePull',
-  ComposeBuild: 'ComposeBuild',
-  ContainerStart: 'ContainerStart',
-  ContainerStop: 'ContainerStop',
-  ContainerRestart: 'ContainerRestart',
-  ContainerRemove: 'ContainerRemove',
-  ContainerPause: 'ContainerPause',
-  ContainerUnpause: 'ContainerUnpause'
+  ComposeUp: 'compose_up',
+  ComposeDown: 'compose_down',
+  ComposeRestart: 'compose_restart',
+  ComposeStop: 'compose_stop',
+  ComposeStart: 'compose_start',
+  ComposePull: 'compose_pull',
+  ComposeBuild: 'compose_build',
+  ContainerStart: 'container_start',
+  ContainerStop: 'container_stop',
+  ContainerRestart: 'container_restart',
+  ContainerRemove: 'container_remove',
+  ContainerPause: 'container_pause',
+  ContainerUnpause: 'container_unpause'
 } as const;
 
 export type OperationType = typeof OperationType[keyof typeof OperationType];
 
 // Operation Status
 export const OperationStatus = {
-  Pending: 'Pending',
-  Running: 'Running',
-  Completed: 'Completed',
-  Failed: 'Failed',
-  Cancelled: 'Cancelled'
+  Pending: 'pending',
+  Running: 'running',
+  Completed: 'completed',
+  Failed: 'failed',
+  Cancelled: 'cancelled'
 } as const;
 
 export type OperationStatus = typeof OperationStatus[keyof typeof OperationStatus];
@@ -98,5 +98,8 @@ export interface OperationUpdateEvent {
   progress: number;
   logs?: string;
   errorMessage?: string;
-  timestamp: string;
+  timestamp?: string;
+  type?: string;
+  projectName?: string;
+  projectPath?: string;
 }

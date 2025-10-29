@@ -52,10 +52,11 @@ export interface ComposeService {
 }
 
 export const ProjectStatus = {
-  Unknown: 'Unknown',
-  Running: 'Running',
-  Stopped: 'Stopped',
-  Partial: 'Partial'
+  Unknown: 'unknown',
+  Running: 'running',
+  Stopped: 'stopped',
+  Partial: 'partial',
+  Down: 'down',
 } as const;
 
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
