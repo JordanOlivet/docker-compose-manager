@@ -199,6 +199,46 @@ public class FileService
     }
 
     /// <summary>
+    /// Validates if a YAML file has a valid Docker Compose structure
+    /// </summary>
+    private bool IsValidDockerComposeFile(string filePath)
+    {
+        try
+        {
+            // Read file content
+            string content = File.ReadAllText(filePath);
+
+            // Parse YAML
+            var yamlObject = _yamlDeserializer.Deserialize<Dictionary<string, object>>(content);
+
+            if (yamlObject == null)
+            {
+                return false;
+            }
+
+            // Check for required "services" key (mandatory in Docker Compose)
+            if (!yamlObject.ContainsKey("services"))
+            {
+                return false;
+            }
+
+            // Optional: Check that services is not null and is an object/dictionary
+            if (yamlObject["services"] == null)
+            {
+                return false;
+            }
+
+            _logger.LogDebug("File {FilePath} validated as Docker Compose file", filePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("File {FilePath} is not a valid Docker Compose file: {Error}", filePath, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Discovers all compose files in configured paths
     /// </summary>
     public async Task<List<string>> DiscoverComposeFilesAsync()
@@ -219,30 +259,35 @@ public class FileService
                     continue;
                 }
 
-                // Search for docker-compose files (various naming conventions)
-                string[] patterns = new[]
-                {
-                    "docker-compose.yml",
-                    "docker-compose.yaml",
-                    "compose.yml",
-                    "compose.yaml",
-                    "docker-compose.*.yml",
-                    "docker-compose.*.yaml"
-                };
+                // Search for all YAML files (*.yml and *.yaml)
+                string[] ymlFiles = Directory.GetFiles(
+                    composePath.Path,
+                    "*.yml",
+                    SearchOption.AllDirectories
+                );
 
-                foreach (string pattern in patterns)
-                {
-                    string[] files = Directory.GetFiles(
-                        composePath.Path,
-                        pattern,
-                        SearchOption.AllDirectories
-                    );
+                string[] yamlFiles = Directory.GetFiles(
+                    composePath.Path,
+                    "*.yaml",
+                    SearchOption.AllDirectories
+                );
 
-                    discoveredFiles.AddRange(files);
+                // Combine all YAML files
+                var allYamlFiles = ymlFiles.Concat(yamlFiles).Distinct();
+
+                _logger.LogDebug("Found {Count} YAML files in {Path}", allYamlFiles.Count(), composePath.Path);
+
+                // Filter only files with valid Docker Compose structure
+                foreach (string file in allYamlFiles)
+                {
+                    if (IsValidDockerComposeFile(file))
+                    {
+                        discoveredFiles.Add(file);
+                    }
                 }
 
                 _logger.LogInformation(
-                    "Discovered {Count} compose files in {Path}",
+                    "Discovered {Count} valid compose files in {Path}",
                     discoveredFiles.Count,
                     composePath.Path
                 );

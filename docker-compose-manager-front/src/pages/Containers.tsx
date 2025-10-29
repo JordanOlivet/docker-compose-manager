@@ -113,14 +113,14 @@ export default function Containers() {
       </div>
 
       {!containers || containers.length === 0 ? (
-        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
+        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
             <ContainerIcon className="w-10 h-10 text-gray-400" />
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-400">No containers found</p>
         </div>
       ) : (
-        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
@@ -142,6 +142,7 @@ export default function Containers() {
                   </th>
                 </tr>
               </thead>
+              
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {containers.map((container: Container) => (
                   <tr key={container.id} className="hover:bg-white dark:hover:bg-gray-800 transition-all">
@@ -170,7 +171,8 @@ export default function Containers() {
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-3">
-                        {container.state.toLowerCase() === 'running' ? (
+                        {container.state.toLowerCase() === 'running' ? 
+                        (
                           <>
                             <button
                               onClick={() => stopMutation.mutate(container.id)}
@@ -187,7 +189,9 @@ export default function Containers() {
                               <RotateCw className="w-4 h-4" />
                             </button>
                           </>
-                        ) : (
+                        ) 
+                        : 
+                        (
                           <button
                             onClick={() => startMutation.mutate(container.id)}
                             className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
