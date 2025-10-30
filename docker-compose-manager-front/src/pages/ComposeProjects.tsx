@@ -250,7 +250,7 @@ export const ComposeProjects = () => {
       ) : (
         <div className="space-y-4">
           {projects.map((project) => (
-            <div key={project.name} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div key={project.name} className="bg-white rounded-lg border border-gray-200 overflow-visible">
               {/* Project Header */}
               <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">

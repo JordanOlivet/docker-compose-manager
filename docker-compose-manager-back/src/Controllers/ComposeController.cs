@@ -19,6 +19,7 @@ public class ComposeController : ControllerBase
     private readonly ComposeService _composeService;
     private readonly OperationService _operationService;
     private readonly IAuditService _auditService;
+    private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeController> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
@@ -28,6 +29,7 @@ public class ComposeController : ControllerBase
         ComposeService composeService,
         OperationService operationService,
         IAuditService auditService,
+        IPermissionService permissionService,
         ILogger<ComposeController> logger,
         IServiceScopeFactory serviceScopeFactory)
     {
@@ -36,6 +38,7 @@ public class ComposeController : ControllerBase
         _composeService = composeService;
         _operationService = operationService;
         _auditService = auditService;
+        _permissionService = permissionService;
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
     }

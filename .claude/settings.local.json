@@ -21,7 +21,12 @@
       "Bash(npm run dev:*)",
       "Bash(dir:*)",
       "Bash(npx tailwindcss:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(dotnet ef database:*)",
+      "Bash(if [ -d \"docker-compose-manager-back/Data\" ])",
+      "Bash(then echo \"Data directory exists\")",
+      "Bash(else echo \"Data directory does not exist\")",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []

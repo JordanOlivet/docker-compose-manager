@@ -91,6 +91,7 @@ builder.Services.AddScoped<docker_compose_manager_back.Services.FileService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.ComposeService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.IAuditService, docker_compose_manager_back.Services.AuditService>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.OperationService>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.IPermissionService, docker_compose_manager_back.Services.PermissionService>();
 builder.Services.AddSingleton<docker_compose_manager_back.Services.DockerService>();
 
 // Register background services
