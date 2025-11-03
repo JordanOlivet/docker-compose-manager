@@ -680,9 +680,30 @@ public class ComposeController : ControllerBase
             List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
             List<ComposeProjectDto> projects = new();
 
+            // Get user ID for permission filtering
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<List<ComposeProjectDto>>("User not authenticated"));
+            }
+
             foreach (string projectPath in projectPaths)
             {
                 string projectName = _composeService.GetProjectName(projectPath);
+
+                // Check if user has View permission for this project
+                bool hasPermission = await _permissionService.HasPermissionAsync(
+                    userId.Value,
+                    ResourceType.ComposeProject,
+                    projectName,
+                    PermissionFlags.View);
+
+                if (!hasPermission)
+                {
+                    // Skip projects the user doesn't have permission to view
+                    continue;
+                }
+
                 (bool success, string output, string _) = await _composeService.ListServicesAsync(projectPath);
 
                 List<ComposeServiceDto> services = new();
@@ -852,6 +873,26 @@ public class ComposeController : ControllerBase
                 return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
+            // Check Update permission (up can recreate containers)
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.Update);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "You don't have permission to start/update this compose project",
+                    "PERMISSION_DENIED"));
+            }
+
             // Create operation tracking
             Operation operation = await _operationService.CreateOperationAsync(
                 OperationType.ComposeUp,
@@ -936,6 +977,26 @@ public class ComposeController : ControllerBase
                 return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
+            // Check Stop permission (down stops containers, may remove volumes if requested)
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.Stop);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "You don't have permission to stop this compose project",
+                    "PERMISSION_DENIED"));
+            }
+
             // Create operation tracking
             Operation operation = await _operationService.CreateOperationAsync(
                 OperationType.ComposeDown,
@@ -1018,6 +1079,26 @@ public class ComposeController : ControllerBase
             if (projectPath == null)
             {
                 return NotFound(ApiResponse.Fail<string>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            // Check Logs permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<string>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.Logs);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<string>(
+                    "You don't have permission to view logs for this compose project",
+                    "PERMISSION_DENIED"));
             }
 
             (bool success, string output, string error) = await _composeService.GetLogsAsync(
@@ -1228,6 +1309,26 @@ volumes:
                 return NotFound(ApiResponse.Fail<ComposeProjectDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
+            // Check View permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeProjectDetailsDto>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.View);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeProjectDetailsDto>(
+                    "You don't have permission to view this compose project",
+                    "PERMISSION_DENIED"));
+            }
+
             // Get project status by running docker compose ps
             (int psExitCode, string psOutput, string psError) = await _composeService.ExecuteComposeCommandAsync(
                 projectPath,
@@ -1295,6 +1396,26 @@ volumes:
             if (projectPath == null)
             {
                 return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            // Check Start permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.Start);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "You don't have permission to start this compose project",
+                    "PERMISSION_DENIED"));
             }
 
             // Create operation tracking
@@ -1393,6 +1514,26 @@ volumes:
                 return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
+            // Check Stop permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.Stop);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "You don't have permission to stop this compose project",
+                    "PERMISSION_DENIED"));
+            }
+
             // Create operation tracking
             Operation operation = await _operationService.CreateOperationAsync(
                 OperationType.ComposeStop,
@@ -1489,6 +1630,26 @@ volumes:
                 return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
+            // Check Restart permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.Restart);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "You don't have permission to restart this compose project",
+                    "PERMISSION_DENIED"));
+            }
+
             // Create operation tracking
             Operation operation = await _operationService.CreateOperationAsync(
                 OperationType.ComposeRestart,
@@ -1583,6 +1744,26 @@ volumes:
             if (projectPath == null)
             {
                 return NotFound(ApiResponse.Fail<List<ComposeServiceStatusDto>>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            // Check View permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<List<ComposeServiceStatusDto>>("User not authenticated"));
+            }
+
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.View);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<List<ComposeServiceStatusDto>>(
+                    "You don't have permission to view services for this compose project",
+                    "PERMISSION_DENIED"));
             }
 
             (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(

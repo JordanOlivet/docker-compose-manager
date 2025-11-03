@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useToast } from '../hooks/useToast';
+import { formatApiError } from '../utils/errorFormatter';
 
 export default function ChangePassword() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -30,7 +31,7 @@ export default function ChangePassword() {
       toast.success('Password changed successfully');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to change password');
+      toast.error(formatApiError(error, 'Failed to change password'));
     } finally {
       setLoading(false);
     }

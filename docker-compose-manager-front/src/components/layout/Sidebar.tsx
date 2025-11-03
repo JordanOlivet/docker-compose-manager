@@ -6,6 +6,8 @@ import {
   Container,
   ClipboardList,
   Users,
+  UsersRound,
+  Shield,
   FileOutput,
   Settings,
   Boxes
@@ -31,6 +33,8 @@ const navItems: NavItem[] = [
   { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Monitoring' },
   { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Monitoring' },
   { to: '/users', icon: <Users className="w-5 h-5" />, label: 'User Management', category: 'Administration' },
+  { to: '/user-groups', icon: <UsersRound className="w-5 h-5" />, label: 'User Groups', category: 'Administration' },
+  { to: '/permissions', icon: <Shield className="w-5 h-5" />, label: 'Permissions', category: 'Administration' },
   { to: '/settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', category: 'Administration' },
 ];
 

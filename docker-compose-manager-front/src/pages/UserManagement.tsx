@@ -4,6 +4,7 @@ import usersApi, { type User } from '../api/users';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
+import { formatApiError } from '../utils/errorFormatter';
 
 export default function UserManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,7 +31,7 @@ export default function UserManagement() {
       setRole('user');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create user');
+      toast.error(formatApiError(error, 'Failed to create user'));
     },
   });
 

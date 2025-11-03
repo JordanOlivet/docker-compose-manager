@@ -5,13 +5,20 @@ export const useToast = () => {
     toast.success(message, {
       duration: 3000,
       position: 'top-right',
+      style: {
+        whiteSpace: 'pre-line', // Preserve line breaks
+      },
     });
   };
 
   const error = (message: string) => {
     toast.error(message, {
-      duration: 4000,
+      duration: 5000, // Increased duration for detailed error messages
       position: 'top-right',
+      style: {
+        whiteSpace: 'pre-line', // Preserve line breaks
+        maxWidth: '500px', // Allow wider toasts for detailed messages
+      },
     });
   };
 

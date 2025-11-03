@@ -168,8 +168,8 @@ public class UserService : IUserService
         if (existingUser != null)
             throw new InvalidOperationException($"User with username '{request.Username}' already exists");
 
-        // Get role
-        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == request.Role);
+        // Get role (case-insensitive)
+        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == request.Role.ToLower());
         if (role == null)
             throw new InvalidOperationException($"Role '{request.Role}' not found");
 
@@ -224,10 +224,10 @@ public class UserService : IUserService
 
         var changes = new List<string>();
 
-        // Update role if provided
+        // Update role if provided (case-insensitive)
         if (request.Role != null && request.Role != user.Role?.Name)
         {
-            var newRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == request.Role);
+            var newRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == request.Role.ToLower());
             if (newRole == null)
                 throw new InvalidOperationException($"Role '{request.Role}' not found");
 

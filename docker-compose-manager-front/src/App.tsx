@@ -14,6 +14,8 @@ import { ComposeProjects } from './pages/ComposeProjects';
 import { AuditLogs } from './pages/AuditLogs';
 import ChangePassword from './pages/ChangePassword';
 import UserManagement from './pages/UserManagement';
+import UserGroups from './pages/UserGroups';
+import Permissions from './pages/Permissions';
 import Settings from './pages/Settings';
 import LogsViewer from './pages/LogsViewer';
 
@@ -95,6 +97,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <UserManagement />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user-groups"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <UserGroups />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/permissions"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Permissions />
                   </MainLayout>
                 </ProtectedRoute>
               }
