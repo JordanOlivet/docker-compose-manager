@@ -254,7 +254,7 @@ export const ComposeProjects = () => {
           {projects.map((project) => (
             <div key={project.name} className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-visible shadow-lg hover:shadow-2xl transition-all duration-300">
               {/* Project Header */}
-              <div className="bg-white/50 dark:bg-gray-800/50 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{project.name}</h3>
