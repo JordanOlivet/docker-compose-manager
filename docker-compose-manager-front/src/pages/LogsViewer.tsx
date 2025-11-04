@@ -103,25 +103,35 @@ export default function LogsViewer() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">{getTitle()}</h1>
+    <div className="h-full flex flex-col space-y-6">
+      {/* Page Header */}
+      <div className="mb-4">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{getTitle()}</h1>
+        <p className="text-lg text-gray-600 dark:text-gray-400">
+          Stream and view real-time logs from your containers
+        </p>
+      </div>
+
+      {/* Controls */}
+      <div className="flex justify-between items-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium">Tail:</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tail:</label>
             <input
               type="number"
               value={tail}
               onChange={(e) => setTail(parseInt(e.target.value) || 100)}
-              className="w-20 border rounded px-2 py-1 text-sm"
+              className="w-20 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
               disabled={isStreaming}
               min="10"
               max="1000"
             />
           </div>
+        </div>
+        <div className="flex items-center space-x-2">
           <button
             onClick={handleClearLogs}
-            className="flex items-center space-x-2 px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+            className="flex items-center space-x-2 px-3 py-2 bg-gray-500 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={logs.length === 0}
           >
             <Trash2 className="w-4 h-4" />
@@ -130,7 +140,7 @@ export default function LogsViewer() {
           {!isStreaming ? (
             <button
               onClick={handleStartStream}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
             >
               <Play className="w-4 h-4" />
               <span>Start Streaming</span>
@@ -138,7 +148,7 @@ export default function LogsViewer() {
           ) : (
             <button
               onClick={handleStopStream}
-              className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
             >
               <Square className="w-4 h-4" />
               <span>Stop Streaming</span>
@@ -147,17 +157,22 @@ export default function LogsViewer() {
         </div>
       </div>
 
-      <div className="flex-1 bg-gray-900 text-green-400 font-mono text-sm rounded-lg p-4 overflow-auto">
+      {/* Logs Terminal */}
+      <div className="flex-1 bg-gray-900 dark:bg-gray-950 text-green-400 dark:text-green-300 font-mono text-sm rounded-2xl p-4 overflow-auto border border-gray-700 dark:border-gray-800 shadow-2xl">
         {logs.length === 0 ? (
-          <div className="text-gray-500 text-center py-8">
-            {isStreaming ? 'Waiting for logs...' : 'No logs to display. Click "Start Streaming" to begin.'}
+          <div className="text-gray-500 dark:text-gray-400 text-center py-8 flex flex-col items-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 dark:bg-gray-900 mb-3">
+              <Play className="w-8 h-8 text-gray-600 dark:text-gray-500" />
+            </div>
+            <p className="text-lg font-medium">{isStreaming ? 'Waiting for logs...' : 'No logs to display'}</p>
+            <p className="text-sm mt-1">{isStreaming ? '' : 'Click "Start Streaming" to begin.'}</p>
           </div>
         ) : (
           <div>
             {logs.map((log, index) => (
-              <div key={index} className="mb-1 hover:bg-gray-800 px-2 py-1 rounded">
-                <span className="text-gray-500 mr-3">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                <span className="text-green-400">{log.message}</span>
+              <div key={index} className="mb-1 hover:bg-gray-800 dark:hover:bg-gray-900 px-2 py-1 rounded transition-colors">
+                <span className="text-gray-500 dark:text-gray-400 mr-3">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                <span className="text-green-400 dark:text-green-300">{log.message}</span>
               </div>
             ))}
             <div ref={logsEndRef} />
@@ -165,16 +180,22 @@ export default function LogsViewer() {
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+      {/* Status Bar */}
+      <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div>
           {isStreaming && (
-            <span className="flex items-center">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>
+            <span className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+              <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse mr-2"></span>
               Streaming active
             </span>
           )}
+          {!isStreaming && logs.length > 0 && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">Streaming stopped</span>
+          )}
         </div>
-        <div>Total logs: {logs.length}</div>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          Total logs: <span className="font-semibold text-gray-900 dark:text-white">{logs.length}</span>
+        </div>
       </div>
     </div>
   );

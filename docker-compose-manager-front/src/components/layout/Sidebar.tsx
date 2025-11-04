@@ -12,6 +12,7 @@ import {
   Settings,
   Boxes
 } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,38 +26,47 @@ interface NavItem {
   category?: string;
 }
 
-const navItems: NavItem[] = [
-  { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
-  { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },
-  { to: '/compose/files', icon: <FileText className="w-5 h-5" />, label: 'Compose Files', category: 'Docker' },
-  { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Projects', category: 'Docker' },
-  { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Monitoring' },
-  { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Monitoring' },
-  { to: '/users', icon: <Users className="w-5 h-5" />, label: 'User Management', category: 'Administration' },
-  { to: '/user-groups', icon: <UsersRound className="w-5 h-5" />, label: 'User Groups', category: 'Administration' },
-  { to: '/permissions', icon: <Shield className="w-5 h-5" />, label: 'Permissions', category: 'Administration' },
-  { to: '/settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', category: 'Administration' },
-];
-
-// Group items by category
-const groupedNavItems = navItems.reduce((acc, item) => {
-  const category = item.category || 'Other';
-  if (!acc[category]) {
-    acc[category] = [];
-  }
-  acc[category].push(item);
-  return acc;
-}, {} as Record<string, NavItem[]>);
-
 export const Sidebar = ({ isOpen }: SidebarProps) => {
+  const { user } = useAuthStore();
+
   if (!isOpen) return null;
+
+  const navItems: NavItem[] = user?.role === "admin" ? [
+    { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
+    { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },  
+    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Projects', category: 'Docker' },
+    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Monitoring' },
+    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Monitoring' },
+    { to: '/users', icon: <Users className="w-5 h-5" />, label: 'User Management', category: 'Administration' },
+    { to: '/user-groups', icon: <UsersRound className="w-5 h-5" />, label: 'User Groups', category: 'Administration' },
+    { to: '/permissions', icon: <Shield className="w-5 h-5" />, label: 'Permissions', category: 'Administration' },
+    { to: '/compose/files', icon: <FileText className="w-5 h-5" />, label: 'Compose Files', category: 'Administration' },
+    { to: '/settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', category: 'Administration' },
+  ] : 
+  [
+    { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
+    { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },  
+    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Projects', category: 'Docker' },
+    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Monitoring' },
+    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Monitoring' },
+  ];
+
+  // Group items by category
+  const groupedNavItems = navItems.reduce((acc, item) => {
+    const category = item.category || 'Other';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(item);
+    return acc;
+  }, {} as Record<string, NavItem[]>);
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shadow-lg transition-colors duration-200">
       {/* Logo Header */}
       <div className="flex items-center h-16 px-6 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-md">
+          <div className="p-2 bg-linear-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-md">
             <Boxes className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -115,7 +125,7 @@ export const Sidebar = ({ isOpen }: SidebarProps) => {
       <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
         <div className="text-xs space-y-1">
           <p className="font-semibold text-gray-700 dark:text-gray-300">Docker Compose Manager</p>
-          <p className="text-gray-500 dark:text-gray-500">Version 1.0.0</p>
+          <p className="text-gray-500 dark:text-gray-500">Version 0.1.0</p>
         </div>
       </div>
     </aside>

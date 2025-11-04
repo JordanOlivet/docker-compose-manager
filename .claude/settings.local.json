@@ -26,7 +26,8 @@
       "Bash(if [ -d \"docker-compose-manager-back/Data\" ])",
       "Bash(then echo \"Data directory exists\")",
       "Bash(else echo \"Data directory does not exist\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(timeout 10 npm run dev:*)"
     ],
     "deny": [],
     "ask": []
