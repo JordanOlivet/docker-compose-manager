@@ -587,7 +587,7 @@ export default function ComposeProjectsAndContainers() {
                 </div>
 
                 {/* Services List */}
-                {project.services && project.services.length > 0 && (
+                {(
                   <div className="p-6">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                       Services ({project.services.length})

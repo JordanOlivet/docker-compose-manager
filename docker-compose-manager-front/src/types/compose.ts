@@ -55,6 +55,7 @@ export const ProjectStatus = {
   Unknown: 'unknown',
   Running: 'running',
   Stopped: 'stopped',
+  Exited: 'exited',
   Partial: 'partial',
   Down: 'down',
 } as const;

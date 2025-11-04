@@ -280,7 +280,7 @@ public class ComposeService
 
             (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
                 projectPath,
-                $"-p {Path.GetFileName(projectPath)} ps --format json",
+                $"-p {Path.GetFileName(projectPath)} ps -a --format json",
                 composeFile,
                 cancellationToken
             );
@@ -451,7 +451,7 @@ public class ComposeService
         {
             bool isV2 = await IsComposeV2Available();
             string command = isV2 ? "docker" : "docker-compose";
-            string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps --format json" : $"-f {GetMainComposeFile(projectPath)} ps";
+            string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps -a --format json" : $"-f {GetMainComposeFile(projectPath)} ps -a";
 
             ProcessStartInfo psi = new()
             {
