@@ -17,6 +17,9 @@ public class AppDbContext : DbContext
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
     public DbSet<Operation> Operations { get; set; } = null!;
+    public DbSet<UserGroup> UserGroups { get; set; } = null!;
+    public DbSet<UserGroupMembership> UserGroupMemberships { get; set; } = null!;
+    public DbSet<ResourcePermission> ResourcePermissions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,6 +118,53 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // UserGroup configuration
+        modelBuilder.Entity<UserGroup>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+        });
+
+        // UserGroupMembership configuration
+        modelBuilder.Entity<UserGroupMembership>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.UserId, e.UserGroupId }).IsUnique();
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.UserGroupMemberships)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.UserGroup)
+                .WithMany(ug => ug.UserGroupMemberships)
+                .HasForeignKey(e => e.UserGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ResourcePermission configuration
+        modelBuilder.Entity<ResourcePermission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // Index for efficient permission lookups
+            entity.HasIndex(e => new { e.ResourceType, e.ResourceName });
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.UserGroupId);
+            entity.Property(e => e.ResourceType).IsRequired();
+            entity.Property(e => e.ResourceName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Permissions).IsRequired();
+            // Either UserId or UserGroupId must be set, but not both
+            // This constraint will be validated at application level
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.ResourcePermissions)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.UserGroup)
+                .WithMany(ug => ug.ResourcePermissions)
+                .HasForeignKey(e => e.UserGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Seed initial data

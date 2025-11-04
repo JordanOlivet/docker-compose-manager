@@ -1,0 +1,518 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using docker_compose_manager_back.Data;
+using docker_compose_manager_back.DTOs;
+using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services;
+using System.Security.Claims;
+
+namespace docker_compose_manager_back.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class PermissionsController : ControllerBase
+{
+    private readonly AppDbContext _context;
+    private readonly IPermissionService _permissionService;
+    private readonly IAuditService _auditService;
+    private readonly ILogger<PermissionsController> _logger;
+
+    public PermissionsController(
+        AppDbContext context,
+        IPermissionService permissionService,
+        IAuditService auditService,
+        ILogger<PermissionsController> logger)
+    {
+        _context = context;
+        _permissionService = permissionService;
+        _auditService = auditService;
+        _logger = logger;
+    }
+
+    private int GetUserId()
+    {
+        string? userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.Parse(userIdString ?? "0");
+    }
+
+    private string GetIpAddress()
+    {
+        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+
+    /// <summary>
+    /// Get all permissions with optional filtering
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<ApiResponse<List<ResourcePermissionDto>>>> GetAllPermissions(
+        [FromQuery] ResourceType? resourceType = null,
+        [FromQuery] string? resourceName = null,
+        [FromQuery] int? userId = null,
+        [FromQuery] int? userGroupId = null)
+    {
+        var query = _context.ResourcePermissions
+            .Include(rp => rp.User)
+            .Include(rp => rp.UserGroup)
+            .AsQueryable();
+
+        if (resourceType.HasValue)
+            query = query.Where(rp => rp.ResourceType == resourceType.Value);
+
+        if (!string.IsNullOrEmpty(resourceName))
+            query = query.Where(rp => rp.ResourceName == resourceName);
+
+        if (userId.HasValue)
+            query = query.Where(rp => rp.UserId == userId.Value);
+
+        if (userGroupId.HasValue)
+            query = query.Where(rp => rp.UserGroupId == userGroupId.Value);
+
+        var permissions = await query
+            .Select(rp => new ResourcePermissionDto
+            {
+                Id = rp.Id,
+                ResourceType = rp.ResourceType,
+                ResourceName = rp.ResourceName,
+                UserId = rp.UserId,
+                Username = rp.User != null ? rp.User.Username : null,
+                UserGroupId = rp.UserGroupId,
+                UserGroupName = rp.UserGroup != null ? rp.UserGroup.Name : null,
+                Permissions = rp.Permissions,
+                CreatedAt = rp.CreatedAt,
+                UpdatedAt = rp.UpdatedAt
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse.Ok(permissions));
+    }
+
+    /// <summary>
+    /// Get a specific permission by ID
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ApiResponse<ResourcePermissionDto>>> GetPermission(int id)
+    {
+        var permission = await _context.ResourcePermissions
+            .Include(rp => rp.User)
+            .Include(rp => rp.UserGroup)
+            .FirstOrDefaultAsync(rp => rp.Id == id);
+
+        if (permission == null)
+        {
+            return NotFound(ApiResponse.Fail<ResourcePermissionDto>("Permission not found"));
+        }
+
+        var dto = new ResourcePermissionDto
+        {
+            Id = permission.Id,
+            ResourceType = permission.ResourceType,
+            ResourceName = permission.ResourceName,
+            UserId = permission.UserId,
+            Username = permission.User?.Username,
+            UserGroupId = permission.UserGroupId,
+            UserGroupName = permission.UserGroup?.Name,
+            Permissions = permission.Permissions,
+            CreatedAt = permission.CreatedAt,
+            UpdatedAt = permission.UpdatedAt
+        };
+
+        return Ok(ApiResponse.Ok(dto));
+    }
+
+    /// <summary>
+    /// Create a new permission
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<ResourcePermissionDto>>> CreatePermission([FromBody] CreatePermissionRequest request)
+    {
+        // Validate that either UserId or UserGroupId is set, but not both
+        if (request.UserId.HasValue && request.UserGroupId.HasValue)
+        {
+            return BadRequest(ApiResponse.Fail<ResourcePermissionDto>("Cannot assign permission to both user and group. Choose one."));
+        }
+
+        if (!request.UserId.HasValue && !request.UserGroupId.HasValue)
+        {
+            return BadRequest(ApiResponse.Fail<ResourcePermissionDto>("Must specify either UserId or UserGroupId"));
+        }
+
+        // Validate user or group exists
+        if (request.UserId.HasValue && !await _context.Users.AnyAsync(u => u.Id == request.UserId.Value))
+        {
+            return NotFound(ApiResponse.Fail<ResourcePermissionDto>("User not found"));
+        }
+
+        if (request.UserGroupId.HasValue && !await _context.UserGroups.AnyAsync(g => g.Id == request.UserGroupId.Value))
+        {
+            return NotFound(ApiResponse.Fail<ResourcePermissionDto>("User group not found"));
+        }
+
+        // Check if permission already exists
+        var existing = await _context.ResourcePermissions
+            .FirstOrDefaultAsync(rp =>
+                rp.ResourceType == request.ResourceType &&
+                rp.ResourceName == request.ResourceName &&
+                rp.UserId == request.UserId &&
+                rp.UserGroupId == request.UserGroupId);
+
+        if (existing != null)
+        {
+            return BadRequest(ApiResponse.Fail<ResourcePermissionDto>("Permission already exists for this resource and user/group"));
+        }
+
+        var permission = new ResourcePermission
+        {
+            ResourceType = request.ResourceType,
+            ResourceName = request.ResourceName,
+            UserId = request.UserId,
+            UserGroupId = request.UserGroupId,
+            Permissions = request.Permissions,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.ResourcePermissions.Add(permission);
+        await _context.SaveChangesAsync();
+
+        // Load navigation properties for response
+        await _context.Entry(permission).Reference(p => p.User).LoadAsync();
+        await _context.Entry(permission).Reference(p => p.UserGroup).LoadAsync();
+
+        var target = permission.UserId.HasValue
+            ? $"user {permission.User?.Username}"
+            : $"group {permission.UserGroup?.Name}";
+
+        await _auditService.LogActionAsync(
+            GetUserId(),
+            $"Created permission for {permission.ResourceType} '{permission.ResourceName}' to {target}",
+            GetIpAddress());
+
+        var dto = new ResourcePermissionDto
+        {
+            Id = permission.Id,
+            ResourceType = permission.ResourceType,
+            ResourceName = permission.ResourceName,
+            UserId = permission.UserId,
+            Username = permission.User?.Username,
+            UserGroupId = permission.UserGroupId,
+            UserGroupName = permission.UserGroup?.Name,
+            Permissions = permission.Permissions,
+            CreatedAt = permission.CreatedAt,
+            UpdatedAt = permission.UpdatedAt
+        };
+
+        return CreatedAtAction(nameof(GetPermission), new { id = permission.Id }, ApiResponse.Ok(dto));
+    }
+
+    /// <summary>
+    /// Update an existing permission
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<ResourcePermissionDto>>> UpdatePermission(int id, [FromBody] UpdatePermissionRequest request)
+    {
+        var permission = await _context.ResourcePermissions
+            .Include(rp => rp.User)
+            .Include(rp => rp.UserGroup)
+            .FirstOrDefaultAsync(rp => rp.Id == id);
+
+        if (permission == null)
+        {
+            return NotFound(ApiResponse.Fail<ResourcePermissionDto>("Permission not found"));
+        }
+
+        permission.Permissions = request.Permissions;
+        permission.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        var target = permission.UserId.HasValue
+            ? $"user {permission.User?.Username}"
+            : $"group {permission.UserGroup?.Name}";
+
+        await _auditService.LogActionAsync(
+            GetUserId(),
+            $"Updated permission for {permission.ResourceType} '{permission.ResourceName}' to {target}",
+            GetIpAddress());
+
+        var dto = new ResourcePermissionDto
+        {
+            Id = permission.Id,
+            ResourceType = permission.ResourceType,
+            ResourceName = permission.ResourceName,
+            UserId = permission.UserId,
+            Username = permission.User?.Username,
+            UserGroupId = permission.UserGroupId,
+            UserGroupName = permission.UserGroup?.Name,
+            Permissions = permission.Permissions,
+            CreatedAt = permission.CreatedAt,
+            UpdatedAt = permission.UpdatedAt
+        };
+
+        return Ok(ApiResponse.Ok(dto));
+    }
+
+    /// <summary>
+    /// Delete a permission
+    /// </summary>
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<object>>> DeletePermission(int id)
+    {
+        var permission = await _context.ResourcePermissions
+            .Include(rp => rp.User)
+            .Include(rp => rp.UserGroup)
+            .FirstOrDefaultAsync(rp => rp.Id == id);
+
+        if (permission == null)
+        {
+            return NotFound(ApiResponse.Fail<object>("Permission not found"));
+        }
+
+        var target = permission.UserId.HasValue
+            ? $"user {permission.User?.Username}"
+            : $"group {permission.UserGroup?.Name}";
+
+        _context.ResourcePermissions.Remove(permission);
+        await _context.SaveChangesAsync();
+
+        await _auditService.LogActionAsync(
+            GetUserId(),
+            $"Deleted permission for {permission.ResourceType} '{permission.ResourceName}' from {target}",
+            GetIpAddress());
+
+        return Ok(ApiResponse.Ok<object?>(null, "Permission deleted successfully"));
+    }
+
+    /// <summary>
+    /// Create multiple permissions at once
+    /// </summary>
+    [HttpPost("bulk")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<List<ResourcePermissionDto>>>> BulkCreatePermissions([FromBody] BulkCreatePermissionsRequest request)
+    {
+        var createdPermissions = new List<ResourcePermission>();
+
+        foreach (var permRequest in request.Permissions)
+        {
+            // Validate that either UserId or UserGroupId is set, but not both
+            if (permRequest.UserId.HasValue && permRequest.UserGroupId.HasValue)
+            {
+                return BadRequest(ApiResponse.Fail<List<ResourcePermissionDto>>("Cannot assign permission to both user and group"));
+            }
+
+            if (!permRequest.UserId.HasValue && !permRequest.UserGroupId.HasValue)
+            {
+                return BadRequest(ApiResponse.Fail<List<ResourcePermissionDto>>("Must specify either UserId or UserGroupId"));
+            }
+
+            // Check if permission already exists
+            var existing = await _context.ResourcePermissions
+                .FirstOrDefaultAsync(rp =>
+                    rp.ResourceType == permRequest.ResourceType &&
+                    rp.ResourceName == permRequest.ResourceName &&
+                    rp.UserId == permRequest.UserId &&
+                    rp.UserGroupId == permRequest.UserGroupId);
+
+            if (existing == null)
+            {
+                var permission = new ResourcePermission
+                {
+                    ResourceType = permRequest.ResourceType,
+                    ResourceName = permRequest.ResourceName,
+                    UserId = permRequest.UserId,
+                    UserGroupId = permRequest.UserGroupId,
+                    Permissions = permRequest.Permissions,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.ResourcePermissions.Add(permission);
+                createdPermissions.Add(permission);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Load navigation properties
+        foreach (var permission in createdPermissions)
+        {
+            await _context.Entry(permission).Reference(p => p.User).LoadAsync();
+            await _context.Entry(permission).Reference(p => p.UserGroup).LoadAsync();
+        }
+
+        await _auditService.LogActionAsync(
+            GetUserId(),
+            $"Bulk created {createdPermissions.Count} permissions",
+            GetIpAddress());
+
+        var dtos = createdPermissions.Select(p => new ResourcePermissionDto
+        {
+            Id = p.Id,
+            ResourceType = p.ResourceType,
+            ResourceName = p.ResourceName,
+            UserId = p.UserId,
+            Username = p.User?.Username,
+            UserGroupId = p.UserGroupId,
+            UserGroupName = p.UserGroup?.Name,
+            Permissions = p.Permissions,
+            CreatedAt = p.CreatedAt,
+            UpdatedAt = p.UpdatedAt
+        }).ToList();
+
+        return Ok(ApiResponse.Ok(dtos));
+    }
+
+    /// <summary>
+    /// Check if current user has a specific permission for a resource
+    /// </summary>
+    [HttpPost("check")]
+    public async Task<ActionResult<ApiResponse<CheckPermissionResponse>>> CheckPermission([FromBody] CheckPermissionRequest request)
+    {
+        var userId = GetUserId();
+        var hasPermission = await _permissionService.HasPermissionAsync(
+            userId,
+            request.ResourceType,
+            request.ResourceName,
+            request.RequiredPermission);
+
+        var userPermissions = await _permissionService.GetUserPermissionsAsync(
+            userId,
+            request.ResourceType,
+            request.ResourceName);
+
+        var response = new CheckPermissionResponse
+        {
+            HasPermission = hasPermission,
+            UserPermissions = userPermissions
+        };
+
+        return Ok(ApiResponse.Ok(response));
+    }
+
+    /// <summary>
+    /// Get all permissions for the current user
+    /// </summary>
+    [HttpGet("me")]
+    public async Task<ActionResult<ApiResponse<UserPermissionsResponse>>> GetMyPermissions()
+    {
+        var userId = GetUserId();
+        var isAdmin = await _permissionService.IsAdminAsync(userId);
+
+        var directPermissions = await _context.ResourcePermissions
+            .Where(rp => rp.UserId == userId)
+            .Select(rp => new ResourcePermissionDto
+            {
+                Id = rp.Id,
+                ResourceType = rp.ResourceType,
+                ResourceName = rp.ResourceName,
+                UserId = rp.UserId,
+                Username = rp.User != null ? rp.User.Username : null,
+                UserGroupId = rp.UserGroupId,
+                UserGroupName = rp.UserGroup != null ? rp.UserGroup.Name : null,
+                Permissions = rp.Permissions,
+                CreatedAt = rp.CreatedAt,
+                UpdatedAt = rp.UpdatedAt
+            })
+            .ToListAsync();
+
+        var groupPermissions = await _context.ResourcePermissions
+            .Where(rp =>
+                rp.UserGroupId != null &&
+                _context.UserGroupMemberships.Any(ugm =>
+                    ugm.UserId == userId &&
+                    ugm.UserGroupId == rp.UserGroupId))
+            .Include(rp => rp.UserGroup)
+            .Select(rp => new ResourcePermissionDto
+            {
+                Id = rp.Id,
+                ResourceType = rp.ResourceType,
+                ResourceName = rp.ResourceName,
+                UserId = rp.UserId,
+                Username = rp.User != null ? rp.User.Username : null,
+                UserGroupId = rp.UserGroupId,
+                UserGroupName = rp.UserGroup != null ? rp.UserGroup.Name : null,
+                Permissions = rp.Permissions,
+                CreatedAt = rp.CreatedAt,
+                UpdatedAt = rp.UpdatedAt
+            })
+            .ToListAsync();
+
+        var response = new UserPermissionsResponse
+        {
+            UserId = userId,
+            IsAdmin = isAdmin,
+            DirectPermissions = directPermissions,
+            GroupPermissions = groupPermissions
+        };
+
+        return Ok(ApiResponse.Ok(response));
+    }
+
+    /// <summary>
+    /// Get all permissions for a specific user (admin only)
+    /// </summary>
+    [HttpGet("user/{userId}")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<UserPermissionsResponse>>> GetUserPermissions(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return NotFound(ApiResponse.Fail<UserPermissionsResponse>("User not found"));
+        }
+
+        var isAdmin = await _permissionService.IsAdminAsync(userId);
+
+        var directPermissions = await _context.ResourcePermissions
+            .Where(rp => rp.UserId == userId)
+            .Include(rp => rp.User)
+            .Select(rp => new ResourcePermissionDto
+            {
+                Id = rp.Id,
+                ResourceType = rp.ResourceType,
+                ResourceName = rp.ResourceName,
+                UserId = rp.UserId,
+                Username = rp.User != null ? rp.User.Username : null,
+                UserGroupId = rp.UserGroupId,
+                UserGroupName = rp.UserGroup != null ? rp.UserGroup.Name : null,
+                Permissions = rp.Permissions,
+                CreatedAt = rp.CreatedAt,
+                UpdatedAt = rp.UpdatedAt
+            })
+            .ToListAsync();
+
+        var groupPermissions = await _context.ResourcePermissions
+            .Where(rp =>
+                rp.UserGroupId != null &&
+                _context.UserGroupMemberships.Any(ugm =>
+                    ugm.UserId == userId &&
+                    ugm.UserGroupId == rp.UserGroupId))
+            .Include(rp => rp.UserGroup)
+            .Select(rp => new ResourcePermissionDto
+            {
+                Id = rp.Id,
+                ResourceType = rp.ResourceType,
+                ResourceName = rp.ResourceName,
+                UserId = rp.UserId,
+                Username = rp.User != null ? rp.User.Username : null,
+                UserGroupId = rp.UserGroupId,
+                UserGroupName = rp.UserGroup != null ? rp.UserGroup.Name : null,
+                Permissions = rp.Permissions,
+                CreatedAt = rp.CreatedAt,
+                UpdatedAt = rp.UpdatedAt
+            })
+            .ToListAsync();
+
+        var response = new UserPermissionsResponse
+        {
+            UserId = userId,
+            IsAdmin = isAdmin,
+            DirectPermissions = directPermissions,
+            GroupPermissions = groupPermissions
+        };
+
+        return Ok(ApiResponse.Ok(response));
+    }
+}

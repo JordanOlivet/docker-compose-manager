@@ -1,5 +1,6 @@
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.Validators;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -110,18 +111,21 @@ public class UsersController : ControllerBase
     {
         try
         {
-            // Validate request
-            if (string.IsNullOrWhiteSpace(request.Username))
-                return BadRequest(ApiResponse.Fail<UserDto>("Username is required"));
+            if (ValidationConfig.ShouldEnforceStrictPasswordRules)
+            {
+                // Validate request
+                if (string.IsNullOrWhiteSpace(request.Username))
+                    return BadRequest(ApiResponse.Fail<UserDto>("Username is required"));
 
-            if (string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest(ApiResponse.Fail<UserDto>("Password is required"));
+                if (string.IsNullOrWhiteSpace(request.Password))
+                    return BadRequest(ApiResponse.Fail<UserDto>("Password is required"));
 
-            if (request.Password.Length < 8)
-                return BadRequest(ApiResponse.Fail<UserDto>("Password must be at least 8 characters"));
+                if (request.Password.Length < 8)
+                    return BadRequest(ApiResponse.Fail<UserDto>("Password must be at least 8 characters"));
 
-            if (string.IsNullOrWhiteSpace(request.Role))
-                return BadRequest(ApiResponse.Fail<UserDto>("Role is required"));
+                if (string.IsNullOrWhiteSpace(request.Role))
+                    return BadRequest(ApiResponse.Fail<UserDto>("Role is required"));
+            }
 
             var user = await _userService.CreateUserAsync(request);
             return CreatedAtAction(
@@ -156,9 +160,12 @@ public class UsersController : ControllerBase
     {
         try
         {
-            // Validate password if provided
-            if (request.NewPassword != null && request.NewPassword.Length < 8)
-                return BadRequest(ApiResponse.Fail<UserDto>("Password must be at least 8 characters"));
+            if (ValidationConfig.ShouldEnforceStrictPasswordRules)
+            {
+                // Validate password if provided
+                if (request.NewPassword != null && request.NewPassword.Length < 8)
+                    return BadRequest(ApiResponse.Fail<UserDto>("Password must be at least 8 characters"));
+            }
 
             var user = await _userService.UpdateUserAsync(id, request);
             return Ok(ApiResponse.Ok(user, "User updated successfully"));

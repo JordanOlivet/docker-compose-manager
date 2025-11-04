@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using docker_compose_manager_back.DTOs;
+using FluentValidation;
 
 namespace docker_compose_manager_back.Middleware;
 
@@ -33,9 +34,22 @@ public class ErrorHandlingMiddleware
         HttpStatusCode statusCode;
         string errorCode;
         string message;
+        Dictionary<string, string[]>? errors = null;
 
         switch (exception)
         {
+            case ValidationException validationException:
+                statusCode = HttpStatusCode.BadRequest;
+                errorCode = "VALIDATION_ERROR";
+                message = "One or more validation errors occurred";
+                errors = validationException.Errors
+                    .GroupBy(e => e.PropertyName)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(e => e.ErrorMessage).ToArray()
+                    );
+                break;
+
             case UnauthorizedAccessException:
                 statusCode = HttpStatusCode.Unauthorized;
                 errorCode = "UNAUTHORIZED";
@@ -71,7 +85,9 @@ public class ErrorHandlingMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
 
-        ApiResponse<object> response = ApiResponse.Fail<object>(message, errorCode);
+        ApiResponse<object> response = errors != null
+            ? ApiResponse.Fail<object>(message, errorCode, errors)
+            : ApiResponse.Fail<object>(message, errorCode);
 
         string jsonResponse = JsonSerializer.Serialize(response, new JsonSerializerOptions
         {

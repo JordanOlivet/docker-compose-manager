@@ -24,6 +24,7 @@ const statusStyles: Record<string, { bg: string; text: string; border: string }>
 
   // Project Status
   stopped: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
+  down: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
   partial: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' },
   unknown: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
 

@@ -90,14 +90,22 @@ public class ComposeService
     public async Task<(int ExitCode, string Output, string Error)> ExecuteComposeCommandAsync(
         string workingDirectory,
         string arguments,
+        string? composeFile = null,
         CancellationToken cancellationToken = default)
     {
         bool isV2 = await IsComposeV2Available();
 
+        // Add -f option if compose file is specified
+        string fileArg = "";
+        if (!string.IsNullOrEmpty(composeFile))
+        {
+            fileArg = $"-f \"{Path.GetFileName(composeFile)}\" ";
+        }
+
         ProcessStartInfo psi = new()
         {
             FileName = isV2 ? "docker" : "docker-compose",
-            Arguments = isV2 ? $"compose {arguments}" : arguments,
+            Arguments = isV2 ? $"compose {fileArg}{arguments}" : $"{fileArg}{arguments}",
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -167,6 +175,13 @@ public class ComposeService
                 return (false, "", "Project directory not found");
             }
 
+            // Find the compose file
+            string? composeFile = GetPrimaryComposeFile(projectPath);
+            if (composeFile == null)
+            {
+                return (false, "", "No compose file found in project directory");
+            }
+
             // Build arguments
             List<string> args = new() { "up" };
             if (detach) args.Add("-d");
@@ -175,7 +190,7 @@ public class ComposeService
 
             string arguments = string.Join(" ", args);
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
 
             bool success = exitCode == 0;
             _logger.LogInformation(
@@ -210,6 +225,13 @@ public class ComposeService
                 return (false, "", "Project directory not found");
             }
 
+            // Find the compose file
+            string? composeFile = GetPrimaryComposeFile(projectPath);
+            if (composeFile == null)
+            {
+                return (false, "", "No compose file found in project directory");
+            }
+
             // Build arguments
             List<string> args = new() { "down" };
             if (removeVolumes) args.Add("--volumes");
@@ -217,7 +239,7 @@ public class ComposeService
 
             string arguments = string.Join(" ", args);
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
 
             bool success = exitCode == 0;
             _logger.LogInformation(
@@ -249,9 +271,17 @@ public class ComposeService
                 return (false, "", "Project directory not found");
             }
 
+            // Find the compose file
+            string? composeFile = GetPrimaryComposeFile(projectPath);
+            if (composeFile == null)
+            {
+                return (false, "", "No compose file found in project directory");
+            }
+
             (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
                 projectPath,
                 $"-p {Path.GetFileName(projectPath)} ps --format json",
+                composeFile,
                 cancellationToken
             );
 
@@ -281,6 +311,13 @@ public class ComposeService
                 return (false, "", "Project directory not found");
             }
 
+            // Find the compose file
+            string? composeFile = GetPrimaryComposeFile(projectPath);
+            if (composeFile == null)
+            {
+                return (false, "", "No compose file found in project directory");
+            }
+
             List<string> args = new() { "logs" };
             if (follow) args.Add("--follow");
             if (tail.HasValue) args.Add($"--tail={tail.Value}");
@@ -288,7 +325,7 @@ public class ComposeService
 
             string arguments = string.Join(" ", args);
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, cancellationToken);
+            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
 
             return (exitCode == 0, output, error);
         }
@@ -544,7 +581,9 @@ public class ComposeService
             "docker-compose.*.yml",
             "docker-compose.*.yaml",
             "compose.yml",
-            "compose.yaml"
+            "compose.yaml",
+            "*.yml",
+            "*.yaml"
         };
 
         foreach (string pattern in patterns)
@@ -554,5 +593,46 @@ public class ComposeService
         }
 
         return files.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Finds the primary compose file in a directory
+    /// Prioritizes standard names, falls back to any .yml/.yaml file
+    /// </summary>
+    public string? GetPrimaryComposeFile(string directory)
+    {
+        // Priority order for compose file names
+        string[] priorityNames = new[]
+        {
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml"
+        };
+
+        // Check for standard names first
+        foreach (string name in priorityNames)
+        {
+            string fullPath = Path.Combine(directory, name);
+            if (File.Exists(fullPath))
+            {
+                return fullPath;
+            }
+        }
+
+        // Fall back to any .yml or .yaml file
+        string[] ymlFiles = Directory.GetFiles(directory, "*.yml");
+        if (ymlFiles.Length > 0)
+        {
+            return ymlFiles[0]; // Return first .yml file found
+        }
+
+        string[] yamlFiles = Directory.GetFiles(directory, "*.yaml");
+        if (yamlFiles.Length > 0)
+        {
+            return yamlFiles[0]; // Return first .yaml file found
+        }
+
+        return null;
     }
 }

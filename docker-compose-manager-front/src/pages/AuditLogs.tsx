@@ -87,19 +87,19 @@ export const AuditLogs = () => {
   const currentPage = auditData?.page || 1;
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-6">
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Audit Logs</h1>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
               View system activity and user actions
             </p>
           </div>
           <button
             onClick={() => refetch()}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -108,21 +108,23 @@ export const AuditLogs = () => {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-gray-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+      <div className="mb-6 p-6 bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+            <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Filters</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="actionFilter" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="actionFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Action
             </label>
             <select
               id="actionFilter"
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">All Actions</option>
               {distinctActions.map((action) => (
@@ -133,14 +135,14 @@ export const AuditLogs = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="resourceTypeFilter" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="resourceTypeFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Resource Type
             </label>
             <select
               id="resourceTypeFilter"
               value={resourceTypeFilter}
               onChange={(e) => setResourceTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">All Types</option>
               {distinctResourceTypes.map((type) => (
@@ -153,13 +155,13 @@ export const AuditLogs = () => {
           <div className="flex items-end gap-2">
             <button
               onClick={applyFilters}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
             >
               Apply
             </button>
             <button
               onClick={clearFilters}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Clear
             </button>
@@ -169,67 +171,69 @@ export const AuditLogs = () => {
 
       {/* Results Count */}
       <div className="mb-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           {auditData?.totalCount || 0} total logs found
         </p>
       </div>
 
       {/* Logs Table */}
       {logs.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <Eye className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No audit logs found</h3>
-          <p className="text-sm text-gray-600">
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
+            <Eye className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No audit logs found</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             No logs match your current filters
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-white/50 dark:bg-gray-800/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Timestamp
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Action
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Resource
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     IP Address
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {log.username || 'System'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                       {log.resourceType && log.resourceId ? (
                         <span>
                           {log.resourceType}: {log.resourceId}
                         </span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-gray-400 dark:text-gray-500">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono">
                       {log.ipAddress}
                     </td>
                   </tr>
@@ -240,23 +244,23 @@ export const AuditLogs = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   Page {currentPage} of {totalPages}
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>

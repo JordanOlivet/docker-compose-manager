@@ -6,7 +6,7 @@ public class ComposeFileDiscoveryService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ComposeFileDiscoveryService> _logger;
-    private readonly TimeSpan _interval = TimeSpan.FromMinutes(5); // Scan every 5 minutes
+    private readonly TimeSpan _interval = TimeSpan.FromMinutes(1); // Scan every  minutes
 
     public ComposeFileDiscoveryService(
         IServiceProvider serviceProvider,
@@ -20,8 +20,13 @@ public class ComposeFileDiscoveryService : BackgroundService
     {
         _logger.LogInformation("Compose File Discovery Service started");
 
+        _logger.LogInformation("Initial discovery scan started ...");
+
         // Run initial scan
         await ScanFilesAsync(stoppingToken);
+
+        _logger.LogInformation("Initial discovery scan done");
+        _logger.LogInformation($"Recurring discovery scan starting. Scanning every {_interval.Minutes} minutes ...");
 
         // Then run periodic scans
         using PeriodicTimer timer = new(_interval);

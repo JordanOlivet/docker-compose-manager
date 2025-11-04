@@ -2,6 +2,7 @@
 export * from './compose';
 export * from './operations';
 export * from './audit';
+export * from './permissions';
 
 // Base types
 export interface User {

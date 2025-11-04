@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Hubs;
 
 namespace docker_compose_manager_back.Services;
 
@@ -8,11 +10,16 @@ public class OperationService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<OperationService> _logger;
+    private readonly IHubContext<OperationsHub> _hubContext;
 
-    public OperationService(AppDbContext context, ILogger<OperationService> logger)
+    public OperationService(
+        AppDbContext context,
+        ILogger<OperationService> logger,
+        IHubContext<OperationsHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     /// <summary>
@@ -103,6 +110,39 @@ public class OperationService
                 status,
                 progress
             );
+
+            // Send SignalR notification
+            try
+            {
+                var notification = new
+                {
+                    operationId = operationId,
+                    status = status,
+                    progress = progress ?? operation.Progress,
+                    errorMessage = errorMessage,
+                    type = operation.Type,
+                    projectName = operation.ProjectName,
+                    projectPath = operation.ProjectPath
+                };
+
+                _logger.LogInformation(
+                    "Sending SignalR notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
+                    operationId, operation.Type, status, operation.ProjectName
+                );
+
+                await _hubContext.Clients.All.SendAsync("OperationUpdate", notification);
+
+                // Also send to specific operation group
+                string groupName = $"operation-{operationId}";
+                await _hubContext.Clients.Group(groupName).SendAsync("OperationUpdate", notification);
+
+                _logger.LogInformation("SignalR notification sent successfully for operation {OperationId}", operationId);
+            }
+            catch (Exception signalREx)
+            {
+                _logger.LogWarning(signalREx, "Failed to send SignalR notification for operation {OperationId}", operationId);
+                // Don't fail the operation if SignalR notification fails
+            }
 
             return true;
         }

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AuthInitializer } from './components/AuthInitializer';
 import { MainLayout } from './components/layout';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Login } from './pages/Login';
@@ -14,6 +15,8 @@ import { ComposeProjects } from './pages/ComposeProjects';
 import { AuditLogs } from './pages/AuditLogs';
 import ChangePassword from './pages/ChangePassword';
 import UserManagement from './pages/UserManagement';
+import UserGroups from './pages/UserGroups';
+import Permissions from './pages/Permissions';
 import Settings from './pages/Settings';
 import LogsViewer from './pages/LogsViewer';
 
@@ -32,31 +35,32 @@ function App() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                duration: 3000,
-                iconTheme: {
-                  primary: '#4ade80',
-                  secondary: '#fff',
-                },
-              },
-              error: {
-                duration: 4000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
-          <Routes>
+            <AuthInitializer>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
+                  },
+                  success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: '#4ade80',
+                      secondary: '#fff',
+                    },
+                  },
+                  error: {
+                    duration: 4000,
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
+                  },
+                }}
+              />
+              <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/change-password" element={<ChangePassword />} />
             <Route
@@ -95,6 +99,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <UserManagement />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user-groups"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <UserGroups />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/permissions"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Permissions />
                   </MainLayout>
                 </ProtectedRoute>
               }
@@ -170,9 +194,10 @@ function App() {
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </QueryClientProvider>
+              </Routes>
+            </AuthInitializer>
+          </BrowserRouter>
+        </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
