@@ -57,7 +57,7 @@ public record UpdateComposeFileRequest(
 public record ComposeProjectDto(
     string Name,
     string Path,
-    string Status, // up, down, degraded
+    string State, // up, down, degraded
     List<ComposeServiceDto> Services,
     List<string> ComposeFiles,
     DateTime? LastUpdated
@@ -67,11 +67,12 @@ public record ComposeProjectDto(
 /// Service within a compose project (detailed view)
 /// </summary>
 public record ComposeServiceDto(
+    string Id,
     string Name,
     string? Image,
-    string Status, // running, exited, restarting, etc.
+    string State, // running, exited, restarting, etc.
+    string Status, // Up xx minutes
     List<string> Ports,
-    int? Replicas,
     string? Health
 );
 

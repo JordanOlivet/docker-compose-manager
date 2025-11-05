@@ -1,6 +1,6 @@
 import { Circle } from 'lucide-react';
 
-interface StatusBadgeProps {
+interface StateBadgeProps {
   status: string;
   size?: 'sm' | 'md' | 'lg';
   showIcon?: boolean;
@@ -39,19 +39,19 @@ const sizeClasses = {
   lg: { container: 'text-base px-3 py-1.5', icon: 'w-4 h-4' },
 };
 
-export const StatusBadge = ({
+export const StateBadge = ({
   status,
   size = 'md',
   showIcon = true,
   className = '',
-}: StatusBadgeProps) => {
-  const normalizedStatus = status.toLowerCase().replace(/\s+/g, '-');
+}: StateBadgeProps) => {
+  const normalizedStatus = status.toString().toLowerCase().replace(/\s+/g, '-');
   const styles = statusStyles[normalizedStatus] || statusStyles.unknown;
   const sizes = sizeClasses[size];
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium rounded-full border ${styles.bg} ${styles.text} ${styles.border} ${sizes.container} ${className}`}
+      className={`inline-flex items-center gap-1.5 font-medium rounded-full ${styles.bg} ${styles.text} ${styles.border} ${sizes.container} ${className}`}
     >
       {showIcon && <Circle className={`${sizes.icon} fill-current`} />}
       <span className="capitalize">{status}</span>

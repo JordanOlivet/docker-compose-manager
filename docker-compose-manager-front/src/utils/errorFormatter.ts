@@ -3,6 +3,8 @@
  * Handles both simple error messages and detailed validation errors
  */
 
+import { AxiosError } from 'axios';
+
 export interface ApiErrorResponse {
   message?: string;
   errorCode?: string;
@@ -15,7 +17,7 @@ export interface ApiErrorResponse {
  * @param fallbackMessage - Default message if no error details are found
  * @returns Formatted error message
  */
-export function formatApiError(error: any, fallbackMessage: string = 'An error occurred'): string {
+export function formatApiError(error: AxiosError<ApiErrorResponse>, fallbackMessage: string = 'An error occurred'): string {
   // Extract error data from Axios response
   const errorData: ApiErrorResponse = error?.response?.data || {};
 
@@ -46,7 +48,7 @@ export function formatApiError(error: any, fallbackMessage: string = 'An error o
  * Alternative formatter that returns an array of error messages
  * Useful for displaying multiple toast notifications
  */
-export function formatApiErrorAsArray(error: any): string[] {
+export function formatApiErrorAsArray(error: AxiosError<ApiErrorResponse>): string[] {
   const errorData: ApiErrorResponse = error?.response?.data || {};
   const messages: string[] = [];
 
@@ -65,7 +67,7 @@ export function formatApiErrorAsArray(error: any): string[] {
 /**
  * Checks if an error response contains validation errors
  */
-export function hasValidationErrors(error: any): boolean {
+export function hasValidationErrors(error: AxiosError<ApiErrorResponse>): boolean {
   const errorData: ApiErrorResponse = error?.response?.data || {};
   return !!(errorData.errors && Object.keys(errorData.errors).length > 0);
 }

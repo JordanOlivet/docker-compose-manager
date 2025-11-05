@@ -1,4 +1,5 @@
 using docker_compose_manager_back.Data;
+using docker_compose_manager_back.src.Utils;
 using System.Diagnostics;
 using System.Text;
 using YamlDotNet.Serialization;
@@ -280,7 +281,7 @@ public class ComposeService
 
             (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
                 projectPath,
-                $"-p {Path.GetFileName(projectPath)} ps --format json",
+                $"-p {Path.GetFileName(projectPath)} ps -a --format json",
                 composeFile,
                 cancellationToken
             );
@@ -413,12 +414,12 @@ public class ComposeService
                     List<DTOs.ComposeServiceDto> services = await GetProjectServicesAsync(projectPath);
 
                     // Determine overall project status
-                    string status = DetermineProjectStatus(services);
+                    EntityState state = StateHelper.DetermineStateFromServices(services);
 
                     projectDtos.Add(new DTOs.ComposeProjectDto(
                         Name: projectName,
                         Path: projectPath,
-                        Status: status,
+                        State: state.ToStateString(),
                         Services: services,
                         ComposeFiles: composeFiles,
                         LastUpdated: DateTime.UtcNow
@@ -451,7 +452,7 @@ public class ComposeService
         {
             bool isV2 = await IsComposeV2Available();
             string command = isV2 ? "docker" : "docker-compose";
-            string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps --format json" : $"-f {GetMainComposeFile(projectPath)} ps";
+            string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps -a --format json" : $"-f {GetMainComposeFile(projectPath)} ps -a";
 
             ProcessStartInfo psi = new()
             {
@@ -481,11 +482,12 @@ public class ComposeService
                         if (parts.Length >= 3)
                         {
                             services.Add(new DTOs.ComposeServiceDto(
+                                Id: parts[0],
                                 Name: parts[0],
                                 Image: parts.Length > 1 ? parts[1] : null,
                                 Status: parts.Length > 2 ? parts[2] : "unknown",
+                                State: parts.Length > 2 ? parts[2] : "unknown",
                                 Ports: new List<string>(),
-                                Replicas: null,
                                 Health: null
                             ));
                         }
@@ -499,25 +501,6 @@ public class ComposeService
         }
 
         return services;
-    }
-
-    /// <summary>
-    /// Determines the overall status of a project based on its services
-    /// </summary>
-    private string DetermineProjectStatus(List<DTOs.ComposeServiceDto> services)
-    {
-        if (services.Count == 0)
-            return "down";
-
-        int runningCount = services.Count(s => s.Status.Contains("running", StringComparison.OrdinalIgnoreCase) ||
-                                               s.Status.Contains("up", StringComparison.OrdinalIgnoreCase));
-
-        if (runningCount == services.Count)
-            return "running";
-        else if (runningCount > 0)
-            return "degraded";
-        else
-            return "stopped";
     }
 
     /// <summary>

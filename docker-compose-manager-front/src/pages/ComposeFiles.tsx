@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, Trash2, Edit, RefreshCw, Folder } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { composeApi } from '../api';
-import { LoadingSpinner, ErrorDisplay, ConfirmDialog, StatusBadge } from '../components/common';
+import { LoadingSpinner, ErrorDisplay, ConfirmDialog, StateBadge } from '../components/common';
 import type { ComposeFile } from '../types';
 
 export const ComposeFiles = () => {
@@ -193,7 +193,7 @@ export const ComposeFiles = () => {
                           {new Date(file.lastModified).toLocaleString()}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <StatusBadge
+                          <StateBadge
                             status={file.isDiscovered ? 'Discovered' : 'Manual'}
                             size="sm"
                             showIcon={false}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import permissionsApi from '../api/permissions';
 import userGroupsApi from '../api/userGroups';
 import usersApi from '../api/users';
@@ -15,6 +16,7 @@ import {
   getResourceTypeLabel,
   type ResourcePermission,
 } from '../types';
+import { type ApiErrorResponse } from '../utils/errorFormatter';
 
 export default function Permissions() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -67,7 +69,7 @@ export default function Permissions() {
       setShowCreateModal(false);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to create permission');
     },
   });
@@ -78,7 +80,7 @@ export default function Permissions() {
       queryClient.invalidateQueries({ queryKey: ['permissions'] });
       toast.success('Permission deleted successfully');
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to delete permission');
     },
   });

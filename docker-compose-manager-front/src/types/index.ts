@@ -1,8 +1,10 @@
 // Re-export all types from individual modules
 export * from './compose';
+export * from './container';
 export * from './operations';
 export * from './audit';
 export * from './permissions';
+export * from './global';
 
 // Base types
 export interface User {
@@ -34,28 +36,4 @@ export interface ApiResponse<T> {
   message?: string;
   errors?: Record<string, string[]>;
   errorCode?: string;
-}
-
-export interface Container {
-  id: string;
-  name: string;
-  image: string;
-  status: string;
-  state: string;
-  created: string;
-  labels?: Record<string, string>;
-}
-
-export interface ContainerDetails extends Container {
-  env?: Record<string, string>;
-  mounts?: Mount[];
-  networks?: string[];
-  ports?: Record<string, string>;
-}
-
-export interface Mount {
-  type: string;
-  source: string;
-  destination: string;
-  readOnly: boolean;
 }

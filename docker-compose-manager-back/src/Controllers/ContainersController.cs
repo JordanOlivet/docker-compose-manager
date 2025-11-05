@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using docker_compose_manager_back.DTOs;
-using docker_compose_manager_back.Services;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace docker_compose_manager_back.Controllers;
@@ -39,7 +39,7 @@ public class ContainersController : ControllerBase
     {
         try
         {
-            var container = await _dockerService.GetContainerDetailsAsync(containerId);
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(containerId);
             return container?.Name;
         }
         catch
@@ -65,12 +65,12 @@ public class ContainersController : ControllerBase
     {
         try
         {
-            var containers = await _dockerService.ListContainersAsync(all);
-            var userId = GetUserId();
+            List<ContainerDto> containers = await _dockerService.ListContainersAsync(all);
+            int userId = GetUserId();
 
             // Apply permission filtering
-            var containerNames = containers.Select(c => c.Name).ToList();
-            var authorizedNames = await _permissionService.FilterAuthorizedResourcesAsync(
+            List<string> containerNames = containers.Select(c => c.Name).ToList();
+            List<string> authorizedNames = await _permissionService.FilterAuthorizedResourcesAsync(
                 userId,
                 ResourceType.Container,
                 containerNames);
@@ -90,17 +90,17 @@ public class ContainersController : ControllerBase
             if (!string.IsNullOrWhiteSpace(name))
             {
                 string nameLower = name.ToLower();
-                containers = containers.Where(c =>
-                    c.Name.ToLower().Contains(nameLower)
-                ).ToList();
+                containers = containers
+                    .Where(c => c.Name.ToLower().Contains(nameLower))
+                    .ToList();
             }
 
             if (!string.IsNullOrWhiteSpace(image))
             {
                 string imageLower = image.ToLower();
-                containers = containers.Where(c =>
-                    c.Image.ToLower().Contains(imageLower)
-                ).ToList();
+                containers = containers
+                    .Where(c => c.Image.ToLower().Contains(imageLower))
+                    .ToList();
             }
 
             return Ok(ApiResponse.Ok(containers));
@@ -108,8 +108,7 @@ public class ContainersController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving containers");
-            return StatusCode(500, ApiResponse.Fail<List<ContainerDto>>(
-                "Failed to retrieve containers", "DOCKER_OPERATION_FAILED"));
+            return StatusCode(500, ApiResponse.Fail<List<ContainerDto>>("Failed to retrieve containers", "DOCKER_OPERATION_FAILED"));
         }
     }
 
@@ -118,7 +117,7 @@ public class ContainersController : ControllerBase
     {
         try
         {
-            var container = await _dockerService.GetContainerDetailsAsync(id);
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
 
             if (container == null)
             {
@@ -127,8 +126,8 @@ public class ContainersController : ControllerBase
             }
 
             // Check View permission
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 container.Name,
@@ -157,16 +156,18 @@ public class ContainersController : ControllerBase
         try
         {
             // Get container name for permission check
-            var containerName = await GetContainerNameByIdAsync(id);
+            string? containerName = await GetContainerNameByIdAsync(id);
             if (containerName == null)
             {
+                containerName = await GetContainerNameByAbreviatedIdAsync(id);
+
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
             // Check Start permission
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 containerName,
@@ -179,7 +180,7 @@ public class ContainersController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
-            var success = await _dockerService.StartContainerAsync(id);
+            bool success = await _dockerService.StartContainerAsync(id);
 
             if (!success)
             {
@@ -197,13 +198,26 @@ public class ContainersController : ControllerBase
         }
     }
 
+    private async Task<string?> GetContainerNameByAbreviatedIdAsync(string containerAbreviatedId)
+    {
+        try
+        {
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(containerAbreviatedId);
+            return container?.Name;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     [HttpPost("{id}/stop")]
     public async Task<ActionResult<ApiResponse<bool>>> StopContainer(string id)
     {
         try
         {
             // Get container name for permission check
-            var containerName = await GetContainerNameByIdAsync(id);
+            string? containerName = await GetContainerNameByIdAsync(id);
             if (containerName == null)
             {
                 return NotFound(ApiResponse.Fail<bool>(
@@ -211,8 +225,8 @@ public class ContainersController : ControllerBase
             }
 
             // Check Stop permission
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 containerName,
@@ -225,7 +239,7 @@ public class ContainersController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
-            var success = await _dockerService.StopContainerAsync(id);
+            bool success = await _dockerService.StopContainerAsync(id);
 
             if (!success)
             {
@@ -249,7 +263,7 @@ public class ContainersController : ControllerBase
         try
         {
             // Get container name for permission check
-            var containerName = await GetContainerNameByIdAsync(id);
+            string? containerName = await GetContainerNameByIdAsync(id);
             if (containerName == null)
             {
                 return NotFound(ApiResponse.Fail<bool>(
@@ -257,8 +271,8 @@ public class ContainersController : ControllerBase
             }
 
             // Check Restart permission
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 containerName,
@@ -271,7 +285,7 @@ public class ContainersController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
-            var success = await _dockerService.RestartContainerAsync(id);
+            bool success = await _dockerService.RestartContainerAsync(id);
 
             if (!success)
             {
@@ -295,7 +309,7 @@ public class ContainersController : ControllerBase
         try
         {
             // Get container name for permission check
-            var containerName = await GetContainerNameByIdAsync(id);
+            string? containerName = await GetContainerNameByIdAsync(id);
             if (containerName == null)
             {
                 return NotFound(ApiResponse.Fail<bool>(
@@ -303,8 +317,8 @@ public class ContainersController : ControllerBase
             }
 
             // Check Delete permission
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 containerName,
@@ -317,7 +331,7 @@ public class ContainersController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
-            var success = await _dockerService.RemoveContainerAsync(id, force);
+            bool success = await _dockerService.RemoveContainerAsync(id, force);
 
             if (!success)
             {
@@ -353,7 +367,7 @@ public class ContainersController : ControllerBase
         try
         {
             // Get container name for permission check
-            var containerName = await GetContainerNameByIdAsync(id);
+            string? containerName = await GetContainerNameByIdAsync(id);
             if (containerName == null)
             {
                 return NotFound(ApiResponse.Fail<List<string>>(
@@ -361,8 +375,8 @@ public class ContainersController : ControllerBase
             }
 
             // Check Logs permission
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 containerName,
@@ -375,7 +389,7 @@ public class ContainersController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
-            var logs = await _dockerService.GetContainerLogsAsync(id, tail, timestamps);
+            List<string> logs = await _dockerService.GetContainerLogsAsync(id, tail, timestamps);
             return Ok(ApiResponse.Ok(logs, $"Retrieved {logs.Count} log lines"));
         }
         catch (Exception ex)
@@ -399,7 +413,7 @@ public class ContainersController : ControllerBase
         try
         {
             // Get container name for permission check
-            var containerName = await GetContainerNameByIdAsync(id);
+            string? containerName = await GetContainerNameByIdAsync(id);
             if (containerName == null)
             {
                 return NotFound(ApiResponse.Fail<ContainerStatsDto>(
@@ -407,8 +421,8 @@ public class ContainersController : ControllerBase
             }
 
             // Check View permission (stats are part of viewing container details)
-            var userId = GetUserId();
-            var hasPermission = await _permissionService.HasPermissionAsync(
+            int userId = GetUserId();
+            bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
                 containerName,
@@ -421,7 +435,7 @@ public class ContainersController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
-            var stats = await _dockerService.GetContainerStatsAsync(id);
+            ContainerStatsDto? stats = await _dockerService.GetContainerStatsAsync(id);
 
             if (stats == null)
             {

@@ -2,10 +2,12 @@ using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.src.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using EntityState = docker_compose_manager_back.src.Utils.EntityState;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -707,7 +709,7 @@ public class ComposeController : ControllerBase
                 (bool success, string output, string _) = await _composeService.ListServicesAsync(projectPath);
 
                 List<ComposeServiceDto> services = new();
-                string status = "unknown";
+                EntityState state = EntityState.Unknown;
 
                 if (success && !string.IsNullOrWhiteSpace(output))
                 {
@@ -725,21 +727,34 @@ public class ComposeController : ControllerBase
                                 System.Text.Json.JsonElement svc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(line);
 
                                 // Extract service information from JSON
+                                string serviceId = svc.TryGetProperty("ID", out System.Text.Json.JsonElement svcId)
+                                    ? svcId.GetString() ?? "unknown"
+                                    : "unknown";
+
                                 string serviceName = svc.TryGetProperty("Service", out System.Text.Json.JsonElement svcName)
                                     ? svcName.GetString() ?? "unknown"
                                     : "unknown";
 
-                                string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement state)
-                                    ? state.GetString() ?? "unknown"
+                                string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement svcState)
+                                    ? svcState.GetString() ?? "unknown"
                                     : "unknown";
 
-                                string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement img)
-                                    ? img.GetString() ?? "unknown"
+                                string serviceStatus = svc.TryGetProperty("Status", out System.Text.Json.JsonElement svcStatus)
+                                    ? svcStatus.GetString() ?? "unknown"
                                     : "unknown";
+
+                                string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement svcImg)
+                                    ? svcImg.GetString() ?? "unknown"
+                                    : "unknown";
+
+                                string? serviceHealth = svc.TryGetProperty("Health", out System.Text.Json.JsonElement svcHealth)
+                                    ? svcHealth.GetString()
+                                    : null;
 
                                 // Parse ports
                                 List<string> ports = new();
-                                if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers) && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                                if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers)
+                                    && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
                                 {
                                     foreach (System.Text.Json.JsonElement publisher in publishers.EnumerateArray())
                                     {
@@ -754,12 +769,13 @@ public class ComposeController : ControllerBase
                                 }
 
                                 services.Add(new ComposeServiceDto(
+                                    Id: serviceId,
                                     Name: serviceName,
                                     Image: serviceImage,
-                                    Status: serviceState,
+                                    State: serviceState.ToEntityState().ToStateString(),
+                                    Status: serviceStatus,
                                     Ports: ports,
-                                    Replicas: null,
-                                    Health: svc.TryGetProperty("Health", out System.Text.Json.JsonElement health) ? health.GetString() : null
+                                    Health: serviceHealth
                                 ));
                             }
                             catch (System.Text.Json.JsonException lineEx)
@@ -771,30 +787,30 @@ public class ComposeController : ControllerBase
                         // Determine overall project status based on service states
                         if (services.Count > 0)
                         {
-                            status = DetermineProjectStatus(services);
+                            state = StateHelper.DetermineStateFromServices(services);
                         }
                         else
                         {
                             // No services found - project is down
-                            status = "down";
+                            state = EntityState.Down;
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Failed to parse docker compose ps output for project: {ProjectName}", projectName);
-                        status = "unknown";
+                        state = EntityState.Unknown;
                     }
                 }
                 else
                 {
                     // Command failed or no output - project is likely down
-                    status = "down";
+                    state = EntityState.Down;
                 }
 
                 projects.Add(new ComposeProjectDto(
                     projectName,
                     projectPath,
-                    status,
+                    state.ToStateString(),
                     services,
                     _composeService.GetComposeFiles(projectPath),
                     DateTime.UtcNow
@@ -815,43 +831,6 @@ public class ComposeController : ControllerBase
             _logger.LogError(ex, "Error listing compose projects");
             return StatusCode(500, ApiResponse.Fail<List<ComposeProjectDto>>("Error listing projects", "SERVER_ERROR"));
         }
-    }
-
-    /// <summary>
-    /// Determines the overall status of a project based on its services
-    /// </summary>
-    private string DetermineProjectStatus(List<ComposeServiceDto> services)
-    {
-        if (services.Count == 0)
-            return "down";
-
-        int runningCount = services.Count(s =>
-            s.Status.Equals("running", StringComparison.OrdinalIgnoreCase));
-
-        int exitedCount = services.Count(s =>
-            s.Status.Equals("exited", StringComparison.OrdinalIgnoreCase));
-
-        int restartingCount = services.Count(s =>
-            s.Status.Equals("restarting", StringComparison.OrdinalIgnoreCase));
-
-        // All services running - project is fully up
-        if (runningCount == services.Count)
-            return "running";
-
-        // Some services running - project is degraded
-        if (runningCount > 0)
-            return "degraded";
-
-        // No services running but some are restarting
-        if (restartingCount > 0)
-            return "restarting";
-
-        // All services exited or stopped
-        if (exitedCount > 0)
-            return "exited";
-
-        // Default to stopped
-        return "stopped";
     }
 
     /// <summary>
@@ -905,33 +884,31 @@ public class ComposeController : ControllerBase
             _ = Task.Run(async () =>
             {
                 // Create a new scope for the background task to avoid DbContext disposal issues
-                using (var scope = _serviceScopeFactory.CreateScope())
+                using IServiceScope scope = _serviceScopeFactory.CreateScope();
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                (bool success, string output, string error) = await composeService.UpProjectAsync(
+                    projectPath,
+                    request.Build,
+                    request.Detach,
+                    request.ForceRecreate
+                );
+
+                await operationService.AppendLogsAsync(operation.OperationId, output);
+                if (!string.IsNullOrEmpty(error))
                 {
-                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                    (bool success, string output, string error) = await composeService.UpProjectAsync(
-                        projectPath,
-                        request.Build,
-                        request.Detach,
-                        request.ForceRecreate
-                    );
-
-                    await operationService.AppendLogsAsync(operation.OperationId, output);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                    }
-
-                    await operationService.UpdateOperationStatusAsync(
-                        operation.OperationId,
-                        success ? OperationStatus.Completed : OperationStatus.Failed,
-                        100,
-                        success ? null : error
-                    );
+                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
                 }
+
+                await operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    success ? null : error
+                );
             });
 
             await _auditService.LogActionAsync(
@@ -1009,32 +986,30 @@ public class ComposeController : ControllerBase
             _ = Task.Run(async () =>
             {
                 // Create a new scope for the background task to avoid DbContext disposal issues
-                using (var scope = _serviceScopeFactory.CreateScope())
+                using IServiceScope scope = _serviceScopeFactory.CreateScope();
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                (bool success, string output, string error) = await composeService.DownProjectAsync(
+                    projectPath,
+                    request.RemoveVolumes,
+                    request.RemoveImages
+                );
+
+                await operationService.AppendLogsAsync(operation.OperationId, output);
+                if (!string.IsNullOrEmpty(error))
                 {
-                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                    (bool success, string output, string error) = await composeService.DownProjectAsync(
-                        projectPath,
-                        request.RemoveVolumes,
-                        request.RemoveImages
-                    );
-
-                    await operationService.AppendLogsAsync(operation.OperationId, output);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                    }
-
-                    await operationService.UpdateOperationStatusAsync(
-                        operation.OperationId,
-                        success ? OperationStatus.Completed : OperationStatus.Failed,
-                        100,
-                        success ? null : error
-                    );
+                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
                 }
+
+                await operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    success ? null : error
+                );
             });
 
             await _auditService.LogActionAsync(
@@ -1365,10 +1340,10 @@ volumes:
             ComposeProjectDetailsDto projectDetails = new(
                 projectName,
                 projectPath,
-                services.Any(s => s.State == "running"),
+                services.Any(s => s.State == EntityState.Running.ToStateString()),
                 services.Count,
-                services.Count(s => s.State == "running"),
-                services.Count(s => s.State != "running"),
+                services.Count(s => s.State == EntityState.Running.ToStateString()),
+                services.Count(s => s.State != EntityState.Running.ToStateString()),
                 services
             );
 
@@ -1430,47 +1405,45 @@ volumes:
             _ = Task.Run(async () =>
             {
                 // Create a new scope for the background task to avoid DbContext disposal issues
-                using (var scope = _serviceScopeFactory.CreateScope())
+                using IServiceScope scope = _serviceScopeFactory.CreateScope();
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                // Find the compose file
+                string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
+                if (composeFile == null)
                 {
-                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                    // Find the compose file
-                    string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
-                    if (composeFile == null)
-                    {
-                        await operationService.UpdateOperationStatusAsync(
-                            operation.OperationId,
-                            OperationStatus.Failed,
-                            100,
-                            "No compose file found in project directory"
-                        );
-                        return;
-                    }
-
-                    (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
-                        projectPath,
-                        "start",
-                        composeFile
-                    );
-
-                    bool success = exitCode == 0;
-
-                    await operationService.AppendLogsAsync(operation.OperationId, output);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                    }
-
                     await operationService.UpdateOperationStatusAsync(
                         operation.OperationId,
-                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        OperationStatus.Failed,
                         100,
-                        success ? null : error
+                        "No compose file found in project directory"
                     );
+                    return;
                 }
+
+                (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
+                    projectPath,
+                    "start",
+                    composeFile
+                );
+
+                bool success = exitCode == 0;
+
+                await operationService.AppendLogsAsync(operation.OperationId, output);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                }
+
+                await operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    success ? null : error
+                );
             });
 
             await _auditService.LogActionAsync(
@@ -1546,47 +1519,45 @@ volumes:
             _ = Task.Run(async () =>
             {
                 // Create a new scope for the background task to avoid DbContext disposal issues
-                using (var scope = _serviceScopeFactory.CreateScope())
+                using IServiceScope scope = _serviceScopeFactory.CreateScope();
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                // Find the compose file
+                string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
+                if (composeFile == null)
                 {
-                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                    // Find the compose file
-                    string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
-                    if (composeFile == null)
-                    {
-                        await operationService.UpdateOperationStatusAsync(
-                            operation.OperationId,
-                            OperationStatus.Failed,
-                            100,
-                            "No compose file found in project directory"
-                        );
-                        return;
-                    }
-
-                    (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
-                        projectPath,
-                        "stop",
-                        composeFile
-                    );
-
-                    bool success = exitCode == 0;
-
-                    await operationService.AppendLogsAsync(operation.OperationId, output);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                    }
-
                     await operationService.UpdateOperationStatusAsync(
                         operation.OperationId,
-                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        OperationStatus.Failed,
                         100,
-                        success ? null : error
+                        "No compose file found in project directory"
                     );
+                    return;
                 }
+
+                (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
+                    projectPath,
+                    "stop",
+                    composeFile
+                );
+
+                bool success = exitCode == 0;
+
+                await operationService.AppendLogsAsync(operation.OperationId, output);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                }
+
+                await operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    success ? null : error
+                );
             });
 
             await _auditService.LogActionAsync(
@@ -1662,47 +1633,45 @@ volumes:
             _ = Task.Run(async () =>
             {
                 // Create a new scope for the background task to avoid DbContext disposal issues
-                using (var scope = _serviceScopeFactory.CreateScope())
+                using IServiceScope scope = _serviceScopeFactory.CreateScope();
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                // Find the compose file
+                string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
+                if (composeFile == null)
                 {
-                    var operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                    var composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                    await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                    // Find the compose file
-                    string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
-                    if (composeFile == null)
-                    {
-                        await operationService.UpdateOperationStatusAsync(
-                            operation.OperationId,
-                            OperationStatus.Failed,
-                            100,
-                            "No compose file found in project directory"
-                        );
-                        return;
-                    }
-
-                    (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
-                        projectPath,
-                        "restart",
-                        composeFile
-                    );
-
-                    bool success = exitCode == 0;
-
-                    await operationService.AppendLogsAsync(operation.OperationId, output);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                    }
-
                     await operationService.UpdateOperationStatusAsync(
                         operation.OperationId,
-                        success ? OperationStatus.Completed : OperationStatus.Failed,
+                        OperationStatus.Failed,
                         100,
-                        success ? null : error
+                        "No compose file found in project directory"
                     );
+                    return;
                 }
+
+                (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
+                    projectPath,
+                    "restart",
+                    composeFile
+                );
+
+                bool success = exitCode == 0;
+
+                await operationService.AppendLogsAsync(operation.OperationId, output);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                }
+
+                await operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    success ? null : error
+                );
             });
 
             await _auditService.LogActionAsync(

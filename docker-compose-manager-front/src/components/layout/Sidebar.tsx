@@ -33,22 +33,21 @@ export const Sidebar = ({ isOpen }: SidebarProps) => {
 
   const navItems: NavItem[] = user?.role === "admin" ? [
     { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
+    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Compose Projects', category: 'Docker' },
     { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },  
-    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Projects', category: 'Docker' },
-    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Monitoring' },
-    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Monitoring' },
+    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Docker' },
     { to: '/users', icon: <Users className="w-5 h-5" />, label: 'User Management', category: 'Administration' },
     { to: '/user-groups', icon: <UsersRound className="w-5 h-5" />, label: 'User Groups', category: 'Administration' },
     { to: '/permissions', icon: <Shield className="w-5 h-5" />, label: 'Permissions', category: 'Administration' },
+    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Administration' },
     { to: '/compose/files', icon: <FileText className="w-5 h-5" />, label: 'Compose Files', category: 'Administration' },
     { to: '/settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', category: 'Administration' },
   ] : 
   [
     { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
+    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Compose Projects', category: 'Docker' },
     { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },  
-    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Projects', category: 'Docker' },
-    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Monitoring' },
-    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Monitoring' },
+    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Docker' },
   ];
 
   // Group items by category

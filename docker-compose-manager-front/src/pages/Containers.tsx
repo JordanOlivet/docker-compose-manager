@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import { containersApi } from '../api/containers';
-import type { Container } from '../types';
+import { EntityState, type Container } from '../types';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
 import { Play, Square, RotateCw, Trash2, Container as ContainerIcon } from 'lucide-react';
+import { type ApiErrorResponse } from '../utils/errorFormatter';
 
 export default function Containers() {
   const [showAllContainers, setShowAllContainers] = useState(true);
@@ -19,72 +21,72 @@ export default function Containers() {
   });
 
   const startMutation = useMutation({
-    mutationFn: (id: string) => containersApi.start(id),
-    onSuccess: () => {
+    mutationFn: ({ id }: { id: string; name: string }) => containersApi.start(id),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success('Container started successfully');
+      toast.success(`Container "${variables.name}" started successfully`);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to start container');
+    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
+      toast.error(error.response?.data?.message || `Failed to start container "${variables.name}"`);
     },
   });
 
   const stopMutation = useMutation({
-    mutationFn: (id: string) => containersApi.stop(id),
-    onSuccess: () => {
+    mutationFn: ({ id }: { id: string; name: string }) => containersApi.stop(id),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success('Container stopped successfully');
+      toast.success(`Container "${variables.name}" stopped successfully`);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to stop container');
+    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
+      toast.error(error.response?.data?.message || `Failed to stop container "${variables.name}"`);
     },
   });
 
   const restartMutation = useMutation({
-    mutationFn: (id: string) => containersApi.restart(id),
-    onSuccess: () => {
+    mutationFn: ({ id }: { id: string; name: string }) => containersApi.restart(id),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success('Container restarted successfully');
+      toast.success(`Container "${variables.name}" restarted successfully`);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to restart container');
+    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
+      toast.error(error.response?.data?.message || `Failed to restart container "${variables.name}"`);
     },
   });
 
   const removeMutation = useMutation({
-    mutationFn: ({ id, force }: { id: string; force: boolean }) => containersApi.remove(id, force),
-    onSuccess: () => {
+    mutationFn: ({ id, force }: { id: string; name: string; force: boolean }) => containersApi.remove(id, force),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success('Container removed successfully');
+      toast.success(`Container "${variables.name}" removed successfully`);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to remove container');
+    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
+      toast.error(error.response?.data?.message || `Failed to remove container "${variables.name}"`);
     },
   });
 
-  const getStateColor = (state: string) => {
-    switch (state.toLowerCase()) {
-      case 'running':
+  const getStateColor = (state: EntityState) => {
+    switch (state) {
+      case EntityState.Running:
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'exited':
+      case EntityState.Exited:
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'paused':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'created':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      // case EntityState.Paused:
+      //   return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      // case EntityState.Created:
+      //   return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
   const handleRemove = (container: Container) => {
-    const isRunning = container.state.toLowerCase() === 'running';
+    const isRunning = container.state == EntityState.Running;
     const message = isRunning
       ? `Container ${container.name} is running. Force remove it?`
       : `Remove container ${container.name}?`;
 
     if (confirm(message)) {
-      removeMutation.mutate({ id: container.id, force: isRunning });
+      removeMutation.mutate({ id: container.id, name: container.name, force: isRunning });
     }
   };
 
@@ -171,29 +173,29 @@ export default function Containers() {
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-3">
-                        {container.state.toLowerCase() === 'running' ? 
+                        {container.state == EntityState.Running ?
                         (
                           <>
                             <button
-                              onClick={() => stopMutation.mutate(container.id)}
+                              onClick={() => stopMutation.mutate({ id: container.id, name: container.name })}
                               className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
                               title="Stop"
                             >
                               <Square className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => restartMutation.mutate(container.id)}
+                              onClick={() => restartMutation.mutate({ id: container.id, name: container.name })}
                               className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                               title="Restart"
                             >
                               <RotateCw className="w-4 h-4" />
                             </button>
                           </>
-                        ) 
-                        : 
+                        )
+                        :
                         (
                           <button
-                            onClick={() => startMutation.mutate(container.id)}
+                            onClick={() => startMutation.mutate({ id: container.id, name: container.name })}
                             className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
                             title="Start"
                           >

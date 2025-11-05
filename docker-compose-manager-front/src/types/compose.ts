@@ -1,3 +1,5 @@
+import type { EntityState } from "./global";
+
 // Compose File Types
 export interface ComposeFile {
   id: number;
@@ -33,33 +35,24 @@ export interface UpdateComposeFileRequest {
 // Compose Project Types
 export interface ComposeProject {
   name: string;
-  configFiles: string[];
+  path?: string;
+  state: EntityState;
   services: ComposeService[];
-  status: ProjectStatus;
-  workingDirectory?: string;
+  composeFiles: string[];
+  lastUpdated: Date;
 }
 
 export interface ComposeService {
+  id: string;
   name: string;
   image?: string;
-  build?: string;
-  ports?: string[];
-  environment?: Record<string, string>;
-  volumes?: string[];
-  dependsOn?: string[];
-  command?: string;
+  state: EntityState;
   status?: string;
+  ports?: string[];  
+  health?: string;
 }
 
-export const ProjectStatus = {
-  Unknown: 'unknown',
-  Running: 'running',
-  Stopped: 'stopped',
-  Partial: 'partial',
-  Down: 'down',
-} as const;
 
-export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
 
 // Compose Operation Request Types
 export interface ComposeUpRequest {
