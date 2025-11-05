@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import userGroupsApi from '../api/userGroups';
 import usersApi from '../api/users';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
 import type { UserGroup, User } from '../types';
+import { type ApiErrorResponse } from '../utils/errorFormatter';
 
 export default function UserGroups() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -44,7 +46,7 @@ export default function UserGroups() {
       setShowCreateModal(false);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to create group');
     },
   });
@@ -58,7 +60,7 @@ export default function UserGroups() {
       setShowEditModal(false);
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to update group');
     },
   });
@@ -69,7 +71,7 @@ export default function UserGroups() {
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
       toast.success('Group deleted successfully');
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to delete group');
     },
   });
@@ -82,7 +84,7 @@ export default function UserGroups() {
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
       toast.success('Member added successfully');
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to add member');
     },
   });
@@ -95,7 +97,7 @@ export default function UserGroups() {
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
       toast.success('Member removed successfully');
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to remove member');
     },
   });

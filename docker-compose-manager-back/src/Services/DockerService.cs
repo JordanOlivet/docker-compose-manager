@@ -1,6 +1,7 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using docker_compose_manager_back.DTOs;
+using docker_compose_manager_back.src.Utils;
 
 namespace docker_compose_manager_back.Services;
 
@@ -41,7 +42,7 @@ public class DockerService
     {
         try
         {
-            var containers = await _dockerClient.Containers.ListContainersAsync(
+            IList<ContainerListResponse> containers = await _dockerClient.Containers.ListContainersAsync(
                 new ContainersListParameters { All = showAll });
 
             return containers.Select(c => new ContainerDto(
@@ -49,7 +50,7 @@ public class DockerService
                 c.Names.FirstOrDefault() ?? "unknown",
                 c.Image,
                 c.Status,
-                c.State,
+                c.State.ToEntityState().ToStateString(),
                 c.Created,
                 c.Labels != null ? new Dictionary<string, string>(c.Labels) : null
             )).ToList();
@@ -65,25 +66,25 @@ public class DockerService
     {
         try
         {
-            var container = await _dockerClient.Containers.InspectContainerAsync(containerId);
+            ContainerInspectResponse container = await _dockerClient.Containers.InspectContainerAsync(containerId);
 
-            var mounts = container.Mounts?.Select(m => new MountDto(
+            List<MountDto>? mounts = container.Mounts?.Select(m => new MountDto(
                 m.Type,
                 m.Source,
                 m.Destination,
                 !m.RW
             )).ToList();
 
-            var networks = container.NetworkSettings?.Networks?.Keys.ToList();
+            List<string>? networks = container.NetworkSettings?.Networks?.Keys.ToList();
 
-            var ports = container.NetworkSettings?.Ports?
+            Dictionary<string, string>? ports = container.NetworkSettings?.Ports?
                 .Where(p => p.Value != null)
                 .ToDictionary(
                     p => p.Key,
                     p => string.Join(", ", p.Value.Select(b => $"{b.HostIP}:{b.HostPort}"))
                 );
 
-            var envDict = container.Config?.Env?
+            Dictionary<string, string>? envDict = container.Config?.Env?
                 .Select(e => e.Split('=', 2))
                 .Where(parts => parts.Length == 2)
                 .ToDictionary(parts => parts[0], parts => parts[1]);
@@ -169,11 +170,12 @@ public class DockerService
         }
     }
 
+    [Obsolete]
     public async Task<List<string>> GetContainerLogsAsync(string containerId, int tail = 100, bool timestamps = false)
     {
         try
         {
-            var parameters = new ContainerLogsParameters
+            ContainerLogsParameters parameters = new()
             {
                 ShowStdout = true,
                 ShowStderr = true,
@@ -181,14 +183,14 @@ public class DockerService
                 Timestamps = timestamps
             };
 
-            var logs = await _dockerClient.Containers.GetContainerLogsAsync(
+            Stream logs = await _dockerClient.Containers.GetContainerLogsAsync(
                 containerId,
                 parameters,
                 CancellationToken.None
             );
 
-            var logLines = new List<string>();
-            using (var reader = new StreamReader(logs))
+            List<string> logLines = new();
+            using (StreamReader reader = new(logs))
             {
                 string? line;
                 while ((line = await reader.ReadLineAsync()) != null)
@@ -219,12 +221,12 @@ public class DockerService
     {
         try
         {
-            var statsParameters = new ContainerStatsParameters
+            ContainerStatsParameters statsParameters = new()
             {
                 Stream = false // Get one-time stats, not streaming
             };
 
-            var statsProgress = new Progress<ContainerStatsResponse>();
+            Progress<ContainerStatsResponse> statsProgress = new();
             ContainerStatsResponse? lastStats = null;
 
             statsProgress.ProgressChanged += (sender, stats) =>
@@ -246,27 +248,27 @@ public class DockerService
             }
 
             // Calculate CPU percentage
-            var cpuDelta = lastStats.CPUStats.CPUUsage.TotalUsage - lastStats.PreCPUStats.CPUUsage.TotalUsage;
-            var systemDelta = lastStats.CPUStats.SystemUsage - lastStats.PreCPUStats.SystemUsage;
-            var cpuPercent = 0.0;
+            ulong cpuDelta = lastStats.CPUStats.CPUUsage.TotalUsage - lastStats.PreCPUStats.CPUUsage.TotalUsage;
+            ulong systemDelta = lastStats.CPUStats.SystemUsage - lastStats.PreCPUStats.SystemUsage;
+            double cpuPercent = 0.0;
             if (systemDelta > 0 && cpuDelta > 0)
             {
-                var cpuCount = lastStats.CPUStats.CPUUsage.PercpuUsage?.Count() ?? 1;
-                cpuPercent = ((double)cpuDelta / (double)systemDelta) * cpuCount * 100.0;
+                int cpuCount = lastStats.CPUStats.CPUUsage.PercpuUsage?.Count() ?? 1;
+                cpuPercent = (cpuDelta / (double)systemDelta) * cpuCount * 100.0;
             }
 
             // Calculate memory usage
-            var memoryUsage = lastStats.MemoryStats.Usage;
-            var memoryLimit = lastStats.MemoryStats.Limit;
-            var memoryPercent = memoryLimit > 0 ? ((double)memoryUsage / (double)memoryLimit) * 100.0 : 0;
+            ulong memoryUsage = lastStats.MemoryStats.Usage;
+            ulong memoryLimit = lastStats.MemoryStats.Limit;
+            double memoryPercent = memoryLimit > 0 ? (memoryUsage / (double)memoryLimit) * 100.0 : 0;
 
             // Calculate network I/O
-            var networkRx = lastStats.Networks?.Values.Sum(n => (long)n.RxBytes) ?? 0;
-            var networkTx = lastStats.Networks?.Values.Sum(n => (long)n.TxBytes) ?? 0;
+            long networkRx = lastStats.Networks?.Values.Sum(n => (long)n.RxBytes) ?? 0;
+            long networkTx = lastStats.Networks?.Values.Sum(n => (long)n.TxBytes) ?? 0;
 
             // Calculate block I/O - simplified (BlockIO property might vary by Docker.DotNet version)
-            var blockRead = 0L;
-            var blockWrite = 0L;
+            long blockRead = 0L;
+            long blockWrite = 0L;
 
             return new ContainerStatsDto(
                 cpuPercent,

@@ -1,9 +1,11 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.src.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using EntityState = docker_compose_manager_back.src.Utils.EntityState;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -42,27 +44,27 @@ public class DashboardController : ControllerBase
         try
         {
             // Get container stats
-            var containers = await _dockerService.ListContainersAsync(showAll: true);
-            var runningContainers = containers.Count(c => c.State.Equals("running", StringComparison.OrdinalIgnoreCase));
-            var stoppedContainers = containers.Count(c => !c.State.Equals("running", StringComparison.OrdinalIgnoreCase));
+            List<ContainerDto> containers = await _dockerService.ListContainersAsync(showAll: true);
+            int runningContainers = containers.Count(c => c.State == EntityState.Running.ToStateString());
+            int stoppedContainers = containers.Count(c => c.State != EntityState.Running.ToStateString());
 
             // Get compose project stats
-            var projects = await _composeService.ListProjectsAsync();
-            var activeProjects = projects.Count(p => p.Status.Equals("running", StringComparison.OrdinalIgnoreCase));
+            List<ComposeProjectDto> projects = await _composeService.ListProjectsAsync();
+            int activeProjects = projects.Count(p => p.State == EntityState.Running.ToStateString());
 
             // Get compose files count
-            var composeFilesCount = await _context.ComposeFiles.CountAsync();
+            int composeFilesCount = await _context.ComposeFiles.CountAsync();
 
             // Get users count
-            var usersCount = await _context.Users.CountAsync();
-            var activeUsersCount = await _context.Users.CountAsync(u => u.IsEnabled);
+            int usersCount = await _context.Users.CountAsync();
+            int activeUsersCount = await _context.Users.CountAsync(u => u.IsEnabled);
 
             // Get recent activity count (last 24 hours)
-            var oneDayAgo = DateTime.UtcNow.AddDays(-1);
-            var recentActivityCount = await _context.AuditLogs
+            DateTime oneDayAgo = DateTime.UtcNow.AddDays(-1);
+            int recentActivityCount = await _context.AuditLogs
                 .CountAsync(a => a.Timestamp >= oneDayAgo);
 
-            var stats = new DashboardStatsDto(
+            DashboardStatsDto stats = new(
                 TotalContainers: containers.Count,
                 RunningContainers: runningContainers,
                 StoppedContainers: stoppedContainers,
@@ -92,13 +94,13 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            var auditLogs = await _context.AuditLogs
+            List<Models.AuditLog> auditLogs = await _context.AuditLogs
                 .Include(a => a.User)
                 .OrderByDescending(a => a.Timestamp)
                 .Take(limit)
                 .ToListAsync();
 
-            var activities = auditLogs.Select(a => new ActivityDto(
+            List<ActivityDto> activities = auditLogs.Select(a => new ActivityDto(
                 a.Id,
                 a.UserId,
                 a.User?.Username ?? "System",
@@ -128,7 +130,7 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            var health = new HealthStatusDto();
+            HealthStatusDto health = new();
 
             // Check database
             try
@@ -153,9 +155,9 @@ public class DashboardController : ControllerBase
             }
 
             // Check compose paths
-            var paths = await _context.ComposePaths.Where(p => p.IsEnabled).ToListAsync();
-            var accessiblePaths = 0;
-            foreach (var path in paths)
+            List<Models.ComposePath> paths = await _context.ComposePaths.Where(p => p.IsEnabled).ToListAsync();
+            int accessiblePaths = 0;
+            foreach (Models.ComposePath? path in paths)
             {
                 if (Directory.Exists(path.Path))
                 {

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import usersApi, { type User } from '../api/users';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
-import { formatApiError } from '../utils/errorFormatter';
+import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
 
 export default function UserManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,7 +31,7 @@ export default function UserManagement() {
       setPassword('');
       setRole('user');
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(formatApiError(error, 'Failed to create user'));
     },
   });
@@ -41,7 +42,7 @@ export default function UserManagement() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('User deleted successfully');
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to delete user');
     },
   });

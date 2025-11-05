@@ -135,12 +135,12 @@ export function FolderPicker({ onSelect, onCancel, initialPath }: FolderPickerPr
                       : 'border-transparent'
                   }`}
                 >
-                  <svg className={`w-4 h-4 flex-shrink-0 ${selectedPath === dir.path ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <svg className={`w-4 h-4 shrink-0 ${selectedPath === dir.path ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                   </svg>
                   <span className="truncate flex-1">{dir.name}</span>
                   {!dir.isAccessible && (
-                    <svg className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                     </svg>
                   )}

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import configApi, { type ComposePath } from '../api/config';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { FolderPicker } from '../components/common/FolderPicker';
+import { type ApiErrorResponse } from '../utils/errorFormatter';
 
 export default function Settings() {
   const [showAddPath, setShowAddPath] = useState(false);
@@ -28,7 +30,7 @@ export default function Settings() {
       setNewPath('');
       setIsReadOnly(false);
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to add path');
     },
   });
