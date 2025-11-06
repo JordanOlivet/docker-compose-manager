@@ -203,7 +203,7 @@ public class AppDbContext : DbContext
             {
                 Id = 1,
                 Username = "admin",
-                PasswordHash = "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqK9q5K5uO",
+                PasswordHash = "$2a$12$KWzphWJ1oNVd2iDLsJPQIu/j3xeEjYHMeF8meG1EU2x84DzPzL51u",
                 RoleId = 1, // admin role
                 IsEnabled = true,
                 MustChangePassword = true,

@@ -306,6 +306,17 @@ export const ComposeProjects = () => {
     }
   };
 
+  const handleRemoveComposeProject = (project: ComposeProject) => {
+    const isRunning = project.state == EntityState.Running;
+    const message = isRunning
+      ? `Compose project ${project.name} is running. Force remove it?`
+      : `Remove compose project ${project.name}?`;
+
+    if (confirm(message)) {
+      downComposeMutation.mutate(project.name);
+    }
+  };
+
   const handleRemove = (service: ComposeService) => {
     const isRunning = service.state == EntityState.Running;
     const message = isRunning
@@ -407,7 +418,10 @@ export const ComposeProjects = () => {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {project.name}
                     </h3>
-                    <StateBadge className={`${getStateColor(project.state)}`} status={project.state} />
+                    <StateBadge
+                      className={`${getStateColor(project.state)}`}
+                      status={project.state}
+                    />
                   </div>
                   <div className="flex gap-2">
                     {project.state === EntityState.Down ||
@@ -462,16 +476,18 @@ export const ComposeProjects = () => {
                         >
                           <Square className="w-4 h-4" />
                         </button>
-
+                      </>
+                    ) : null}
+                    {project.state !== EntityState.Down
+                    ? (
+                      <>
                         <button
-                          onClick={() =>
-                            downComposeMutation.mutate(project.name)
-                          }
-                          className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                          title="Remove"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      onClick={() => handleRemoveComposeProject(project)}
+                      className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                       </>
                     ) : null}
                     <button
@@ -539,7 +555,11 @@ export const ComposeProjects = () => {
                               </div>
                             </td>
                             <td className="px-8 py-5 whitespace-nowrap">
-                                <StateBadge className={`${getStateColor(service.state)}`} status={service.state} size="sm"/>
+                              <StateBadge
+                                className={`${getStateColor(service.state)}`}
+                                status={service.state}
+                                size="sm"
+                              />
                             </td>
                             <td className="px-8 py-5">
                               <div className="text-sm text-gray-500 dark:text-gray-400">

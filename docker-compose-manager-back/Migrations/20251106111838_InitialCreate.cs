@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace docker_compose_manager_back.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreateWithOperations : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -65,23 +65,19 @@ namespace docker_compose_manager_back.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Users",
+                name: "UserGroups",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    Username = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    PasswordHash = table.Column<string>(type: "TEXT", nullable: false),
-                    Role = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
-                    MustChangePassword = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Users", x => x.Id);
+                    table.PrimaryKey("PK_UserGroups", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -94,7 +90,8 @@ namespace docker_compose_manager_back.Migrations
                     FileName = table.Column<string>(type: "TEXT", nullable: false),
                     FullPath = table.Column<string>(type: "TEXT", nullable: false),
                     LastModified = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastScanned = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    LastScanned = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IsDiscovered = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -105,6 +102,32 @@ namespace docker_compose_manager_back.Migrations
                         principalTable: "ComposePaths",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Username = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    PasswordHash = table.Column<string>(type: "TEXT", nullable: false),
+                    RoleId = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    MustChangePassword = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Users_Roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "Roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -167,6 +190,37 @@ namespace docker_compose_manager_back.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ResourcePermissions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ResourceType = table.Column<int>(type: "INTEGER", nullable: false),
+                    ResourceName = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
+                    UserId = table.Column<int>(type: "INTEGER", nullable: true),
+                    UserGroupId = table.Column<int>(type: "INTEGER", nullable: true),
+                    Permissions = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ResourcePermissions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ResourcePermissions_UserGroups_UserGroupId",
+                        column: x => x.UserGroupId,
+                        principalTable: "UserGroups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ResourcePermissions_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Sessions",
                 columns: table => new
                 {
@@ -191,6 +245,33 @@ namespace docker_compose_manager_back.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "UserGroupMemberships",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UserId = table.Column<int>(type: "INTEGER", nullable: false),
+                    UserGroupId = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserGroupMemberships", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserGroupMemberships_UserGroups_UserGroupId",
+                        column: x => x.UserGroupId,
+                        principalTable: "UserGroups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserGroupMemberships_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.InsertData(
                 table: "ComposePaths",
                 columns: new[] { "Id", "CreatedAt", "IsEnabled", "IsReadOnly", "Path", "UpdatedAt" },
@@ -207,8 +288,8 @@ namespace docker_compose_manager_back.Migrations
 
             migrationBuilder.InsertData(
                 table: "Users",
-                columns: new[] { "Id", "CreatedAt", "IsEnabled", "LastLoginAt", "MustChangePassword", "PasswordHash", "Role", "UpdatedAt", "Username" },
-                values: new object[] { 1, new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), true, null, true, "$2a$12$EaqK3eU12rvE2Pcx9EQpYuuBXguVhP48P8lPq.lcbDCAXTIRY9IdK", "admin", null, "admin" });
+                columns: new[] { "Id", "CreatedAt", "IsEnabled", "LastLoginAt", "MustChangePassword", "PasswordHash", "RoleId", "UpdatedAt", "Username" },
+                values: new object[] { 1, new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), true, null, true, "$2a$12$KWzphWJ1oNVd2iDLsJPQIu/j3xeEjYHMeF8meG1EU2x84DzPzL51u", 1, null, "admin" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AppSettings_Key",
@@ -270,6 +351,21 @@ namespace docker_compose_manager_back.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ResourcePermissions_ResourceType_ResourceName",
+                table: "ResourcePermissions",
+                columns: new[] { "ResourceType", "ResourceName" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ResourcePermissions_UserGroupId",
+                table: "ResourcePermissions",
+                column: "UserGroupId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ResourcePermissions_UserId",
+                table: "ResourcePermissions",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Roles_Name",
                 table: "Roles",
                 column: "Name",
@@ -285,6 +381,28 @@ namespace docker_compose_manager_back.Migrations
                 name: "IX_Sessions_UserId",
                 table: "Sessions",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserGroupMemberships_UserGroupId",
+                table: "UserGroupMemberships",
+                column: "UserGroupId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserGroupMemberships_UserId_UserGroupId",
+                table: "UserGroupMemberships",
+                columns: new[] { "UserId", "UserGroupId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserGroups_Name",
+                table: "UserGroups",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_RoleId",
+                table: "Users",
+                column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_Username",
@@ -309,16 +427,25 @@ namespace docker_compose_manager_back.Migrations
                 name: "Operations");
 
             migrationBuilder.DropTable(
-                name: "Roles");
+                name: "ResourcePermissions");
 
             migrationBuilder.DropTable(
                 name: "Sessions");
 
             migrationBuilder.DropTable(
+                name: "UserGroupMemberships");
+
+            migrationBuilder.DropTable(
                 name: "ComposePaths");
 
             migrationBuilder.DropTable(
+                name: "UserGroups");
+
+            migrationBuilder.DropTable(
                 name: "Users");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
         }
     }
 }

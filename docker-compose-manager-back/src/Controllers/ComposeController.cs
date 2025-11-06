@@ -68,6 +68,9 @@ public class ComposeController : ControllerBase
     {
         try
         {
+            // We sync all files before making any search
+            await _fileService.SyncDatabaseWithDiscoveredFilesAsync();
+
             List<ComposeFile> files = await _context.ComposeFiles
                 .Include(cf => cf.ComposePath)
                 .OrderBy(cf => cf.FullPath)
