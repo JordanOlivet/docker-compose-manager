@@ -97,7 +97,7 @@ export function Login() {
         <div className="mt-6 text-center text-sm text-gray-600">
           <p>Default credentials:</p>
           <p className="font-mono bg-gray-100 p-2 mt-2 rounded">
-            admin / admin
+            admin / adminadmin
           </p>
         </div>
       </div>

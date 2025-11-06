@@ -1,7 +1,23 @@
 import * as signalR from '@microsoft/signalr';
 import type { OperationUpdateEvent } from '../types';
 
-const HUB_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use relative URL in production (nginx proxy), or env variable for development
+// In production (built in Docker), VITE_API_URL should be empty/undefined to use nginx proxy
+const getHubUrl = () => {
+  const viteApiUrl = import.meta.env.VITE_API_URL;
+  // If VITE_API_URL is explicitly set (even if empty string), use it
+  if (viteApiUrl !== undefined && viteApiUrl !== '') {
+    return viteApiUrl;
+  }
+  // In production build, use empty string for relative URLs (nginx proxy)
+  if (import.meta.env.PROD) {
+    return '';
+  }
+  // In development, default to local backend
+  return 'http://localhost:5000';
+};
+
+const HUB_URL = getHubUrl();
 
 class SignalRService {
   private connection: signalR.HubConnection | null = null;
@@ -21,7 +37,7 @@ class SignalRService {
       const token = localStorage.getItem('accessToken');
 
       this.connection = new signalR.HubConnectionBuilder()
-        .withUrl(`${HUB_URL}/hubs/operations`, {
+        .withUrl(HUB_URL ? `${HUB_URL}/hubs/operations` : '/hubs/operations', {
           accessTokenFactory: () => token || '',
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents
@@ -74,7 +90,7 @@ class SignalRService {
       const token = localStorage.getItem('accessToken');
 
       this.logsConnection = new signalR.HubConnectionBuilder()
-        .withUrl(`${HUB_URL}/hubs/logs`, {
+        .withUrl(HUB_URL ? `${HUB_URL}/hubs/logs` : '/hubs/logs', {
           accessTokenFactory: () => token || '',
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents

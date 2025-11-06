@@ -27,7 +27,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
 // Configure JWT Authentication
-string jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
+string jwtSecret = builder.Configuration["Jwt:Secret"] ?? string.Empty;
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException(
+        "JWT Secret is not configured. Please set the JWT_SECRET environment variable or Jwt:Secret in appsettings.json. " +
+        "The secret must be at least 32 characters long for security.");
+}
+if (jwtSecret.Length < 32)
+{
+    throw new InvalidOperationException(
+        $"JWT Secret must be at least 32 characters long. Current length: {jwtSecret.Length}. " +
+        "Please set a secure JWT_SECRET environment variable.");
+}
 string jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "docker-compose-manager";
 string jwtAudience = builder.Configuration["Jwt:Audience"] ?? "docker-compose-manager-client";
 
@@ -172,8 +184,17 @@ app.UseSecurityHeaders();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Health check endpoint with DB and Docker verification
-app.MapGet("/health", async (AppDbContext dbContext, DockerService dockerService) =>
+// Basic health check endpoint (for Docker healthcheck) - just checks if app is running
+app.MapGet("/health", () =>
+{
+    return Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow });
+})
+   .WithName("HealthCheck")
+   .WithTags("Health")
+   .AllowAnonymous();
+
+// Detailed health check endpoint with DB and Docker verification
+app.MapGet("/health/detailed", async (AppDbContext dbContext, DockerService dockerService) =>
 {
     Dictionary<string, object> checks = new();
     DateTime startTime = DateTime.UtcNow;
@@ -236,7 +257,7 @@ app.MapGet("/health", async (AppDbContext dbContext, DockerService dockerService
 
     return isHealthy ? Results.Ok(response) : Results.StatusCode(503);
 })
-   .WithName("HealthCheck")
+   .WithName("HealthCheckDetailed")
    .WithTags("Health")
    .AllowAnonymous();
 

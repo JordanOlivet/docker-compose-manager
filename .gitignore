@@ -24,3 +24,5 @@ docker-compose-manager-front/.vite/
 .DS_Store
 Thumbs.db
 docker-compose-manager-front/.vscode/chrome-debug-profile
+user-password-maker/bin
+user-password-maker/obj

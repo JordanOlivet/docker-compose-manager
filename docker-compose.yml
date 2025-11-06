@@ -4,26 +4,23 @@ services:
       context: ./docker-compose-manager-back
       dockerfile: Dockerfile
     container_name: docker-manager-backend
+    ports:
+      - "5000:5000"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - Database__ConnectionString=Data Source=/app/data/app.db
-      - Jwt__Secret=${JWT_SECRET}
-      - Jwt__Issuer=docker-compose-manager
-      - Jwt__Audience=docker-compose-manager-client
-      - Jwt__ExpirationMinutes=60
-      - Jwt__RefreshExpirationDays=7
+      # JWT Secret (obligatoire - doit être défini dans .env)
+      # ATTENTION: Si JWT_SECRET n'est pas défini dans .env, une valeur par défaut sera utilisée (non sécurisé pour la production)
+      - Jwt__Secret=${JWT_SECRET:-CHANGE-THIS-SECRET-KEY-IN-PRODUCTION-MIN-32-CHARS}
+      # Docker Host (optionnel - auto-détecté si non défini)
       - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock}
+      # CORS Origins (frontend URL)
       - Cors__Origins__0=http://localhost:3000
     volumes:
       # Database persistence
       - backend-data:/app/data
-      # Docker socket access (CRITICAL - grants root access to host)
-      # Linux:
+      # Docker socket access (Linux)
       - /var/run/docker.sock:/var/run/docker.sock
-      # Windows (uncomment and comment line above):
+      # Windows Docker socket (décommenter si sur Windows et commenter la ligne ci-dessus):
       # - //./pipe/docker_engine://./pipe/docker_engine
-      # Compose files to manage (optional)
-      # - ${COMPOSE_FILES_PATH:-./compose-files}:/compose-files:ro
     networks:
       - docker-manager-network
     restart: unless-stopped
@@ -32,12 +29,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 40s
 
   frontend:
     build:
       context: ./docker-compose-manager-front
       dockerfile: Dockerfile
+      # Ne pas passer VITE_API_URL en production pour utiliser le proxy nginx
+      # L'URL relative sera utilisée automatiquement via le proxy configuré dans nginx.conf
     container_name: docker-manager-frontend
     ports:
       - "3000:80"

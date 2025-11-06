@@ -196,14 +196,14 @@ public class AppDbContext : DbContext
             }
         );
 
-        // Seed default admin user (password: admin)
-        // BCrypt hash for "admin" with cost factor 12
+        // Seed default admin user (password: adminadmin)
+        // BCrypt hash for "adminadmin" with cost factor 12
         modelBuilder.Entity<User>().HasData(
             new User
             {
                 Id = 1,
                 Username = "admin",
-                PasswordHash = "$2a$12$EaqK3eU12rvE2Pcx9EQpYuuBXguVhP48P8lPq.lcbDCAXTIRY9IdK",
+                PasswordHash = "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqK9q5K5uO",
                 RoleId = 1, // admin role
                 IsEnabled = true,
                 MustChangePassword = true,
