@@ -95,7 +95,7 @@ public record ComposeProjectDetailsDto(
     int TotalServices,
     int RunningServices,
     int StoppedServices,
-    List<ComposeServiceStatusDto> Services
+    List<ComposeServiceDto> Services
 );
 
 /// <summary>
