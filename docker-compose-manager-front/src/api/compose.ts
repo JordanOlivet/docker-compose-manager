@@ -168,6 +168,19 @@ export const composeApi = {
     return response.data.data;
   },
 
+// Get compose project details
+  getProjectDetails: async (
+    projectName: string
+  ): Promise<ComposeProject> => {
+    const response = await apiClient.get<ApiResponse<ComposeProject>>(
+      `/compose/projects/${encodeURIComponent(projectName)}`
+    );
+    if (!response.data.data) {
+      throw new Error(`Failed to get project ${projectName}`);
+    }
+    return response.data.data;
+  },
+
   // Get compose project logs
   getProjectLogs: async (
     projectName: string,

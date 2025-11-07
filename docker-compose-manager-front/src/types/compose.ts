@@ -52,6 +52,15 @@ export interface ComposeService {
   health?: string;
 }
 
+export interface ComposeProjectDetailsDto{
+    name: string,
+    path: string,
+    isRunning: boolean,
+    totalServices: number,
+    runningServices: number,
+    stoppedServices: number,
+    ComposeServiceStatusDto: ComposeService[]
+}
 
 
 // Compose Operation Request Types

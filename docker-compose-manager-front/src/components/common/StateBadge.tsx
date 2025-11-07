@@ -45,6 +45,18 @@ export const StateBadge = ({
   showIcon = true,
   className = '',
 }: StateBadgeProps) => {
+  // Handle undefined or null status
+  if (!status) {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 font-medium rounded-full ${statusStyles.unknown.bg} ${statusStyles.unknown.text} ${statusStyles.unknown.border} ${sizeClasses[size].container} ${className}`}
+      >
+        {showIcon && <Circle className={`${sizeClasses[size].icon} fill-current`} />}
+        <span className="capitalize">unknown</span>
+      </span>
+    );
+  }
+
   const normalizedStatus = status.toString().toLowerCase().replace(/\s+/g, '-');
   const styles = statusStyles[normalizedStatus] || statusStyles.unknown;
   const sizes = sizeClasses[size];

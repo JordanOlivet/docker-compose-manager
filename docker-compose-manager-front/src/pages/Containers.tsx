@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { containersApi } from '../api/containers';
@@ -8,6 +8,7 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
 import { Play, Square, RotateCw, Trash2, Container as ContainerIcon } from 'lucide-react';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
+import { signalRService } from "../services/signalRService";
 
 export default function Containers() {
   const [showAllContainers, setShowAllContainers] = useState(true);
@@ -17,7 +18,7 @@ export default function Containers() {
   const { data: containers, isLoading, error } = useQuery({
     queryKey: ['containers', showAllContainers],
     queryFn: () => containersApi.list(showAllContainers),
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: false, // SignalR handle refreshes
   });
 
   const startMutation = useMutation({
@@ -89,6 +90,56 @@ export default function Containers() {
       removeMutation.mutate({ id: container.id, name: container.name, force: isRunning });
     }
   };
+
+   // Setup SignalR connection for real-time updates
+    useEffect(() => {
+      const connectAndListen = async () => {
+        try {
+          // console.log("Connecting to SignalR operations hub...");
+          // Connect to the operations hub
+          await signalRService.connect();
+          // console.log("Connected to SignalR operations hub successfully");
+  
+          // Listen for operation updates
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const handleOperationUpdate = (update: any) => {
+            // console.log("Operation update received:", update);
+            // console.log("Update status:", update.status, "Type:", update.type);
+  
+            // Only react to completed or failed compose operations
+            const statusMatch =
+              update.status === "completed" || update.status === "failed";
+            const typeMatch =
+              update.type && update.type.toLowerCase().includes("container");
+  
+            // console.log("Status match:", statusMatch, "Type match:", typeMatch);
+  
+            if (statusMatch && typeMatch) {
+              // console.log("✅ Refreshing compose projects list...");
+              // Immediately refetch projects to show the new state
+              queryClient.invalidateQueries({ queryKey: ["containers"] });
+            } else {
+              // console.log("❌ Not refreshing - conditions not met");
+            }
+            if (update.errorMessage) {
+              toast.error(`An error happend : "${update.errorMessage}"`);
+            }
+          };
+  
+          signalRService.onOperationUpdate(handleOperationUpdate);
+  
+          // Cleanup on unmount
+          return () => {
+            console.log("Cleaning up SignalR connection");
+            signalRService.offOperationUpdate(handleOperationUpdate);
+          };
+        } catch (error) {
+          console.error("Failed to connect to SignalR:", error);
+        }
+      };
+  
+      connectAndListen();
+    }, [queryClient, toast]);
 
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay message="Failed to load containers" />;

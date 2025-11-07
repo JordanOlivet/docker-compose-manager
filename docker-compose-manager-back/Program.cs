@@ -98,15 +98,15 @@ builder.Services.AddCors(options =>
 });
 
 // Register application services
-builder.Services.AddScoped<docker_compose_manager_back.Services.JwtTokenService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.AuthService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.IUserService, docker_compose_manager_back.Services.UserService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.FileService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.ComposeService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.IAuditService, docker_compose_manager_back.Services.AuditService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.OperationService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.IPermissionService, docker_compose_manager_back.Services.PermissionService>();
-builder.Services.AddSingleton<docker_compose_manager_back.Services.DockerService>();
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<ComposeService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<OperationService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddSingleton<DockerService>();
 
 // Register background services
 builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
@@ -265,7 +265,7 @@ app.MapControllers();
 
 // Map SignalR Hubs
 app.MapHub<LogsHub>("/hubs/logs");
-app.MapHub<docker_compose_manager_back.Hubs.OperationsHub>("/hubs/operations");
+app.MapHub<OperationsHub>("/hubs/operations");
 
 // Log when application is ready
 IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();

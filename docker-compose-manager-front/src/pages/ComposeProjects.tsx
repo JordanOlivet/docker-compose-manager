@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Play,
   Square,
@@ -8,9 +9,8 @@ import {
   Zap,
   RotateCw,
 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AxiosError } from "axios";
-import { composeApi, containersApi } from "../api";
+import { useQuery } from "@tanstack/react-query";
+import { composeApi } from "../api";
 import {
   LoadingSpinner,
   ErrorDisplay,
@@ -22,9 +22,9 @@ import {
   type ComposeProject,
   type ComposeService,
 } from "../types";
-import { signalRService } from "../services/signalRService";
-import { useToast } from "../hooks/useToast";
-import { type ApiErrorResponse } from "../utils/errorFormatter";
+import { useSignalROperations } from "../hooks/useSignalROperations";
+import { useComposeMutations } from "../hooks/useComposeMutations";
+import { useContainerMutations } from "../hooks/useContainerMutations";
 
 interface ProjectAction {
   project: ComposeProject | null;
@@ -32,12 +32,25 @@ interface ProjectAction {
 }
 
 export const ComposeProjects = () => {
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<ProjectAction | null>(
     null
   );
-  const toast = useToast();
+
+  // Setup SignalR for automatic updates
+  useSignalROperations({
+    queryKeys: 'composeProjects',
+    operationTypeFilter: 'compose',
+    showErrorToasts: true,
+    showSuccessToasts: true, // Show toast when operation completes
+  });
+
+  // Setup compose and container mutations
+  const { upProject, downProject, restartProject, stopProject, isAnyPending: isComposeActionPending } =
+    useComposeMutations();
+  const { startContainer, stopContainer, restartContainer, removeContainer } =
+    useContainerMutations();
 
   // Fetch compose projects
   const {
@@ -52,191 +65,6 @@ export const ComposeProjects = () => {
     refetchInterval: false,
   });
 
-  // Up compose mutation
-  const upComposeMutation = useMutation({
-    mutationFn: ({
-      projectName,
-      options,
-    }: {
-      projectName: string;
-      options?: { build?: boolean; detach?: boolean; forceRecreate?: boolean };
-    }) => composeApi.upProject(projectName, options || { detach: true }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      const recreateText = variables.options?.forceRecreate
-        ? " (recreated)"
-        : "";
-      toast.success(
-        `Compose project "${variables.projectName}" started successfully${recreateText}`
-      );
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to start compose project "${variables.projectName}"`
-      );
-    },
-  });
-
-  // Down compose mutation
-  const downComposeMutation = useMutation({
-    mutationFn: (projectName: string) =>
-      composeApi.downProject(projectName, {}),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(
-        `Compose project "${variables}" stopped and removed successfully`
-      );
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to down compose project "${variables}"`
-      );
-    },
-  });
-
-  // Restart compose mutation
-  const restartComposeMutation = useMutation({
-    mutationFn: (projectName: string) => composeApi.restartProject(projectName),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(`Compose project "${variables}" restarted successfully`);
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to restart compose project "${variables}"`
-      );
-    },
-  });
-
-  // Stop compose mutation
-  const stopComposeMutation = useMutation({
-    mutationFn: (projectName: string) => composeApi.stopProject(projectName),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(`Compose project "${variables}" stopped successfully`);
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to stop compose project "${variables}"`
-      );
-    },
-  });
-
-  // Start container mutation
-  const startContainerMutation = useMutation({
-    mutationFn: ({ id }: { id: string; name: string }) =>
-      containersApi.start(id),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(`Container "${variables.name}" started successfully`);
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to start container "${variables.name}"`
-      );
-    },
-  });
-
-  // Stop container mutation
-  const stopContainerMutation = useMutation({
-    mutationFn: ({ id }: { id: string; name: string }) =>
-      containersApi.stop(id),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(`Container "${variables.name}" stopped successfully`);
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to stop container "${variables.name}"`
-      );
-    },
-  });
-
-  // Restart container mutation
-  const restartContainerMutation = useMutation({
-    mutationFn: ({ id }: { id: string; name: string }) =>
-      containersApi.restart(id),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(`Container "${variables.name}" restarted successfully`);
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to restart container "${variables.name}"`
-      );
-    },
-  });
-
-  // Remove container mutation
-  const removeContainerMutation = useMutation({
-    mutationFn: ({ id, force }: { id: string; name: string; force: boolean }) =>
-      containersApi.remove(id, force),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-      toast.success(`Container "${variables.name}" removed successfully`);
-    },
-    onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(
-        error.response?.data?.message ||
-          `Failed to remove container "${variables.name}"`
-      );
-    },
-  });
-
-  // Setup SignalR connection for real-time updates
-  useEffect(() => {
-    const connectAndListen = async () => {
-      try {
-        console.log("Connecting to SignalR operations hub...");
-        // Connect to the operations hub
-        await signalRService.connect();
-        console.log("Connected to SignalR operations hub successfully");
-
-        // Listen for operation updates
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const handleOperationUpdate = (update: any) => {
-          console.log("Operation update received:", update);
-          console.log("Update status:", update.status, "Type:", update.type);
-
-          // Only react to completed or failed compose operations
-          const statusMatch =
-            update.status === "completed" || update.status === "failed";
-          const typeMatch =
-            update.type && update.type.toLowerCase().includes("compose");
-
-          console.log("Status match:", statusMatch, "Type match:", typeMatch);
-
-          if (statusMatch && typeMatch) {
-            console.log("✅ Refreshing compose projects list...");
-            // Immediately refetch projects to show the new state
-            queryClient.invalidateQueries({ queryKey: ["composeProjects"] });
-          } else {
-            console.log("❌ Not refreshing - conditions not met");
-          }
-        };
-
-        signalRService.onOperationUpdate(handleOperationUpdate);
-
-        // Cleanup on unmount
-        return () => {
-          console.log("Cleaning up SignalR connection");
-          signalRService.offOperationUpdate(handleOperationUpdate);
-        };
-      } catch (error) {
-        console.error("Failed to connect to SignalR:", error);
-      }
-    };
-
-    connectAndListen();
-  }, [queryClient]);
-
   const confirmAction = () => {
     if (!currentAction?.project) return;
 
@@ -244,22 +72,19 @@ export const ComposeProjects = () => {
 
     switch (currentAction.type) {
       case "up":
-        upComposeMutation.mutate({ projectName, options: { detach: true } });
+        upProject(projectName, { detach: true });
         break;
       case "up-recreate":
-        upComposeMutation.mutate({
-          projectName,
-          options: { detach: true, forceRecreate: true },
-        });
+        upProject(projectName, { detach: true, forceRecreate: true });
         break;
       case "down":
-        downComposeMutation.mutate(projectName);
+        downProject(projectName);
         break;
       case "restart":
-        restartComposeMutation.mutate(projectName);
+        restartProject(projectName);
         break;
       case "stop":
-        stopComposeMutation.mutate(projectName);
+        stopProject(projectName);
         break;
     }
   };
@@ -313,7 +138,7 @@ export const ComposeProjects = () => {
       : `Remove compose project ${project.name}?`;
 
     if (confirm(message)) {
-      downComposeMutation.mutate(project.name);
+      downProject(project.name);
     }
   };
 
@@ -324,19 +149,9 @@ export const ComposeProjects = () => {
       : `Remove container ${service.name}?`;
 
     if (confirm(message)) {
-      removeContainerMutation.mutate({
-        id: service.id,
-        name: service.name,
-        force: isRunning,
-      });
+      removeContainer(service.id, service.name, isRunning);
     }
   };
-
-  const isActionPending =
-    upComposeMutation.isPending ||
-    downComposeMutation.isPending ||
-    restartComposeMutation.isPending ||
-    stopComposeMutation.isPending;
 
   if (isLoading) {
     return (
@@ -359,6 +174,10 @@ export const ComposeProjects = () => {
       />
     );
   }
+
+  const navigateToProject = (projectName: string) => {
+    navigate(`/compose/projects/${encodeURIComponent(projectName)}`);
+  };
 
   return (
     <div className="space-y-8">
@@ -415,7 +234,10 @@ export const ComposeProjects = () => {
               <div className="bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h3
+                      className="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                      onClick={() => navigateToProject(project.name)}
+                    >
                       {project.name}
                     </h3>
                     <StateBadge
@@ -427,14 +249,12 @@ export const ComposeProjects = () => {
                     {project.state === EntityState.Down ||
                     project.state === EntityState.Stopped ||
                     project.state === EntityState.Exited ||
-                    project.state === EntityState.Degraded ? (
+                    project.state === EntityState.Degraded ||
+                    project.state === EntityState.Created  ? (
                       <>
                         <button
                           onClick={() =>
-                            upComposeMutation.mutate({
-                              projectName: project.name,
-                              options: { detach: true },
-                            })
+                            upProject(project.name, { detach: true })
                           }
                           className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                           title="Start"
@@ -443,10 +263,7 @@ export const ComposeProjects = () => {
                         </button>
                         <button
                           onClick={() =>
-                            upComposeMutation.mutate({
-                              projectName: project.name,
-                              options: { detach: true, forceRecreate: true },
-                            })
+                            upProject(project.name, { detach: true, forceRecreate: true })
                           }
                           className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                           title="Start and Force Recreate"
@@ -460,7 +277,7 @@ export const ComposeProjects = () => {
                       <>
                         <button
                           onClick={() =>
-                            restartComposeMutation.mutate(project.name)
+                            restartProject(project.name)
                           }
                           className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
                           title="Restart"
@@ -469,7 +286,7 @@ export const ComposeProjects = () => {
                         </button>
                         <button
                           onClick={() =>
-                            stopComposeMutation.mutate(project.name)
+                            stopProject(project.name)
                           }
                           className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
                           title="Stop"
@@ -572,10 +389,7 @@ export const ComposeProjects = () => {
                                   <>
                                     <button
                                       onClick={() =>
-                                        stopContainerMutation.mutate({
-                                          id: service.id,
-                                          name: service.name,
-                                        })
+                                        stopContainer(service.id, service.name)
                                       }
                                       className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
                                       title="Stop"
@@ -584,10 +398,7 @@ export const ComposeProjects = () => {
                                     </button>
                                     <button
                                       onClick={() =>
-                                        restartContainerMutation.mutate({
-                                          id: service.id,
-                                          name: service.name,
-                                        })
+                                        restartContainer(service.id, service.name)
                                       }
                                       className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
                                       title="Restart"
@@ -598,10 +409,7 @@ export const ComposeProjects = () => {
                                 ) : (
                                   <button
                                     onClick={() =>
-                                      startContainerMutation.mutate({
-                                        id: service.id,
-                                        name: service.name,
-                                      })
+                                      startContainer(service.id, service.name)
                                     }
                                     className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                                     title="Start"
@@ -653,7 +461,7 @@ export const ComposeProjects = () => {
         }
         cancelText="Cancel"
         variant={currentAction?.type === "down" ? "danger" : "warning"}
-        isLoading={isActionPending}
+        isLoading={isComposeActionPending}
       />
     </div>
   );

@@ -19,6 +19,7 @@ import UserGroups from './pages/UserGroups';
 import Permissions from './pages/Permissions';
 import Settings from './pages/Settings';
 import LogsViewer from './pages/LogsViewer';
+import { ComposeDetails } from './pages/ComposeDetails';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +170,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <ComposeProjects />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/compose/projects/:projectName"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ComposeDetails/>
                   </MainLayout>
                 </ProtectedRoute>
               }

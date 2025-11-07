@@ -1298,7 +1298,7 @@ volumes:
     /// Get detailed information about a specific compose project
     /// </summary>
     [HttpGet("projects/{projectName}")]
-    public async Task<ActionResult<ApiResponse<ComposeProjectDetailsDto>>> GetProjectDetails(string projectName)
+    public async Task<ActionResult<ApiResponse<ComposeProjectDto>>> GetProjectDetails(string projectName)
     {
         try
         {
@@ -1308,23 +1308,28 @@ volumes:
 
             if (projectPath == null)
             {
-                return NotFound(ApiResponse.Fail<ComposeProjectDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
+                return NotFound(ApiResponse.Fail<ComposeProjectDto>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
-                return Unauthorized(ApiResponse.Fail<ComposeProjectDetailsDto>("User not authenticated"));
+                return Unauthorized(ApiResponse.Fail<ComposeProjectDto>("User not authenticated"));
             }
 
-            Task<ComposeProjectDto?> project = GetProjectFromPath(userId!.Value, projectPath);
+            ComposeProjectDto? project = await GetProjectFromPath(userId.Value, projectPath);
+
+            if (project == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeProjectDto>("Project not found or access denied", "PROJECT_NOT_FOUND"));
+            }
 
             return Ok(ApiResponse.Ok(project, "Project details retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting project details for: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeProjectDetailsDto>("Error getting project details", "SERVER_ERROR"));
+            return StatusCode(500, ApiResponse.Fail<ComposeProjectDto>("Error getting project details", "SERVER_ERROR"));
         }
     }
 
