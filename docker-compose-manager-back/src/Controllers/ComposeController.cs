@@ -1381,8 +1381,18 @@ volumes:
             (bool success, string content, string error) = await _fileService.ReadFileAsync(composeFile);
             if (!success || content == null)
             {
-                return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
-                    error ?? "Error reading compose file", "READ_ERROR"));
+                // Fallback: if the failure is due to path not being within allowed compose paths,
+                // attempt an external read (project discovered via docker compose ls -a).
+                if (error == "File path is not within any allowed compose path" || error == "No compose paths are configured")
+                {
+                    (success, content, error) = await _fileService.ReadFileExternalAsync(composeFile);
+                }
+
+                if (!success || content == null)
+                {
+                    return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
+                        error ?? "Error reading compose file", "READ_ERROR"));
+                }
             }
 
             // Parse YAML
