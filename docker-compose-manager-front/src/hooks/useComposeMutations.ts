@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { composeApi } from '../api';
 import { useToast } from './useToast';
@@ -19,7 +19,7 @@ export interface ComposeDownOptions {
  * Custom hook that provides all compose project mutations with automatic
  * query invalidation and toast notifications
  *
- * @param queryKeysToInvalidate - Query keys to invalidate after mutations (default: ['composeProjects', 'composeProjectDetails'])
+ * Note: Query invalidation is handled by SignalR for real-time updates
  *
  * @example
  * const { upProject, downProject, restartProject } = useComposeMutations();
@@ -30,10 +30,7 @@ export interface ComposeDownOptions {
  * // Stop a project
  * downProject('my-project');
  */
-export const useComposeMutations = (
-  queryKeysToInvalidate: string[] = ['composeProjects', 'composeProjectDetails']
-) => {
-  const queryClient = useQueryClient();
+export const useComposeMutations = () => {
   const toast = useToast();
 
   // Up compose mutation
@@ -62,6 +59,11 @@ export const useComposeMutations = (
   });
 
   // Down compose mutation
+  interface ComposeDownRequestPayload {
+    removeVolumes?: boolean;
+    removeImages?: "all" | "local" | null;
+  }
+
   const downComposeMutation = useMutation({
     mutationFn: ({
       projectName,
@@ -69,7 +71,22 @@ export const useComposeMutations = (
     }: {
       projectName: string;
       options?: ComposeDownOptions;
-    }) => composeApi.downProject(projectName, options || {}),
+    }) => {
+      // Adapt ComposeDownOptions to the API's ComposeDownRequest format
+      const payload: ComposeDownRequestPayload = {};
+
+      if (options?.removeVolumes !== undefined) {
+        payload.removeVolumes = options.removeVolumes;
+      }
+
+      if (options?.removeImages !== undefined) {
+        // API expects "all", "local", null, or undefined
+        // Here, true means "all", false means null (no image removal)
+        payload.removeImages = options.removeImages ? "all" : null;
+      }
+
+      return composeApi.downProject(projectName, payload);
+    },
     onSuccess: (_, variables) => {
       // Don't invalidate immediately - let SignalR handle it when the operation completes
       toast.success(

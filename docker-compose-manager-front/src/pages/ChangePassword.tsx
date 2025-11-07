@@ -30,8 +30,8 @@ export default function ChangePassword() {
       await authApi.changePassword(currentPassword, newPassword);
       toast.success('Password changed successfully');
       navigate('/dashboard');
-    } catch (error: any) {
-      toast.error(formatApiError(error, 'Failed to change password'));
+    } catch (error: unknown) {
+      toast.error(formatApiError(error as Error, 'Failed to change password'));
     } finally {
       setLoading(false);
     }

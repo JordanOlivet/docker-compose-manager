@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { signalRService } from '@/services/signalRService';
 import { FileText, Play, Pause, Trash2, AlertCircle } from 'lucide-react';
 
@@ -104,87 +104,8 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
     }
   }, [logs, autoScroll]);
 
-  // Handle scroll for auto-scroll behavior and lazy loading
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-
-      // Disable auto-scroll when user scrolls up
-      if (scrollTop < lastScrollTop.current) {
-        setAutoScroll(false);
-      }
-
-      // Re-enable auto-scroll when scrolled to bottom
-      if (scrollTop + clientHeight >= scrollHeight - 50) {
-        setAutoScroll(true);
-      }
-
-      // Load more logs when scrolled near the top (within 100px)
-       if (scrollTop < 100 && !isLoadingMore && hasMoreLogs) {
-       console.log('[SCROLL] Near top, triggering load more...');
-       loadMoreLogs();
-       }
-
-      lastScrollTop.current = scrollTop;
-    };
-
-    scrollContainer.addEventListener('scroll', handleScroll);
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [isLoadingMore, hasMoreLogs]); // Add dependencies
-
-  // Load more historical logs by increasing tail count and re-fetching
-  const loadMoreLogs = async () => {
-    if (isLoadingMore || !hasMoreLogs) return;
-
-    console.log('[LOAD_MORE] Loading more logs...');
-    setIsLoadingMore(true);
-
-    const scrollContainer = scrollContainerRef.current;
-    const previousScrollHeight = scrollContainer?.scrollHeight || 0;
-    const wasStreaming = isStreaming;
-
-    try {
-      // Increase tail count by 100
-      const newTailCount = tailCount + 100;
-      console.log(`[LOAD_MORE] Increasing tail from ${tailCount} to ${newTailCount}`);
-
-      // Stop current streaming if active
-      if (wasStreaming) {
-        await stopStreaming();
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // Update tail count
-      setTailCount(newTailCount);
-
-      // Restart with new tail count (don't clear existing logs)
-      await startStreaming(false);
-
-      // Wait for logs to load
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Restore scroll position
-      if (scrollContainer) {
-        const newScrollHeight = scrollContainer.scrollHeight;
-        const scrollDiff = newScrollHeight - previousScrollHeight;
-        scrollContainer.scrollTop = scrollDiff;
-        console.log(`[LOAD_MORE] Restored scroll: diff=${scrollDiff}`);
-      }
-
-      console.log('[LOAD_MORE] More logs loaded successfully');
-    } catch (err) {
-      console.error('[LOAD_MORE] Failed to load more logs:', err);
-      setError(`Failed to load more logs: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
   // Handle logs received from SignalR
-  const handleReceiveLogs = (logsText: string) => {
+  const handleReceiveLogs = useCallback((logsText: string) => {
     // Clean up the logs - remove \r characters
     const cleanedText = logsText.replace(/\r/g, '');
     const lines = cleanedText.split('\n').filter(line => line.trim() !== '');
@@ -199,20 +120,20 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       console.log(`[RECEIVE] Total logs: ${prevLogs.length} + ${newLogs.length} = ${allLogs.length}, keeping ${finalLogs.length}`);
       return finalLogs;
     });
-  };
+  }, []);
 
-  const handleLogError = (errorMsg: string) => {
+  const handleLogError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     console.error('Log streaming error:', errorMsg);
-  };
+  }, []);
 
-  const handleStreamComplete = () => {
+  const handleStreamComplete = useCallback(() => {
     console.log('Log stream completed');
     setIsStreaming(false);
-  };
+  }, []);
 
   // Start streaming logs
-  const startStreaming = async (clearExisting = false) => {
+  const startStreaming = useCallback(async (clearExisting = false) => {
     // Prevent multiple simultaneous streaming attempts
     if (streamingRef.current) {
       console.log('[STREAMING] Already streaming, skipping...');
@@ -257,10 +178,10 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       setIsStreaming(false);
       streamingRef.current = false;
     }
-  };
+  }, [handleReceiveLogs, handleLogError, handleStreamComplete, projectPath, tailCount]);
 
   // Stop streaming logs
-  const stopStreaming = async () => {
+  const stopStreaming = useCallback(async () => {
     try {
       await signalRService.stopStream();
 
@@ -275,7 +196,55 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       setError(`Failed to stop streaming: ${err instanceof Error ? err.message : String(err)}`);
       streamingRef.current = false; // Reset on error too
     }
-  };
+  }, [handleReceiveLogs, handleLogError, handleStreamComplete]);
+
+  // Load more historical logs by increasing tail count and re-fetching
+  const loadMoreLogs = useCallback(async () => {
+    if (isLoadingMore || !hasMoreLogs) return;
+
+    console.log('[LOAD_MORE] Loading more logs...');
+    setIsLoadingMore(true);
+
+    const scrollContainer = scrollContainerRef.current;
+    const previousScrollHeight = scrollContainer?.scrollHeight || 0;
+    const wasStreaming = isStreaming;
+
+    try {
+      // Increase tail count by 100
+      const newTailCount = tailCount + 100;
+      console.log(`[LOAD_MORE] Increasing tail from ${tailCount} to ${newTailCount}`);
+
+      // Stop current streaming if active
+      if (wasStreaming) {
+        await stopStreaming();
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // Update tail count
+      setTailCount(newTailCount);
+
+      // Restart with new tail count (don't clear existing logs)
+      await startStreaming(false);
+
+      // Wait for logs to load
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Restore scroll position
+      if (scrollContainer) {
+        const newScrollHeight = scrollContainer.scrollHeight;
+        const scrollDiff = newScrollHeight - previousScrollHeight;
+        scrollContainer.scrollTop = scrollDiff;
+        console.log(`[LOAD_MORE] Restored scroll: diff=${scrollDiff}`);
+      }
+
+      console.log('[LOAD_MORE] More logs loaded successfully');
+    } catch (err) {
+      console.error('[LOAD_MORE] Failed to load more logs:', err);
+      setError(`Failed to load more logs: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMoreLogs, tailCount, isStreaming, stopStreaming, startStreaming]);
 
   // Clear logs
   const clearLogs = () => {
@@ -284,6 +253,37 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
     setTailCount(100);
     setHasMoreLogs(true);
   };
+
+// Handle scroll for auto-scroll behavior and lazy loading
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+
+      // Disable auto-scroll when user scrolls up
+      if (scrollTop < lastScrollTop.current) {
+        setAutoScroll(false);
+      }
+
+      // Re-enable auto-scroll when scrolled to bottom
+      if (scrollTop + clientHeight >= scrollHeight - 50) {
+        setAutoScroll(true);
+      }
+
+      // Load more logs when scrolled near the top (within 100px)
+       if (scrollTop < 100 && !isLoadingMore && hasMoreLogs) {
+       console.log('[SCROLL] Near top, triggering load more...');
+       loadMoreLogs();
+       }
+
+      lastScrollTop.current = scrollTop;
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [isLoadingMore, hasMoreLogs, loadMoreLogs]); // Add dependencies
 
   // Auto-start streaming on mount
   useEffect(() => {
@@ -311,7 +311,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       // Stop streaming
       stopStreaming();
     };
-  }, [projectPath]); // Re-init if project path changes
+  }, [projectPath, handleReceiveLogs, handleLogError, handleStreamComplete, startStreaming, stopStreaming]); // Re-init if project path changes
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden flex flex-col h-full">
@@ -350,7 +350,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
             </button>
             {isStreaming ? (
               <button
-                onClick={stopStreaming}
+                onClick={() => void stopStreaming()}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors"
                 title="Pause streaming (logs will be kept)"
               >
@@ -359,7 +359,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
               </button>
             ) : (
               <button
-                onClick={startStreaming}
+                onClick={() => void startStreaming(true)}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                 title="Resume streaming"
               >
@@ -419,7 +419,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
               >
                 {/* Service identifier badge */}
                 <div
-                  className={`flex-shrink-0 px-2 py-0.5 rounded text-white text-[10px] font-semibold flex items-center justify-center min-w-[100px] max-w-[140px] ${getServiceColor(
+                  className={`shrink-0 px-2 py-0.5 rounded text-white text-[10px] font-semibold flex items-center justify-center min-w-[100px] max-w-[140px] ${getServiceColor(
                     log.service
                   )}`}
                 >

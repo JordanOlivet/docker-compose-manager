@@ -32,9 +32,10 @@ export function ProjectStatsCard({ services }: ProjectStatsCardProps) {
         .map(async (service) => {
           try {
             return await containersApi.getStats(service.id);
-          } catch (error: any) {
+          } catch (error: unknown) {
             // Don't log 404 errors - container was probably stopped/removed
-            if (error?.response?.status !== 404) {
+            const axiosError = error as { response?: { status?: number } };
+            if (axiosError?.response?.status !== 404) {
               console.error(`Failed to fetch stats for ${service.name}:`, error);
             }
             return null;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { containersApi } from '../api/containers';
-import { EntityState, type Container } from '../types';
+import { EntityState, type Container, type OperationUpdateEvent } from '../types';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
@@ -101,8 +101,7 @@ export default function Containers() {
           // console.log("Connected to SignalR operations hub successfully");
   
           // Listen for operation updates
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const handleOperationUpdate = (update: any) => {
+          const handleOperationUpdate = (update: OperationUpdateEvent) => {
             // console.log("Operation update received:", update);
             // console.log("Update status:", update.status, "Type:", update.type);
   

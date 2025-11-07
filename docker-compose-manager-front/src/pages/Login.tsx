@@ -34,11 +34,12 @@ export function Login() {
       } else {
         navigate('/');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Clear tokens if login fails
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,10 @@
 import axios, { AxiosError } from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
+
+// Extend InternalAxiosRequestConfig to include _retry property for token refresh
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
 // Use relative URL in production (nginx proxy), or env variable for development
 // In production (built in Docker), VITE_API_URL should be empty/undefined to use nginx proxy
@@ -43,7 +49,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as RetryableRequestConfig;
 
     // Don't attempt token refresh for auth endpoints
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') ||

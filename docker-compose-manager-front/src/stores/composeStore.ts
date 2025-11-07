@@ -85,7 +85,7 @@ export const useComposeStore = create<ComposeState>((set) => ({
   updateProjectStatus: (projectName, status) =>
     set((state) => ({
       projects: state.projects.map((p) =>
-        p.name === projectName ? { ...p, status: status as any } : p
+        p.name === projectName ? { ...p, state: status } : p
       ),
     })),
 

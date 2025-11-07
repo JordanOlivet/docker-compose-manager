@@ -281,7 +281,7 @@ public class ComposeService
 
             (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
                 projectPath,
-                $"-p {Path.GetFileName(projectPath)} ps -a --format json",
+                $"-p {Path.GetFileName(projectPath)} ps -a --format json --no-trunc",
                 composeFile,
                 cancellationToken
             );

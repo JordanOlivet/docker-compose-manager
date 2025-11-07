@@ -175,7 +175,7 @@ export interface NetworkDetails {
   name: string;
   driver?: string;
   external?: boolean;
-  driverOpts?: Record<string, any>;
+  driverOpts?: Record<string, string>;
   labels?: Record<string, string>;
 }
 
@@ -183,6 +183,6 @@ export interface VolumeDetails {
   name: string;
   driver?: string;
   external?: boolean;
-  driverOpts?: Record<string, any>;
+  driverOpts?: Record<string, string>;
   labels?: Record<string, string>;
 }

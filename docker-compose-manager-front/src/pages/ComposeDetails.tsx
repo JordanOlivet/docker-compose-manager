@@ -38,7 +38,7 @@ export const ComposeDetails = () => {
 
   // Setup compose and container mutations
   const { upProject, downProject, restartProject, stopProject } =
-    useComposeMutations(['composeProjectDetails']);
+    useComposeMutations();
   const { startContainer, stopContainer, restartContainer, removeContainer } =
     useContainerMutations(['composeProjectDetails']);
 
