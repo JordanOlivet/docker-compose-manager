@@ -221,6 +221,24 @@ public class DockerService
     {
         try
         {
+            // First, check if container exists and is running
+            ContainerInspectResponse? container = null;
+            try
+            {
+                container = await _dockerClient.Containers.InspectContainerAsync(containerId);
+            }
+            catch (DockerContainerNotFoundException)
+            {
+                // Container doesn't exist - silently return null
+                return null;
+            }
+
+            // If container is not running, don't try to get stats
+            if (container?.State?.Running != true)
+            {
+                return null;
+            }
+
             ContainerStatsParameters statsParameters = new()
             {
                 Stream = false // Get one-time stats, not streaming
@@ -243,7 +261,7 @@ public class DockerService
 
             if (lastStats == null)
             {
-                _logger.LogWarning("No stats received for container {ContainerId}", containerId);
+                // No stats received, but container exists - just return null silently
                 return null;
             }
 

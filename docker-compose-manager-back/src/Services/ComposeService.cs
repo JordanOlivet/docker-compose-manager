@@ -320,6 +320,7 @@ public class ComposeService
             }
 
             List<string> args = new() { "logs" };
+            args.Add("--timestamps"); // Always include timestamps for better log parsing
             if (follow) args.Add("--follow");
             if (tail.HasValue) args.Add($"--tail={tail.Value}");
             if (!string.IsNullOrEmpty(serviceName)) args.Add(serviceName);

@@ -20,6 +20,9 @@ import {
 import { useSignalROperations } from "../hooks/useSignalROperations";
 import { useComposeMutations } from "../hooks/useComposeMutations";
 import { useContainerMutations } from "../hooks/useContainerMutations";
+import { ProjectStatsCard } from "../components/compose/ProjectStatsCard";
+import { ProjectInfoSection } from "../components/compose/ProjectInfoSection";
+import { ComposeLogs } from "../components/compose/ComposeLogs";
 
 export const ComposeDetails = () => {
   const { projectName } = useParams<{ projectName: string }>();
@@ -161,10 +164,10 @@ export const ComposeDetails = () => {
         </div>
       </div>
 
-      {/* Project Details Card */}
+      {/* Row 1: Services List */}
       <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-visible shadow-lg hover:shadow-2xl transition-all duration-300">
         {/* Project Header */}
-        <div className="bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 px-6 py-4 rounded-t-2xl border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -250,112 +253,135 @@ export const ComposeDetails = () => {
           </div>
         </div>
 
-        {/* Services List */}
+        {/* Services Table */}
         {!project.services || project.services.length === 0 ? (
           <div />
         ) : (
-          <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                  <tr>
-                    <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Image
-                    </th>
-                    <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      State
-                    </th>
-                    <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Image
+                  </th>
+                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    State
+                  </th>
+                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
 
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {project.services.map((service: ComposeService) => (
-                    <tr
-                      key={service.id}
-                      className="hover:bg-white dark:hover:bg-gray-800 transition-all"
-                    >
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {service.name}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                          {service.id}
-                        </div>
-                      </td>
-                      <td className="px-8 py-5">
-                        <div className="text-sm text-gray-900 dark:text-gray-300">
-                          {service.image}
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <StateBadge
-                          className={`${getStateColor(service.state)}`}
-                          status={service.state}
-                          size="sm"
-                        />
-                      </td>
-                      <td className="px-8 py-5">
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {service.status}
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-3">
-                          {service.state == EntityState.Running ? (
-                            <>
-                              <button
-                                onClick={() =>
-                                  stopContainer(service.id, service.name)
-                                }
-                                className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-                                title="Stop"
-                              >
-                                <Square className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  restartContainer(service.id, service.name)
-                                }
-                                className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-                                title="Restart"
-                              >
-                                <RotateCw className="w-4 h-4" />
-                              </button>
-                            </>
-                          ) : (
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                {project.services.map((service: ComposeService) => (
+                  <tr
+                    key={service.id}
+                    className="hover:bg-white dark:hover:bg-gray-800 transition-all"
+                  >
+                    <td className="px-8 py-5 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {service.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                        {service.id}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="text-sm text-gray-900 dark:text-gray-300">
+                        {service.image}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 whitespace-nowrap">
+                      <StateBadge
+                        className={`${getStateColor(service.state)}`}
+                        status={service.state}
+                        size="sm"
+                      />
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {service.status}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 whitespace-nowrap text-sm">
+                      <div className="flex items-center gap-3">
+                        {service.state == EntityState.Running ? (
+                          <>
                             <button
                               onClick={() =>
-                                startContainer(service.id, service.name)
+                                stopContainer(service.id, service.name)
                               }
-                              className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                              title="Start"
+                              className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
+                              title="Stop"
                             >
-                              <Play className="w-4 h-4" />
+                              <Square className="w-4 h-4" />
                             </button>
-                          )}
+                            <button
+                              onClick={() =>
+                                restartContainer(service.id, service.name)
+                              }
+                              className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+                              title="Restart"
+                            >
+                              <RotateCw className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            onClick={() => handleRemove(service)}
-                            className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                            title="Remove"
+                            onClick={() =>
+                              startContainer(service.id, service.name)
+                            }
+                            className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+                            title="Start"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Play className="w-4 h-4" />
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                        <button
+                          onClick={() => handleRemove(service)}
+                          className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+                          title="Remove"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Row 2: Compose File Details (left) and Stats (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Compose File Details */}
+        <div>
+          <ProjectInfoSection
+            projectName={project.name}
+            projectPath={project.composeFiles && project.composeFiles.length > 0 ? project.composeFiles[0] : undefined}
+          />
+        </div>
+
+        {/* Right: Stats Charts */}
+        <div>
+          <ProjectStatsCard services={project.services} />
+        </div>
+      </div>
+
+      {/* Row 3: Logs (full width, resizable) */}
+      <div className="w-full">
+        {project.path && (
+          <div className="h-[500px] resize-y overflow-auto min-h-[500px] max-h-[1000px]">
+            <ComposeLogs projectPath={project.path} projectName={project.name} />
           </div>
         )}
       </div>

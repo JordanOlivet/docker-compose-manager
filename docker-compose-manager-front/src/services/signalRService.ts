@@ -180,6 +180,16 @@ class SignalRService {
       throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
     }
 
+    // Wait for connection to be ready if needed (max 5 seconds)
+    const maxWaitTime = 5000;
+    const startTime = Date.now();
+    while (this.logsConnection.state !== signalR.HubConnectionState.Connected) {
+      if (Date.now() - startTime > maxWaitTime) {
+        throw new Error('Timeout waiting for logs connection to be established');
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     await this.logsConnection.invoke('StreamComposeLogs', projectPath, serviceName, tail);
   }
 
@@ -187,6 +197,16 @@ class SignalRService {
   async streamContainerLogs(containerId: string, tail: number = 100): Promise<void> {
     if (!this.logsConnection) {
       throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
+    }
+
+    // Wait for connection to be ready if needed (max 5 seconds)
+    const maxWaitTime = 5000;
+    const startTime = Date.now();
+    while (this.logsConnection.state !== signalR.HubConnectionState.Connected) {
+      if (Date.now() - startTime > maxWaitTime) {
+        throw new Error('Timeout waiting for logs connection to be established');
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     await this.logsConnection.invoke('StreamContainerLogs', containerId, tail);
@@ -198,7 +218,10 @@ class SignalRService {
       return;
     }
 
-    await this.logsConnection.invoke('StopStream');
+    // Only try to stop if connected
+    if (this.logsConnection.state === signalR.HubConnectionState.Connected) {
+      await this.logsConnection.invoke('StopStream');
+    }
   }
 
   // Subscribe to logs events

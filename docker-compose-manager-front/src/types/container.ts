@@ -23,3 +23,14 @@ export interface Mount {
   destination: string;
   readOnly: boolean;
 }
+
+export interface ContainerStats {
+  cpuPercentage: number;
+  memoryUsage: number;
+  memoryLimit: number;
+  memoryPercentage: number;
+  networkRx: number;
+  networkTx: number;
+  blockRead: number;
+  blockWrite: number;
+}

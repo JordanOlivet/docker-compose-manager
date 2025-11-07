@@ -171,7 +171,28 @@ if (app.Environment.IsDevelopment())
 // Add Error Handling Middleware first
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
-app.UseSerilogRequestLogging();
+// Configure Serilog request logging to exclude stats endpoints (to prevent log flooding)
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (httpContext, elapsed, ex) =>
+    {
+        // Don't log stats endpoints to prevent flooding
+        if (httpContext.Request.Path.StartsWithSegments("/api/containers") &&
+            httpContext.Request.Path.Value?.Contains("/stats") == true)
+        {
+            return Serilog.Events.LogEventLevel.Verbose; // Changed to Verbose (won't show unless explicitly configured)
+        }
+
+        // Log errors as Error level
+        if (ex != null || httpContext.Response.StatusCode > 499)
+        {
+            return Serilog.Events.LogEventLevel.Error;
+        }
+
+        // Normal requests as Information
+        return Serilog.Events.LogEventLevel.Information;
+    };
+});
 
 app.UseCors();
 

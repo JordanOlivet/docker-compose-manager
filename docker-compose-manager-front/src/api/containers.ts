@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ApiResponse, Container, ContainerDetails } from '../types';
+import type { ApiResponse, Container, ContainerDetails, ContainerStats } from '../types';
 
 export const containersApi = {
   list: async (all: boolean = true): Promise<Container[]> => {
@@ -12,6 +12,14 @@ export const containersApi = {
   get: async (id: string): Promise<ContainerDetails> => {
     const response = await apiClient.get<ApiResponse<ContainerDetails>>(`/containers/${id}`);
     return response.data.data!;
+  },
+
+  getStats: async (id: string): Promise<ContainerStats> => {
+    const response = await apiClient.get<ApiResponse<ContainerStats>>(`/containers/${id}/stats`);
+    if (!response.data.data) {
+      throw new Error(`Failed to get stats for container ${id}`);
+    }
+    return response.data.data;
   },
 
   start: async (id: string): Promise<void> => {

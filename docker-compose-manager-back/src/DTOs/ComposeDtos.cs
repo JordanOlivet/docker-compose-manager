@@ -216,3 +216,56 @@ public class ComposeValidationResult
 public record DuplicateFileRequest(
     string? NewFileName = null
 );
+
+// ============================================
+// Compose File Details DTOs (parsed content)
+// ============================================
+
+/// <summary>
+/// Parsed compose file details with structured information
+/// </summary>
+public record ComposeFileDetailsDto(
+    string ProjectName,
+    string? Version,
+    Dictionary<string, ServiceDetailsDto> Services,
+    Dictionary<string, NetworkDetailsDto>? Networks,
+    Dictionary<string, VolumeDetailsDto>? Volumes
+);
+
+/// <summary>
+/// Service details from compose file
+/// </summary>
+public record ServiceDetailsDto(
+    string Name,
+    string? Image,
+    string? Build,
+    List<string>? Ports,
+    Dictionary<string, string>? Environment,
+    Dictionary<string, string>? Labels,
+    List<string>? Volumes,
+    List<string>? DependsOn,
+    string? Restart,
+    Dictionary<string, string>? Networks
+);
+
+/// <summary>
+/// Network details from compose file
+/// </summary>
+public record NetworkDetailsDto(
+    string Name,
+    string? Driver,
+    bool? External,
+    Dictionary<string, object>? DriverOpts,
+    Dictionary<string, string>? Labels
+);
+
+/// <summary>
+/// Volume details from compose file
+/// </summary>
+public record VolumeDetailsDto(
+    string Name,
+    string? Driver,
+    bool? External,
+    Dictionary<string, object>? DriverOpts,
+    Dictionary<string, string>? Labels
+);
