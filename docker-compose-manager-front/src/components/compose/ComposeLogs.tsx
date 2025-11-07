@@ -14,6 +14,8 @@ interface LogEntry {
   raw: string;
 }
 
+const maxLogsCount = 10000;
+
 export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -116,7 +118,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
     setLogs(prevLogs => {
       const allLogs = [...prevLogs, ...newLogs];
       allLogs.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      const finalLogs = allLogs.slice(-10000); // Keep last 10000 logs max
+      const finalLogs = allLogs.slice(-maxLogsCount); // Keep last 10000 logs max
       console.log(`[RECEIVE] Total logs: ${prevLogs.length} + ${newLogs.length} = ${allLogs.length}, keeping ${finalLogs.length}`);
       return finalLogs;
     });
@@ -336,7 +338,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
                 onChange={(e) => setTailCount(Number(e.target.value))}
                 className="w-20 h-8 px-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 min={10}
-                max={1000}
+                max={maxLogsCount}
                 disabled={isStreaming}
               />
             </div>
