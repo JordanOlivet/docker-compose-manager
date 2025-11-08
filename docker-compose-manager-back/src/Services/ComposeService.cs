@@ -715,23 +715,55 @@ public class ComposeService
 
                 if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
                 {
-                    // Parse output to extract service information
-                    // For simplicity, we'll parse the text output
-                    string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string? line in lines.Skip(1)) // Skip header line
+                    if (isV2 && output.TrimStart().StartsWith("["))
                     {
-                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 3)
+                        // V2: output is JSON array
+                        try
                         {
-                            services.Add(new DTOs.ComposeServiceDto(
-                                Id: parts[0],
-                                Name: parts[0],
-                                Image: parts.Length > 1 ? parts[1] : null,
-                                Status: parts.Length > 2 ? parts[2] : "unknown",
-                                State: parts.Length > 2 ? parts[2] : "unknown",
-                                Ports: new List<string>(),
-                                Health: null
-                            ));
+                            var json = System.Text.Json.JsonDocument.Parse(output);
+                            foreach (var element in json.RootElement.EnumerateArray())
+                            {
+                                string id = element.TryGetProperty("ID", out var idProp) ? idProp.GetString() ?? "" : "";
+                                string name = element.TryGetProperty("Service", out var svcProp) ? svcProp.GetString() ?? id : id;
+                                string? image = element.TryGetProperty("Image", out var imgProp) ? imgProp.GetString() : null;
+                                string state = element.TryGetProperty("State", out var stateProp) ? stateProp.GetString() ?? "unknown" : "unknown";
+                                string status = element.TryGetProperty("Status", out var statusProp) ? statusProp.GetString() ?? state : state;
+                                // Ports and Health can be added if needed
+                                services.Add(new DTOs.ComposeServiceDto(
+                                    Id: id,
+                                    Name: name,
+                                    Image: image,
+                                    Status: status,
+                                    State: state,
+                                    Ports: new List<string>(),
+                                    Health: null
+                                ));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse docker compose ps JSON output for project at {ProjectPath}", projectPath);
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: parse text output (v1 or unknown)
+                        string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (string? line in lines.Skip(1)) // Skip header line
+                        {
+                            string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 3)
+                            {
+                                services.Add(new DTOs.ComposeServiceDto(
+                                    Id: parts[0],
+                                    Name: parts[0],
+                                    Image: parts.Length > 1 ? parts[1] : null,
+                                    Status: parts.Length > 2 ? parts[2] : "unknown",
+                                    State: parts.Length > 2 ? parts[2] : "unknown",
+                                    Ports: new List<string>(),
+                                    Health: null
+                                ));
+                            }
                         }
                     }
                 }
