@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import configApi, { type ComposePath } from '../api/config';
+import { composeApi } from '../api/compose';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { FolderPicker } from '../components/common/FolderPicker';
@@ -20,6 +21,33 @@ export default function Settings() {
     queryKey: ['composePaths'],
     queryFn: configApi.getPaths,
   });
+
+  // Récupération des projets Docker Compose découverts (inclut ceux hors des paths configurés)
+  const { data: projects } = useQuery({
+    queryKey: ['composeProjects'],
+    queryFn: composeApi.listProjects,
+  });
+
+  // Normalisation de path pour comparaison (Windows + suppression trailing slash)
+  const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().replace(/\/$/, '');
+
+  // Extraction des projets externes (nom + path) détectés hors des paths configurés
+  const externalProjects = useMemo((): { path: string; name: string }[] => {
+    if (!projects || !paths) return [];
+    const configured = paths.map(p => normalizePath(p.path));
+    const map = new Map<string, { path: string; name: string }>();
+
+    for (const proj of projects) {
+      if (!proj.path) continue;
+      const projNorm = normalizePath(proj.path);
+      const isInside = configured.some(cfg => projNorm.startsWith(cfg) && (projNorm.length === cfg.length || projNorm[cfg.length] === '/'));
+      if (!isInside) {
+        // Utiliser le nom du projet retourné par l'API, sinon fallback
+        map.set(proj.path, { path: proj.path, name: proj.name || 'Projet sans nom' });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path));
+  }, [projects, paths]);
 
   const addPathMutation = useMutation({
     mutationFn: (data: { path: string; isReadOnly: boolean }) => configApi.addPath(data),
@@ -148,6 +176,41 @@ export default function Settings() {
             </tbody>
           </table>
         </div>
+
+        {/* Encart de warning pour les projets externes détectés */}
+        {externalProjects.length > 0 && (
+          <div className="p-6 space-y-4 border-t border-gray-200 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.342 11.28A2 2 0 0116.342 17H3.658a2 2 0 01-1.743-2.62l6.342-11.28zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-2a.75.75 0 01-.75-.75v-3.5a.75.75 0 011.5 0v3.5A.75.75 0 0110 11z" clipRule="evenodd" />
+              </svg>
+              Projets détectés hors des chemins configurés
+            </h3>
+            {externalProjects.map((proj) => (
+              <div
+                key={proj.path}
+                className="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border border-yellow-300 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 shadow-sm"
+              >
+                <div className="flex-1">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    Chemin: <span className="font-mono">{proj.path}</span>
+                  </p>
+                  <p className="text-xs mt-1 text-yellow-700 dark:text-yellow-300">
+                    <span className="font-medium">Projet:</span> <span className="font-semibold">{proj.name}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => addPathMutation.mutate({ path: proj.path, isReadOnly: false })}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white shadow-md hover:shadow-lg transition-colors"
+                  >
+                    Ajouter ce path
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Add Path Modal */}

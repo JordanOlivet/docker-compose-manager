@@ -339,17 +339,6 @@ export const ComposeProjects = () => {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       ) : null}
-                      <button
-                        onClick={() => {
-                          // TODO: Implement logs viewer
-                          alert("Logs viewer coming soon");
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                        title="View logs"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Logs
-                      </button>
                     </div>
                   </div>
                   <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
