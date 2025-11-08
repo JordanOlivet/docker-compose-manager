@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { containersApi } from '../api/containers';
@@ -12,6 +12,9 @@ import { signalRService } from "../services/signalRService";
 
 export default function Containers() {
   const [showAllContainers, setShowAllContainers] = useState(true);
+  // Sorting state: column key & direction
+  const [sortKey, setSortKey] = useState<'name' | 'image' | 'state' | 'status'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -140,8 +143,54 @@ export default function Containers() {
       connectAndListen();
     }, [queryClient, toast]);
 
+  // Memoized sorted containers (must be declared before any early return for hooks order)
+  const sortedContainers = useMemo(() => {
+    if (!containers) return [];
+    const arr = [...containers];
+    arr.sort((a: Container, b: Container) => {
+      const getVal = (c: Container) => {
+        switch (sortKey) {
+          case 'name':
+            return c.name.startsWith('/') ? c.name.slice(1) : c.name;
+          case 'image':
+            return c.image || '';
+          case 'state':
+            return c.state || '';
+          case 'status':
+            return c.status || '';
+          default:
+            return '';
+        }
+      };
+      const va = getVal(a)?.toString().toLowerCase();
+      const vb = getVal(b)?.toString().toLowerCase();
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [containers, sortKey, sortDir]);
+
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay message="Failed to load containers" />;
+
+  const toggleSort = (key: 'name' | 'image' | 'state' | 'status') => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const renderSortIndicator = (key: typeof sortKey) => {
+    if (sortKey !== key) return null;
+    return (
+      <span className="inline-block ml-1">
+        {sortDir === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -184,17 +233,33 @@ export default function Containers() {
             <table className="w-full">
               <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Name
+                  <th
+                    onClick={() => toggleSort('name')}
+                    aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    Name {renderSortIndicator('name')}
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Image
+                  <th
+                    onClick={() => toggleSort('image')}
+                    aria-sort={sortKey === 'image' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    Image {renderSortIndicator('image')}
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    State
+                  <th
+                    onClick={() => toggleSort('state')}
+                    aria-sort={sortKey === 'state' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    State {renderSortIndicator('state')}
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Status
+                  <th
+                    onClick={() => toggleSort('status')}
+                    aria-sort={sortKey === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    Status {renderSortIndicator('status')}
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Actions
@@ -202,7 +267,7 @@ export default function Containers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {containers.map((container: Container) => (
+                {sortedContainers.map((container: Container) => (
                   <tr key={container.id} className="hover:bg-white dark:hover:bg-gray-800 transition-all">
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="text-xs font-medium text-gray-900 dark:text-white">
