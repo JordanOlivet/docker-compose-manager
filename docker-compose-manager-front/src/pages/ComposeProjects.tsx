@@ -4,7 +4,6 @@ import {
   Play,
   Square,
   RefreshCw,
-  Eye,
   Trash2,
   Zap,
   RotateCw,

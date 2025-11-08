@@ -596,23 +596,21 @@ public class ComposeService
 
         try
         {
-            // 1. Get projects from configured paths (existing method)
+            // 1. Get projects from configured paths (prioritaires)
             List<string> composeFiles = await _fileService.DiscoverComposeFilesAsync();
-
-            // Group files by directory (each directory with a docker-compose.yml is a project)
             List<string?> projectPaths = composeFiles
                 .Select(f => Path.GetDirectoryName(f))
                 .Where(d => !string.IsNullOrEmpty(d))
                 .Distinct()
                 .ToList();
 
+            // Utiliser un HashSet pour éviter les doublons et prioriser les paths configurés
+            HashSet<string> existing = new(projectPaths!, StringComparer.OrdinalIgnoreCase);
             projects.AddRange(projectPaths!);
 
             // 2. Get project directories from docker compose ls -a (ConfigFiles field)
             List<string> dockerComposeLsProjectDirs = await DiscoverProjectsFromDockerComposeLsAsync();
 
-            // 3. Merge: add any directories not already included
-            HashSet<string> existing = new(projects, StringComparer.OrdinalIgnoreCase);
             foreach (string dir in dockerComposeLsProjectDirs)
             {
                 if (!existing.Contains(dir))
@@ -620,6 +618,7 @@ public class ComposeService
                     projects.Add(dir);
                     existing.Add(dir);
                 }
+                // Si déjà présent, ne rien faire (priorité au path configuré, log supprimé)
             }
 
             _logger.LogInformation("Discovered {Count} compose projects (from configured paths: {PathCount}, from docker compose ls directories: {DockerDirCount})", 
