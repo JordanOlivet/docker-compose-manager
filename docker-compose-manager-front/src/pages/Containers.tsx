@@ -206,7 +206,7 @@ export default function Containers() {
                   <tr key={container.id} className="hover:bg-white dark:hover:bg-gray-800 transition-all">
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="text-xs font-medium text-gray-900 dark:text-white">
-                        {container.name}
+                        {container.name.startsWith('/') ? container.name.slice(1) : container.name}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                         {container.id.substring(0, 12)}
