@@ -767,7 +767,13 @@ public class ComposeController : ControllerBase
     {
         string projectName = _composeService.GetProjectName(projectPath);
 
-        (bool success, string output, string _) = await _composeService.ListServicesAsync(projectPath);
+        (bool success, string output, string error) = await _composeService.ListServicesAsync(projectPath);
+
+        if(!success)
+        {
+            _logger.LogWarning("Failed to get services for project {ProjectName}. Error : {error}", projectName, error);
+            return new();
+        }
 
         List<ComposeServiceDto> services = new();
 
