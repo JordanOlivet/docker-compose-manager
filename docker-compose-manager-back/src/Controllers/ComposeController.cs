@@ -1109,10 +1109,17 @@ public class ComposeController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
+            //(bool success, string output, string error) = await _composeService.GetLogsAsync(
+            //    projectPath,
+            //    serviceName,
+            //    tail,
+            //    follow: false
+            //);
+
             (bool success, string output, string error) = await _composeService.GetLogsAsync(
                 projectPath,
                 serviceName,
-                tail,
+                null,
                 follow: false
             );
 

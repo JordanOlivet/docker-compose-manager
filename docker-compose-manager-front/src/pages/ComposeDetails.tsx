@@ -2,7 +2,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Play,
   Square,
-  Eye,
   Trash2,
   Zap,
   RotateCw,

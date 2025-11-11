@@ -175,7 +175,7 @@ class SignalRService {
   // Logs Hub Methods
 
   // Stream compose logs
-  async streamComposeLogs(projectPath: string, serviceName?: string, tail: number = 100): Promise<void> {
+  async streamComposeLogs(projectPath: string, serviceName?: string/*, tail: number = 100*/): Promise<void> {
     if (!this.logsConnection) {
       throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
     }
@@ -190,7 +190,7 @@ class SignalRService {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    await this.logsConnection.invoke('StreamComposeLogs', projectPath, serviceName, tail);
+    await this.logsConnection.invoke('StreamComposeLogs', projectPath, serviceName/*, tail*/);
   }
 
   // Stream container logs
