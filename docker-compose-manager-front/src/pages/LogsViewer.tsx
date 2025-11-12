@@ -60,9 +60,9 @@ export default function LogsViewer() {
 
       // Start streaming
       if (containerId) {
-        await signalRService.streamContainerLogs(containerId, tail);
+        await signalRService.streamContainerLogs(containerId);
       } else if (projectPath) {
-        await signalRService.streamComposeLogs(projectPath, serviceName || undefined, tail);
+        await signalRService.streamComposeLogs(projectPath, serviceName || undefined);
       }
     } catch (error: unknown) {
       const err = error as Error;

@@ -38,6 +38,6 @@ public record ContainerStatsDto(
     double MemoryPercentage,
     long NetworkRx,
     long NetworkTx,
-    long BlockRead,
-    long BlockWrite
+    long DiskRead,
+    long DiskWrite
 );

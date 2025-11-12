@@ -37,4 +37,14 @@ export const containersApi = {
   remove: async (id: string, force: boolean = false): Promise<void> => {
     await apiClient.delete(`/containers/${id}`, { params: { force } });
   },
+  // Additional optional container lifecycle operations (backend endpoints may not exist yet)
+  pause: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/pause`).catch(() => {});
+  },
+  unpause: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/unpause`).catch(() => {});
+  },
+  kill: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/kill`).catch(() => {});
+  },
 };

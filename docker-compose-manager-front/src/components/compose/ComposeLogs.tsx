@@ -3,8 +3,12 @@ import { signalRService } from '@/services/signalRService';
 import { FileText, Play, Pause, Trash2, AlertCircle } from 'lucide-react';
 
 interface ComposeLogsProps {
-  projectPath: string;
-  projectName: string;
+  // Compose project streaming
+  projectPath?: string;
+  projectName?: string;
+  // Single container streaming
+  containerId?: string;
+  containerName?: string;
 }
 
 interface LogEntry {
@@ -14,16 +18,11 @@ interface LogEntry {
   raw: string;
 }
 
-// const maxLogsCount = 10000;
-
-export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
+export function ComposeLogs({ projectPath, projectName, containerId, containerName }: ComposeLogsProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // const [tailCount, setTailCount] = useState(100);
   const [autoScroll, setAutoScroll] = useState(true);
-  // const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // const [hasMoreLogs, setHasMoreLogs] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef<number>(0);
@@ -53,7 +52,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
   };
 
   // Parse log line to extract service name, timestamp, and message
-  const parseLogLine = (rawLog: string): LogEntry => {
+  const parseLogLine = useCallback((rawLog: string): LogEntry => {
     // Docker Compose format with --timestamps:
     // service-name  | 2024-01-15T10:30:45.123456789Z actual log message
 
@@ -61,10 +60,11 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
     const pipeIndex = rawLog.indexOf('|');
 
     if (pipeIndex === -1) {
-      // No pipe found - fallback
+      // Likely a container log line without compose formatting
+      const svc = containerId ? (containerName || containerId.substring(0, 12)) : 'unknown';
       return {
         timestamp: new Date(),
-        service: 'unknown',
+        service: svc,
         message: rawLog,
         raw: rawLog,
       };
@@ -97,7 +97,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       message: content,
       raw: rawLog,
     };
-  };
+  }, [containerId, containerName]);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -118,11 +118,9 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
     setLogs(prevLogs => {
       const allLogs = [...prevLogs, ...newLogs];
       allLogs.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      // const finalLogs = allLogs.slice(-maxLogsCount); // Keep last 10000 logs max
-      // console.log(`[RECEIVE] Total logs: ${prevLogs.length} + ${newLogs.length} = ${allLogs.length}, keeping ${finalLogs.length}`);
       return allLogs;
     });
-  }, []);
+  }, [parseLogLine]);
 
   const handleLogError = useCallback((errorMsg: string) => {
     setError(errorMsg);
@@ -150,7 +148,6 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       // Only clear logs if explicitly requested (e.g., on initial mount or after clear)
       if (clearExisting) {
         setLogs([]);
-        // setHasMoreLogs(true);
       }
 
       // Connect to logs hub if not already connected
@@ -170,8 +167,13 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       signalRService.onStreamComplete(handleStreamComplete);
 
       // Start streaming (will wait for connection to be ready)
-      // console.log(`[STREAMING] Starting log stream with tail=${tailCount}...`);
-      await signalRService.streamComposeLogs(projectPath, undefined/*, tailCount*/);
+      if (containerId) {
+        await signalRService.streamContainerLogs(containerId);
+      } else if (projectPath) {
+        await signalRService.streamComposeLogs(projectPath, undefined);
+      } else {
+        throw new Error('No source provided for logs (projectPath or containerId required)');
+      }
       setIsStreaming(true);
       console.log('[STREAMING] Log streaming started successfully');
     } catch (err) {
@@ -180,7 +182,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       setIsStreaming(false);
       streamingRef.current = false;
     }
-  }, [handleReceiveLogs, handleLogError, handleStreamComplete, projectPath/*, tailCount*/]);
+  }, [handleReceiveLogs, handleLogError, handleStreamComplete, projectPath, containerId]);
 
   // Stop streaming logs
   const stopStreaming = useCallback(async () => {
@@ -200,60 +202,10 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
     }
   }, [handleReceiveLogs, handleLogError, handleStreamComplete]);
 
-  // Load more historical logs by increasing tail count and re-fetching
-  // const loadMoreLogs = useCallback(async () => {
-  //   if (isLoadingMore || !hasMoreLogs) return;
-
-  //   console.log('[LOAD_MORE] Loading more logs...');
-  //   setIsLoadingMore(true);
-
-  //   const scrollContainer = scrollContainerRef.current;
-  //   const previousScrollHeight = scrollContainer?.scrollHeight || 0;
-  //   const wasStreaming = isStreaming;
-
-  //   try {
-  //     // Increase tail count by 100
-  //     const newTailCount = tailCount + 100;
-  //     console.log(`[LOAD_MORE] Increasing tail from ${tailCount} to ${newTailCount}`);
-
-  //     // Stop current streaming if active
-  //     if (wasStreaming) {
-  //       await stopStreaming();
-  //       await new Promise(resolve => setTimeout(resolve, 300));
-  //     }
-
-  //     // Update tail count
-  //     setTailCount(newTailCount);
-
-  //     // Restart with new tail count (don't clear existing logs)
-  //     await startStreaming(false);
-
-  //     // Wait for logs to load
-  //     await new Promise(resolve => setTimeout(resolve, 500));
-
-  //     // Restore scroll position
-  //     if (scrollContainer) {
-  //       const newScrollHeight = scrollContainer.scrollHeight;
-  //       const scrollDiff = newScrollHeight - previousScrollHeight;
-  //       scrollContainer.scrollTop = scrollDiff;
-  //       console.log(`[LOAD_MORE] Restored scroll: diff=${scrollDiff}`);
-  //     }
-
-  //     console.log('[LOAD_MORE] More logs loaded successfully');
-  //   } catch (err) {
-  //     console.error('[LOAD_MORE] Failed to load more logs:', err);
-  //     setError(`Failed to load more logs: ${err instanceof Error ? err.message : String(err)}`);
-  //   } finally {
-  //     setIsLoadingMore(false);
-  //   }
-  // }, [isLoadingMore, hasMoreLogs, tailCount, isStreaming, stopStreaming, startStreaming]);
-
   // Clear logs
   const clearLogs = () => {
     setLogs([]);
     setError(null);
-    // setTailCount(100);
-    // setHasMoreLogs(true);
   };
 
 // Handle scroll for auto-scroll behavior and lazy loading
@@ -274,18 +226,12 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
         setAutoScroll(true);
       }
 
-      // // Load more logs when scrolled near the top (within 100px)
-      //  if (scrollTop < 100 && !isLoadingMore && hasMoreLogs) {
-      //  console.log('[SCROLL] Near top, triggering load more...');
-      //  loadMoreLogs();
-      //  }
-
       lastScrollTop.current = scrollTop;
     };
 
     scrollContainer.addEventListener('scroll', handleScroll);
     return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [/*isLoadingMore, hasMoreLogs, loadMoreLogs*/]); // Add dependencies
+  });
 
   // Auto-start streaming on mount
   useEffect(() => {
@@ -313,7 +259,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
       // Stop streaming
       stopStreaming();
     };
-  }, [projectPath, handleReceiveLogs, handleLogError, handleStreamComplete, startStreaming, stopStreaming]); // Re-init if project path changes
+  }, [projectPath, containerId, handleReceiveLogs, handleLogError, handleStreamComplete, startStreaming, stopStreaming]); // Re-init if source changes
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden flex flex-col h-full">
@@ -323,7 +269,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Logs - {projectName}
+              {containerId ? `Container Logs - ${containerName || containerId.substring(0,12)}` : `Compose Logs - ${projectName}`}
             </h3>
           </div>
           <div className="flex items-center gap-2">
@@ -372,21 +318,7 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
         className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50 dark:bg-gray-900/50"
       >
         <div className="font-mono text-xs space-y-1">
-          {/* Loading more indicator at the top
-          {isLoadingMore && (
-            <div className="flex items-center justify-center py-4 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg mb-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-              Loading more logs...
-            </div>
-          )} */}
-
-          {/* No more logs indicator
-          {!hasMoreLogs && logs.length > 100 && !isLoadingMore && (
-            <div className="flex items-center justify-center py-2 text-gray-400 dark:text-gray-500 text-[10px] bg-gray-100 dark:bg-gray-800/50 rounded mb-2">
-              ─── All available logs loaded ({logs.length} total) ───
-            </div>
-          )} */}
-
+          
           {logs.length === 0 ? (
             <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 py-20">
               {isStreaming ? (
@@ -404,14 +336,16 @@ export function ComposeLogs({ projectPath, projectName }: ComposeLogsProps) {
                 key={index}
                 className="flex gap-2 hover:bg-gray-100 dark:hover:bg-gray-800 py-1 px-2 rounded transition-colors"
               >
-                {/* Service identifier badge */}
-                <div
-                  className={`shrink-0 px-2 py-0.5 rounded text-white text-[10px] font-semibold flex items-center justify-center min-w-[100px] max-w-[140px] ${getServiceColor(
-                    log.service
-                  )}`}
-                >
-                  <span className="truncate">{log.service}</span>
-                </div>
+                {/* Service identifier badge (only in compose mode) */}
+                {!containerId && (
+                  <div
+                    className={`shrink-0 px-2 py-0.5 rounded text-white text-[10px] font-semibold flex items-center justify-center min-w-[100px] max-w-[140px] ${getServiceColor(
+                      log.service
+                    )}`}
+                  >
+                    <span className="truncate">{log.service}</span>
+                  </div>
+                )}
 
                 {/* Log message (no timestamp display) */}
                 <span className="text-gray-900 dark:text-gray-100 break-all flex-1">

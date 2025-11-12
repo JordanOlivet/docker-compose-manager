@@ -80,8 +80,22 @@ class SignalRService {
 
   // Initialize the logs SignalR connection
   async connectToLogsHub(): Promise<void> {
-    if (this.logsConnection?.state === signalR.HubConnectionState.Connected || this.isLogsConnecting) {
+    // If already connected, nothing to do
+    if (this.logsConnection?.state === signalR.HubConnectionState.Connected) {
       return;
+    }
+
+    // If a connection attempt is already in progress, wait for it to finish
+    if (this.isLogsConnecting) {
+      const maxWaitMs = 5000;
+      const start = Date.now();
+      while (this.isLogsConnecting && Date.now() - start < maxWaitMs) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (this.logsConnection && this.logsConnection.connectionId) {
+        return; // Connected successfully by the ongoing attempt
+      }
+      // Fall through and attempt a new connection if previous failed
     }
 
     this.isLogsConnecting = true;
@@ -195,18 +209,23 @@ class SignalRService {
 
   // Stream container logs
   async streamContainerLogs(containerId: string, tail: number = 100): Promise<void> {
+    // Ensure connection is established (robust against race conditions)
+    await this.connectToLogsHub();
+
     if (!this.logsConnection) {
-      throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
+      throw new Error('Logs SignalR connection unavailable after connect attempt');
     }
 
-    // Wait for connection to be ready if needed (max 5 seconds)
-    const maxWaitTime = 5000;
-    const startTime = Date.now();
-    while (this.logsConnection.state !== signalR.HubConnectionState.Connected) {
-      if (Date.now() - startTime > maxWaitTime) {
-        throw new Error('Timeout waiting for logs connection to be established');
+    // At this point state should be Connected; if not, retry a short wait
+    if (!this.logsConnection.connectionId) {
+      const maxWaitTime = 3000;
+      const startTime = Date.now();
+      while (this.logsConnection && !this.logsConnection.connectionId) {
+        if (Date.now() - startTime > maxWaitTime) {
+          throw new Error('Timeout waiting for logs connection to become connected');
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     await this.logsConnection.invoke('StreamContainerLogs', containerId, tail);
@@ -285,7 +304,7 @@ class SignalRService {
   }
 
   isLogsConnected(): boolean {
-    return this.logsConnection?.state === signalR.HubConnectionState.Connected;
+    return !!this.logsConnection?.connectionId;
   }
 }
 

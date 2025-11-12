@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useToast } from '../hooks/useToast';
-import { formatApiError } from '../utils/errorFormatter';
+import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
+import type { AxiosError } from 'axios';
 
 export default function ChangePassword() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -31,7 +32,7 @@ export default function ChangePassword() {
       toast.success('Password changed successfully');
       navigate('/dashboard');
     } catch (error: unknown) {
-      toast.error(formatApiError(error as Error, 'Failed to change password'));
+      toast.error(formatApiError(error as AxiosError<ApiErrorResponse>, 'Failed to change password'));
     } finally {
       setLoading(false);
     }

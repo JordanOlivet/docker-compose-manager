@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { containersApi } from '../api/containers';
@@ -11,6 +12,7 @@ import { type ApiErrorResponse } from '../utils/errorFormatter';
 import { signalRService } from "../services/signalRService";
 
 export default function Containers() {
+  const navigate = useNavigate();
   const [showAllContainers, setShowAllContainers] = useState(true);
   // Sorting state: column key & direction
   const [sortKey, setSortKey] = useState<'name' | 'image' | 'state' | 'status'>('name');
@@ -270,9 +272,13 @@ export default function Containers() {
                 {sortedContainers.map((container: Container) => (
                   <tr key={container.id} className="hover:bg-white dark:hover:bg-gray-800 transition-all">
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <div className="text-xs font-medium text-gray-900 dark:text-white">
+                      <button
+                        className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none"
+                        onClick={() => navigate(`/containers/${container.id}`)}
+                        title="Voir les détails du container"
+                      >
                         {container.name.startsWith('/') ? container.name.slice(1) : container.name}
-                      </div>
+                      </button>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                         {container.id.substring(0, 12)}
                       </div>

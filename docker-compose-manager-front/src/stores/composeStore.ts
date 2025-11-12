@@ -28,7 +28,7 @@ interface ComposeState {
   setSelectedProject: (project: ComposeProject | null) => void;
   setIsLoadingProjects: (isLoading: boolean) => void;
   setProjectsError: (error: string | null) => void;
-  updateProjectStatus: (projectName: string, status: string) => void;
+  updateProjectStatus: (projectName: string, status: import('../types').EntityState) => void;
 
   // Reset
   reset: () => void;

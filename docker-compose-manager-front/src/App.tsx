@@ -1,3 +1,4 @@
+import ContainerDetails from './pages/ContainerDetails';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -90,6 +91,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <Containers />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/containers/:containerId"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ContainerDetails />
                   </MainLayout>
                 </ProtectedRoute>
               }

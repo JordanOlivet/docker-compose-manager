@@ -31,6 +31,6 @@ export interface ContainerStats {
   memoryPercentage: number;
   networkRx: number;
   networkTx: number;
-  blockRead: number;
-  blockWrite: number;
+  diskRead: number;
+  diskWrite: number;
 }
