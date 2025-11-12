@@ -410,19 +410,19 @@ export const ComposeProjects = () => {
                                   <div className="flex items-center gap-1">
                                     {service.state == EntityState.Running ? (
                                       <>
+                                      <button
+                                          onClick={() => restartContainer(service.id, service.name)}
+                                          className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
+                                          title="Restart"
+                                        >
+                                          <RotateCw className="w-3 h-3" />
+                                        </button>
                                         <button
                                           onClick={() => stopContainer(service.id, service.name)}
                                           className="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
                                           title="Stop"
                                         >
                                           <Square className="w-3 h-3" />
-                                        </button>
-                                        <button
-                                          onClick={() => restartContainer(service.id, service.name)}
-                                          className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
-                                          title="Restart"
-                                        >
-                                          <RotateCw className="w-3 h-3" />
                                         </button>
                                       </>
                                     ) : (

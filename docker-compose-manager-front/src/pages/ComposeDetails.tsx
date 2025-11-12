@@ -302,6 +302,15 @@ export const ComposeDetails = () => {
                       <div className="flex items-center gap-3">
                         {service.state == EntityState.Running ? (
                           <>
+                           <button
+                              onClick={() =>
+                                restartContainer(service.id, service.name)
+                              }
+                              className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+                              title="Restart"
+                            >
+                              <RotateCw className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() =>
                                 stopContainer(service.id, service.name)
@@ -310,15 +319,6 @@ export const ComposeDetails = () => {
                               title="Stop"
                             >
                               <Square className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                restartContainer(service.id, service.name)
-                              }
-                              className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-                              title="Restart"
-                            >
-                              <RotateCw className="w-4 h-4" />
                             </button>
                           </>
                         ) : (

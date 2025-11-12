@@ -58,8 +58,8 @@ export default function ContainerDetails() {
 			id: 'diskio',
 			label: 'Disk IO (Read / Write)',
 			metrics: [
-				{ id: 'blkRead', label: 'Read', value: s => s.blockRead, color: '#8b5cf6' },
-				{ id: 'blkWrite', label: 'Write', value: s => s.blockWrite, color: '#ec4899' },
+				{ id: 'diskRead', label: 'Read', value: s => s.diskRead, color: '#8b5cf6' },
+				{ id: 'diskWrite', label: 'Write', value: s => s.diskWrite, color: '#ec4899' },
 			],
 		},
 	];
@@ -125,62 +125,58 @@ export default function ContainerDetails() {
 			</div>
 
 			{/* Container Info Card */}
-			<div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg p-8 flex flex-col gap-6">
-				<div className="flex items-center gap-4">
-					<h2 className="text-2xl font-semibold text-gray-900 dark:text-white">{container.name}</h2>
-					<span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{container.id.substring(0, 12)}</span>
-					<StateBadge className={getStateColor(container.state)} status={container.state} size="sm" />
-				</div>
-				<div className="flex flex-wrap gap-8 mt-2">
-					<div>
-						<div className="text-sm text-gray-500 dark:text-gray-400">Image</div>
-						<div className="text-base text-gray-900 dark:text-white font-mono">{container.image}</div>
-					</div>
-					<div>
-						<div className="text-sm text-gray-500 dark:text-gray-400">Status</div>
-						<div className="text-base text-gray-900 dark:text-white">{container.status}</div>
-					</div>
-					<div>
-						<div className="text-sm text-gray-500 dark:text-gray-400">Created</div>
-						<div className="text-base text-gray-900 dark:text-white">{new Date(container.created).toLocaleString()}</div>
-					</div>
-				</div>
-
-				{/* Actions */}
-				<div className="flex gap-3 mt-4">
-					{container.state === EntityState.Running ? (
-						<>
+			<div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg px-6 py-4 flex flex-col gap-6">
+				{/* Header sur deux lignes, style ComposeDetails */}
+				<div className="flex flex-col gap-1 w-full">
+					{/* Ligne 1 : nom + state + actions */}
+					<div className="flex items-center justify-between w-full gap-4">
+						<div className="flex items-center gap-4 min-w-0 flex-1">
+							<h2 className="text-2xl font-bold text-gray-900 dark:text-white truncate max-w-xs">{container.name}</h2>
+							<StateBadge className={getStateColor(container.state)} status={container.state} size="md" />
+						</div>
+						<div className="flex gap-2 shrink-0">
+							{container.state === EntityState.Running ? (
+								<>
+								<button
+										onClick={() => restartContainer(container.id, container.name)}
+										className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+										title="Restart"
+									>
+										<RotateCw className="w-4 h-4" />
+									</button>
+									<button
+										onClick={() => stopContainer(container.id, container.name)}
+										className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
+										title="Stop"
+									>
+										<Square className="w-4 h-4" />
+									</button>
+								</>
+							) : (
+								<button
+									onClick={() => startContainer(container.id, container.name)}
+									className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+									title="Start"
+								>
+									<Play className="w-4 h-4" />
+								</button>
+							)}
 							<button
-								onClick={() => stopContainer(container.id, container.name)}
-								className="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-								title="Stop"
+								onClick={() => handleRemove(container)}
+								className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+								title="Remove"
 							>
-								<Square className="w-5 h-5" />
+								<Trash2 className="w-4 h-4" />
 							</button>
-							<button
-								onClick={() => restartContainer(container.id, container.name)}
-								className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-								title="Restart"
-							>
-								<RotateCw className="w-5 h-5" />
-							</button>
-						</>
-					) : (
-						<button
-							onClick={() => startContainer(container.id, container.name)}
-							className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-							title="Start"
-						>
-							<Play className="w-5 h-5" />
-						</button>
-					)}
-					<button
-						onClick={() => handleRemove(container)}
-						className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-						title="Remove"
-					>
-						<Trash2 className="w-5 h-5" />
-					</button>
+						</div>
+					</div>
+					{/* Ligne 2 : infos secondaires */}
+					<div className="flex flex-wrap items-center gap-6 mt-1 text-sm text-gray-600 dark:text-gray-400">
+						<span className="font-mono">ID: {container.id.substring(0, 12)}</span>
+						<span>Image: <span className="font-mono text-gray-900 dark:text-white">{container.image}</span></span>
+						<span>Status: <span className="text-gray-900 dark:text-white">{container.status}</span></span>
+						<span>Created: <span className="text-gray-900 dark:text-white">{new Date(container.created).toLocaleString()}</span></span>
+					</div>
 				</div>
 			</div>
 
