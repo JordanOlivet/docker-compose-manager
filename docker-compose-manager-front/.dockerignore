@@ -9,10 +9,6 @@ README*
 Dockerfile
 vitest.config.ts
 eslint.config.js
-node_modules
-dist
-.git
 .gitignore
-*.md
-.vscode
 .env.development
+# Intentionally DO NOT ignore package-lock.json (needed for npm ci determinism)
