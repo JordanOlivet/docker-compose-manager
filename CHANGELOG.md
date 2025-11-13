@@ -1,3 +1,14 @@
+## Changes in v0.8.0
+
+**Merged Pull Requests:**
+- Fix changelog update by release workflow (#17)
+
+**Commits:**
+- Fix changelog update by release workflow (#17) (ca0c9b0)
+- Fix docker image release creation (#16) (643885b)
+- docs: update CHANGELOG for v0.7.0 [skip ci] (2ebab6d)
+- chore: bump version to v0.7.0 [skip ci] (ba2357b)
+
 ## Changes in v0.7.0
 
 **Merged Pull Requests:**
