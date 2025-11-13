@@ -90,12 +90,17 @@ jobs:
             echo ""
             echo "**Commits:**"
             git log --pretty=format:"- %s (%h)" ${PREVIOUS_TAG}..${{ steps.tag_version.outputs.new_tag }}
+            echo ""
           } > RELEASE_NOTES.md
 
           # Update CHANGELOG.md
           if [ -f CHANGELOG.md ]; then
             # Prepend new changes to existing CHANGELOG
-            cat RELEASE_NOTES.md CHANGELOG.md > CHANGELOG.tmp
+            {
+              cat RELEASE_NOTES.md
+              echo ""
+              cat CHANGELOG.md
+            } > CHANGELOG.tmp
             mv CHANGELOG.tmp CHANGELOG.md
           else
             # Create new CHANGELOG

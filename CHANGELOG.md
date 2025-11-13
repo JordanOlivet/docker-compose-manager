@@ -6,7 +6,9 @@
 **Commits:**
 - Fix docker image release creation (#15) (c5b3abc)
 - docs: update CHANGELOG for v0.6.0 [skip ci] (83d67d2)
-- chore: bump version to v0.6.0 [skip ci] (519ed14)## Changes in v0.6.0
+- chore: bump version to v0.6.0 [skip ci] (519ed14)
+
+## Changes in v0.6.0
 
 **Merged Pull Requests:**
 - Fix docker image build and push for releases (#14)
@@ -14,7 +16,9 @@
 **Commits:**
 - Fix docker image build and push for releases (#14) (e90d8a1)
 - docs: update CHANGELOG for v0.5.0 [skip ci] (456bb83)
-- chore: bump version to v0.5.0 [skip ci] (d685fa6)## Changes in v0.5.0
+- chore: bump version to v0.5.0 [skip ci] (d685fa6)
+
+## Changes in v0.5.0
 
 **Merged Pull Requests:**
 - Add  more trigger to release build (#13)
@@ -22,7 +26,9 @@
 **Commits:**
 - Add  more trigger to release build (#13) (296c19a)
 - docs: update CHANGELOG for v0.4.0 [skip ci] (bd470b6)
-- chore: bump version to v0.4.0 [skip ci] (6ccca58)## Changes in v0.4.0
+- chore: bump version to v0.4.0 [skip ci] (6ccca58)
+
+## Changes in v0.4.0
 
 **Merged Pull Requests:**
 - Add release versionning with correct version and not sha commit (#12)
@@ -30,7 +36,9 @@
 **Commits:**
 - Add release versionning with correct version and not sha commit (#12) (200008d)
 - docs: update CHANGELOG for v0.3.0 [skip ci] (efe84c9)
-- chore: bump version to v0.3.0 [skip ci] (cb95cce)## Changes in v0.3.0
+- chore: bump version to v0.3.0 [skip ci] (cb95cce)
+
+## Changes in v0.3.0
 
 **Merged Pull Requests:**
 - Tweaks and fixes (#11)
@@ -38,7 +46,9 @@
 **Commits:**
 - Tweaks and fixes (#11) (28204c3)
 - docs: update CHANGELOG for v0.2.0 [skip ci] (c215dc0)
-- chore: bump version to v0.2.0 [skip ci] (e599e10)# Changelog
+- chore: bump version to v0.2.0 [skip ci] (e599e10)
+
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
