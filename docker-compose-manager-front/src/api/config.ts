@@ -77,9 +77,8 @@ const configApi = {
   /**
    * Update setting
    */
-  updateSetting: async (key: string, data: UpdateSettingRequest): Promise<any> => {
-    const response = await apiClient.put(`/config/settings/${key}`, data);
-    return response.data.data;
+  updateSetting: async (key: string, data: UpdateSettingRequest): Promise<void> => {
+    await apiClient.put(`/config/settings/${key}`, data);
   },
 
   /**

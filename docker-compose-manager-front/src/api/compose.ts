@@ -10,7 +10,8 @@ import type {
   ComposeDownRequest,
   ComposeOperationResponse,
   ComposeLogsResponse,
-  ComposeLogsRequest
+  ComposeLogsRequest,
+  ComposeFileDetails
 } from '../types';
 
 // Compose Files API
@@ -164,6 +165,32 @@ export const composeApi = {
     );
     if (!response.data.data) {
       throw new Error('Failed to build project');
+    }
+    return response.data.data;
+  },
+
+// Get compose project details
+  getProjectDetails: async (
+    projectName: string
+  ): Promise<ComposeProject> => {
+    const response = await apiClient.get<ApiResponse<ComposeProject>>(
+      `/compose/projects/${encodeURIComponent(projectName)}`
+    );
+    if (!response.data.data) {
+      throw new Error(`Failed to get project ${projectName}`);
+    }
+    return response.data.data;
+  },
+
+  // Get parsed compose file details with structured information
+  getProjectParsedDetails: async (
+    projectName: string
+  ): Promise<ComposeFileDetails> => {
+    const response = await apiClient.get<ApiResponse<ComposeFileDetails>>(
+      `/compose/projects/${encodeURIComponent(projectName)}/parsed`
+    );
+    if (!response.data.data) {
+      throw new Error(`Failed to get parsed details for project ${projectName}`);
     }
     return response.data.data;
   },

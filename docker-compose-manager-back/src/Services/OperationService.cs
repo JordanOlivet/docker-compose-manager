@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.SignalR;
 using docker_compose_manager_back.Data;
-using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Hubs;
+using docker_compose_manager_back.Models;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace docker_compose_manager_back.Services;
 
@@ -33,7 +33,7 @@ public class OperationService
     {
         try
         {
-            Operation operation = new Operation
+            Operation operation = new()
             {
                 OperationId = Guid.NewGuid().ToString(),
                 Type = type,
@@ -116,10 +116,10 @@ public class OperationService
             {
                 var notification = new
                 {
-                    operationId = operationId,
-                    status = status,
+                    operationId,
+                    status,
                     progress = progress ?? operation.Progress,
-                    errorMessage = errorMessage,
+                    errorMessage,
                     type = operation.Type,
                     projectName = operation.ProjectName,
                     projectPath = operation.ProjectPath

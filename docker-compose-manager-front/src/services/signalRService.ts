@@ -1,7 +1,23 @@
 import * as signalR from '@microsoft/signalr';
 import type { OperationUpdateEvent } from '../types';
 
-const HUB_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use relative URL in production (nginx proxy), or env variable for development
+// In production (built in Docker), VITE_API_URL should be empty/undefined to use nginx proxy
+const getHubUrl = () => {
+  const viteApiUrl = import.meta.env.VITE_API_URL;
+  // If VITE_API_URL is explicitly set (even if empty string), use it
+  if (viteApiUrl !== undefined && viteApiUrl !== '') {
+    return viteApiUrl;
+  }
+  // In production build, use empty string for relative URLs (nginx proxy)
+  if (import.meta.env.PROD) {
+    return '';
+  }
+  // In development, default to local backend
+  return 'http://localhost:5000';
+};
+
+const HUB_URL = getHubUrl();
 
 class SignalRService {
   private connection: signalR.HubConnection | null = null;
@@ -21,7 +37,7 @@ class SignalRService {
       const token = localStorage.getItem('accessToken');
 
       this.connection = new signalR.HubConnectionBuilder()
-        .withUrl(`${HUB_URL}/hubs/operations`, {
+        .withUrl(HUB_URL ? `${HUB_URL}/hubs/operations` : '/hubs/operations', {
           accessTokenFactory: () => token || '',
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents
@@ -64,8 +80,22 @@ class SignalRService {
 
   // Initialize the logs SignalR connection
   async connectToLogsHub(): Promise<void> {
-    if (this.logsConnection?.state === signalR.HubConnectionState.Connected || this.isLogsConnecting) {
+    // If already connected, nothing to do
+    if (this.logsConnection?.state === signalR.HubConnectionState.Connected) {
       return;
+    }
+
+    // If a connection attempt is already in progress, wait for it to finish
+    if (this.isLogsConnecting) {
+      const maxWaitMs = 5000;
+      const start = Date.now();
+      while (this.isLogsConnecting && Date.now() - start < maxWaitMs) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (this.logsConnection && this.logsConnection.connectionId) {
+        return; // Connected successfully by the ongoing attempt
+      }
+      // Fall through and attempt a new connection if previous failed
     }
 
     this.isLogsConnecting = true;
@@ -74,7 +104,7 @@ class SignalRService {
       const token = localStorage.getItem('accessToken');
 
       this.logsConnection = new signalR.HubConnectionBuilder()
-        .withUrl(`${HUB_URL}/hubs/logs`, {
+        .withUrl(HUB_URL ? `${HUB_URL}/hubs/logs` : '/hubs/logs', {
           accessTokenFactory: () => token || '',
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents
@@ -159,18 +189,43 @@ class SignalRService {
   // Logs Hub Methods
 
   // Stream compose logs
-  async streamComposeLogs(projectPath: string, serviceName?: string, tail: number = 100): Promise<void> {
+  async streamComposeLogs(projectPath: string, serviceName?: string/*, tail: number = 100*/): Promise<void> {
     if (!this.logsConnection) {
       throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
     }
 
-    await this.logsConnection.invoke('StreamComposeLogs', projectPath, serviceName, tail);
+    // Wait for connection to be ready if needed (max 5 seconds)
+    const maxWaitTime = 5000;
+    const startTime = Date.now();
+    while (this.logsConnection.state !== signalR.HubConnectionState.Connected) {
+      if (Date.now() - startTime > maxWaitTime) {
+        throw new Error('Timeout waiting for logs connection to be established');
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    await this.logsConnection.invoke('StreamComposeLogs', projectPath, serviceName/*, tail*/);
   }
 
   // Stream container logs
   async streamContainerLogs(containerId: string, tail: number = 100): Promise<void> {
+    // Ensure connection is established (robust against race conditions)
+    await this.connectToLogsHub();
+
     if (!this.logsConnection) {
-      throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
+      throw new Error('Logs SignalR connection unavailable after connect attempt');
+    }
+
+    // At this point state should be Connected; if not, retry a short wait
+    if (!this.logsConnection.connectionId) {
+      const maxWaitTime = 3000;
+      const startTime = Date.now();
+      while (this.logsConnection && !this.logsConnection.connectionId) {
+        if (Date.now() - startTime > maxWaitTime) {
+          throw new Error('Timeout waiting for logs connection to become connected');
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
     await this.logsConnection.invoke('StreamContainerLogs', containerId, tail);
@@ -182,7 +237,10 @@ class SignalRService {
       return;
     }
 
-    await this.logsConnection.invoke('StopStream');
+    // Only try to stop if connected
+    if (this.logsConnection.state === signalR.HubConnectionState.Connected) {
+      await this.logsConnection.invoke('StopStream');
+    }
   }
 
   // Subscribe to logs events
@@ -246,7 +304,7 @@ class SignalRService {
   }
 
   isLogsConnected(): boolean {
-    return this.logsConnection?.state === signalR.HubConnectionState.Connected;
+    return !!this.logsConnection?.connectionId;
   }
 }
 

@@ -39,7 +39,7 @@ public class LogsHub : Hub
     /// <summary>
     /// Streams logs from a compose project
     /// </summary>
-    public async Task StreamComposeLogs(string projectPath, string? serviceName = null, int tail = 100)
+    public async Task StreamComposeLogs(string projectPath, string? serviceName = null/*, int tail = 100*/)
     {
         string connectionId = Context.ConnectionId;
 
@@ -54,7 +54,7 @@ public class LogsHub : Hub
             var (success, output, error) = await _composeService.GetLogsAsync(
                 projectPath,
                 serviceName,
-                tail,
+                null,
                 follow: false,
                 cts.Token
             );

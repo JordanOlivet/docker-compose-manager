@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ApiResponse, Container, ContainerDetails } from '../types';
+import type { ApiResponse, Container, ContainerDetails, ContainerStats } from '../types';
 
 export const containersApi = {
   list: async (all: boolean = true): Promise<Container[]> => {
@@ -12,6 +12,14 @@ export const containersApi = {
   get: async (id: string): Promise<ContainerDetails> => {
     const response = await apiClient.get<ApiResponse<ContainerDetails>>(`/containers/${id}`);
     return response.data.data!;
+  },
+
+  getStats: async (id: string): Promise<ContainerStats> => {
+    const response = await apiClient.get<ApiResponse<ContainerStats>>(`/containers/${id}/stats`);
+    if (!response.data.data) {
+      throw new Error(`Failed to get stats for container ${id}`);
+    }
+    return response.data.data;
   },
 
   start: async (id: string): Promise<void> => {
@@ -28,5 +36,15 @@ export const containersApi = {
 
   remove: async (id: string, force: boolean = false): Promise<void> => {
     await apiClient.delete(`/containers/${id}`, { params: { force } });
+  },
+  // Additional optional container lifecycle operations (backend endpoints may not exist yet)
+  pause: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/pause`).catch(() => {});
+  },
+  unpause: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/unpause`).catch(() => {});
+  },
+  kill: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/kill`).catch(() => {});
   },
 };

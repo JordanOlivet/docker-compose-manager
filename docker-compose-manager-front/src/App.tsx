@@ -1,3 +1,4 @@
+import ContainerDetails from './pages/ContainerDetails';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -19,6 +20,7 @@ import UserGroups from './pages/UserGroups';
 import Permissions from './pages/Permissions';
 import Settings from './pages/Settings';
 import LogsViewer from './pages/LogsViewer';
+import { ComposeDetails } from './pages/ComposeDetails';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,6 +91,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <Containers />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/containers/:containerId"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ContainerDetails />
                   </MainLayout>
                 </ProtectedRoute>
               }
@@ -169,6 +181,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <ComposeProjects />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/compose/projects/:projectName"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ComposeDetails/>
                   </MainLayout>
                 </ProtectedRoute>
               }

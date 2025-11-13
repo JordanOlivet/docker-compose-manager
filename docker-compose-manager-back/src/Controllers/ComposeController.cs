@@ -68,6 +68,9 @@ public class ComposeController : ControllerBase
     {
         try
         {
+            // We sync all files before making any search
+            await _fileService.SyncDatabaseWithDiscoveredFilesAsync();
+
             List<ComposeFile> files = await _context.ComposeFiles
                 .Include(cf => cf.ComposePath)
                 .OrderBy(cf => cf.FullPath)
@@ -691,130 +694,14 @@ public class ComposeController : ControllerBase
 
             foreach (string projectPath in projectPaths)
             {
-                string projectName = _composeService.GetProjectName(projectPath);
+                ComposeProjectDto? project = await GetProjectFromPath(userId!.Value, projectPath);
 
-                // Check if user has View permission for this project
-                bool hasPermission = await _permissionService.HasPermissionAsync(
-                    userId.Value,
-                    ResourceType.ComposeProject,
-                    projectName,
-                    PermissionFlags.View);
-
-                if (!hasPermission)
+                if (project == null)
                 {
-                    // Skip projects the user doesn't have permission to view
                     continue;
                 }
 
-                (bool success, string output, string _) = await _composeService.ListServicesAsync(projectPath);
-
-                List<ComposeServiceDto> services = new();
-                EntityState state = EntityState.Unknown;
-
-                if (success && !string.IsNullOrWhiteSpace(output))
-                {
-                    try
-                    {
-                        // Parse NDJSON output from docker compose ps (each line is a separate JSON object)
-                        string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-                        foreach (string line in lines)
-                        {
-                            if (string.IsNullOrWhiteSpace(line)) { continue; }
-
-                            try
-                            {
-                                System.Text.Json.JsonElement svc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(line);
-
-                                // Extract service information from JSON
-                                string serviceId = svc.TryGetProperty("ID", out System.Text.Json.JsonElement svcId)
-                                    ? svcId.GetString() ?? "unknown"
-                                    : "unknown";
-
-                                string serviceName = svc.TryGetProperty("Service", out System.Text.Json.JsonElement svcName)
-                                    ? svcName.GetString() ?? "unknown"
-                                    : "unknown";
-
-                                string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement svcState)
-                                    ? svcState.GetString() ?? "unknown"
-                                    : "unknown";
-
-                                string serviceStatus = svc.TryGetProperty("Status", out System.Text.Json.JsonElement svcStatus)
-                                    ? svcStatus.GetString() ?? "unknown"
-                                    : "unknown";
-
-                                string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement svcImg)
-                                    ? svcImg.GetString() ?? "unknown"
-                                    : "unknown";
-
-                                string? serviceHealth = svc.TryGetProperty("Health", out System.Text.Json.JsonElement svcHealth)
-                                    ? svcHealth.GetString()
-                                    : null;
-
-                                // Parse ports
-                                List<string> ports = new();
-                                if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers)
-                                    && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
-                                {
-                                    foreach (System.Text.Json.JsonElement publisher in publishers.EnumerateArray())
-                                    {
-                                        if (publisher.TryGetProperty("URL", out System.Text.Json.JsonElement url) &&
-                                            publisher.TryGetProperty("PublishedPort", out System.Text.Json.JsonElement publishedPort) &&
-                                            publisher.TryGetProperty("TargetPort", out System.Text.Json.JsonElement targetPort))
-                                        {
-                                            string portMapping = $"{url.GetString()}:{publishedPort.GetInt32()}->{targetPort.GetInt32()}";
-                                            ports.Add(portMapping);
-                                        }
-                                    }
-                                }
-
-                                services.Add(new ComposeServiceDto(
-                                    Id: serviceId,
-                                    Name: serviceName,
-                                    Image: serviceImage,
-                                    State: serviceState.ToEntityState().ToStateString(),
-                                    Status: serviceStatus,
-                                    Ports: ports,
-                                    Health: serviceHealth
-                                ));
-                            }
-                            catch (System.Text.Json.JsonException lineEx)
-                            {
-                                _logger.LogWarning(lineEx, "Failed to parse JSON line for project {ProjectName}: {Line}", projectName, line);
-                            }
-                        }
-
-                        // Determine overall project status based on service states
-                        if (services.Count > 0)
-                        {
-                            state = StateHelper.DetermineStateFromServices(services);
-                        }
-                        else
-                        {
-                            // No services found - project is down
-                            state = EntityState.Down;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to parse docker compose ps output for project: {ProjectName}", projectName);
-                        state = EntityState.Unknown;
-                    }
-                }
-                else
-                {
-                    // Command failed or no output - project is likely down
-                    state = EntityState.Down;
-                }
-
-                projects.Add(new ComposeProjectDto(
-                    projectName,
-                    projectPath,
-                    state.ToStateString(),
-                    services,
-                    _composeService.GetComposeFiles(projectPath),
-                    DateTime.UtcNow
-                ));
+                projects.Add(project);
             }
 
             await _auditService.LogActionAsync(
@@ -831,6 +718,152 @@ public class ComposeController : ControllerBase
             _logger.LogError(ex, "Error listing compose projects");
             return StatusCode(500, ApiResponse.Fail<List<ComposeProjectDto>>("Error listing projects", "SERVER_ERROR"));
         }
+    }
+
+    private async Task<ComposeProjectDto?> GetProjectFromPath(int userId, string projectPath)
+    {
+        string projectName = _composeService.GetProjectName(projectPath);
+
+        // Check if user has View permission for this project
+        bool hasPermission = await _permissionService.HasPermissionAsync(
+            userId,
+            ResourceType.ComposeProject,
+            projectName,
+            PermissionFlags.View);
+
+        if (!hasPermission)
+        {
+            // Skip projects the user doesn't have permission to view
+            return null;
+        }
+
+        EntityState state = EntityState.Unknown;
+
+        List<ComposeServiceDto> services = await GetServicesFromProjectPath(projectPath);
+
+        // Determine overall project status based on service states
+        if (services.Count > 0)
+        {
+            state = StateHelper.DetermineStateFromServices(services);
+        }
+        else
+        {
+            // No services found - project is down
+            state = EntityState.Down;
+        }
+
+        ComposeProjectDto project = new(
+            projectName,
+            projectPath,
+            state.ToStateString(),
+            services,
+            _composeService.GetComposeFiles(projectPath),
+            DateTime.UtcNow
+        );
+        return project;
+    }
+
+    private async Task<List<ComposeServiceDto>> GetServicesFromProjectPath(string projectPath)
+    {
+        string projectName = _composeService.GetProjectName(projectPath);
+
+        (bool success, string output, string error) = await _composeService.ListServicesAsync(projectPath);
+
+        if(!success)
+        {
+            _logger.LogWarning("Failed to get services for project {ProjectName}. Error : {error}", projectName, error);
+            return new();
+        }
+
+        List<ComposeServiceDto> services = new();
+
+        if (success && !string.IsNullOrWhiteSpace(output))
+        {
+            try
+            {
+                // Parse NDJSON output from docker compose ps (each line is a separate JSON object)
+                string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string line in lines)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) { continue; }
+
+                    try
+                    {
+                        System.Text.Json.JsonElement svc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(line);
+
+                        // Extract service information from JSON
+                        string serviceId = svc.TryGetProperty("ID", out System.Text.Json.JsonElement svcId)
+                            ? svcId.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceName = svc.TryGetProperty("Service", out System.Text.Json.JsonElement svcName)
+                            ? svcName.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement svcState)
+                            ? svcState.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceStatus = svc.TryGetProperty("Status", out System.Text.Json.JsonElement svcStatus)
+                            ? svcStatus.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement svcImg)
+                            ? svcImg.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string? serviceHealth = svc.TryGetProperty("Health", out System.Text.Json.JsonElement svcHealth)
+                            ? svcHealth.GetString()
+                            : null;
+
+                        // Parse ports
+                        List<string> ports = new();
+                        if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers)
+                            && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (System.Text.Json.JsonElement publisher in publishers.EnumerateArray())
+                            {
+                                if (publisher.TryGetProperty("URL", out System.Text.Json.JsonElement url) &&
+                                    publisher.TryGetProperty("PublishedPort", out System.Text.Json.JsonElement publishedPort) &&
+                                    publisher.TryGetProperty("TargetPort", out System.Text.Json.JsonElement targetPort))
+                                {
+                                    string portMapping = $"{url.GetString()}:{publishedPort.GetInt32()}->{targetPort.GetInt32()}";
+                                    ports.Add(portMapping);
+                                }
+                            }
+                        }
+
+                        services.Add(new ComposeServiceDto(
+                            Id: serviceId,
+                            Name: serviceName,
+                            Image: serviceImage,
+                            State: serviceState.ToEntityState().ToStateString(),
+                            Status: serviceStatus,
+                            Ports: ports,
+                            Health: serviceHealth
+                        ));
+                    }
+                    catch (System.Text.Json.JsonException lineEx)
+                    {
+                        _logger.LogWarning(lineEx, "Failed to parse JSON line for project {ProjectName}: {Line}", projectName, line);
+                        services = new();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse docker compose ps output for project: {ProjectName}", projectName);
+                services = new();
+            }
+        }
+        else
+        {
+            // Command failed or no output - project is likely down
+            services = new();
+        }
+
+        return services;
     }
 
     /// <summary>
@@ -1076,10 +1109,17 @@ public class ComposeController : ControllerBase
                     "PERMISSION_DENIED"));
             }
 
+            //(bool success, string output, string error) = await _composeService.GetLogsAsync(
+            //    projectPath,
+            //    serviceName,
+            //    tail,
+            //    follow: false
+            //);
+
             (bool success, string output, string error) = await _composeService.GetLogsAsync(
                 projectPath,
                 serviceName,
-                tail,
+                null,
                 follow: false
             );
 
@@ -1271,7 +1311,7 @@ volumes:
     /// Get detailed information about a specific compose project
     /// </summary>
     [HttpGet("projects/{projectName}")]
-    public async Task<ActionResult<ApiResponse<ComposeProjectDetailsDto>>> GetProjectDetails(string projectName)
+    public async Task<ActionResult<ApiResponse<ComposeProjectDto>>> GetProjectDetails(string projectName)
     {
         try
         {
@@ -1281,14 +1321,53 @@ volumes:
 
             if (projectPath == null)
             {
-                return NotFound(ApiResponse.Fail<ComposeProjectDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
+                return NotFound(ApiResponse.Fail<ComposeProjectDto>("Project not found", "PROJECT_NOT_FOUND"));
+            }
+
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeProjectDto>("User not authenticated"));
+            }
+
+            ComposeProjectDto? project = await GetProjectFromPath(userId.Value, projectPath);
+
+            if (project == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeProjectDto>("Project not found or access denied", "PROJECT_NOT_FOUND"));
+            }
+
+            return Ok(ApiResponse.Ok(project, "Project details retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting project details for: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeProjectDto>("Error getting project details", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Get parsed compose file details with structured information (networks, volumes, env vars, labels, etc.)
+    /// </summary>
+    [HttpGet("projects/{projectName}/parsed")]
+    public async Task<ActionResult<ApiResponse<ComposeFileDetailsDto>>> GetProjectParsedDetails(string projectName)
+    {
+        try
+        {
+            // Find project path
+            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+            if (projectPath == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
             }
 
             // Check View permission
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
-                return Unauthorized(ApiResponse.Fail<ComposeProjectDetailsDto>("User not authenticated"));
+                return Unauthorized(ApiResponse.Fail<ComposeFileDetailsDto>("User not authenticated"));
             }
 
             bool hasPermission = await _permissionService.HasPermissionAsync(
@@ -1299,61 +1378,238 @@ volumes:
 
             if (!hasPermission)
             {
-                return StatusCode(403, ApiResponse.Fail<ComposeProjectDetailsDto>(
+                return StatusCode(403, ApiResponse.Fail<ComposeFileDetailsDto>(
                     "You don't have permission to view this compose project",
                     "PERMISSION_DENIED"));
             }
 
-            // Get project status by running docker compose ps
-            (int psExitCode, string psOutput, string psError) = await _composeService.ExecuteComposeCommandAsync(
-                projectPath,
-                "ps --format json"
-            );
-            bool psSuccess = psExitCode == 0;
-
-            List<ComposeServiceStatusDto> services = new();
-            if (psSuccess && !string.IsNullOrWhiteSpace(psOutput))
+            // Get primary compose file
+            string? composeFile = _composeService.GetPrimaryComposeFile(projectPath);
+            if (composeFile == null)
             {
-                try
+                return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>("No compose file found in project", "FILE_NOT_FOUND"));
+            }
+
+            // Read file content
+            (bool success, string content, string error) = await _fileService.ReadFileAsync(composeFile);
+            if (!success || content == null)
+            {
+                // Fallback: if the failure is due to path not being within allowed compose paths,
+                // attempt an external read (project discovered via docker compose ls -a).
+                if (error == "File path is not within any allowed compose path" || error == "No compose paths are configured")
                 {
-                    // Parse JSON output
-                    List<System.Text.Json.JsonElement>? jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(psOutput);
-                    if (jsonServices != null)
-                    {
-                        foreach (System.Text.Json.JsonElement svc in jsonServices)
-                        {
-                            services.Add(new ComposeServiceStatusDto(
-                                svc.GetProperty("Service").GetString() ?? "unknown",
-                                svc.GetProperty("State").GetString() ?? "unknown",
-                                svc.GetProperty("Status").GetString() ?? ""
-                            ));
-                        }
-                    }
+                    (success, content, error) = await _fileService.ReadFileExternalAsync(composeFile);
                 }
-                catch
+
+                if (!success || content == null)
                 {
-                    // Fallback: treat output as text
-                    _logger.LogWarning("Could not parse docker compose ps JSON output");
+                    return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
+                        error ?? "Error reading compose file", "READ_ERROR"));
                 }
             }
 
-            ComposeProjectDetailsDto projectDetails = new(
-                projectName,
-                projectPath,
-                services.Any(s => s.State == EntityState.Running.ToStateString()),
-                services.Count,
-                services.Count(s => s.State == EntityState.Running.ToStateString()),
-                services.Count(s => s.State != EntityState.Running.ToStateString()),
-                services
-            );
+            // Parse YAML
+            try
+            {
+                var deserializer = new YamlDotNet.Serialization.DeserializerBuilder()
+                    .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
+                    .Build();
 
-            return Ok(ApiResponse.Ok(projectDetails, "Project details retrieved successfully"));
+                var composeData = deserializer.Deserialize<Dictionary<string, object>>(content);
+
+                if (composeData == null)
+                {
+                    return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>("Invalid compose file format", "INVALID_FORMAT"));
+                }
+
+                // Extract version
+                string? version = composeData.ContainsKey("version")
+                    ? composeData["version"]?.ToString()
+                    : null;
+
+                // Extract services
+                var servicesDict = new Dictionary<string, ServiceDetailsDto>();
+                if (composeData.ContainsKey("services") && composeData["services"] is Dictionary<object, object> services)
+                {
+                    foreach (var svcEntry in services)
+                    {
+                        string serviceName = svcEntry.Key.ToString() ?? "unknown";
+                        var svcData = svcEntry.Value as Dictionary<object, object>;
+
+                        if (svcData != null)
+                        {
+                            servicesDict[serviceName] = new ServiceDetailsDto(
+                                Name: serviceName,
+                                Image: svcData.ContainsKey("image") ? svcData["image"]?.ToString() : null,
+                                Build: svcData.ContainsKey("build") ? svcData["build"]?.ToString() : null,
+                                Ports: ExtractStringList(svcData, "ports"),
+                                Environment: ExtractEnvironment(svcData),
+                                Labels: ExtractStringDictionary(svcData, "labels"),
+                                Volumes: ExtractStringList(svcData, "volumes"),
+                                DependsOn: ExtractStringList(svcData, "depends_on"),
+                                Restart: svcData.ContainsKey("restart") ? svcData["restart"]?.ToString() : null,
+                                Networks: ExtractStringDictionary(svcData, "networks")
+                            );
+                        }
+                    }
+                }
+
+                // Extract networks
+                Dictionary<string, NetworkDetailsDto>? networksDict = null;
+                if (composeData.ContainsKey("networks") && composeData["networks"] is Dictionary<object, object> networks)
+                {
+                    networksDict = new Dictionary<string, NetworkDetailsDto>();
+                    foreach (var netEntry in networks)
+                    {
+                        string networkName = netEntry.Key.ToString() ?? "unknown";
+                        var netData = netEntry.Value as Dictionary<object, object>;
+
+                        if (netData != null)
+                        {
+                            networksDict[networkName] = new NetworkDetailsDto(
+                                Name: networkName,
+                                Driver: netData.ContainsKey("driver") ? netData["driver"]?.ToString() : null,
+                                External: netData.ContainsKey("external") ? Convert.ToBoolean(netData["external"]) : null,
+                                DriverOpts: ExtractObjectDictionary(netData, "driver_opts"),
+                                Labels: ExtractStringDictionary(netData, "labels")
+                            );
+                        }
+                    }
+                }
+
+                // Extract volumes
+                Dictionary<string, VolumeDetailsDto>? volumesDict = null;
+                if (composeData.ContainsKey("volumes") && composeData["volumes"] is Dictionary<object, object> volumes)
+                {
+                    volumesDict = new Dictionary<string, VolumeDetailsDto>();
+                    foreach (var volEntry in volumes)
+                    {
+                        string volumeName = volEntry.Key.ToString() ?? "unknown";
+                        var volData = volEntry.Value as Dictionary<object, object>;
+
+                        if (volData != null)
+                        {
+                            volumesDict[volumeName] = new VolumeDetailsDto(
+                                Name: volumeName,
+                                Driver: volData.ContainsKey("driver") ? volData["driver"]?.ToString() : null,
+                                External: volData.ContainsKey("external") ? Convert.ToBoolean(volData["external"]) : null,
+                                DriverOpts: ExtractObjectDictionary(volData, "driver_opts"),
+                                Labels: ExtractStringDictionary(volData, "labels")
+                            );
+                        }
+                    }
+                }
+
+                var result = new ComposeFileDetailsDto(
+                    ProjectName: projectName,
+                    Version: version,
+                    Services: servicesDict,
+                    Networks: networksDict,
+                    Volumes: volumesDict
+                );
+
+                await _auditService.LogActionAsync(
+                    GetCurrentUserId(),
+                    "compose.parsed_details",
+                    GetUserIpAddress(),
+                    $"Retrieved parsed details for project: {projectName}",
+                    resourceType: "compose_project",
+                    resourceId: projectName
+                );
+
+                return Ok(ApiResponse.Ok(result, "Parsed compose file details retrieved successfully"));
+            }
+            catch (YamlDotNet.Core.YamlException yamlEx)
+            {
+                _logger.LogWarning(yamlEx, "Error parsing YAML for project: {ProjectName}", projectName);
+                return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
+                    $"Error parsing YAML: {yamlEx.Message}", "YAML_PARSE_ERROR"));
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting project details for: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeProjectDetailsDto>("Error getting project details", "SERVER_ERROR"));
+            _logger.LogError(ex, "Error getting parsed details for project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeFileDetailsDto>("Error getting parsed details", "SERVER_ERROR"));
         }
+    }
+
+    // Helper methods for parsing compose file
+    private List<string>? ExtractStringList(Dictionary<object, object> data, string key)
+    {
+        if (!data.ContainsKey(key)) return null;
+
+        var value = data[key];
+        if (value is List<object> list)
+        {
+            return list.Select(i => i?.ToString() ?? "").Where(s => !string.IsNullOrEmpty(s)).ToList();
+        }
+        return null;
+    }
+
+    private Dictionary<string, string>? ExtractStringDictionary(Dictionary<object, object> data, string key)
+    {
+        if (!data.ContainsKey(key)) return null;
+
+        var value = data[key];
+        if (value is Dictionary<object, object> dict)
+        {
+            return dict.ToDictionary(
+                kvp => kvp.Key?.ToString() ?? "",
+                kvp => kvp.Value?.ToString() ?? ""
+            );
+        }
+        return null;
+    }
+
+    private Dictionary<string, object>? ExtractObjectDictionary(Dictionary<object, object> data, string key)
+    {
+        if (!data.ContainsKey(key)) return null;
+
+        var value = data[key];
+        if (value is Dictionary<object, object> dict)
+        {
+            return dict.ToDictionary(
+                kvp => kvp.Key?.ToString() ?? "",
+                kvp => kvp.Value ?? new object()
+            );
+        }
+        return null;
+    }
+
+    private Dictionary<string, string>? ExtractEnvironment(Dictionary<object, object> data)
+    {
+        if (!data.ContainsKey("environment")) return null;
+
+        var value = data["environment"];
+
+        // Environment can be either a dictionary or a list of strings
+        if (value is Dictionary<object, object> dict)
+        {
+            return dict.ToDictionary(
+                kvp => kvp.Key?.ToString() ?? "",
+                kvp => kvp.Value?.ToString() ?? ""
+            );
+        }
+        else if (value is List<object> list)
+        {
+            var envDict = new Dictionary<string, string>();
+            foreach (var item in list)
+            {
+                string envStr = item?.ToString() ?? "";
+                string[] parts = envStr.Split('=', 2);
+                if (parts.Length == 2)
+                {
+                    envDict[parts[0]] = parts[1];
+                }
+                else if (parts.Length == 1)
+                {
+                    envDict[parts[0]] = "";
+                }
+            }
+            return envDict;
+        }
+
+        return null;
     }
 
     /// <summary>

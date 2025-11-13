@@ -52,6 +52,15 @@ export interface ComposeService {
   health?: string;
 }
 
+export interface ComposeProjectDetailsDto{
+    name: string,
+    path: string,
+    isRunning: boolean,
+    totalServices: number,
+    runningServices: number,
+    stoppedServices: number,
+    ComposeServiceStatusDto: ComposeService[]
+}
 
 
 // Compose Operation Request Types
@@ -138,4 +147,42 @@ export interface UpdateComposePathRequest {
   description?: string;
   isEnabled?: boolean;
   isRecursive?: boolean;
+}
+
+// Compose File Parsed Details Types
+export interface ComposeFileDetails {
+  projectName: string;
+  version?: string;
+  services: Record<string, ServiceDetails>;
+  networks?: Record<string, NetworkDetails>;
+  volumes?: Record<string, VolumeDetails>;
+}
+
+export interface ServiceDetails {
+  name: string;
+  image?: string;
+  build?: string;
+  ports?: string[];
+  environment?: Record<string, string>;
+  labels?: Record<string, string>;
+  volumes?: string[];
+  dependsOn?: string[];
+  restart?: string;
+  networks?: Record<string, string>;
+}
+
+export interface NetworkDetails {
+  name: string;
+  driver?: string;
+  external?: boolean;
+  driverOpts?: Record<string, string>;
+  labels?: Record<string, string>;
+}
+
+export interface VolumeDetails {
+  name: string;
+  driver?: string;
+  external?: boolean;
+  driverOpts?: Record<string, string>;
+  labels?: Record<string, string>;
 }

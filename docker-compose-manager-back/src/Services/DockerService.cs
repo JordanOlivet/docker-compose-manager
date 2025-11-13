@@ -47,7 +47,7 @@ public class DockerService
 
             return containers.Select(c => new ContainerDto(
                 c.ID,
-                c.Names.FirstOrDefault() ?? "unknown",
+                NormalizeName(c.Names.FirstOrDefault()),
                 c.Image,
                 c.Status,
                 c.State.ToEntityState().ToStateString(),
@@ -91,10 +91,10 @@ public class DockerService
 
             return new ContainerDetailsDto(
                 container.ID,
-                container.Name,
+                NormalizeName(container.Name),
                 container.Config?.Image ?? "unknown",
                 container.State?.Status ?? "unknown",
-                container.State?.Status ?? "unknown",
+                container.State?.Status?.ToEntityState().ToStateString() ?? "Unknown",
                 container.Created,
                 container.Config?.Labels != null ? new Dictionary<string, string>(container.Config.Labels) : null,
                 envDict,
@@ -221,6 +221,24 @@ public class DockerService
     {
         try
         {
+            // First, check if container exists and is running
+            ContainerInspectResponse? container = null;
+            try
+            {
+                container = await _dockerClient.Containers.InspectContainerAsync(containerId);
+            }
+            catch (DockerContainerNotFoundException)
+            {
+                // Container doesn't exist - silently return null
+                return null;
+            }
+
+            // If container is not running, don't try to get stats
+            if (container?.State?.Running != true)
+            {
+                return null;
+            }
+
             ContainerStatsParameters statsParameters = new()
             {
                 Stream = false // Get one-time stats, not streaming
@@ -243,7 +261,7 @@ public class DockerService
 
             if (lastStats == null)
             {
-                _logger.LogWarning("No stats received for container {ContainerId}", containerId);
+                // No stats received, but container exists - just return null silently
                 return null;
             }
 
@@ -266,9 +284,9 @@ public class DockerService
             long networkRx = lastStats.Networks?.Values.Sum(n => (long)n.RxBytes) ?? 0;
             long networkTx = lastStats.Networks?.Values.Sum(n => (long)n.TxBytes) ?? 0;
 
-            // Calculate block I/O - simplified (BlockIO property might vary by Docker.DotNet version)
-            long blockRead = 0L;
-            long blockWrite = 0L;
+            // Calculate disk I/O - simplified (DiskIO property might vary by Docker.DotNet version)
+            long diskRead = 0L;
+            long diskWrite = 0L;
 
             return new ContainerStatsDto(
                 cpuPercent,
@@ -277,8 +295,8 @@ public class DockerService
                 memoryPercent,
                 networkRx,
                 networkTx,
-                blockRead,
-                blockWrite
+                diskRead,
+                diskWrite
             );
         }
         catch (Exception ex)
@@ -287,4 +305,10 @@ public class DockerService
             return null;
         }
     }
+    /// <summary>
+    /// Normalizes a docker container name by removing the leading '/' that the Docker API returns.
+    /// Returns "unknown" if the provided name is null or whitespace.
+    /// </summary>
+    private static string NormalizeName(string? rawName)
+        => string.IsNullOrWhiteSpace(rawName) ? "unknown" : rawName.TrimStart('/');
 }

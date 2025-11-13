@@ -27,7 +27,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
 // Configure JWT Authentication
-string jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
+string jwtSecret = builder.Configuration["Jwt:Secret"] ?? string.Empty;
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException(
+        "JWT Secret is not configured. Please set the JWT_SECRET environment variable or Jwt:Secret in appsettings.json. " +
+        "The secret must be at least 32 characters long for security.");
+}
+if (jwtSecret.Length < 32)
+{
+    throw new InvalidOperationException(
+        $"JWT Secret must be at least 32 characters long. Current length: {jwtSecret.Length}. " +
+        "Please set a secure JWT_SECRET environment variable.");
+}
 string jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "docker-compose-manager";
 string jwtAudience = builder.Configuration["Jwt:Audience"] ?? "docker-compose-manager-client";
 
@@ -86,15 +98,15 @@ builder.Services.AddCors(options =>
 });
 
 // Register application services
-builder.Services.AddScoped<docker_compose_manager_back.Services.JwtTokenService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.AuthService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.IUserService, docker_compose_manager_back.Services.UserService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.FileService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.ComposeService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.IAuditService, docker_compose_manager_back.Services.AuditService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.OperationService>();
-builder.Services.AddScoped<docker_compose_manager_back.Services.IPermissionService, docker_compose_manager_back.Services.PermissionService>();
-builder.Services.AddSingleton<docker_compose_manager_back.Services.DockerService>();
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<ComposeService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<OperationService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddSingleton<DockerService>();
 
 // Register background services
 builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
@@ -159,7 +171,28 @@ if (app.Environment.IsDevelopment())
 // Add Error Handling Middleware first
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
-app.UseSerilogRequestLogging();
+// Configure Serilog request logging to exclude stats endpoints (to prevent log flooding)
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (httpContext, elapsed, ex) =>
+    {
+        // Don't log stats endpoints to prevent flooding
+        if (httpContext.Request.Path.StartsWithSegments("/api/containers") &&
+            httpContext.Request.Path.Value?.Contains("/stats") == true)
+        {
+            return Serilog.Events.LogEventLevel.Verbose; // Changed to Verbose (won't show unless explicitly configured)
+        }
+
+        // Log errors as Error level
+        if (ex != null || httpContext.Response.StatusCode > 499)
+        {
+            return Serilog.Events.LogEventLevel.Error;
+        }
+
+        // Normal requests as Information
+        return Serilog.Events.LogEventLevel.Information;
+    };
+});
 
 app.UseCors();
 
@@ -172,8 +205,17 @@ app.UseSecurityHeaders();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Health check endpoint with DB and Docker verification
-app.MapGet("/health", async (AppDbContext dbContext, DockerService dockerService) =>
+// Basic health check endpoint (for Docker healthcheck) - just checks if app is running
+app.MapGet("/health", () =>
+{
+    return Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow });
+})
+   .WithName("HealthCheck")
+   .WithTags("Health")
+   .AllowAnonymous();
+
+// Detailed health check endpoint with DB and Docker verification
+app.MapGet("/health/detailed", async (AppDbContext dbContext, DockerService dockerService) =>
 {
     Dictionary<string, object> checks = new();
     DateTime startTime = DateTime.UtcNow;
@@ -236,7 +278,7 @@ app.MapGet("/health", async (AppDbContext dbContext, DockerService dockerService
 
     return isHealthy ? Results.Ok(response) : Results.StatusCode(503);
 })
-   .WithName("HealthCheck")
+   .WithName("HealthCheckDetailed")
    .WithTags("Health")
    .AllowAnonymous();
 
@@ -244,7 +286,7 @@ app.MapControllers();
 
 // Map SignalR Hubs
 app.MapHub<LogsHub>("/hubs/logs");
-app.MapHub<docker_compose_manager_back.Hubs.OperationsHub>("/hubs/operations");
+app.MapHub<OperationsHub>("/hubs/operations");
 
 // Log when application is ready
 IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();

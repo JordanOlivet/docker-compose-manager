@@ -34,11 +34,12 @@ export function Login() {
       } else {
         navigate('/');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Clear tokens if login fails
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export function Login() {
         <div className="mt-6 text-center text-sm text-gray-600">
           <p>Default credentials:</p>
           <p className="font-mono bg-gray-100 p-2 mt-2 rounded">
-            admin / admin
+            admin / adminadmin
           </p>
         </div>
       </div>

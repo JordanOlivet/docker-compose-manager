@@ -1,9 +1,13 @@
 using docker_compose_manager_back.Data;
+using docker_compose_manager_back.Models;
 using docker_compose_manager_back.src.Utils;
+using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using EntityState = docker_compose_manager_back.src.Utils.EntityState;
 
 namespace docker_compose_manager_back.Services;
 
@@ -281,7 +285,7 @@ public class ComposeService
 
             (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
                 projectPath,
-                $"-p {Path.GetFileName(projectPath)} ps -a --format json",
+                $"-p {Path.GetFileName(projectPath).ToLower()} ps -a --format json --no-trunc",
                 composeFile,
                 cancellationToken
             );
@@ -320,6 +324,7 @@ public class ComposeService
             }
 
             List<string> args = new() { "logs" };
+            args.Add("--timestamps"); // Always include timestamps for better log parsing
             if (follow) args.Add("--follow");
             if (tail.HasValue) args.Add($"--tail={tail.Value}");
             if (!string.IsNullOrEmpty(serviceName)) args.Add(serviceName);
@@ -362,6 +367,227 @@ public class ComposeService
     }
 
     /// <summary>
+    /// Recursively searches for a project directory by name
+    /// </summary>
+    private string? FindProjectPathRecursive(string searchPath, string projectName, int maxDepth, int currentDepth = 0)
+    {
+        if (currentDepth >= maxDepth)
+            return null;
+
+        try
+        {
+            // Check if current directory matches
+            string dirName = GetProjectName(searchPath);
+            if (string.Equals(dirName, projectName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (HasComposeFile(searchPath))
+                {
+                    return searchPath;
+                }
+            }
+
+            // Search in subdirectories
+            string[] subdirectories = Directory.GetDirectories(searchPath);
+            foreach (string subdir in subdirectories)
+            {
+                string? found = FindProjectPathRecursive(subdir, projectName, maxDepth, currentDepth + 1);
+                if (found != null)
+                    return found;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error in recursive search at depth {Depth} in {Path}", currentDepth, searchPath);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts project name from a JSON element
+    /// </summary>
+    private void ExtractProjectNameFromJsonElement(JsonElement element, List<string> projectNames)
+    {
+        // Try common field names for project name
+        string[] possibleNameFields = { "Name", "name", "Project", "project" };
+        
+        foreach (string fieldName in possibleNameFields)
+        {
+            if (element.TryGetProperty(fieldName, out JsonElement nameElement))
+            {
+                string? projectName = nameElement.GetString();
+                if (!string.IsNullOrWhiteSpace(projectName))
+                {
+                    projectNames.Add(projectName);
+                    return;
+                }
+            }
+        }
+
+        // If no name field found, log a warning
+        _logger.LogDebug("Could not find project name field in JSON element: {Element}", element.GetRawText());
+    }
+
+    /// <summary>
+    /// Discovers compose project directories by reading ConfigFiles from `docker compose ls -a --format json`.
+    /// We now rely solely on the paths returned by the command (no recursive search or name matching).
+    /// </summary>
+    private async Task<List<string>> DiscoverProjectsFromDockerComposeLsAsync()
+    {
+        List<string> projectDirectories = new();
+        HashSet<string> uniqueDirs = new(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            bool isV2 = await IsComposeV2Available();
+            if (!isV2)
+            {
+                _logger.LogDebug("Docker Compose v1 detected, skipping docker compose ls discovery");
+                return projectDirectories;
+            }
+
+            ProcessStartInfo psi = new()
+            {
+                FileName = "docker",
+                Arguments = "compose ls -a --format json",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Environment.CurrentDirectory
+            };
+
+            StringBuilder output = new();
+            StringBuilder error = new();
+
+            using Process? process = Process.Start(psi);
+            if (process == null)
+            {
+                _logger.LogWarning("Failed to start docker compose ls process");
+                return projectDirectories;
+            }
+
+            process.OutputDataReceived += (sender, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+            process.ErrorDataReceived += (sender, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogWarning("docker compose ls failed with exit code {ExitCode}: {Error}", process.ExitCode, error.ToString());
+                return projectDirectories;
+            }
+
+            string outputStr = output.ToString().Trim();
+            if (string.IsNullOrWhiteSpace(outputStr))
+            {
+                _logger.LogDebug("docker compose ls returned no projects");
+                return projectDirectories;
+            }
+
+            void TryExtractDirectories(JsonElement element)
+            {
+                if (element.ValueKind != JsonValueKind.Object) return;
+                if (!element.TryGetProperty("ConfigFiles", out JsonElement cfg)) return;
+
+                // ConfigFiles can be a string (possibly with ; or , separators) or an array
+                List<string> configFiles = new();
+                if (cfg.ValueKind == JsonValueKind.String)
+                {
+                    string? raw = cfg.GetString();
+                    if (!string.IsNullOrWhiteSpace(raw))
+                    {
+                        // Split on common separators ; , |
+                        string[] parts = raw.Split(new[] { ';', ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (string part in parts)
+                        {
+                            configFiles.Add(part.Trim());
+                        }
+                    }
+                }
+                else if (cfg.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement item in cfg.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                        {
+                            string? path = item.GetString();
+                            if (!string.IsNullOrWhiteSpace(path))
+                                configFiles.Add(path.Trim());
+                        }
+                    }
+                }
+
+                foreach (string filePath in configFiles)
+                {
+                    try
+                    {
+                        string normalized = filePath.Replace('/', Path.DirectorySeparatorChar).Trim();
+                        string? dir = Path.GetDirectoryName(normalized);
+                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir) && uniqueDirs.Add(dir))
+                        {
+                            projectDirectories.Add(dir);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error processing compose config file path {FilePath}", filePath);
+                    }
+                }
+            }
+
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(outputStr);
+                JsonElement root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement item in root.EnumerateArray())
+                    {
+                        TryExtractDirectories(item);
+                    }
+                }
+                else if (root.ValueKind == JsonValueKind.Object)
+                {
+                    TryExtractDirectories(root);
+                }
+                else
+                {
+                    _logger.LogDebug("Unexpected JSON root kind for docker compose ls output: {Kind}", root.ValueKind);
+                }
+            }
+            catch (JsonException)
+            {
+                // Fallback NDJSON parsing (one object per line)
+                string[] lines = outputStr.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines)
+                {
+                    try
+                    {
+                        using JsonDocument doc = JsonDocument.Parse(line);
+                        TryExtractDirectories(doc.RootElement);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to parse NDJSON line for docker compose ls: {Line}", line);
+                    }
+                }
+            }
+
+            _logger.LogInformation("Discovered {Count} project directories from docker compose ls", projectDirectories.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error discovering projects from docker compose ls (non-fatal)");
+        }
+
+        return projectDirectories;
+    }
+
+    /// <summary>
     /// Discovers compose projects from configured paths
     /// </summary>
     public async Task<List<string>> DiscoverComposeProjectsAsync()
@@ -370,18 +596,33 @@ public class ComposeService
 
         try
         {
+            // 1. Get projects from configured paths (prioritaires)
             List<string> composeFiles = await _fileService.DiscoverComposeFilesAsync();
-
-            // Group files by directory (each directory with a docker-compose.yml is a project)
             List<string?> projectPaths = composeFiles
                 .Select(f => Path.GetDirectoryName(f))
                 .Where(d => !string.IsNullOrEmpty(d))
                 .Distinct()
                 .ToList();
 
+            // Utiliser un HashSet pour éviter les doublons et prioriser les paths configurés
+            HashSet<string> existing = new(projectPaths!, StringComparer.OrdinalIgnoreCase);
             projects.AddRange(projectPaths!);
 
-            _logger.LogInformation("Discovered {Count} compose projects", projects.Count);
+            // 2. Get project directories from docker compose ls -a (ConfigFiles field)
+            List<string> dockerComposeLsProjectDirs = await DiscoverProjectsFromDockerComposeLsAsync();
+
+            foreach (string dir in dockerComposeLsProjectDirs)
+            {
+                if (!existing.Contains(dir))
+                {
+                    projects.Add(dir);
+                    existing.Add(dir);
+                }
+                // Si déjà présent, ne rien faire (priorité au path configuré, log supprimé)
+            }
+
+            _logger.LogInformation("Discovered {Count} compose projects (from configured paths: {PathCount}, from docker compose ls directories: {DockerDirCount})", 
+                projects.Count, projectPaths.Count, dockerComposeLsProjectDirs.Count);
         }
         catch (Exception ex)
         {
@@ -473,23 +714,55 @@ public class ComposeService
 
                 if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
                 {
-                    // Parse output to extract service information
-                    // For simplicity, we'll parse the text output
-                    string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string? line in lines.Skip(1)) // Skip header line
+                    if (isV2 && output.TrimStart().StartsWith("["))
                     {
-                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 3)
+                        // V2: output is JSON array
+                        try
                         {
-                            services.Add(new DTOs.ComposeServiceDto(
-                                Id: parts[0],
-                                Name: parts[0],
-                                Image: parts.Length > 1 ? parts[1] : null,
-                                Status: parts.Length > 2 ? parts[2] : "unknown",
-                                State: parts.Length > 2 ? parts[2] : "unknown",
-                                Ports: new List<string>(),
-                                Health: null
-                            ));
+                            var json = System.Text.Json.JsonDocument.Parse(output);
+                            foreach (var element in json.RootElement.EnumerateArray())
+                            {
+                                string id = element.TryGetProperty("ID", out var idProp) ? idProp.GetString() ?? "" : "";
+                                string name = element.TryGetProperty("Service", out var svcProp) ? svcProp.GetString() ?? id : id;
+                                string? image = element.TryGetProperty("Image", out var imgProp) ? imgProp.GetString() : null;
+                                string state = element.TryGetProperty("State", out var stateProp) ? stateProp.GetString() ?? "unknown" : "unknown";
+                                string status = element.TryGetProperty("Status", out var statusProp) ? statusProp.GetString() ?? state : state;
+                                // Ports and Health can be added if needed
+                                services.Add(new DTOs.ComposeServiceDto(
+                                    Id: id,
+                                    Name: name,
+                                    Image: image,
+                                    Status: status,
+                                    State: state,
+                                    Ports: new List<string>(),
+                                    Health: null
+                                ));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse docker compose ps JSON output for project at {ProjectPath}", projectPath);
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: parse text output (v1 or unknown)
+                        string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (string? line in lines.Skip(1)) // Skip header line
+                        {
+                            string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 3)
+                            {
+                                services.Add(new DTOs.ComposeServiceDto(
+                                    Id: parts[0],
+                                    Name: parts[0],
+                                    Image: parts.Length > 1 ? parts[1] : null,
+                                    Status: parts.Length > 2 ? parts[2] : "unknown",
+                                    State: parts.Length > 2 ? parts[2] : "unknown",
+                                    Ports: new List<string>(),
+                                    Health: null
+                                ));
+                            }
                         }
                     }
                 }

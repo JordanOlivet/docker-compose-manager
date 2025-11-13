@@ -1,9 +1,31 @@
 import axios, { AxiosError } from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Extend InternalAxiosRequestConfig to include _retry property for token refresh
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+// Use relative URL in production (nginx proxy), or env variable for development
+// In production (built in Docker), VITE_API_URL should be empty/undefined to use nginx proxy
+const getApiUrl = () => {
+  const viteApiUrl = import.meta.env.VITE_API_URL;
+  // If VITE_API_URL is explicitly set (even if empty string), use it
+  if (viteApiUrl !== undefined && viteApiUrl !== '') {
+    return viteApiUrl;
+  }
+  // In production build, use empty string for relative URLs (nginx proxy)
+  if (import.meta.env.PROD) {
+    return '';
+  }
+  // In development, default to local backend
+  return 'http://localhost:5000';
+};
+
+const API_URL = getApiUrl();
 
 export const apiClient = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_URL ? `${API_URL}/api` : '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,7 +49,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as RetryableRequestConfig;
 
     // Don't attempt token refresh for auth endpoints
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') ||
@@ -42,7 +64,8 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        const response = await axios.post(`${API_URL}/api/auth/refresh`, {
+        const refreshUrl = API_URL ? `${API_URL}/api/auth/refresh` : '/api/auth/refresh';
+        const response = await axios.post(refreshUrl, {
           refreshToken,
         });
 

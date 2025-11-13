@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { authApi } from '../api';
 
@@ -13,8 +13,14 @@ interface AuthInitializerProps {
 export function AuthInitializer({ children }: AuthInitializerProps) {
   const { user, isAuthenticated, updateUser, logout } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
+  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
+    if (hasInitializedRef.current) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
     const initializeAuth = async () => {
       // If user is already loaded, no need to fetch again
       if (user) {

@@ -14,8 +14,8 @@ export interface AuditLogDetails extends AuditLog {
   details?: string;
   beforeState?: string;
   afterState?: string;
-  parsedBeforeState?: any;
-  parsedAfterState?: any;
+  parsedBeforeState?: Record<string, unknown>;
+  parsedAfterState?: Record<string, unknown>;
 }
 
 // Audit Filter Request

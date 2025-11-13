@@ -21,7 +21,7 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
         When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
         {
             RuleFor(x => x.Password)
-                .MinimumLength(6).WithMessage("Password must be at least 6 characters");
+                .MinimumLength(8).WithMessage("Password must be at least 8 characters");
         });
     }
 }

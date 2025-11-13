@@ -5,6 +5,7 @@ export const EntityState = {
     Restarting: "Restarting",
     Exited: "Exited",
     Stopped: "Stopped",
+    Created: "Created",
     Unknown: "Unknown",
 } as const;
 

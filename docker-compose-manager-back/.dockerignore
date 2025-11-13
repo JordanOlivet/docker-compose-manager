@@ -5,7 +5,8 @@
 **/.git
 **/.gitignore
 **/Docker
-**/docker-compose*
+**/docker-compose.yml
+**/docker-compose.*.yml
 **/*.md
 **/Data/*.db
 **/Data/*.db-*

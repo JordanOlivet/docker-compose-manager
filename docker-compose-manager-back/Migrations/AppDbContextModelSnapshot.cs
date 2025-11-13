@@ -420,7 +420,7 @@ namespace docker_compose_manager_back.Migrations
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             MustChangePassword = true,
-                            PasswordHash = "$2a$12$EaqK3eU12rvE2Pcx9EQpYuuBXguVhP48P8lPq.lcbDCAXTIRY9IdK",
+                            PasswordHash = "$2a$12$KWzphWJ1oNVd2iDLsJPQIu/j3xeEjYHMeF8meG1EU2x84DzPzL51u",
                             RoleId = 1,
                             Username = "admin"
                         });

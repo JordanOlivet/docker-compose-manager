@@ -1,23 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { containersApi } from '../api/containers';
-import { EntityState, type Container } from '../types';
+import { EntityState, type Container, type OperationUpdateEvent } from '../types';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
 import { Play, Square, RotateCw, Trash2, Container as ContainerIcon } from 'lucide-react';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
+import { signalRService } from "../services/signalRService";
 
 export default function Containers() {
+  const navigate = useNavigate();
   const [showAllContainers, setShowAllContainers] = useState(true);
+  // Sorting state: column key & direction
+  const [sortKey, setSortKey] = useState<'name' | 'image' | 'state' | 'status'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const queryClient = useQueryClient();
   const toast = useToast();
 
   const { data: containers, isLoading, error } = useQuery({
     queryKey: ['containers', showAllContainers],
     queryFn: () => containersApi.list(showAllContainers),
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: false, // SignalR handle refreshes
   });
 
   const startMutation = useMutation({
@@ -90,105 +96,226 @@ export default function Containers() {
     }
   };
 
+   // Setup SignalR connection for real-time updates
+    useEffect(() => {
+      const connectAndListen = async () => {
+        try {
+          // console.log("Connecting to SignalR operations hub...");
+          // Connect to the operations hub
+          await signalRService.connect();
+          // console.log("Connected to SignalR operations hub successfully");
+  
+          // Listen for operation updates
+          const handleOperationUpdate = (update: OperationUpdateEvent) => {
+            // console.log("Operation update received:", update);
+            // console.log("Update status:", update.status, "Type:", update.type);
+  
+            // Only react to completed or failed compose operations
+            const statusMatch =
+              update.status === "completed" || update.status === "failed";
+            const typeMatch =
+              update.type && update.type.toLowerCase().includes("container");
+  
+            // console.log("Status match:", statusMatch, "Type match:", typeMatch);
+  
+            if (statusMatch && typeMatch) {
+              // console.log("✅ Refreshing compose projects list...");
+              // Immediately refetch projects to show the new state
+              queryClient.invalidateQueries({ queryKey: ["containers"] });
+            } else {
+              // console.log("❌ Not refreshing - conditions not met");
+            }
+            if (update.errorMessage) {
+              toast.error(`An error happend : "${update.errorMessage}"`);
+            }
+          };
+  
+          signalRService.onOperationUpdate(handleOperationUpdate);
+  
+          // Cleanup on unmount
+          return () => {
+            console.log("Cleaning up SignalR connection");
+            signalRService.offOperationUpdate(handleOperationUpdate);
+          };
+        } catch (error) {
+          console.error("Failed to connect to SignalR:", error);
+        }
+      };
+  
+      connectAndListen();
+    }, [queryClient, toast]);
+
+  // Memoized sorted containers (must be declared before any early return for hooks order)
+  const sortedContainers = useMemo(() => {
+    if (!containers) return [];
+    const arr = [...containers];
+    arr.sort((a: Container, b: Container) => {
+      const getVal = (c: Container) => {
+        switch (sortKey) {
+          case 'name':
+            return c.name.startsWith('/') ? c.name.slice(1) : c.name;
+          case 'image':
+            return c.image || '';
+          case 'state':
+            return c.state || '';
+          case 'status':
+            return c.status || '';
+          default:
+            return '';
+        }
+      };
+      const va = getVal(a)?.toString().toLowerCase();
+      const vb = getVal(b)?.toString().toLowerCase();
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [containers, sortKey, sortDir]);
+
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay message="Failed to load containers" />;
 
+  const toggleSort = (key: 'name' | 'image' | 'state' | 'status') => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const renderSortIndicator = (key: typeof sortKey) => {
+    if (sortKey !== key) return null;
+    return (
+      <span className="inline-block ml-1">
+        {sortDir === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Page Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Containers</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            Manage your Docker containers
-          </p>
+      <div className="mb-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Containers</h1>
+            <p className="text-base text-gray-600 dark:text-gray-400">
+              Manage your Docker containers
+            </p>
+          </div>
+          <label className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showAllContainers}
+              onChange={(e) => setShowAllContainers(e.target.checked)}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
+            />
+            <span>Show all containers</span>
+          </label>
         </div>
-        <label className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-all">
-          <input
-            type="checkbox"
-            checked={showAllContainers}
-            onChange={(e) => setShowAllContainers(e.target.checked)}
-            className="w-4 h-4 rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
-          />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Show all containers</span>
-        </label>
       </div>
 
       {!containers || containers.length === 0 ? (
-        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-            <ContainerIcon className="w-10 h-10 text-gray-400" />
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
+            <ContainerIcon className="w-8 h-8 text-gray-400" />
           </div>
-          <p className="text-lg text-gray-600 dark:text-gray-400">No containers found</p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            No containers found
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Start containers to see them here
+          </p>
         </div>
       ) : (
-        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-visible shadow hover:shadow-lg transition-all duration-300">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Name
+                  <th
+                    onClick={() => toggleSort('name')}
+                    aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    Name {renderSortIndicator('name')}
                   </th>
-                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Image
+                  <th
+                    onClick={() => toggleSort('image')}
+                    aria-sort={sortKey === 'image' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    Image {renderSortIndicator('image')}
                   </th>
-                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    State
+                  <th
+                    onClick={() => toggleSort('state')}
+                    aria-sort={sortKey === 'state' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    State {renderSortIndicator('state')}
                   </th>
-                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Status
+                  <th
+                    onClick={() => toggleSort('status')}
+                    aria-sort={sortKey === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                  >
+                    Status {renderSortIndicator('status')}
                   </th>
-                  <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {containers.map((container: Container) => (
+                {sortedContainers.map((container: Container) => (
                   <tr key={container.id} className="hover:bg-white dark:hover:bg-gray-800 transition-all">
-                    <td className="px-8 py-5 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {container.name}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <button
+                        className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none"
+                        onClick={() => navigate(`/containers/${container.id}`)}
+                        title="Voir les détails du container"
+                      >
+                        {container.name.startsWith('/') ? container.name.slice(1) : container.name}
+                      </button>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                         {container.id.substring(0, 12)}
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="text-sm text-gray-900 dark:text-gray-300">
+                    <td className="px-4 py-2">
+                      <div className="text-xs text-gray-900 dark:text-gray-300">
                         {container.image}
                       </div>
                     </td>
-                    <td className="px-8 py-5 whitespace-nowrap">
-                      <span className={`px-3 py-1.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStateColor(container.state)}`}>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStateColor(container.state)}`}>
                         {container.state}
                       </span>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-2">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         {container.status}
                       </div>
                     </td>
-                    <td className="px-8 py-5 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 py-2 whitespace-nowrap text-xs">
+                      <div className="flex items-center gap-1">
                         {container.state == EntityState.Running ?
                         (
                           <>
-                            <button
-                              onClick={() => stopMutation.mutate({ id: container.id, name: container.name })}
-                              className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
-                              title="Stop"
-                            >
-                              <Square className="w-4 h-4" />
-                            </button>
-                            <button
+                          <button
                               onClick={() => restartMutation.mutate({ id: container.id, name: container.name })}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                              className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
                               title="Restart"
                             >
-                              <RotateCw className="w-4 h-4" />
+                              <RotateCw className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => stopMutation.mutate({ id: container.id, name: container.name })}
+                              className="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
+                              title="Stop"
+                            >
+                              <Square className="w-3 h-3" />
                             </button>
                           </>
                         )
@@ -196,18 +323,18 @@ export default function Containers() {
                         (
                           <button
                             onClick={() => startMutation.mutate({ id: container.id, name: container.name })}
-                            className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                            className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
                             title="Start"
                           >
-                            <Play className="w-4 h-4" />
+                            <Play className="w-3 h-3" />
                           </button>
                         )}
                         <button
                           onClick={() => handleRemove(container)}
-                          className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
                           title="Remove"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     </td>

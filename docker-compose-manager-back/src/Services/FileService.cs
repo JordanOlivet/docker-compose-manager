@@ -92,6 +92,34 @@ public class FileService
     }
 
     /// <summary>
+    /// Reads the content of a compose file that is outside configured ComposePaths.
+    /// This is a controlled escape hatch used when a project has been discovered via
+    /// `docker compose ls -a` but its directory was not previously whitelisted.
+    /// Security considerations:
+    ///  - Only call this AFTER verifying the directory was returned by docker compose ls discovery.
+    ///  - Do NOT use for arbitrary user-supplied paths.
+    /// </summary>
+    public async Task<(bool Success, string? Content, string? Error)> ReadFileExternalAsync(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                return (false, null, "File not found");
+            }
+
+            string content = await File.ReadAllTextAsync(filePath);
+            _logger.LogInformation("Successfully read external compose file: {FilePath}", filePath);
+            return (true, content, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading external file: {FilePath}", filePath);
+            return (false, null, $"Error reading external file: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Writes content to a compose file with backup
     /// </summary>
     public async Task<(bool Success, string? Error)> WriteFileAsync(string filePath, string content, bool createBackup = true)

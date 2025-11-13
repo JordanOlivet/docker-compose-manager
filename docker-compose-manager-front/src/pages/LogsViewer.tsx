@@ -60,12 +60,13 @@ export default function LogsViewer() {
 
       // Start streaming
       if (containerId) {
-        await signalRService.streamContainerLogs(containerId, tail);
+        await signalRService.streamContainerLogs(containerId);
       } else if (projectPath) {
-        await signalRService.streamComposeLogs(projectPath, serviceName || undefined, tail);
+        await signalRService.streamComposeLogs(projectPath, serviceName || undefined);
       }
-    } catch (error: any) {
-      toast.error(`Failed to start streaming: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error(`Failed to start streaming: ${err.message}`);
       setIsStreaming(false);
     }
   };
@@ -76,8 +77,9 @@ export default function LogsViewer() {
       await signalRService.disconnectFromLogsHub();
       setIsStreaming(false);
       toast.success('Log streaming stopped');
-    } catch (error: any) {
-      toast.error(`Failed to stop streaming: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error(`Failed to stop streaming: ${err.message}`);
     }
   };
 

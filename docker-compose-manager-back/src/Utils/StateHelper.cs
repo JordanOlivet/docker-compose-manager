@@ -10,6 +10,7 @@ namespace docker_compose_manager_back.src.Utils
         Restarting = 3,
         Exited = 4,
         Stopped = 5,
+        Created = 6,
         Unknown = 99,
     }
 
@@ -34,6 +35,8 @@ namespace docker_compose_manager_back.src.Utils
 
             int restartingCount = services.Count(s => s.State == EntityState.Restarting.ToStateString());
 
+            int createdCount = services.Count(s => s.State == EntityState.Created.ToStateString());
+
             // All services running - project is fully up
             if (runningCount == services.Count)
                 return EntityState.Running;
@@ -50,6 +53,10 @@ namespace docker_compose_manager_back.src.Utils
             if (exitedCount > 0)
                 return EntityState.Exited;
 
+            // All services created
+            if (createdCount > 0)
+                return EntityState.Created;
+
             // Default to stopped
             return EntityState.Stopped;
         }
@@ -64,6 +71,7 @@ namespace docker_compose_manager_back.src.Utils
                 EntityState.Restarting => "Restarting",
                 EntityState.Exited => "Exited",
                 EntityState.Stopped => "Stopped",
+                EntityState.Created => "Created",
                 _ => "Unknown",
             };
         }
@@ -78,6 +86,7 @@ namespace docker_compose_manager_back.src.Utils
                 "restarting" => EntityState.Restarting,
                 "exited" => EntityState.Exited,
                 "stopped" => EntityState.Stopped,
+                "created" => EntityState.Created,
                 _ => EntityState.Unknown,
             };
         }

@@ -28,7 +28,7 @@ interface ComposeState {
   setSelectedProject: (project: ComposeProject | null) => void;
   setIsLoadingProjects: (isLoading: boolean) => void;
   setProjectsError: (error: string | null) => void;
-  updateProjectStatus: (projectName: string, status: string) => void;
+  updateProjectStatus: (projectName: string, status: import('../types').EntityState) => void;
 
   // Reset
   reset: () => void;
@@ -85,7 +85,7 @@ export const useComposeStore = create<ComposeState>((set) => ({
   updateProjectStatus: (projectName, status) =>
     set((state) => ({
       projects: state.projects.map((p) =>
-        p.name === projectName ? { ...p, status: status as any } : p
+        p.name === projectName ? { ...p, state: status } : p
       ),
     })),
 

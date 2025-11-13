@@ -11,8 +11,8 @@ using docker_compose_manager_back.Data;
 namespace docker_compose_manager_back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251023192847_FixUserRoleRelation")]
-    partial class FixUserRoleRelation
+    [Migration("20251106111838_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -125,6 +125,9 @@ namespace docker_compose_manager_back.Migrations
                     b.Property<string>("FullPath")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDiscovered")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("LastModified")
                         .HasColumnType("TEXT");
@@ -239,6 +242,46 @@ namespace docker_compose_manager_back.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Operations");
+                });
+
+            modelBuilder.Entity("docker_compose_manager_back.Models.ResourcePermission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Permissions")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ResourceName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ResourceType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("UserGroupId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserGroupId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ResourceType", "ResourceName");
+
+                    b.ToTable("ResourcePermissions");
                 });
 
             modelBuilder.Entity("docker_compose_manager_back.Models.Role", b =>
@@ -380,10 +423,64 @@ namespace docker_compose_manager_back.Migrations
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             MustChangePassword = true,
-                            PasswordHash = "$2a$12$EaqK3eU12rvE2Pcx9EQpYuuBXguVhP48P8lPq.lcbDCAXTIRY9IdK",
+                            PasswordHash = "$2a$12$KWzphWJ1oNVd2iDLsJPQIu/j3xeEjYHMeF8meG1EU2x84DzPzL51u",
                             RoleId = 1,
                             Username = "admin"
                         });
+                });
+
+            modelBuilder.Entity("docker_compose_manager_back.Models.UserGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("UserGroups");
+                });
+
+            modelBuilder.Entity("docker_compose_manager_back.Models.UserGroupMembership", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserGroupId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserGroupId");
+
+                    b.HasIndex("UserId", "UserGroupId")
+                        .IsUnique();
+
+                    b.ToTable("UserGroupMemberships");
                 });
 
             modelBuilder.Entity("docker_compose_manager_back.Models.AuditLog", b =>
@@ -417,6 +514,23 @@ namespace docker_compose_manager_back.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("docker_compose_manager_back.Models.ResourcePermission", b =>
+                {
+                    b.HasOne("docker_compose_manager_back.Models.UserGroup", "UserGroup")
+                        .WithMany("ResourcePermissions")
+                        .HasForeignKey("UserGroupId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("docker_compose_manager_back.Models.User", "User")
+                        .WithMany("ResourcePermissions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserGroup");
+                });
+
             modelBuilder.Entity("docker_compose_manager_back.Models.Session", b =>
                 {
                     b.HasOne("docker_compose_manager_back.Models.User", "User")
@@ -439,6 +553,25 @@ namespace docker_compose_manager_back.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("docker_compose_manager_back.Models.UserGroupMembership", b =>
+                {
+                    b.HasOne("docker_compose_manager_back.Models.UserGroup", "UserGroup")
+                        .WithMany("UserGroupMemberships")
+                        .HasForeignKey("UserGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("docker_compose_manager_back.Models.User", "User")
+                        .WithMany("UserGroupMemberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserGroup");
+                });
+
             modelBuilder.Entity("docker_compose_manager_back.Models.ComposePath", b =>
                 {
                     b.Navigation("ComposeFiles");
@@ -448,7 +581,18 @@ namespace docker_compose_manager_back.Migrations
                 {
                     b.Navigation("AuditLogs");
 
+                    b.Navigation("ResourcePermissions");
+
                     b.Navigation("Sessions");
+
+                    b.Navigation("UserGroupMemberships");
+                });
+
+            modelBuilder.Entity("docker_compose_manager_back.Models.UserGroup", b =>
+                {
+                    b.Navigation("ResourcePermissions");
+
+                    b.Navigation("UserGroupMemberships");
                 });
 #pragma warning restore 612, 618
         }
