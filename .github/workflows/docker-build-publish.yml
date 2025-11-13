@@ -6,8 +6,11 @@ on:
       - main
     tags:
       - 'v*'
+  create:
+    tags:
+      - 'v*'
   release:
-    types: [published]
+    types: [created, published]
   workflow_dispatch:
 
 concurrency:
