@@ -1,0 +1,32 @@
+name: 'Extract Docker Metadata for Frontend'
+description: 'Generate Docker tags and labels for frontend image'
+inputs:
+  registry:
+    description: 'Container registry URL'
+    required: true
+  image_name:
+    description: 'Full image name (owner/repo-frontend)'
+    required: true
+outputs:
+  tags:
+    description: 'Docker image tags'
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: 'Docker image labels'
+    value: ${{ steps.meta.outputs.labels }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.registry }}/${{ inputs.image_name }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha,prefix=sha-
+          type=raw,value=latest,enable={{is_default_branch}}

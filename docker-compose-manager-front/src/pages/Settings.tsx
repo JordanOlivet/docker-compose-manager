@@ -22,16 +22,16 @@ export default function Settings() {
     queryFn: configApi.getPaths,
   });
 
-  // Récupération des projets Docker Compose découverts (inclut ceux hors des paths configurés)
+  // Retrieve discovered Docker Compose projects (includes those outside configured paths)
   const { data: projects } = useQuery({
     queryKey: ['composeProjects'],
     queryFn: composeApi.listProjects,
   });
 
-  // Normalisation de path pour comparaison (Windows + suppression trailing slash)
+  // Path normalization for comparison (Windows + trailing slash removal)
   const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().replace(/\/$/, '');
 
-  // Extraction des projets externes (nom + path) détectés hors des paths configurés
+  // Extract external projects (name + path) detected outside configured paths
   const externalProjects = useMemo((): { path: string; name: string }[] => {
     if (!projects || !paths) return [];
     const configured = paths.map(p => normalizePath(p.path));
@@ -42,7 +42,7 @@ export default function Settings() {
       const projNorm = normalizePath(proj.path);
       const isInside = configured.some(cfg => projNorm.startsWith(cfg) && (projNorm.length === cfg.length || projNorm[cfg.length] === '/'));
       if (!isInside) {
-        // Utiliser le nom du projet retourné par l'API, sinon fallback
+        // Use the project name returned by the API, otherwise fallback
         map.set(proj.path, { path: proj.path, name: proj.name || 'Projet sans nom' });
       }
     }

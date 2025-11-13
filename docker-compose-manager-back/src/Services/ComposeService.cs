@@ -604,7 +604,7 @@ public class ComposeService
                 .Distinct()
                 .ToList();
 
-            // Utiliser un HashSet pour éviter les doublons et prioriser les paths configurés
+            // Use a HashSet to avoid duplicates and prioritize configured paths
             HashSet<string> existing = new(projectPaths!, StringComparer.OrdinalIgnoreCase);
             projects.AddRange(projectPaths!);
 
@@ -618,7 +618,7 @@ public class ComposeService
                     projects.Add(dir);
                     existing.Add(dir);
                 }
-                // Si déjà présent, ne rien faire (priorité au path configuré, log supprimé)
+                // If already present, do nothing (priority to configured path, log removed)
             }
 
             _logger.LogInformation("Discovered {Count} compose projects (from configured paths: {PathCount}, from docker compose ls directories: {DockerDirCount})", 

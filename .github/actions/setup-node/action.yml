@@ -1,0 +1,11 @@
+name: 'Setup Node.js Environment'
+description: 'Setup Node.js with npm caching for the frontend project'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: './docker-compose-manager-front/package-lock.json'

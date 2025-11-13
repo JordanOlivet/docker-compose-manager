@@ -70,7 +70,7 @@ This will build the Docker images from source on your machine.
 
 4. Default credentials:
    - Username: `admin`
-   - Password: `admin`
+   - Password: `adminadmin`
    - **Important**: Change the password on first login
 
 #### Using Specific Image Versions
@@ -308,34 +308,6 @@ The workflow requires the following repository permissions:
 - `packages: write` - Publish to GitHub Container Registry
 
 These permissions are automatically granted to the `GITHUB_TOKEN` in the workflow.
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `POST /api/auth/refresh` - Refresh access token
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/change-password` - Change password
-
-### Containers
-- `GET /api/containers` - List all containers
-- `GET /api/containers/{id}` - Get container details
-- `POST /api/containers/{id}/start` - Start container
-- `POST /api/containers/{id}/stop` - Stop container
-- `POST /api/containers/{id}/restart` - Restart container
-- `DELETE /api/containers/{id}` - Remove container
-
-## Next Steps
-
-The base architecture is ready. See `SPECS.md` for the complete feature roadmap including:
-
-- Docker Compose file management
-- User management (admin functionality)
-- Real-time updates via WebSockets
-- Container logs streaming
-- Dashboard with statistics
-- And much more...
 
 ## Security Notes
 

@@ -6,10 +6,11 @@ on:
       - main
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -17,111 +18,87 @@ env:
   FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
 
 jobs:
+  prepare:
+    name: Prepare & Version Extraction
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      assembly_version: ${{ steps.version.outputs.assembly_version }}
+      build_date: ${{ steps.version.outputs.build_date }}
+      vcs_ref: ${{ steps.version.outputs.vcs_ref }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract version
+        id: version
+        uses: ./.github/actions/extract-version
+
   backend-build-test-publish:
     name: Backend - Build, Test & Publish
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+    needs: prepare
+    env:
+      TARGET_PLATFORMS: linux/amd64
     steps:
-      - name: Checkout repository
+      - name: Checkout backend
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for git describe
-
-      - name: Extract version information
-        id: version
-        run: |
-          # Try to get version from git tag
-          if git describe --tags --exact-match 2>/dev/null; then
-            VERSION=$(git describe --tags --exact-match | sed 's/^v//')
-            ASSEMBLY_VERSION="${VERSION}.0"
-          else
-            # If no tag, read from VERSION file or use default
-            if [ -f VERSION ]; then
-              VERSION=$(cat VERSION | tr -d '\n\r')
-              ASSEMBLY_VERSION="${VERSION}.0"
-            else
-              VERSION="0.1.0"
-              ASSEMBLY_VERSION="0.1.0.0"
-            fi
-            # Add suffix for non-release builds
-            VERSION="${VERSION}-dev-$(git rev-parse --short HEAD)"
-          fi
-
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "assembly_version=${ASSEMBLY_VERSION}" >> $GITHUB_OUTPUT
-          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-          echo "vcs_ref=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-          echo "Version: ${VERSION}"
-          echo "Assembly Version: ${ASSEMBLY_VERSION}"
-          echo "Build Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          echo "VCS Ref: $(git rev-parse --short HEAD)"
-
+          fetch-depth: 0
       - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
+        uses: ./.github/actions/setup-dotnet
       - name: Restore dependencies
         working-directory: ./docker-compose-manager-back
         run: dotnet restore
-
       - name: Build backend
         working-directory: ./docker-compose-manager-back
         run: |
           dotnet build --configuration Release --no-restore \
-            -p:Version=${{ steps.version.outputs.assembly_version }} \
-            -p:AssemblyVersion=${{ steps.version.outputs.assembly_version }} \
-            -p:FileVersion=${{ steps.version.outputs.assembly_version }} \
-            -p:InformationalVersion=${{ steps.version.outputs.version }}
-
-      - name: Run backend tests
+            -p:Version=${{ needs.prepare.outputs.assembly_version }} \
+            -p:AssemblyVersion=${{ needs.prepare.outputs.assembly_version }} \
+            -p:FileVersion=${{ needs.prepare.outputs.assembly_version }} \
+            -p:InformationalVersion=${{ needs.prepare.outputs.version }}
+      - name: Run backend tests (with coverage on main & tags)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         working-directory: ./docker-compose-manager-back
         run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
-
+      - name: Run backend tests (fast, no coverage)
+        if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v')
+        working-directory: ./docker-compose-manager-back
+        run: dotnet test --no-build --configuration Release --verbosity minimal
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata for Backend
         id: meta
-        uses: docker/metadata-action@v5
+        uses: ./.github/actions/docker-metadata-backend
         with:
-          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
+          registry: ${{ env.REGISTRY }}
+          image_name: ${{ env.BACKEND_IMAGE_NAME }}
       - name: Build and push Backend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./docker-compose-manager-back
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            ASSEMBLY_VERSION=${{ steps.version.outputs.assembly_version }}
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
-            VCS_REF=${{ steps.version.outputs.vcs_ref }}
+            VERSION=${{ needs.prepare.outputs.version }}
+            ASSEMBLY_VERSION=${{ needs.prepare.outputs.assembly_version }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+            VCS_REF=${{ needs.prepare.outputs.vcs_ref }}
 
   frontend-build-test-publish:
     name: Frontend - Build, Test & Publish
@@ -129,117 +106,67 @@ jobs:
     permissions:
       contents: read
       packages: write
-
+    needs: prepare
+    env:
+      TARGET_PLATFORMS: linux/amd64
     steps:
-      - name: Checkout repository
+      - name: Checkout frontend
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for git describe
-
-      - name: Extract version information
-        id: version
-        run: |
-          # Try to get version from git tag
-          if git describe --tags --exact-match 2>/dev/null; then
-            VERSION=$(git describe --tags --exact-match | sed 's/^v//')
-            ASSEMBLY_VERSION="${VERSION}.0"
-          else
-            # If no tag, read from VERSION file or use default
-            if [ -f VERSION ]; then
-              VERSION=$(cat VERSION | tr -d '\n\r')
-              ASSEMBLY_VERSION="${VERSION}.0"
-            else
-              VERSION="0.1.0"
-              ASSEMBLY_VERSION="0.1.0.0"
-            fi
-            # Add suffix for non-release builds
-            VERSION="${VERSION}-dev-$(git rev-parse --short HEAD)"
-          fi
-
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "assembly_version=${ASSEMBLY_VERSION}" >> $GITHUB_OUTPUT
-          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-          echo "vcs_ref=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-          echo "Version: ${VERSION}"
-          echo "Assembly Version: ${ASSEMBLY_VERSION}"
-          echo "Build Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          echo "VCS Ref: $(git rev-parse --short HEAD)"
-
+          fetch-depth: 0
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './docker-compose-manager-front/package-lock.json'
-
+        uses: ./.github/actions/setup-node
       - name: Install dependencies
         working-directory: ./docker-compose-manager-front
         run: npm ci
-
       - name: Run frontend tests
         working-directory: ./docker-compose-manager-front
         run: npm test -- --run
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata for Frontend
         id: meta
-        uses: docker/metadata-action@v5
+        uses: ./.github/actions/docker-metadata-frontend
         with:
-          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
+          registry: ${{ env.REGISTRY }}
+          image_name: ${{ env.FRONTEND_IMAGE_NAME }}
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./docker-compose-manager-front
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
           build-args: |
             VITE_API_URL=/api
-            VITE_APP_VERSION=${{ steps.version.outputs.version }}
-            VITE_BUILD_DATE=${{ steps.version.outputs.build_date }}
-            VITE_GIT_COMMIT=${{ steps.version.outputs.vcs_ref }}
-            VERSION=${{ steps.version.outputs.version }}
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
-            VCS_REF=${{ steps.version.outputs.vcs_ref }}
+            VITE_APP_VERSION=${{ needs.prepare.outputs.version }}
+            VITE_BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+            VITE_GIT_COMMIT=${{ needs.prepare.outputs.vcs_ref }}
+            VERSION=${{ needs.prepare.outputs.version }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+            VCS_REF=${{ needs.prepare.outputs.vcs_ref }}
 
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
     needs: [backend-build-test-publish, frontend-build-test-publish]
     if: always()
-
     steps:
       - name: Check build results
         run: |
           echo "Backend build status: ${{ needs.backend-build-test-publish.result }}"
           echo "Frontend build status: ${{ needs.frontend-build-test-publish.result }}"
-
           if [[ "${{ needs.backend-build-test-publish.result }}" == "failure" ]] || [[ "${{ needs.frontend-build-test-publish.result }}" == "failure" ]]; then
             echo "One or more builds failed"
             exit 1
           fi
-
           echo "All builds completed successfully"

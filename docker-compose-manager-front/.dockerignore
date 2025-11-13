@@ -1,7 +1,14 @@
-node_modules
-dist
+node_modules/
+dist/
+test/
 .git
-.gitignore
-*.md
+.github
 .vscode
+*.md
+README*
+Dockerfile
+vitest.config.ts
+eslint.config.js
+.gitignore
 .env.development
+# Intentionally DO NOT ignore package-lock.json (needed for npm ci determinism)

@@ -1,0 +1,44 @@
+name: 'Extract Version Information'
+description: 'Extracts version information from git tags or VERSION file'
+outputs:
+  version:
+    description: 'Application version'
+    value: ${{ steps.version.outputs.version }}
+  assembly_version:
+    description: 'Assembly version (for .NET)'
+    value: ${{ steps.version.outputs.assembly_version }}
+  build_date:
+    description: 'Build timestamp'
+    value: ${{ steps.version.outputs.build_date }}
+  vcs_ref:
+    description: 'Git commit short hash'
+    value: ${{ steps.version.outputs.vcs_ref }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Extract version information
+      id: version
+      shell: bash
+      run: |
+        if git describe --tags --exact-match 2>/dev/null; then
+          VERSION=$(git describe --tags --exact-match | sed 's/^v//')
+          ASSEMBLY_VERSION="${VERSION}.0"
+        else
+          if [ -f VERSION ]; then
+            VERSION=$(cat VERSION | tr -d '\n\r')
+            ASSEMBLY_VERSION="${VERSION}.0"
+          else
+            VERSION="0.1.0"
+            ASSEMBLY_VERSION="0.1.0.0"
+          fi
+          VERSION="${VERSION}-dev-$(git rev-parse --short HEAD)"
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "assembly_version=${ASSEMBLY_VERSION}" >> $GITHUB_OUTPUT
+        echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+        echo "vcs_ref=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "Version: ${VERSION}"
+        echo "Assembly Version: ${ASSEMBLY_VERSION}"
+        echo "Build Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        echo "VCS Ref: $(git rev-parse --short HEAD)"

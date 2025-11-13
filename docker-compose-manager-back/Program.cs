@@ -21,8 +21,31 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+// Ensure log directories exist for any configured file sinks
+try
+{
+    IConfigurationSection writeToSection = builder.Configuration.GetSection("Serilog:WriteTo");
+    foreach (IConfigurationSection sink in writeToSection.GetChildren())
+    {
+        string? path = sink.GetSection("Args").GetValue<string>("path");
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            string? directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+                Log.Information("Created log directory: {LogDirectory}", directory);
+            }
+        }
+    }
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "Failed to ensure log directories for Serilog file sinks");
+}
+
 // Add Database Context
-string connectionString = builder.Configuration["Database:ConnectionString"] ?? "Data Source=Data/app.db";
+string connectionString = /*builder.Configuration["Database:ConnectionString"] ??*/ "Data Source=Data/app.db";
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
