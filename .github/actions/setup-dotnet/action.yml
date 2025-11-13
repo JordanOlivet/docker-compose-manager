@@ -1,0 +1,12 @@
+name: 'Setup .NET Environment'
+description: 'Setup .NET SDK with caching for the backend project'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      shell: bash
+      with:
+        dotnet-version: '9.0.x'
+        cache: true
+        cache-dependency-path: docker-compose-manager-back/*.csproj
