@@ -1,85 +1,85 @@
-# Guide de Déploiement - Docker Compose Manager
+# Deployment Guide - Docker Compose Manager
 
-Ce guide explique comment déployer l'application Docker Compose Manager en utilisant les images Docker pré-buildées depuis GitHub Container Registry.
+This guide explains how to deploy the Docker Compose Manager application using pre-built Docker images from GitHub Container Registry.
 
-## Table des Matières
+## Table of Contents
 
-1. [Configuration Initiale](#configuration-initiale)
-2. [Rendre les Images Publiques](#rendre-les-images-publiques)
-3. [Déploiement avec Docker Compose](#déploiement-avec-docker-compose)
-4. [Configuration de Production](#configuration-de-production)
-5. [Mise à Jour](#mise-à-jour)
+1. [Initial Setup](#initial-setup)
+2. [Making Images Public](#making-images-public)
+3. [Deploying with Docker Compose](#deploying-with-docker-compose)
+4. [Production Configuration](#production-configuration)
+5. [Updating](#updating)
 6. [Rollback](#rollback)
-7. [Monitoring et Logs](#monitoring-et-logs)
+7. [Monitoring and Logs](#monitoring-and-logs)
 
-## Configuration Initiale
+## Initial Setup
 
-### 1. Prérequis
+### 1. Prerequisites
 
-- Docker Engine 20.10+ ou Docker Desktop
+- Docker Engine 20.10+ or Docker Desktop
 - Docker Compose v2+
-- Accès SSH au serveur (pour déploiement distant)
-- Compte GitHub avec le repository
+- SSH access to the server (for remote deployment)
+- GitHub account with repository access
 
-### 2. Cloner le Repository
+### 2. Clone the Repository
 
 ```bash
 git clone https://github.com/your-username/docker-compose-manager.git
 cd docker-compose-manager
 ```
 
-### 3. Configurer les Variables d'Environnement
+### 3. Configure Environment Variables
 
 ```bash
-# Copier le fichier exemple
+# Copy example file
 cp .env.example .env
 
-# Éditer le fichier .env
+# Edit the .env file
 nano .env
 ```
 
-Configurez les variables suivantes:
+Set the following variables:
 
 ```bash
-# Repository GitHub
+# GitHub repository
 GITHUB_REPOSITORY=your-username/docker-compose-manager
 
-# Tag de l'image (latest, 1.0.0, sha-abc1234, etc.)
+# Image tag (latest, 1.0.0, sha-abc1234, etc.)
 IMAGE_TAG=latest
 
-# JWT Secret - IMPORTANT: Générez une clé forte!
-# Générer avec: openssl rand -base64 32
+# JWT Secret - IMPORTANT: Generate a strong key!
+# Generate with: openssl rand -base64 32
 JWT_SECRET=your-super-secret-jwt-key-min-32-characters
 
-# Niveau de log (pour production: Information ou Warning)
+# Log level (production recommendation: Information or Warning)
 LOG_LEVEL=Information
 ```
 
-## Rendre les Images Publiques
+## Making Images Public
 
-Par défaut, les images publiées sur GitHub Container Registry sont privées. Pour les rendre publiques:
+By default, images published to GitHub Container Registry are private. To make them public:
 
-### Via l'Interface GitHub
+### Via GitHub Web Interface
 
-1. Allez sur votre profil GitHub
-2. Cliquez sur **Packages**
-3. Sélectionnez le package `docker-compose-manager-backend`
-4. Cliquez sur **Package settings** (en bas à droite)
-5. Scrollez jusqu'à **Danger Zone**
-6. Cliquez sur **Change visibility**
-7. Sélectionnez **Public** et confirmez
-8. Répétez pour `docker-compose-manager-frontend`
+1. Go to your GitHub profile
+2. Click **Packages**
+3. Select the `docker-compose-manager-backend` package
+4. Click **Package settings** (bottom right)
+5. Scroll to **Danger Zone**
+6. Click **Change visibility**
+7. Select **Public** and confirm
+8. Repeat for `docker-compose-manager-frontend`
 
 ### Via GitHub CLI
 
 ```bash
-# Installer GitHub CLI si nécessaire
+# Install GitHub CLI if needed
 # https://cli.github.com/
 
-# Authentification
+# Authenticate
 gh auth login
 
-# Rendre les packages publics
+# Make packages public
 gh api \
   --method PATCH \
   -H "Accept: application/vnd.github+json" \
@@ -93,42 +93,42 @@ gh api \
   -f visibility='public'
 ```
 
-## Déploiement avec Docker Compose
+## Deploying with Docker Compose
 
-### Déploiement Local ou Serveur Unique
+### Local or Single Server Deployment
 
 ```bash
-# 1. Authentification (si images privées)
+# 1. Authenticate (if images are private)
 echo $GITHUB_TOKEN | docker login ghcr.io -u your-username --password-stdin
 
-# 2. Pull des images
+# 2. Pull images
 docker compose pull
 
-# 3. Démarrer les services
+# 3. Start services
 docker compose up -d
 
-# 4. Vérifier le statut
+# 4. Check status
 docker compose ps
 
-# 5. Voir les logs
+# 5. View logs
 docker compose logs -f
 ```
 
-### Accès à l'Application
+### Application Access
 
-L'application sera accessible sur `http://localhost:3000` ou `http://your-server-ip:3000`
+The application will be accessible at `http://localhost:3000` or `http://your-server-ip:3000`.
 
-Identifiants par défaut:
+Default credentials:
 - Username: `admin`
 - Password: `admin`
 
-**Important**: Changez le mot de passe dès la première connexion!
+**Important**: Change the password immediately after first login!
 
-## Configuration de Production
+## Production Configuration
 
-### 1. Reverse Proxy avec Nginx
+### 1. Reverse Proxy with Nginx
 
-Pour exposer l'application avec un nom de domaine et SSL:
+To expose the application with a domain name and SSL:
 
 ```nginx
 # /etc/nginx/sites-available/docker-manager
@@ -156,15 +156,15 @@ server {
 }
 ```
 
-Activez SSL avec Let's Encrypt:
+Enable SSL with Let's Encrypt:
 
 ```bash
 sudo certbot --nginx -d docker-manager.example.com
 ```
 
-### 2. Modifier le Port d'Exposition
+### 2. Change Exposed Port
 
-Éditez `docker-compose.yml` pour changer le port:
+Edit `docker-compose.yml` to change the port:
 
 ```yaml
 services:
@@ -173,213 +173,213 @@ services:
       - "8080:80"  # Change 3000 to your desired port
 ```
 
-### 3. Sécuriser l'Accès au Socket Docker
+### 3. Secure Docker Socket Access
 
-Sur le serveur de production, assurez-vous que seul le container backend a accès:
+On the production server, ensure only the backend container has access:
 
 ```bash
-# Vérifier les permissions
+# Check permissions
 ls -l /var/run/docker.sock
 
-# Si nécessaire, créer un groupe docker
+# If needed, create a docker group
 sudo groupadd docker
 sudo usermod -aG docker $USER
 ```
 
-### 4. Backup de la Base de Données
+### 4. Database Backup
 
-La base de données SQLite est stockée dans un volume Docker. Pour sauvegarder:
+The SQLite database is stored in a Docker volume. To back it up:
 
 ```bash
-# Créer un backup
+# Create a backup
 docker compose exec backend sh -c 'cp /app/data/app.db /app/data/app.db.backup'
 
-# Copier le backup hors du container
+# Copy the backup out of the container
 docker cp docker-manager-backend:/app/data/app.db.backup ./backup-$(date +%Y%m%d).db
 
-# Automatiser avec cron
+# Automate with cron
 0 2 * * * cd /path/to/docker-compose-manager && docker compose exec backend sh -c 'cp /app/data/app.db /app/data/app.db.backup'
 ```
 
-## Mise à Jour
+## Updating
 
-### Mise à Jour vers la Dernière Version
+### Update to Latest Version
 
 ```bash
-# 1. Sauvegarder la base de données
+# 1. Backup the database
 docker compose exec backend sh -c 'cp /app/data/app.db /app/data/app.db.backup'
 
-# 2. Pull des nouvelles images
+# 2. Pull new images
 docker compose pull
 
-# 3. Redémarrer avec les nouvelles images
+# 3. Restart with new images
 docker compose up -d
 
-# 4. Vérifier les logs
+# 4. Check logs
 docker compose logs -f
 
-# 5. Vérifier que l'application fonctionne
+# 5. Verify application health
 curl http://localhost:3000/health
 ```
 
-### Mise à Jour vers une Version Spécifique
+### Update to a Specific Version
 
 ```bash
-# 1. Éditer .env
+# 1. Edit .env
 echo "IMAGE_TAG=1.2.3" >> .env
 
-# 2. Pull et redémarrer
+# 2. Pull and restart
 docker compose pull
 docker compose up -d
 ```
 
 ## Rollback
 
-Si une mise à jour pose problème:
+If an update causes issues:
 
 ```bash
-# 1. Changer vers la version précédente dans .env
-IMAGE_TAG=1.2.2  # version stable précédente
+# 1. Switch to previous version in .env
+IMAGE_TAG=1.2.2  # previous stable version
 
-# 2. Pull de l'ancienne version
+# 2. Pull previous version
 docker compose pull
 
-# 3. Redémarrer
+# 3. Restart
 docker compose down
 docker compose up -d
 
-# 4. Restaurer le backup si nécessaire
+# 4. Restore backup if needed
 docker cp backup-20240115.db docker-manager-backend:/app/data/app.db
 docker compose restart backend
 ```
 
-## Monitoring et Logs
+## Monitoring and Logs
 
-### Voir les Logs
+### View Logs
 
 ```bash
-# Tous les services
+# All services
 docker compose logs -f
 
-# Backend uniquement
+# Backend only
 docker compose logs -f backend
 
-# Frontend uniquement
+# Frontend only
 docker compose logs -f frontend
 
-# Dernières 100 lignes
+# Last 100 lines
 docker compose logs --tail=100
 
-# Logs avec timestamps
+# Logs with timestamps
 docker compose logs -f -t
 ```
 
-### Vérifier la Santé des Services
+### Check Service Health
 
 ```bash
-# Status des containers
+# Container status
 docker compose ps
 
-# Stats en temps réel
+# Real-time stats
 docker stats
 
-# Utilisation de l'espace disque
+# Disk usage
 docker system df
 ```
 
-### Logs Persistants
+### Persistent Logs
 
-Les logs du backend sont sauvegardés dans `./logs/backend/`:
+Backend logs are stored in `./logs/backend/`:
 
 ```bash
-# Voir les logs fichiers
+# View log files
 tail -f ./logs/backend/app-*.log
 
-# Archiver les anciens logs
+# Archive old logs
 tar -czf logs-archive-$(date +%Y%m%d).tar.gz ./logs/backend/
 ```
 
-## Commandes Utiles
+## Useful Commands
 
-### Gestion des Containers
+### Container Management
 
 ```bash
-# Arrêter les services
+# Stop services
 docker compose stop
 
-# Démarrer les services
+# Start services
 docker compose start
 
-# Redémarrer les services
+# Restart services
 docker compose restart
 
-# Arrêter et supprimer les containers
+# Stop and remove containers
 docker compose down
 
-# Supprimer containers + volumes (ATTENTION: perte de données!)
+# Remove containers + volumes (WARNING: data loss!)
 docker compose down -v
 ```
 
-### Nettoyage
+### Cleanup
 
 ```bash
-# Supprimer les images inutilisées
+# Remove unused images
 docker image prune -a
 
-# Supprimer tous les containers arrêtés
+# Remove stopped containers
 docker container prune
 
-# Nettoyage complet (ATTENTION)
+# Full cleanup (WARNING)
 docker system prune -a --volumes
 ```
 
-### Débug
+### Debug
 
 ```bash
-# Accéder au shell du backend
+# Access backend shell
 docker compose exec backend sh
 
-# Accéder au shell du frontend
+# Access frontend shell
 docker compose exec frontend sh
 
-# Inspecter un container
+# Inspect a container
 docker inspect docker-manager-backend
 
-# Voir les variables d'environnement
+# View environment variables
 docker compose exec backend env
 ```
 
-## Sécurité en Production
+## Production Security
 
-### Checklist de Sécurité
+### Security Checklist
 
-- [ ] Changé le mot de passe admin par défaut
-- [ ] Généré un JWT_SECRET fort (min 32 caractères)
-- [ ] Configuré HTTPS avec certificat SSL
-- [ ] Restreint l'accès au port 3000 (firewall)
-- [ ] Configuré des backups réguliers
-- [ ] Activé les logs et monitoring
-- [ ] Mise à jour régulière des images
-- [ ] Sécurisé l'accès au socket Docker
-- [ ] Configuré rate limiting (si exposé publiquement)
+- [ ] Changed default admin password
+- [ ] Generated a strong JWT_SECRET (min 32 characters)
+- [ ] Configured HTTPS with SSL certificate
+- [ ] Restricted access to port 3000 (firewall)
+- [ ] Set up regular backups
+- [ ] Enabled logging and monitoring
+- [ ] Regularly updated images
+- [ ] Secured access to Docker socket
+- [ ] Configured rate limiting (if publicly exposed)
 
-### Mise à Jour des Secrets
+### Updating Secrets
 
-Si vous devez changer le JWT_SECRET:
+If you need to change the JWT_SECRET:
 
 ```bash
-# 1. Éditer .env avec le nouveau secret
+# 1. Edit .env with new secret
 nano .env
 
-# 2. Redémarrer le backend
+# 2. Restart backend
 docker compose restart backend
 
-# Note: Tous les utilisateurs devront se reconnecter
+# Note: All users will need to log in again
 ```
 
 ## Support
 
-Pour plus d'informations:
-- Documentation: voir `README.md` et `CLAUDE.md`
+For more information:
+- Documentation: see `README.md` and `CLAUDE.md`
 - Issues: https://github.com/your-username/docker-compose-manager/issues
-- Workflow CI/CD: `.github/workflows/docker-build-publish.yml`
+- CI/CD Workflow: `.github/workflows/docker-build-publish.yml`
