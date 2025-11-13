@@ -1,4 +1,12 @@
-# Changelog
+## Changes in v0.3.0
+
+**Merged Pull Requests:**
+- Tweaks and fixes (#11)
+
+**Commits:**
+- Tweaks and fixes (#11) (28204c3)
+- docs: update CHANGELOG for v0.2.0 [skip ci] (c215dc0)
+- chore: bump version to v0.2.0 [skip ci] (e599e10)# Changelog
 
 All notable changes to this project will be documented in this file.
 
