@@ -14,16 +14,11 @@ public class DockerService
     {
         _logger = logger;
 
-        // Auto-detect Docker host based on platform if not configured
         string? dockerHost = configuration["Docker:Host"];
 
         if (string.IsNullOrEmpty(dockerHost))
         {
-            // Auto-detect based on platform
-            dockerHost = OperatingSystem.IsWindows()
-                ? "npipe://./pipe/docker_engine"
-                : "unix:///var/run/docker.sock";
-            _logger.LogInformation("Auto-detected Docker host for platform: {DockerHost}", dockerHost);
+            throw new ArgumentException("Unable to initialize Docker client with an empty docker host. You have to set it with the env var 'Docker__Host' in the environment section of the compose file.");
         }
 
         try
