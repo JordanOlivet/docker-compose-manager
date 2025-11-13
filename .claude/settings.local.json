@@ -27,7 +27,9 @@
       "Bash(then echo \"Data directory exists\")",
       "Bash(else echo \"Data directory does not exist\")",
       "Bash(fi)",
-      "Bash(timeout 10 npm run dev:*)"
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(tree:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

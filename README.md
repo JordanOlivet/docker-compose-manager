@@ -28,21 +28,68 @@ A full-stack application for managing Docker containers and Docker Compose files
 
 ### Using Docker Compose (Recommended)
 
+#### Option 1: Using Pre-built Images from GitHub Container Registry (Production-Ready)
+
 1. Copy `.env.example` to `.env` and configure:
 ```bash
 cp .env.example .env
 ```
 
-2. Build and start all services:
+2. Edit `.env` and set your GitHub repository:
 ```bash
-docker compose up --build
+GITHUB_REPOSITORY=your-github-username/docker-compose-manager
 ```
+
+3. Pull and start the services:
+```bash
+docker compose pull
+docker compose up -d
+```
+
+This will use the pre-built multi-architecture images from GitHub Container Registry.
+
+#### Option 2: Building Locally (Development)
+
+If you want to build the images locally instead of using the registry:
+
+1. Copy `.env.example` to `.env` and configure:
+```bash
+cp .env.example .env
+```
+
+2. Build and start with the development compose file:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+This will build the Docker images from source on your machine.
+
+#### Accessing the Application
 
 3. Access the application at `http://localhost:3000`
 
 4. Default credentials:
    - Username: `admin`
    - Password: `admin`
+   - **Important**: Change the password on first login
+
+#### Using Specific Image Versions
+
+You can specify which version to use by setting `IMAGE_TAG` in your `.env`:
+
+```bash
+# Use latest version (default)
+IMAGE_TAG=latest
+
+# Use a specific version
+IMAGE_TAG=1.0.0
+
+# Use a specific commit
+IMAGE_TAG=sha-abc1234
+
+# Use main branch
+IMAGE_TAG=main
+```
 
 ### Local Development
 
@@ -143,6 +190,124 @@ See `.env.example` for all configuration options.
 Key variables:
 - `JWT_SECRET`: Secret key for JWT signing (MUST be changed in production)
 - `DOCKER_HOST`: Docker daemon connection string
+
+## CI/CD with GitHub Actions
+
+The project includes automated CI/CD pipeline using GitHub Actions that builds and publishes Docker images to GitHub Container Registry (ghcr.io).
+
+### Workflow Triggers
+
+The pipeline runs automatically on:
+- **Push to main branch**: Builds, tests, and publishes images with `latest` and `main` tags
+- **Pull requests**: Builds and tests only (no publication) for validation
+- **Git tags** (v1.0.0, v2.1.3, etc.): Publishes versioned releases with semantic version tags
+- **Manual dispatch**: Can be triggered manually from the Actions tab
+
+### Published Images
+
+Images are published to GitHub Container Registry:
+- Backend: `ghcr.io/<username>/docker-compose-manager-backend`
+- Frontend: `ghcr.io/<username>/docker-compose-manager-frontend`
+
+Both images support multi-architecture:
+- `linux/amd64` (x86_64)
+- `linux/arm64` (ARM64, including Apple Silicon)
+
+### Image Tags
+
+Images are automatically tagged with:
+- `latest` - Latest build from main branch
+- `main` - Main branch builds
+- `sha-<commit>` - Specific commit SHA (e.g., `sha-abc1234`)
+- Semantic versions for tagged releases:
+  - `v1.2.3` → `1.2.3`, `1.2`, `1`
+
+### Docker Image Management
+
+#### Pulling Images from GitHub Container Registry
+
+If the images are public, simply run:
+```bash
+docker compose pull
+```
+
+If the images are private, you need to authenticate first:
+
+```bash
+# Create a GitHub Personal Access Token with 'read:packages' permission
+# Then login to GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u your-github-username --password-stdin
+
+# Pull the images
+docker compose pull
+```
+
+#### Updating to Latest Version
+
+To update to the latest version of the images:
+
+```bash
+# Pull latest images
+docker compose pull
+
+# Restart services with new images
+docker compose up -d
+
+# Remove old images (optional)
+docker image prune -f
+```
+
+#### Building and Pushing Your Own Images
+
+If you've forked this repository and want to build and push your own images:
+
+```bash
+# Build locally
+docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+
+# Tag for your registry
+docker tag docker-compose-manager-backend:dev ghcr.io/your-username/docker-compose-manager-backend:latest
+docker tag docker-compose-manager-frontend:dev ghcr.io/your-username/docker-compose-manager-frontend:latest
+
+# Push to registry (requires authentication)
+docker push ghcr.io/your-username/docker-compose-manager-backend:latest
+docker push ghcr.io/your-username/docker-compose-manager-frontend:latest
+```
+
+Or simply push to your fork and let GitHub Actions build and publish automatically!
+
+### Pipeline Steps
+
+The CI/CD pipeline performs the following:
+
+**Backend:**
+1. Setup .NET 9 environment
+2. Restore NuGet dependencies
+3. Build project in Release mode
+4. Run xUnit tests with code coverage
+5. Build multi-architecture Docker image
+6. Publish to GitHub Container Registry
+
+**Frontend:**
+1. Setup Node.js 20 environment
+2. Install npm dependencies
+3. Run Vitest tests
+4. Build multi-architecture Docker image
+5. Publish to GitHub Container Registry
+
+### Monitoring Builds
+
+- View workflow runs in the **Actions** tab of your GitHub repository
+- Failed builds will prevent image publication
+- All tests must pass before images are built
+
+### Permissions
+
+The workflow requires the following repository permissions:
+- `contents: read` - Read repository code
+- `packages: write` - Publish to GitHub Container Registry
+
+These permissions are automatically granted to the `GITHUB_TOKEN` in the workflow.
 
 ## API Endpoints
 
