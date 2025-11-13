@@ -21,13 +21,11 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-      --mount=type=cache,id=npm-modules,target=/app/node_modules \
-      npm ci
+RUN npm ci
 
 # Copy source and build
 COPY . .
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm npm run build
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
