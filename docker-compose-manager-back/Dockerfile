@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
 # Build arguments for version information
 ARG VERSION=0.1.0-dev
+ARG ASSEMBLY_VERSION=0.1.0.0
 ARG BUILD_DATE=unknown
 ARG VCS_REF=unknown
 
@@ -16,12 +17,12 @@ RUN dotnet restore docker-compose-manager-back.csproj
 # Copy everything else and build
 COPY . .
 RUN dotnet build docker-compose-manager-back.csproj -c Release -o /app/build \
-    -p:Version=${VERSION} \
-    -p:AssemblyVersion=${VERSION} \
-    -p:FileVersion=${VERSION} \
+    -p:Version=${ASSEMBLY_VERSION} \
+    -p:AssemblyVersion=${ASSEMBLY_VERSION} \
+    -p:FileVersion=${ASSEMBLY_VERSION} \
     -p:InformationalVersion=${VERSION}
 RUN dotnet publish docker-compose-manager-back.csproj -c Release -o /app/publish \
-    -p:Version=${VERSION} \
+    -p:Version=${ASSEMBLY_VERSION} \
     -p:InformationalVersion=${VERSION}
 
 # Runtime stage
