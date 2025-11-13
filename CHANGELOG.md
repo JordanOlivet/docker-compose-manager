@@ -1,4 +1,12 @@
-## Changes in v0.4.0
+## Changes in v0.5.0
+
+**Merged Pull Requests:**
+- Add  more trigger to release build (#13)
+
+**Commits:**
+- Add  more trigger to release build (#13) (296c19a)
+- docs: update CHANGELOG for v0.4.0 [skip ci] (bd470b6)
+- chore: bump version to v0.4.0 [skip ci] (6ccca58)## Changes in v0.4.0
 
 **Merged Pull Requests:**
 - Add release versionning with correct version and not sha commit (#12)
