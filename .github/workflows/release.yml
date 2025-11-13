@@ -1,0 +1,134 @@
+name: Create Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create-release:
+    name: Create Version Tag and Release
+    runs-on: ubuntu-latest
+    # Only run if PR was merged and has a release label
+    if: |
+      github.event.pull_request.merged == true &&
+      (contains(github.event.pull_request.labels.*.name, 'release-major') ||
+       contains(github.event.pull_request.labels.*.name, 'release-minor') ||
+       contains(github.event.pull_request.labels.*.name, 'release-patch'))
+
+    outputs:
+      new_tag: ${{ steps.tag_version.outputs.new_tag }}
+      changelog: ${{ steps.tag_version.outputs.changelog }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper tagging
+
+      - name: Determine version bump type
+        id: bump_type
+        run: |
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'release-major') }}" == "true" ]]; then
+            echo "bump=major" >> $GITHUB_OUTPUT
+            echo "Version bump: MAJOR"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'release-minor') }}" == "true" ]]; then
+            echo "bump=minor" >> $GITHUB_OUTPUT
+            echo "Version bump: MINOR"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'release-patch') }}" == "true" ]]; then
+            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "Version bump: PATCH"
+          else
+            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "Version bump: PATCH (default)"
+          fi
+
+      - name: Create version tag
+        id: tag_version
+        uses: anothrNick/github-tag-action@1.70.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: ${{ steps.bump_type.outputs.bump }}
+          INITIAL_VERSION: 0.1.0
+          PRERELEASE: false
+          RELEASE_BRANCHES: main
+          TAG_CONTEXT: branch
+
+      - name: Update VERSION file
+        run: |
+          echo "${{ steps.tag_version.outputs.new_tag }}" | sed 's/^v//' > VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "chore: bump version to ${{ steps.tag_version.outputs.new_tag }} [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git tag --sort=-creatordate | sed -n '2p')
+          if [ -z "$PREVIOUS_TAG" ]; then
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          echo "Generating changelog from $PREVIOUS_TAG to ${{ steps.tag_version.outputs.new_tag }}"
+
+          # Generate changelog content
+          {
+            echo "## Changes in ${{ steps.tag_version.outputs.new_tag }}"
+            echo ""
+            echo "**Merged Pull Requests:**"
+            echo "- ${{ github.event.pull_request.title }} (#${{ github.event.pull_request.number }})"
+            echo ""
+            echo "**Commits:**"
+            git log --pretty=format:"- %s (%h)" ${PREVIOUS_TAG}..${{ steps.tag_version.outputs.new_tag }}
+          } > RELEASE_NOTES.md
+
+          # Update CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Prepend new changes to existing CHANGELOG
+            cat RELEASE_NOTES.md CHANGELOG.md > CHANGELOG.tmp
+            mv CHANGELOG.tmp CHANGELOG.md
+          else
+            # Create new CHANGELOG
+            {
+              echo "# Changelog"
+              echo ""
+              echo "All notable changes to this project will be documented in this file."
+              echo ""
+              cat RELEASE_NOTES.md
+            } > CHANGELOG.md
+          fi
+
+          # Commit CHANGELOG
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for ${{ steps.tag_version.outputs.new_tag }} [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(steps.tag_version.outputs.new_tag, '-') }}
+          generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### 🎉 Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Bump Type:** ${{ steps.bump_type.outputs.bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PR:** #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Docker images will be built and published automatically by the docker-build-publish workflow." >> $GITHUB_STEP_SUMMARY
