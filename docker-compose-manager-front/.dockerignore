@@ -9,7 +9,7 @@ README*
 Dockerfile
 vitest.config.ts
 eslint.config.js
-package-lock.jsonnode_modules
+node_modules
 dist
 .git
 .gitignore
