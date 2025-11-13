@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Build stage
 FROM node:20-alpine AS build
 
@@ -20,11 +21,13 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm ci
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
+      --mount=type=cache,id=npm-modules,target=/app/node_modules \
+      npm ci
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm npm run build
 
 # Production stage
 FROM nginx:alpine

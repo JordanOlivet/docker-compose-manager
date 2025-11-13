@@ -1,4 +1,14 @@
-**/.vs
+bin/
+obj/
+docker-compose-manager-back.Tests/
+*.csproj.user
+.git
+.github
+Logs/
+*.md
+README*
+LICENSE
+nuget.config**/.vs
 **/.vscode
 **/bin
 **/obj

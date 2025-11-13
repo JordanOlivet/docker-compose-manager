@@ -1,4 +1,15 @@
-node_modules
+node_modules/
+dist/
+test/
+.git
+.github
+.vscode
+*.md
+README*
+Dockerfile
+vitest.config.ts
+eslint.config.js
+package-lock.jsonnode_modules
 dist
 .git
 .gitignore

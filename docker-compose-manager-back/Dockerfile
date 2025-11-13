@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
@@ -12,21 +13,23 @@ WORKDIR /src
 # Copy csproj and restore dependencies
 COPY ["docker-compose-manager-back.csproj", "./"]
 COPY ["nuget.config", "./"]
-RUN dotnet restore docker-compose-manager-back.csproj
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet restore docker-compose-manager-back.csproj
 
 # Copy everything else and build
 COPY . .
-RUN dotnet build docker-compose-manager-back.csproj -c Release -o /app/build \
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet build docker-compose-manager-back.csproj -c Release -o /app/build \
     -p:Version=${ASSEMBLY_VERSION} \
     -p:AssemblyVersion=${ASSEMBLY_VERSION} \
     -p:FileVersion=${ASSEMBLY_VERSION} \
     -p:InformationalVersion=${VERSION}
-RUN dotnet publish docker-compose-manager-back.csproj -c Release -o /app/publish \
-    -p:Version=${ASSEMBLY_VERSION} \
-    -p:InformationalVersion=${VERSION}
+# Single-file publish (self-contained) for linux-x64, trimmed when possible
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish docker-compose-manager-back.csproj -c Release -r linux-x64 --self-contained true \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -p:EnableCompressionInSingleFile=true \
+    -p:InvariantGlobalization=true -p:DebugType=None -p:DebugSymbols=false \
+    -p:Version=${ASSEMBLY_VERSION} -p:InformationalVersion=${VERSION} -o /app/publish
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/runtime-deps:9.0 AS runtime
 
 # Re-declare build arguments for runtime stage
 ARG VERSION=0.1.0-dev
@@ -53,7 +56,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy published app
-COPY --from=build /app/publish .
+COPY --from=build /app/publish /app
 
 # Create directories for data and logs
 RUN mkdir -p /app/data /app/logs
@@ -72,4 +75,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
 # Start application
-ENTRYPOINT ["dotnet", "docker-compose-manager-back.dll"]
+ENTRYPOINT ["/app/docker-compose-manager-back"]
