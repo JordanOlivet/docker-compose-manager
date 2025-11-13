@@ -6,6 +6,8 @@ on:
       - main
     tags:
       - 'v*'
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -84,16 +86,24 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           image_name: ${{ env.BACKEND_IMAGE_NAME }}
+      - name: Override tags for release (Backend)
+        if: github.event_name == 'release'
+        id: release_tags
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ needs.prepare.outputs.version }}"
+          echo "tags=${IMAGE_TAG}" >> $GITHUB_OUTPUT
       - name: Build and push Backend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./docker-compose-manager-back
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ github.event_name == 'release' && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
+          provenance: false
+          sbom: false
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
             ASSEMBLY_VERSION=${{ needs.prepare.outputs.assembly_version }}
@@ -136,16 +146,24 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           image_name: ${{ env.FRONTEND_IMAGE_NAME }}
+      - name: Override tags for release (Frontend)
+        if: github.event_name == 'release'
+        id: release_tags
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.prepare.outputs.version }}"
+          echo "tags=${IMAGE_TAG}" >> $GITHUB_OUTPUT
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./docker-compose-manager-front
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ github.event_name == 'release' && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+          provenance: false
+          sbom: false
           build-args: |
             VITE_API_URL=/api
             VITE_APP_VERSION=${{ needs.prepare.outputs.version }}
