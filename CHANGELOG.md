@@ -1,4 +1,12 @@
-## Changes in v0.6.0
+## Changes in v0.7.0
+
+**Merged Pull Requests:**
+- Fix docker image release creation (#15)
+
+**Commits:**
+- Fix docker image release creation (#15) (c5b3abc)
+- docs: update CHANGELOG for v0.6.0 [skip ci] (83d67d2)
+- chore: bump version to v0.6.0 [skip ci] (519ed14)## Changes in v0.6.0
 
 **Merged Pull Requests:**
 - Fix docker image build and push for releases (#14)
