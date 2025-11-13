@@ -1,4 +1,12 @@
-## Changes in v0.3.0
+## Changes in v0.4.0
+
+**Merged Pull Requests:**
+- Add release versionning with correct version and not sha commit (#12)
+
+**Commits:**
+- Add release versionning with correct version and not sha commit (#12) (200008d)
+- docs: update CHANGELOG for v0.3.0 [skip ci] (efe84c9)
+- chore: bump version to v0.3.0 [skip ci] (cb95cce)## Changes in v0.3.0
 
 **Merged Pull Requests:**
 - Tweaks and fixes (#11)
