@@ -1,4 +1,12 @@
-## Changes in v0.5.0
+## Changes in v0.6.0
+
+**Merged Pull Requests:**
+- Fix docker image build and push for releases (#14)
+
+**Commits:**
+- Fix docker image build and push for releases (#14) (e90d8a1)
+- docs: update CHANGELOG for v0.5.0 [skip ci] (456bb83)
+- chore: bump version to v0.5.0 [skip ci] (d685fa6)## Changes in v0.5.0
 
 **Merged Pull Requests:**
 - Add  more trigger to release build (#13)
