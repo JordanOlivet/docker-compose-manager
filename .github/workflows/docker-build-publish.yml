@@ -45,13 +45,10 @@ jobs:
     env:
       TARGET_PLATFORMS: linux/amd64
     steps:
-      - name: Checkout backend (sparse)
+      - name: Checkout backend
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          sparse-checkout: |
-            docker-compose-manager-back
-          sparse-checkout-cone-mode: true
       - name: Setup .NET 9
         uses: ./.github/actions/setup-dotnet
       - name: Restore dependencies
@@ -113,13 +110,10 @@ jobs:
     env:
       TARGET_PLATFORMS: linux/amd64
     steps:
-      - name: Checkout frontend (sparse)
+      - name: Checkout frontend
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          sparse-checkout: |
-            docker-compose-manager-front
-          sparse-checkout-cone-mode: true
       - name: Setup Node.js 20
         uses: ./.github/actions/setup-node
       - name: Install dependencies

@@ -34,10 +34,6 @@ jobs:
     steps:
       - name: Checkout backend
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            docker-compose-manager-back
-          sparse-checkout-cone-mode: true
       - name: Setup .NET 9
         uses: ./.github/actions/setup-dotnet
       - name: Restore dependencies
@@ -62,10 +58,6 @@ jobs:
     steps:
       - name: Checkout frontend
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            docker-compose-manager-front
-          sparse-checkout-cone-mode: true
       - name: Setup Node.js 20
         uses: ./.github/actions/setup-node
       - name: Install dependencies
