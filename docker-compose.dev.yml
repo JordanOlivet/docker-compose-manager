@@ -1,0 +1,34 @@
+# docker-compose.dev.yml
+# Fichier de configuration pour le développement local
+# Utilise les builds locaux au lieu des images du registry
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  backend:
+    # Override l'image par un build local
+    build:
+      context: ./docker-compose-manager-back
+      dockerfile: Dockerfile
+    image: docker-compose-manager-backend:dev
+    environment:
+      # Configuration pour le développement
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Serilog__MinimumLevel__Default=Debug
+    volumes:
+      # Ajouter le mapping pour hot-reload (optionnel, nécessite configuration supplémentaire)
+      # - ./docker-compose-manager-back/src:/app/src:ro
+
+  frontend:
+    # Override l'image par un build local
+    build:
+      context: ./docker-compose-manager-front
+      dockerfile: Dockerfile
+      args:
+        # URL de l'API pour le développement
+        VITE_API_URL: /api
+    image: docker-compose-manager-frontend:dev
+    # Optionnel: exposer le port Vite dev server au lieu de Nginx
+    # ports:
+    #   - "5173:5173"

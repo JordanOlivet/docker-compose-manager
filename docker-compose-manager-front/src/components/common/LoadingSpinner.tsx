@@ -14,8 +14,13 @@ const sizeClasses = {
 
 export const LoadingSpinner = ({ size = 'md', text, className = '' }: LoadingSpinnerProps) => {
   return (
-    <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
-      <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-600`} />
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={text || "Loading"}
+      className={`flex flex-col items-center justify-center gap-3 ${className}`}
+    >
+      <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-600`} aria-hidden="true" />
       {text && <p className="text-sm text-gray-600">{text}</p>}
     </div>
   );

@@ -1,26 +1,33 @@
 services:
   backend:
-    build:
-      context: ./docker-compose-manager-back
-      dockerfile: Dockerfile
+    # Image publiée sur GitHub Container Registry
+    # Remplacez <GITHUB_USERNAME> par votre nom d'utilisateur GitHub
+    # Ou définissez GITHUB_REPOSITORY dans .env (ex: GITHUB_REPOSITORY=username/docker-compose-manager)
+    image: ${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY:-username/docker-compose-manager}-backend:${IMAGE_TAG:-latest}
     container_name: docker-manager-backend
     ports:
       - "5000:5000"
     environment:
       # JWT Secret (obligatoire - doit être défini dans .env)
-      # ATTENTION: Si JWT_SECRET n'est pas défini dans .env, une valeur par défaut sera utilisée (non sécurisé pour la production)
+      # ATTENTION: Générez une clé forte en production (min 32 caractères aléatoires)
       - Jwt__Secret=${JWT_SECRET:-CHANGE-THIS-SECRET-KEY-IN-PRODUCTION-MIN-32-CHARS}
       # Docker Host (optionnel - auto-détecté si non défini)
       - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock}
       # CORS Origins (frontend URL)
       - Cors__Origins__0=http://localhost:3000
+      # Database configuration
+      - Database__ConnectionString=Data Source=/app/data/app.db
+      # Logging
+      - Serilog__MinimumLevel__Default=${LOG_LEVEL:-Information}
     volumes:
       # Database persistence
       - backend-data:/app/data
-      # Docker socket access (Linux)
+      # Docker socket access (Linux/Mac)
       - /var/run/docker.sock:/var/run/docker.sock
       # Windows Docker socket (décommenter si sur Windows et commenter la ligne ci-dessus):
       # - //./pipe/docker_engine://./pipe/docker_engine
+      # Optionnel: logs persistence
+      - ./logs/backend:/app/logs
     networks:
       - docker-manager-network
     restart: unless-stopped
@@ -32,20 +39,27 @@ services:
       start_period: 40s
 
   frontend:
-    build:
-      context: ./docker-compose-manager-front
-      dockerfile: Dockerfile
-      # Ne pas passer VITE_API_URL en production pour utiliser le proxy nginx
-      # L'URL relative sera utilisée automatiquement via le proxy configuré dans nginx.conf
+    # Image publiée sur GitHub Container Registry
+    image: ${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY:-username/docker-compose-manager}-frontend:${IMAGE_TAG:-latest}
     container_name: docker-manager-frontend
     ports:
       - "3000:80"
+    environment:
+      # Variables d'environnement Nginx (si nécessaire)
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - docker-manager-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   backend-data:

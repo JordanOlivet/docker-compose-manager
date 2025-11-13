@@ -1,5 +1,12 @@
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+
+# Build arguments for version information
+ARG VERSION=0.1.0-dev
+ARG ASSEMBLY_VERSION=0.1.0.0
+ARG BUILD_DATE=unknown
+ARG VCS_REF=unknown
+
 WORKDIR /src
 
 # Copy csproj and restore dependencies
@@ -9,11 +16,35 @@ RUN dotnet restore docker-compose-manager-back.csproj
 
 # Copy everything else and build
 COPY . .
-RUN dotnet build docker-compose-manager-back.csproj -c Release -o /app/build
-RUN dotnet publish docker-compose-manager-back.csproj -c Release -o /app/publish
+RUN dotnet build docker-compose-manager-back.csproj -c Release -o /app/build \
+    -p:Version=${ASSEMBLY_VERSION} \
+    -p:AssemblyVersion=${ASSEMBLY_VERSION} \
+    -p:FileVersion=${ASSEMBLY_VERSION} \
+    -p:InformationalVersion=${VERSION}
+RUN dotnet publish docker-compose-manager-back.csproj -c Release -o /app/publish \
+    -p:Version=${ASSEMBLY_VERSION} \
+    -p:InformationalVersion=${VERSION}
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
+
+# Re-declare build arguments for runtime stage
+ARG VERSION=0.1.0-dev
+ARG BUILD_DATE=unknown
+ARG VCS_REF=unknown
+
+# OCI image labels (https://github.com/opencontainers/image-spec/blob/main/annotations.md)
+LABEL org.opencontainers.image.title="Docker Compose Manager Backend" \
+      org.opencontainers.image.description="REST API backend for managing Docker containers and compose files" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.vendor="Docker Compose Manager Contributors" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.url="https://github.com/yourusername/docker-compose-manager" \
+      org.opencontainers.image.source="https://github.com/yourusername/docker-compose-manager" \
+      org.opencontainers.image.documentation="https://github.com/yourusername/docker-compose-manager/wiki"
+
 WORKDIR /app
 
 # Install curl for healthcheck
@@ -33,6 +64,8 @@ EXPOSE 5000
 # Set environment
 ENV ASPNETCORE_URLS=http://+:5000
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV BUILD_DATE=${BUILD_DATE}
+ENV GIT_COMMIT=${VCS_REF}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

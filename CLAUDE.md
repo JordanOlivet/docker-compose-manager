@@ -349,6 +349,53 @@ Located in `docker-compose-manager-back/tests/`:
   Error: { "success": false, "message": "...", "errors": {...}, "errorCode": "..." }
   ```
 
+## Versioning and Releases
+
+The project uses **automated semantic versioning** based on PR labels. See [RELEASING.md](RELEASING.md) for complete details.
+
+### Quick Release Guide
+
+1. **Create PR** with your changes targeting `main`
+2. **Add label** to PR:
+   - `release-major` - Breaking changes (v1.0.0 → v2.0.0)
+   - `release-minor` - New features (v1.0.0 → v1.1.0)
+   - `release-patch` - Bug fixes (v1.0.0 → v1.0.1)
+3. **Merge PR** - Release is created automatically
+
+### What Happens Automatically
+
+On PR merge with release label:
+- Git tag created (e.g., v0.2.0)
+- VERSION file updated
+- CHANGELOG.md updated
+- GitHub Release created with notes
+- Docker images built and tagged with version
+- Version embedded in backend API and frontend UI
+
+### Version Information
+
+**Backend API endpoint:**
+```bash
+curl http://localhost:5000/api/system/version
+# Returns: { version, buildDate, gitCommit, environment }
+```
+
+**Frontend component:**
+```tsx
+import { VersionInfo } from '@/components/common'
+<VersionInfo />  // Simple badge
+<VersionInfo showDetails />  // Detailed info
+```
+
+**Access version programmatically:**
+```typescript
+import { APP_VERSION } from '@/utils/version'
+```
+
+### Current Version
+
+See the `VERSION` file in the repository root or check the latest [GitHub Release](../../releases/latest).
+
 ## Cross-Platform Considerations
 
 - Backend automatically detects platform and uses appropriate Docker connection method
