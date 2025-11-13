@@ -5,7 +5,6 @@ runs:
   steps:
     - name: Setup .NET 9
       uses: actions/setup-dotnet@v4
-      shell: bash
       with:
         dotnet-version: '9.0.x'
         cache: true

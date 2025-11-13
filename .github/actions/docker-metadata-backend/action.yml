@@ -20,7 +20,6 @@ runs:
     - name: Extract metadata (tags, labels) for Docker
       id: meta
       uses: docker/metadata-action@v5
-      shell: bash
       with:
         images: ${{ inputs.registry }}/${{ inputs.image_name }}
         tags: |
