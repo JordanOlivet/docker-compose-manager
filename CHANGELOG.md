@@ -1,3 +1,13 @@
+## Changes in v0.10.0
+
+**Merged Pull Requests:**
+- Overall project enhancement (#20)
+
+**Commits:**
+- Overall project enhancement (#20) (f18c98b)
+- docs: update CHANGELOG for v0.9.0 [skip ci] (77cfe7d)
+- chore: bump version to v0.9.0 [skip ci] (df809d8)
+
 ## Changes in v0.9.0
 
 **Merged Pull Requests:**
