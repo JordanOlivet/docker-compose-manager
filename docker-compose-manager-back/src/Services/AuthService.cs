@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.DTOs;
-using BCrypt.Net;
+using DockerComposeManager.Services.Security;
 
 namespace docker_compose_manager_back.Services;
 
@@ -11,12 +11,18 @@ public class AuthService
     private readonly AppDbContext _context;
     private readonly JwtTokenService _jwtService;
     private readonly IConfiguration _configuration;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public AuthService(AppDbContext context, JwtTokenService jwtService, IConfiguration configuration)
+    public AuthService(
+        AppDbContext context,
+        JwtTokenService jwtService,
+        IConfiguration configuration,
+        IPasswordHasher passwordHasher)
     {
         _context = context;
         _jwtService = jwtService;
         _configuration = configuration;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<(bool Success, LoginResponse? Response, string? Error)> LoginAsync(LoginRequest request, string ipAddress, string deviceInfo)
@@ -30,7 +36,7 @@ public class AuthService
             return (false, null, "Invalid credentials");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
             return (false, null, "Invalid credentials");
         }
@@ -126,12 +132,12 @@ public class AuthService
     {
         var user = await _context.Users.FindAsync(userId);
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        if (user == null || !_passwordHasher.VerifyPassword(currentPassword, user.PasswordHash))
         {
             return false;
         }
 
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.PasswordHash = _passwordHasher.HashPassword(newPassword);
         user.MustChangePassword = false;
         user.UpdatedAt = DateTime.UtcNow;
 
