@@ -46,8 +46,8 @@ export function PermissionSelector({
   });
 
   const availableResources = newPermission.resourceType === PermissionResourceType.Container
-    ? (containers as any[]).map((c: any) => c.name)
-    : (projects as any[]).map((p: any) => p.name);
+    ? (containers as Array<{ name: string }>).map((c) => c.name)
+    : (projects as Array<{ name: string }>).map((p) => p.name);
 
   const handleAddPermission = () => {
     if (!newPermission.resourceName) {

@@ -20,10 +20,14 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
  */
 export function t(key: string, params?: Record<string, string | number>): string {
   const keys = key.split('.');
-  let value: any = translations[currentLocale];
+  let value: TranslationKeys | string | undefined = translations[currentLocale];
   
   for (const k of keys) {
-    value = value?.[k];
+    if (typeof value === 'object' && value !== null) {
+      value = (value as Record<string, unknown>)[k] as TranslationKeys | string | undefined;
+    } else {
+      value = undefined;
+    }
     if (value === undefined) {
       console.warn(`Translation key not found: ${key}`);
       return key;

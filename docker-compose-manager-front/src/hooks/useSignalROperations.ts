@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { signalRService } from '../services/signalRService';
 import { useToast } from './useToast';
+import type { OperationUpdateEvent } from '@/types/operations';
 
 export interface SignalROperationConfig {
   /**
@@ -101,14 +102,13 @@ export const useSignalROperations = (config: SignalROperationConfig = {}) => {
         await signalRService.connect();
 
         // Listen for operation updates
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const handleOperationUpdate = (update: any) => {
+        const handleOperationUpdate = (update: OperationUpdateEvent) => {
           const operationUpdate: OperationUpdate = {
             operationId: update.operationId,
             status: update.status,
-            type: update.type,
+            type: update.type || '',
             errorMessage: update.errorMessage,
-            message: update.message,
+            message: update.logs,
             progress: update.progress,
           };
 
@@ -176,7 +176,7 @@ export const useSignalROperations = (config: SignalROperationConfig = {}) => {
           ) {
             if (!shownToastsRef.current.successes.has(update.operationId)) {
               shownToastsRef.current.successes.add(update.operationId);
-              const message = update.message || 'Operation completed successfully';
+              const message = update.logs || 'Operation completed successfully';
               toast.success(message);
 
               // Clean up old entries after 5 minutes to prevent memory leak

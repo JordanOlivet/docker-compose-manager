@@ -140,7 +140,7 @@ function UserManagement() {
     };
 
     if (editMode && editingUserId) {
-      const updateData: any = { ...userData };
+      const updateData: { username: string; role: string; permissions?: typeof permissions; newPassword?: string } = { ...userData };
       if (password) {
         updateData.newPassword = password;
       }

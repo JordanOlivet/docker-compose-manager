@@ -73,7 +73,7 @@ export function CopyPermissionsDialog({
       onOpenChange(false);
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || 'Failed to copy permissions');
     }
   });
@@ -197,7 +197,7 @@ export function CopyPermissionsDialog({
               )}
               {filteredList.map(item => (
                 <option key={item.id} value={item.id.toString()}>
-                  {sourceType === 'user' ? (item as any).username : (item as any).name}
+                  {sourceType === 'user' ? (item as { username: string }).username : (item as { name: string }).name}
                 </option>
               ))}
             </select>
