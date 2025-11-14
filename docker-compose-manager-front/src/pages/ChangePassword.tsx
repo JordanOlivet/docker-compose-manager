@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useToast } from '../hooks/useToast';
+import { PasswordInput } from '../components/common/PasswordInput';
 import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
 import type { AxiosError } from 'axios';
 
@@ -45,31 +46,31 @@ export default function ChangePassword() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Current Password</label>
-            <input
-              type="password"
+            <PasswordInput
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 pr-10"
+              placeholder="Enter current password"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">New Password</label>
-            <input
-              type="password"
+            <PasswordInput
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 pr-10"
+              placeholder="Enter new password"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Confirm Password</label>
-            <input
-              type="password"
+            <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 pr-10"
+              placeholder="Confirm new password"
               required
             />
           </div>

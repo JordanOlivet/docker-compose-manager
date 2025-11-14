@@ -42,11 +42,13 @@ export interface CreateUserGroupRequest {
   name: string;
   description?: string;
   memberIds?: number[];
+  permissions?: ResourcePermissionInput[];
 }
 
 export interface UpdateUserGroupRequest {
   name: string;
   description?: string;
+  permissions?: ResourcePermissionInput[];
 }
 
 export interface AddUserToGroupRequest {
@@ -143,3 +145,18 @@ export const getPermissionLabels = (permissions: PermissionFlags): string[] => {
 export const getResourceTypeLabel = (type: PermissionResourceType): string => {
   return type === PermissionResourceType.Container ? 'Container' : 'Compose Project';
 };
+
+// New types for permissions management
+
+export interface ResourcePermissionInput {
+  resourceType: PermissionResourceType;
+  resourceName: string;
+  permissions: PermissionFlags;
+}
+
+export interface CopyPermissionsRequest {
+  sourceUserId?: number;
+  sourceUserGroupId?: number;
+  targetUserId?: number;
+  targetUserGroupId?: number;
+}

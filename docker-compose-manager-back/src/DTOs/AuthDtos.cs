@@ -24,9 +24,20 @@ public record UserDto(
     DateTime? LastLoginAt
 );
 
-public record CreateUserRequest(string Username, string Password, string Role);
+public record CreateUserRequest(
+    string Username,
+    string Password,
+    string Role,
+    List<ResourcePermissionInput>? Permissions = null
+);
 
-public record UpdateUserRequest(string? Username = null, string? Role = null, bool? IsEnabled = null, string? NewPassword = null);
+public record UpdateUserRequest(
+    string? Username = null,
+    string? Role = null,
+    bool? IsEnabled = null,
+    string? NewPassword = null,
+    List<ResourcePermissionInput>? Permissions = null
+);
 
 public record UpdateProfileRequest(string? Username = null);
 

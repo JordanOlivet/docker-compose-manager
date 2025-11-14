@@ -1,22 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import userGroupsApi from '../api/userGroups';
 import usersApi from '../api/users';
+import permissionsApi from '../api/permissions';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
-import type { UserGroup, User } from '../types';
+import { PermissionSelector } from '../components/PermissionSelector';
+import { CopyPermissionsDialog } from '../components/CopyPermissionsDialog';
+import type { UserGroup } from '../types';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
+import type { ResourcePermissionInput } from '../types/permissions';
 
 export default function UserGroups() {
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<UserGroup | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'members' | 'permissions'>('info');
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
+  const [permissions, setPermissions] = useState<ResourcePermissionInput[]>([]);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
 
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -37,14 +43,32 @@ export default function UserGroups() {
     enabled: !!selectedGroup,
   });
 
+  // Fetch group permissions when editing
+  const { data: groupPermissions } = useQuery({
+    queryKey: ['permissions', 'group', selectedGroup?.id],
+    queryFn: () => selectedGroup ? permissionsApi.list({ userGroupId: selectedGroup.id }) : Promise.resolve([]),
+    enabled: editMode && !!selectedGroup
+  });
+
+  // Update permissions when groupPermissions changes
+  useEffect(() => {
+    if (groupPermissions) {
+      setPermissions(groupPermissions.map(p => ({
+        resourceType: p.resourceType,
+        resourceName: p.resourceName,
+        permissions: p.permissions
+      })));
+    }
+  }, [groupPermissions]);
+
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; memberIds?: number[] }) =>
+    mutationFn: (data: { name: string; description?: string; memberIds?: number[]; permissions?: ResourcePermissionInput[] }) =>
       userGroupsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
       toast.success('Group created successfully');
-      setShowCreateModal(false);
-      resetForm();
+      closeModal();
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to create group');
@@ -52,13 +76,13 @@ export default function UserGroups() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { name: string; description?: string } }) =>
+    mutationFn: ({ id, data }: { id: number; data: { name: string; description?: string; permissions?: ResourcePermissionInput[] } }) =>
       userGroupsApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
       toast.success('Group updated successfully');
-      setShowEditModal(false);
-      resetForm();
+      closeModal();
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
       toast.error(error.response?.data?.message || 'Failed to update group');
@@ -69,6 +93,7 @@ export default function UserGroups() {
     mutationFn: (id: number) => userGroupsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
       toast.success('Group deleted successfully');
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
@@ -102,44 +127,54 @@ export default function UserGroups() {
     },
   });
 
-  const resetForm = () => {
+  const openCreateModal = () => {
+    setEditMode(false);
+    setSelectedGroup(null);
     setGroupName('');
     setGroupDescription('');
     setSelectedMembers([]);
-    setSelectedGroup(null);
+    setPermissions([]);
+    setActiveTab('info');
+    setShowModal(true);
   };
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate({
-      name: groupName,
-      description: groupDescription || undefined,
-      memberIds: selectedMembers.length > 0 ? selectedMembers : undefined,
-    });
-  };
-
-  const handleUpdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedGroup) return;
-    updateMutation.mutate({
-      id: selectedGroup.id,
-      data: {
-        name: groupName,
-        description: groupDescription || undefined,
-      },
-    });
-  };
-
-  const handleEdit = (group: UserGroup) => {
+  const openEditModal = (group: UserGroup) => {
+    setEditMode(true);
     setSelectedGroup(group);
     setGroupName(group.name);
     setGroupDescription(group.description || '');
-    setShowEditModal(true);
+    setSelectedMembers(group.memberIds || []);
+    setActiveTab('info');
+    setShowModal(true);
   };
 
-  const handleViewMembers = (group: UserGroup) => {
-    setSelectedGroup(group);
-    setShowMembersModal(true);
+  const closeModal = () => {
+    setShowModal(false);
+    setEditMode(false);
+    setSelectedGroup(null);
+    setGroupName('');
+    setGroupDescription('');
+    setSelectedMembers([]);
+    setPermissions([]);
+    setActiveTab('info');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const groupData = {
+      name: groupName,
+      description: groupDescription || undefined,
+      permissions: permissions.length > 0 ? permissions : undefined
+    };
+
+    if (editMode && selectedGroup) {
+      updateMutation.mutate({ id: selectedGroup.id, data: groupData });
+    } else {
+      createMutation.mutate({
+        ...groupData,
+        memberIds: selectedMembers.length > 0 ? selectedMembers : undefined
+      });
+    }
   };
 
   const handleAddMember = (userId: number) => {
@@ -150,6 +185,13 @@ export default function UserGroups() {
   const handleRemoveMember = (userId: number) => {
     if (!selectedGroup) return;
     removeMemberMutation.mutate({ groupId: selectedGroup.id, userId });
+  };
+
+  const handleCopySuccess = () => {
+    // Refresh permissions after copy
+    if (selectedGroup) {
+      queryClient.invalidateQueries({ queryKey: ['permissions', 'group', selectedGroup.id] });
+    }
   };
 
   const availableUsers = allUsers?.filter(
@@ -170,7 +212,7 @@ export default function UserGroups() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
         >
           <span>+</span> Create Group
@@ -197,14 +239,8 @@ export default function UserGroups() {
 
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => handleViewMembers(group)}
+                onClick={() => openEditModal(group)}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                Members
-              </button>
-              <button
-                onClick={() => handleEdit(group)}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
               >
                 Edit
               </button>
@@ -231,199 +267,264 @@ export default function UserGroups() {
         </div>
       )}
 
-      {/* Create Group Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full m-4">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Create Group</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Group Name *
-                </label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={groupDescription}
-                  onChange={(e) => setGroupDescription(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    resetForm();
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Group Modal */}
-      {showEditModal && selectedGroup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full m-4">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Group</h2>
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Group Name *
-                </label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={groupDescription}
-                  onChange={(e) => setGroupDescription(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    resetForm();
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updateMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {updateMutation.isPending ? 'Updating...' : 'Update'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Members Modal */}
-      {showMembersModal && selectedGroup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full m-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-8 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Members of {selectedGroup.name}
+                {editMode ? 'Edit Group' : 'Create Group'}
               </h2>
-              <button
-                onClick={() => {
-                  setShowMembersModal(false);
-                  setSelectedGroup(null);
-                }}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                ✕
-              </button>
             </div>
 
-            {/* Current Members */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                Current Members ({groupMembers?.length || 0})
-              </h3>
-              <div className="space-y-2">
-                {groupMembers?.map((member: User) => (
-                  <div
-                    key={member.id}
-                    className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                  >
-                    <div>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {member.username}
-                      </span>
-                      <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                        ({member.role})
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                    >
-                      Remove
-                    </button>
+            {/* Tabs */}
+            <div className="border-b border-gray-200 dark:border-gray-700 px-8">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={`py-4 px-2 font-medium text-sm transition-all relative ${
+                    activeTab === 'info'
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Information
+                  {activeTab === 'info' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('members')}
+                  className={`py-4 px-2 font-medium text-sm transition-all relative ${
+                    activeTab === 'members'
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Members
+                  {(editMode ? (groupMembers?.length ?? 0) : selectedMembers.length) > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs">
+                      {editMode ? (groupMembers?.length ?? 0) : selectedMembers.length}
+                    </span>
+                  )}
+                  {activeTab === 'members' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('permissions')}
+                  className={`py-4 px-2 font-medium text-sm transition-all relative ${
+                    activeTab === 'permissions'
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Permissions
+                  {permissions.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs">
+                      {permissions.length}
+                    </span>
+                  )}
+                  {activeTab === 'permissions' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+              {/* Information Tab */}
+              {activeTab === 'info' && (
+                <div className="p-8 space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Group Name
+                    </label>
+                    <input
+                      type="text"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter group name"
+                      required
+                    />
                   </div>
-                ))}
-                {groupMembers?.length === 0 && (
-                  <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                    No members in this group yet
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Available Users */}
-            {availableUsers && availableUsers.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                  Add Members
-                </h3>
-                <div className="space-y-2">
-                  {availableUsers.map((user: User) => (
-                    <div
-                      key={user.id}
-                      className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                    >
-                      <div>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {user.username}
-                        </span>
-                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                          ({user.role})
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleAddMember(user.id)}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      value={groupDescription}
+                      onChange={(e) => setGroupDescription(e.target.value)}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter group description (optional)"
+                      rows={3}
+                    />
+                  </div>
                 </div>
+              )}
+
+              {/* Members Tab */}
+              {activeTab === 'members' && (
+                <div className="p-8 space-y-6">
+                  {editMode ? (
+                    // Edit mode: manage members
+                    <>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          Current Members ({groupMembers?.length || 0})
+                        </h3>
+                        <div className="space-y-2 mb-6">
+                          {groupMembers?.length === 0 && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">No members yet</p>
+                          )}
+                          {groupMembers?.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                            >
+                              <div>
+                                <span className="font-medium text-gray-900 dark:text-white">
+                                  {member.username}
+                                </span>
+                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                  ({member.role})
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMember(member.id)}
+                                className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1 rounded transition-colors text-sm"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          Add Members
+                        </h3>
+                        <div className="space-y-2">
+                          {availableUsers?.length === 0 && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              No available users to add
+                            </p>
+                          )}
+                          {availableUsers?.map((user) => (
+                            <div
+                              key={user.id}
+                              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                            >
+                              <div>
+                                <span className="font-medium text-gray-900 dark:text-white">
+                                  {user.username}
+                                </span>
+                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                  ({user.role})
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddMember(user.id)}
+                                className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1 rounded transition-colors text-sm"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Create mode: select initial members
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Select Initial Members (Optional)
+                      </h3>
+                      <div className="space-y-2">
+                        {allUsers?.map((user) => (
+                          <label
+                            key={user.id}
+                            className="flex items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(user.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedMembers([...selectedMembers, user.id]);
+                                } else {
+                                  setSelectedMembers(selectedMembers.filter((id) => id !== user.id));
+                                }
+                              }}
+                              className="mr-3"
+                            />
+                            <div>
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                {user.username}
+                              </span>
+                              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                ({user.role})
+                              </span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Permissions Tab */}
+              {activeTab === 'permissions' && (
+                <div className="p-8">
+                  <PermissionSelector
+                    permissions={permissions}
+                    onChange={setPermissions}
+                    onCopyClick={() => setShowCopyDialog(true)}
+                    showCopyButton={editMode}
+                  />
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="p-8 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? 'Saving...'
+                    : editMode
+                    ? 'Update Group'
+                    : 'Create Group'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-semibold"
+                >
+                  Cancel
+                </button>
               </div>
-            )}
+            </form>
           </div>
         </div>
+      )}
+
+      {/* Copy Permissions Dialog */}
+      {selectedGroup && (
+        <CopyPermissionsDialog
+          open={showCopyDialog}
+          onOpenChange={setShowCopyDialog}
+          targetType="group"
+          targetId={selectedGroup.id}
+          onSuccess={handleCopySuccess}
+        />
       )}
     </div>
   );

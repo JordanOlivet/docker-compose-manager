@@ -129,7 +129,35 @@ public class UserGroupsController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        await _auditService.LogActionAsync(GetUserId(), $"Created user group: {group.Name}", GetIpAddress());
+        // Create permissions if provided
+        if (request.Permissions != null && request.Permissions.Any())
+        {
+            foreach (var permInput in request.Permissions)
+            {
+                // Check for duplicate permissions
+                var existingPerm = await _context.ResourcePermissions
+                    .FirstOrDefaultAsync(p =>
+                        p.UserGroupId == group.Id &&
+                        p.ResourceType == permInput.ResourceType &&
+                        p.ResourceName == permInput.ResourceName);
+
+                if (existingPerm == null)
+                {
+                    var permission = new ResourcePermission
+                    {
+                        UserGroupId = group.Id,
+                        ResourceType = permInput.ResourceType,
+                        ResourceName = permInput.ResourceName,
+                        Permissions = permInput.Permissions,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.ResourcePermissions.Add(permission);
+                }
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        await _auditService.LogActionAsync(GetUserId(), $"Created user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetIpAddress());
 
         var dto = new UserGroupDto
         {
@@ -170,8 +198,32 @@ public class UserGroupsController : ControllerBase
         group.Description = request.Description;
         group.UpdatedAt = DateTime.UtcNow;
 
+        // Update permissions if provided
+        if (request.Permissions != null)
+        {
+            // Remove all existing group permissions
+            var existingPermissions = await _context.ResourcePermissions
+                .Where(p => p.UserGroupId == id)
+                .ToListAsync();
+            _context.ResourcePermissions.RemoveRange(existingPermissions);
+
+            // Add new permissions
+            foreach (var permInput in request.Permissions)
+            {
+                var permission = new ResourcePermission
+                {
+                    UserGroupId = id,
+                    ResourceType = permInput.ResourceType,
+                    ResourceName = permInput.ResourceName,
+                    Permissions = permInput.Permissions,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.ResourcePermissions.Add(permission);
+            }
+        }
+
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetUserId(), $"Updated user group: {group.Name}", GetIpAddress());
+        await _auditService.LogActionAsync(GetUserId(), $"Updated user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetIpAddress());
 
         var dto = new UserGroupDto
         {

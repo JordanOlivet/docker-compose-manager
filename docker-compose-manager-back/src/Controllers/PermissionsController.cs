@@ -515,4 +515,73 @@ public class PermissionsController : ControllerBase
 
         return Ok(ApiResponse.Ok(response));
     }
+
+    /// <summary>
+    /// Copy permissions from one user/group to another user/group (admin only)
+    /// </summary>
+    [HttpPost("copy")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<object>>> CopyPermissions([FromBody] CopyPermissionsRequest request)
+    {
+        // Validate source
+        if ((request.SourceUserId.HasValue && request.SourceUserGroupId.HasValue) ||
+            (!request.SourceUserId.HasValue && !request.SourceUserGroupId.HasValue))
+        {
+            return BadRequest(ApiResponse.Fail<object>("Must specify exactly one of SourceUserId or SourceUserGroupId"));
+        }
+
+        // Validate target
+        if ((request.TargetUserId.HasValue && request.TargetUserGroupId.HasValue) ||
+            (!request.TargetUserId.HasValue && !request.TargetUserGroupId.HasValue))
+        {
+            return BadRequest(ApiResponse.Fail<object>("Must specify exactly one of TargetUserId or TargetUserGroupId"));
+        }
+
+        // Validate source exists
+        if (request.SourceUserId.HasValue && !await _context.Users.AnyAsync(u => u.Id == request.SourceUserId.Value))
+        {
+            return NotFound(ApiResponse.Fail<object>("Source user not found"));
+        }
+
+        if (request.SourceUserGroupId.HasValue && !await _context.UserGroups.AnyAsync(g => g.Id == request.SourceUserGroupId.Value))
+        {
+            return NotFound(ApiResponse.Fail<object>("Source user group not found"));
+        }
+
+        // Validate target exists
+        if (request.TargetUserId.HasValue && !await _context.Users.AnyAsync(u => u.Id == request.TargetUserId.Value))
+        {
+            return NotFound(ApiResponse.Fail<object>("Target user not found"));
+        }
+
+        if (request.TargetUserGroupId.HasValue && !await _context.UserGroups.AnyAsync(g => g.Id == request.TargetUserGroupId.Value))
+        {
+            return NotFound(ApiResponse.Fail<object>("Target user group not found"));
+        }
+
+        try
+        {
+            await _permissionService.CopyPermissionsAsync(
+                request.SourceUserId,
+                request.SourceUserGroupId,
+                request.TargetUserId,
+                request.TargetUserGroupId);
+
+            var sourceType = request.SourceUserId.HasValue ? "user" : "group";
+            var targetType = request.TargetUserId.HasValue ? "user" : "group";
+            var sourceId = request.SourceUserId ?? request.SourceUserGroupId;
+            var targetId = request.TargetUserId ?? request.TargetUserGroupId;
+
+            await _auditService.LogActionAsync(
+                GetUserId(),
+                $"Copied permissions from {sourceType} {sourceId} to {targetType} {targetId}",
+                GetIpAddress());
+
+            return Ok(ApiResponse.Ok<object?>(null, "Permissions copied successfully"));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse.Fail<object>(ex.Message));
+        }
+    }
 }

@@ -196,7 +196,36 @@ public class UserService : IUserService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("User {Username} created with role {Role}", user.Username, role.Name);
+        // Create permissions if provided
+        if (request.Permissions != null && request.Permissions.Any())
+        {
+            foreach (var permInput in request.Permissions)
+            {
+                // Check for duplicate permissions
+                var existingPerm = await _context.ResourcePermissions
+                    .FirstOrDefaultAsync(p =>
+                        p.UserId == user.Id &&
+                        p.ResourceType == permInput.ResourceType &&
+                        p.ResourceName == permInput.ResourceName);
+
+                if (existingPerm == null)
+                {
+                    var permission = new ResourcePermission
+                    {
+                        UserId = user.Id,
+                        ResourceType = permInput.ResourceType,
+                        ResourceName = permInput.ResourceName,
+                        Permissions = permInput.Permissions,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.ResourcePermissions.Add(permission);
+                }
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        _logger.LogInformation("User {Username} created with role {Role} and {PermCount} permissions",
+            user.Username, role.Name, request.Permissions?.Count ?? 0);
 
         // Audit log
         await _auditService.LogAsync(
@@ -204,7 +233,7 @@ public class UserService : IUserService
             action: "UserCreated",
             resourceType: "User",
             resourceId: user.Id.ToString(),
-            details: $"User '{user.Username}' created with role '{role.Name}'",
+            details: $"User '{user.Username}' created with role '{role.Name}' and {request.Permissions?.Count ?? 0} permissions",
             ipAddress: null,
             userAgent: null
         );
@@ -230,6 +259,18 @@ public class UserService : IUserService
             throw new InvalidOperationException($"User with ID {id} not found");
 
         var changes = new List<string>();
+
+        // Update username if provided
+        if (request.Username != null && request.Username != user.Username)
+        {
+            // Check if username is already taken
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == request.Username.ToLower() && u.Id != id);
+            if (existingUser != null)
+                throw new InvalidOperationException($"Username '{request.Username}' is already taken");
+
+            changes.Add($"Username changed from '{user.Username}' to '{request.Username}'");
+            user.Username = request.Username;
+        }
 
         // Update role if provided (case-insensitive)
         if (request.Role != null && request.Role != user.Role?.Name)
@@ -268,6 +309,32 @@ public class UserService : IUserService
             var sessions = await _context.Sessions.Where(s => s.UserId == id).ToListAsync();
             _context.Sessions.RemoveRange(sessions);
             changes.Add("All sessions invalidated due to password change");
+        }
+
+        // Update permissions if provided
+        if (request.Permissions != null)
+        {
+            // Remove all existing user permissions
+            var existingPermissions = await _context.ResourcePermissions
+                .Where(p => p.UserId == id)
+                .ToListAsync();
+            _context.ResourcePermissions.RemoveRange(existingPermissions);
+
+            // Add new permissions
+            foreach (var permInput in request.Permissions)
+            {
+                var permission = new ResourcePermission
+                {
+                    UserId = id,
+                    ResourceType = permInput.ResourceType,
+                    ResourceName = permInput.ResourceName,
+                    Permissions = permInput.Permissions,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.ResourcePermissions.Add(permission);
+            }
+
+            changes.Add($"Permissions updated ({request.Permissions.Count} permissions set)");
         }
 
         await _context.SaveChangesAsync();

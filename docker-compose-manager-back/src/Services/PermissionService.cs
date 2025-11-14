@@ -149,4 +149,79 @@ public class PermissionService : IPermissionService
         // Combine and return unique resource names
         return directResources.Union(groupResources).Distinct().ToList();
     }
+
+    public async Task CopyPermissionsAsync(int? sourceUserId, int? sourceUserGroupId, int? targetUserId, int? targetUserGroupId)
+    {
+        // Validate source: must have exactly one of sourceUserId or sourceUserGroupId
+        if ((sourceUserId.HasValue && sourceUserGroupId.HasValue) ||
+            (!sourceUserId.HasValue && !sourceUserGroupId.HasValue))
+        {
+            throw new ArgumentException("Must specify exactly one of sourceUserId or sourceUserGroupId");
+        }
+
+        // Validate target: must have exactly one of targetUserId or targetUserGroupId
+        if ((targetUserId.HasValue && targetUserGroupId.HasValue) ||
+            (!targetUserId.HasValue && !targetUserGroupId.HasValue))
+        {
+            throw new ArgumentException("Must specify exactly one of targetUserId or targetUserGroupId");
+        }
+
+        // Get source permissions
+        List<ResourcePermission> sourcePermissions;
+        if (sourceUserId.HasValue)
+        {
+            sourcePermissions = await _context.ResourcePermissions
+                .Where(p => p.UserId == sourceUserId.Value)
+                .ToListAsync();
+        }
+        else
+        {
+            sourcePermissions = await _context.ResourcePermissions
+                .Where(p => p.UserGroupId == sourceUserGroupId!.Value)
+                .ToListAsync();
+        }
+
+        // Remove existing target permissions
+        List<ResourcePermission> existingTargetPermissions;
+        if (targetUserId.HasValue)
+        {
+            existingTargetPermissions = await _context.ResourcePermissions
+                .Where(p => p.UserId == targetUserId.Value)
+                .ToListAsync();
+        }
+        else
+        {
+            existingTargetPermissions = await _context.ResourcePermissions
+                .Where(p => p.UserGroupId == targetUserGroupId!.Value)
+                .ToListAsync();
+        }
+
+        _context.ResourcePermissions.RemoveRange(existingTargetPermissions);
+
+        // Copy permissions to target
+        foreach (var sourcePerm in sourcePermissions)
+        {
+            var newPermission = new ResourcePermission
+            {
+                UserId = targetUserId,
+                UserGroupId = targetUserGroupId,
+                ResourceType = sourcePerm.ResourceType,
+                ResourceName = sourcePerm.ResourceName,
+                Permissions = sourcePerm.Permissions,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.ResourcePermissions.Add(newPermission);
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Copied {Count} permissions from {SourceType} {SourceId} to {TargetType} {TargetId}",
+            sourcePermissions.Count,
+            sourceUserId.HasValue ? "User" : "UserGroup",
+            sourceUserId ?? sourceUserGroupId,
+            targetUserId.HasValue ? "User" : "UserGroup",
+            targetUserId ?? targetUserGroupId
+        );
+    }
 }

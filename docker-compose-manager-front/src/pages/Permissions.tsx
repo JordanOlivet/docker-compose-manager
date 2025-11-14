@@ -2,10 +2,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import permissionsApi from '../api/permissions';
-import userGroupsApi from '../api/userGroups';
-import usersApi from '../api/users';
-import { containersApi } from '../api/containers';
-import { composeApi } from '../api/compose';
 import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';
@@ -19,13 +15,9 @@ import {
 import { type ApiErrorResponse } from '../utils/errorFormatter';
 
 export default function Permissions() {
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [resourceType, setResourceType] = useState<PermissionResourceType>(PermissionResourceType.Container);
-  const [resourceName, setResourceName] = useState('');
-  const [assigneeType, setAssigneeType] = useState<'user' | 'group'>('user');
-  const [selectedUserId, setSelectedUserId] = useState<number | undefined>();
-  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>();
-  const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPermission, setEditingPermission] = useState<ResourcePermission | null>(null);
+  const [editPermissions, setEditPermissions] = useState<number>(0);
   const [filterResourceType, setFilterResourceType] = useState<PermissionResourceType | 'all'>('all');
 
   const queryClient = useQueryClient();
@@ -39,38 +31,17 @@ export default function Permissions() {
       ),
   });
 
-  const { data: users } = useQuery({
-    queryKey: ['users'],
-    queryFn: usersApi.list,
-  });
-
-  const { data: groups } = useQuery({
-    queryKey: ['userGroups'],
-    queryFn: userGroupsApi.list,
-  });
-
-  const { data: containers } = useQuery({
-    queryKey: ['containers'],
-    queryFn: () => containersApi.list(),
-    enabled: resourceType === PermissionResourceType.Container,
-  });
-
-  const { data: projects } = useQuery({
-    queryKey: ['composeProjects'],
-    queryFn: () => composeApi.listProjects(),
-    enabled: resourceType === PermissionResourceType.ComposeProject,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: permissionsApi.create,
+  const updateMutation = useMutation({
+    mutationFn: ({ id, permissions }: { id: number; permissions: number }) =>
+      permissionsApi.update(id, { permissions }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['permissions'] });
-      toast.success('Permission created successfully');
-      setShowCreateModal(false);
-      resetForm();
+      toast.success('Permission updated successfully');
+      setShowEditModal(false);
+      setEditingPermission(null);
     },
     onError: (error: AxiosError<ApiErrorResponse>) => {
-      toast.error(error.response?.data?.message || 'Failed to create permission');
+      toast.error(error.response?.data?.message || 'Failed to update permission');
     },
   });
 
@@ -85,52 +56,71 @@ export default function Permissions() {
     },
   });
 
-  const resetForm = () => {
-    setResourceType(PermissionResourceType.Container);
-    setResourceName('');
-    setAssigneeType('user');
-    setSelectedUserId(undefined);
-    setSelectedGroupId(undefined);
-    setSelectedPermissions([]);
+  const handleEdit = (permission: ResourcePermission) => {
+    setEditingPermission(permission);
+    setEditPermissions(permission.permissions);
+    setShowEditModal(true);
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingPermission) return;
 
-    const permissionsValue = selectedPermissions.reduce((acc, perm) => acc | perm, 0);
-
-    createMutation.mutate({
-      resourceType,
-      resourceName,
-      userId: assigneeType === 'user' ? selectedUserId : undefined,
-      userGroupId: assigneeType === 'group' ? selectedGroupId : undefined,
-      permissions: permissionsValue,
+    updateMutation.mutate({
+      id: editingPermission.id,
+      permissions: editPermissions
     });
   };
 
-  const togglePermission = (permission: PermissionFlags) => {
-    if (selectedPermissions.includes(permission)) {
-      setSelectedPermissions(selectedPermissions.filter((p) => p !== permission));
-    } else {
-      setSelectedPermissions([...selectedPermissions, permission]);
+  const togglePermissionFlag = (flag: PermissionFlags) => {
+    setEditPermissions(prev => {
+      if ((prev & flag) === flag) {
+        return prev & ~flag; // Remove flag
+      } else {
+        return prev | flag; // Add flag
+      }
+    });
+  };
+
+  const setPreset = (preset: 'readonly' | 'standard' | 'full') => {
+    switch (preset) {
+      case 'readonly':
+        setEditPermissions(PermissionFlags.View | PermissionFlags.Logs);
+        break;
+      case 'standard':
+        setEditPermissions(
+          PermissionFlags.View |
+          PermissionFlags.Start |
+          PermissionFlags.Stop |
+          PermissionFlags.Restart |
+          PermissionFlags.Logs
+        );
+        break;
+      case 'full':
+        setEditPermissions(
+          PermissionFlags.View |
+          PermissionFlags.Start |
+          PermissionFlags.Stop |
+          PermissionFlags.Restart |
+          PermissionFlags.Delete |
+          PermissionFlags.Update |
+          PermissionFlags.Logs |
+          PermissionFlags.Execute
+        );
+        break;
     }
   };
 
   const permissionOptions = [
-    { flag: PermissionFlags.View, label: 'View', description: 'View resource details' },
-    { flag: PermissionFlags.Start, label: 'Start', description: 'Start containers/services' },
-    { flag: PermissionFlags.Stop, label: 'Stop', description: 'Stop containers/services' },
-    { flag: PermissionFlags.Restart, label: 'Restart', description: 'Restart containers/services' },
-    { flag: PermissionFlags.Delete, label: 'Delete', description: 'Remove/delete resources' },
-    { flag: PermissionFlags.Update, label: 'Update', description: 'Update/recreate resources' },
-    { flag: PermissionFlags.Logs, label: 'Logs', description: 'View logs' },
-    { flag: PermissionFlags.Execute, label: 'Execute', description: 'Execute commands in containers' },
+    { flag: PermissionFlags.View, label: 'View' },
+    { flag: PermissionFlags.Start, label: 'Start' },
+    { flag: PermissionFlags.Stop, label: 'Stop' },
+    { flag: PermissionFlags.Restart, label: 'Restart' },
+    { flag: PermissionFlags.Delete, label: 'Delete' },
+    { flag: PermissionFlags.Update, label: 'Update' },
+    { flag: PermissionFlags.Logs, label: 'Logs' },
+    { flag: PermissionFlags.Execute, label: 'Execute' },
   ];
-
-  const availableResources =
-    resourceType === PermissionResourceType.Container
-      ? containers?.map((c) => c.name)
-      : projects?.map((p) => p.name);
 
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay message="Failed to load permissions" />;
@@ -142,15 +132,12 @@ export default function Permissions() {
         <div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Permissions</h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            Manage resource permissions for users and groups
+            View and manage resource permissions for users and groups
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            💡 Tip: Permissions are now managed directly from User Management and User Groups pages
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
-        >
-          <span>+</span> Create Permission
-        </button>
       </div>
 
       {/* Filter */}
@@ -194,6 +181,15 @@ export default function Permissions() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            {permissions?.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-12 text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">
+                    No permissions found. Create users or groups and assign permissions from their respective pages.
+                  </p>
+                </td>
+              </tr>
+            )}
             {permissions?.map((permission: ResourcePermission) => (
               <tr key={permission.id} className="hover:bg-white dark:hover:bg-gray-800 transition-all">
                 <td className="px-6 py-4">
@@ -229,241 +225,141 @@ export default function Permissions() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <button
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `Are you sure you want to delete this permission for "${permission.resourceName}"?`
-                        )
-                      ) {
-                        deleteMutation.mutate(permission.id);
-                      }
-                    }}
-                    className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(permission)}
+                      className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Are you sure you want to delete this permission for "${permission.resourceName}"?`
+                          )
+                        ) {
+                          deleteMutation.mutate(permission.id);
+                        }
+                      }}
+                      className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-
-        {permissions?.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
-              No permissions found. Create one to get started!
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Create Permission Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              Create Permission
-            </h2>
-            <form onSubmit={handleCreate} className="space-y-6">
-              {/* Resource Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Resource Type *
-                </label>
-                <select
-                  value={resourceType}
-                  onChange={(e) => {
-                    setResourceType(Number(e.target.value) as PermissionResourceType);
-                    setResourceName('');
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value={PermissionResourceType.Container}>Container</option>
-                  <option value={PermissionResourceType.ComposeProject}>Compose Project</option>
-                </select>
-              </div>
+      {/* Edit Modal */}
+      {showEditModal && editingPermission && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 dark:border-gray-700">
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                Edit Permission
+              </h2>
 
-              {/* Resource Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Resource Name *
-                </label>
-                <select
-                  value={resourceName}
-                  onChange={(e) => setResourceName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  required
-                >
-                  <option value="">Select a resource</option>
-                  {availableResources?.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Assignee Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Assign to *
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="user"
-                      checked={assigneeType === 'user'}
-                      onChange={(e) => setAssigneeType(e.target.value as 'user' | 'group')}
-                      className="mr-2"
-                    />
-                    User
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="group"
-                      checked={assigneeType === 'group'}
-                      onChange={(e) => setAssigneeType(e.target.value as 'user' | 'group')}
-                      className="mr-2"
-                    />
-                    Group
-                  </label>
+              <form onSubmit={handleUpdateSubmit} className="space-y-6">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Resource:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {editingPermission.resourceName}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Type:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {getResourceTypeLabel(editingPermission.resourceType)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Assignee:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {editingPermission.username || editingPermission.userGroupName}
+                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                        ({editingPermission.userId ? 'User' : 'Group'})
+                      </span>
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* User or Group Selection */}
-              {assigneeType === 'user' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    User *
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    Permissions
                   </label>
-                  <select
-                    value={selectedUserId || ''}
-                    onChange={(e) => setSelectedUserId(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    required
-                  >
-                    <option value="">Select a user</option>
-                    {users?.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.username} ({user.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Group *
-                  </label>
-                  <select
-                    value={selectedGroupId || ''}
-                    onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    required
-                  >
-                    <option value="">Select a group</option>
-                    {groups?.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name} ({group.memberCount} members)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
-              {/* Permissions Checkboxes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Permissions * (select at least one)
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {permissionOptions.map((option) => (
-                    <label
-                      key={option.flag}
-                      className="flex items-start p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                  {/* Presets */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setPreset('readonly')}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedPermissions.includes(option.flag)}
-                        onChange={() => togglePermission(option.flag)}
-                        className="mt-1 mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {option.label}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {option.description}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
+                      Read Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset('standard')}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                    >
+                      Standard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset('full')}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                    >
+                      Full Access
+                    </button>
+                  </div>
+
+                  {/* Individual permissions */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {permissionOptions.map(({ flag, label }) => (
+                      <label
+                        key={flag}
+                        className="flex items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={(editPermissions & flag) === flag}
+                          onChange={() => togglePermissionFlag(flag)}
+                          className="mr-3 h-4 w-4"
+                        />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Quick Actions */}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPermissions([PermissionFlags.View, PermissionFlags.Logs])}
-                  className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Read Only
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPermissions([
-                    PermissionFlags.View,
-                    PermissionFlags.Start,
-                    PermissionFlags.Stop,
-                    PermissionFlags.Restart,
-                    PermissionFlags.Logs,
-                  ])}
-                  className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Standard
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPermissions([
-                    PermissionFlags.View,
-                    PermissionFlags.Start,
-                    PermissionFlags.Stop,
-                    PermissionFlags.Restart,
-                    PermissionFlags.Delete,
-                    PermissionFlags.Update,
-                    PermissionFlags.Logs,
-                    PermissionFlags.Execute,
-                  ])}
-                  className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Full Access
-                </button>
-              </div>
-
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    resetForm();
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || selectedPermissions.length === 0}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={updateMutation.isPending}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updateMutation.isPending ? 'Updating...' : 'Update Permission'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingPermission(null);
+                    }}
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
