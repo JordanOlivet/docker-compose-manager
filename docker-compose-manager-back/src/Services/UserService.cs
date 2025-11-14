@@ -1,6 +1,7 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
+using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace docker_compose_manager_back.Services;
@@ -29,12 +30,18 @@ public class UserService : IUserService
     private readonly AppDbContext _context;
     private readonly ILogger<UserService> _logger;
     private readonly IAuditService _auditService;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public UserService(AppDbContext context, ILogger<UserService> logger, IAuditService auditService)
+    public UserService(
+        AppDbContext context,
+        ILogger<UserService> logger,
+        IAuditService auditService,
+        IPasswordHasher passwordHasher)
     {
         _context = context;
         _logger = logger;
         _auditService = auditService;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -174,7 +181,7 @@ public class UserService : IUserService
             throw new InvalidOperationException($"Role '{request.Role}' not found");
 
         // Hash password
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12);
+        var passwordHash = _passwordHasher.HashPassword(request.Password);
 
         var user = new User
         {
@@ -253,7 +260,7 @@ public class UserService : IUserService
         // Update password if provided
         if (request.NewPassword != null)
         {
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, 12);
+            user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
             user.MustChangePassword = false;
             changes.Add("Password updated");
 

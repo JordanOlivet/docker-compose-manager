@@ -71,9 +71,12 @@ public class AuthController : ControllerBase
 
         if (!success)
         {
-            return BadRequest(ApiResponse.Fail<bool>("Invalid refresh token", "AUTH_TOKEN_INVALID"));
+            // Log the issue but still return success - logout is idempotent
+            // If the session doesn't exist, the user is effectively logged out already
+            _logger.LogWarning("User {UserId} attempted to logout with invalid or expired refresh token", userId);
         }
 
+        // Always return success to make logout idempotent
         return Ok(ApiResponse.Ok(true, "Logged out successfully"));
     }
 

@@ -4,6 +4,7 @@ using docker_compose_manager_back.Hubs;
 using docker_compose_manager_back.Middleware;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.Validators;
+using DockerComposeManager.Services.Security;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -119,6 +120,11 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+// Configure password hashing
+builder.Services.Configure<PasswordHashingOptions>(
+    builder.Configuration.GetSection(PasswordHashingOptions.SectionName));
+builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
