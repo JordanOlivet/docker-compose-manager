@@ -129,7 +129,7 @@ export function CopyPermissionsDialog({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Warning */}
           <div className="flex gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
                 Warning: This action will replace all current permissions
@@ -146,7 +146,7 @@ export function CopyPermissionsDialog({
               Copy from
             </label>
             <div className="flex gap-3">
-              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-checked:border-blue-500 has-checked:bg-blue-50 dark:has-checked:bg-blue-900/20">
                 <input
                   type="radio"
                   name="sourceType"
@@ -162,7 +162,7 @@ export function CopyPermissionsDialog({
                   User
                 </span>
               </label>
-              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-checked:border-blue-500 has-checked:bg-blue-50 dark:has-checked:bg-blue-900/20">
                 <input
                   type="radio"
                   name="sourceType"
@@ -226,7 +226,7 @@ export function CopyPermissionsDialog({
                       <div key={perm.id} className="p-4 hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded text-xs font-medium flex-shrink-0">
+                            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded text-xs font-medium shrink-0">
                               {perm.resourceType === 1 ? t('common.container') : t('common.project')}
                             </span>
                             <span className="font-medium text-gray-900 dark:text-white truncate">
@@ -276,7 +276,7 @@ export function CopyPermissionsDialog({
           <button
             onClick={handleCopy}
             disabled={!sourceId || copyMutation.isPending}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {copyMutation.isPending ? 'Copying...' : 'Copy Permissions'}
           </button>

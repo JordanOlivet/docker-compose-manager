@@ -160,7 +160,7 @@ function Permissions() {
       </div>
 
       {/* Permissions Table */}
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table className="w-full">
           <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
             <tr>
@@ -344,7 +344,7 @@ function Permissions() {
                   <button
                     type="submit"
                     disabled={updateMutation.isPending}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {updateMutation.isPending ? `${t('common.save')}...` : `${t('common.edit')} ${t('users.permissions')}`}
                   </button>

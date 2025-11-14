@@ -1,4 +1,4 @@
-name: Docker Build and Publish
+name: Build & Push
 
 on:
   push:
@@ -40,8 +40,8 @@ jobs:
         id: version
         uses: ./.github/actions/extract-version
 
-  backend-build-test-publish:
-    name: Backend - Build, Test & Publish
+  backend-build-test-push:
+    name: Backend - Build, Test & Push
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -114,8 +114,8 @@ jobs:
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
             VCS_REF=${{ needs.prepare.outputs.vcs_ref }}
 
-  frontend-build-test-publish:
-    name: Frontend - Build, Test & Publish
+  frontend-build-test-push:
+    name: Frontend - Build, Test & Push
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -181,14 +181,14 @@ jobs:
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [backend-build-test-publish, frontend-build-test-publish]
+    needs: [backend-build-test-push, frontend-build-test-push]
     if: always()
     steps:
       - name: Check build results
         run: |
-          echo "Backend build status: ${{ needs.backend-build-test-publish.result }}"
-          echo "Frontend build status: ${{ needs.frontend-build-test-publish.result }}"
-          if [[ "${{ needs.backend-build-test-publish.result }}" == "failure" ]] || [[ "${{ needs.frontend-build-test-publish.result }}" == "failure" ]]; then
+          echo "Backend build status: ${{ needs.backend-build-test-push.result }}"
+          echo "Frontend build status: ${{ needs.frontend-build-test-push.result }}"
+          if [[ "${{ needs.backend-build-test-push.result }}" == "failure" ]] || [[ "${{ needs.frontend-build-test-push.result }}" == "failure" ]]; then
             echo "One or more builds failed"
             exit 1
           fi

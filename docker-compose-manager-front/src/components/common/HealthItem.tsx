@@ -14,7 +14,7 @@ export const HealthItem = ({ label, state, icon }: HealthItemProps) => {
       <div className={`p-2 rounded-lg ${state.isHealthy ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
         {isValidElement(icon) && cloneElement(icon, {
           className: `w-5 h-5 ${colorClass}`
-        } as any)}
+        } as React.HTMLAttributes<SVGElement>)}
       </div>
       <div>
         <p className="font-semibold text-gray-900 dark:text-white mb-1">{label}</p>

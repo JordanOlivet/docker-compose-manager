@@ -214,7 +214,7 @@ function UserGroups() {
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
+          className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
         >
           <span>+</span> {t('common.create')} {t('users.groups')}
         </button>
@@ -225,7 +225,7 @@ function UserGroups() {
         {groups?.map((group) => (
           <div
             key={group.id}
-            className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-all duration-200"
+            className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-all duration-200"
           >
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">{group.name}</h3>
@@ -496,7 +496,7 @@ function UserGroups() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createMutation.isPending || updateMutation.isPending
                     ? `${t('common.save')}...`

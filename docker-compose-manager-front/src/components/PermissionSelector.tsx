@@ -142,7 +142,7 @@ export function PermissionSelector({
         )}
 
         {permissions.map((perm, index) => (
-          <div key={index} className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div key={index} className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
             <div className="flex justify-between items-start gap-4">
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
@@ -359,7 +359,7 @@ export function PermissionSelector({
               type="button"
               onClick={handleAddPermission}
               disabled={!newPermission.resourceName}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {t('common.add')}
             </button>

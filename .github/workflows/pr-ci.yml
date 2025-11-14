@@ -1,4 +1,4 @@
-name: Pull Request CI
+name: PR
 
 on:
   pull_request:
@@ -76,7 +76,7 @@ jobs:
         run: npm test -- --run
 
   summary:
-    name: CI Summary
+    name: Summary
     runs-on: ubuntu-latest
     needs: [backend-build-test, frontend-build-test]
     if: always()
