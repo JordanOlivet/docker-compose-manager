@@ -28,4 +28,9 @@ public interface IPermissionService
     /// Get all resources of a specific type that a user has any permission for
     /// </summary>
     Task<List<string>> GetAuthorizedResourcesAsync(int userId, ResourceType resourceType);
+
+    /// <summary>
+    /// Copy permissions from one user/group to another user/group
+    /// </summary>
+    Task CopyPermissionsAsync(int? sourceUserId, int? sourceUserGroupId, int? targetUserId, int? targetUserGroupId);
 }

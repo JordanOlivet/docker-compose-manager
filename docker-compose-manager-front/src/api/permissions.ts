@@ -7,7 +7,8 @@ import type {
   CheckPermissionRequest,
   CheckPermissionResponse,
   UserPermissionsResponse,
-  PermissionResourceType
+  PermissionResourceType,
+  CopyPermissionsRequest
 } from '../types';
 
 const permissionsApi = {
@@ -85,6 +86,13 @@ const permissionsApi = {
   getUserPermissions: async (userId: number): Promise<UserPermissionsResponse> => {
     const response = await apiClient.get(`/permissions/user/${userId}`);
     return response.data.data;
+  },
+
+  /**
+   * Copy permissions from one user/group to another user/group (admin only)
+   */
+  copyPermissions: async (data: CopyPermissionsRequest): Promise<void> => {
+    await apiClient.post('/permissions/copy', data);
   },
 };
 

@@ -20,12 +20,14 @@ public class CreateUserGroupRequest
     public required string Name { get; set; }
     public string? Description { get; set; }
     public List<int> MemberIds { get; set; } = new();
+    public List<ResourcePermissionInput>? Permissions { get; set; }
 }
 
 public class UpdateUserGroupRequest
 {
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public List<ResourcePermissionInput>? Permissions { get; set; }
 }
 
 public class AddUserToGroupRequest
@@ -92,4 +94,20 @@ public class UserPermissionsResponse
     public bool IsAdmin { get; set; }
     public List<ResourcePermissionDto> DirectPermissions { get; set; } = new();
     public List<ResourcePermissionDto> GroupPermissions { get; set; } = new();
+}
+
+// Input DTO for creating/updating permissions within user/group requests
+public record ResourcePermissionInput(
+    ResourceType ResourceType,
+    string ResourceName,
+    PermissionFlags Permissions
+);
+
+// Request for copying permissions from one user/group to another
+public class CopyPermissionsRequest
+{
+    public int? SourceUserId { get; set; }
+    public int? SourceUserGroupId { get; set; }
+    public int? TargetUserId { get; set; }
+    public int? TargetUserGroupId { get; set; }
 }

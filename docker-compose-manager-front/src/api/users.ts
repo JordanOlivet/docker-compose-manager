@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { ResourcePermissionInput } from '@/types/permissions';
 
 export interface User {
   id: number;
@@ -14,6 +15,7 @@ export interface CreateUserRequest {
   username: string;
   password: string;
   role: string;
+  permissions?: ResourcePermissionInput[];
 }
 
 export interface UpdateUserRequest {
@@ -21,6 +23,7 @@ export interface UpdateUserRequest {
   role?: string;
   isEnabled?: boolean;
   newPassword?: string;
+  permissions?: ResourcePermissionInput[];
 }
 
 const usersApi = {
