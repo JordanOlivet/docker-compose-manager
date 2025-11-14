@@ -13,7 +13,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "admin")]
-public class ConfigController : ControllerBase
+public class ConfigController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly ILogger<ConfigController> _logger;

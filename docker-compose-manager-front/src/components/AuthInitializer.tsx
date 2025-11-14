@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore, selectIsAuthenticated } from '../stores/authStore';
 import { authApi } from '../api';
 
 interface AuthInitializerProps {
@@ -11,7 +11,8 @@ interface AuthInitializerProps {
  * If a token exists in localStorage, fetches the current user from the API
  */
 export function AuthInitializer({ children }: AuthInitializerProps) {
-  const { user, isAuthenticated, updateUser, logout } = useAuthStore();
+  const { user, updateUser, logout } = useAuthStore();
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const [isLoading, setIsLoading] = useState(true);
   const hasInitializedRef = useRef(false);
 

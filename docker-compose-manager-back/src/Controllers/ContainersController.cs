@@ -10,7 +10,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ContainersController : ControllerBase
+public class ContainersController : BaseController
 {
     private readonly DockerService _dockerService;
     private readonly IPermissionService _permissionService;
@@ -24,12 +24,6 @@ public class ContainersController : ControllerBase
         _dockerService = dockerService;
         _permissionService = permissionService;
         _logger = logger;
-    }
-
-    private int GetUserId()
-    {
-        string? userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(userIdString ?? "0");
     }
 
     /// <summary>
@@ -66,7 +60,7 @@ public class ContainersController : ControllerBase
         try
         {
             List<ContainerDto> containers = await _dockerService.ListContainersAsync(all);
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
 
             // Apply permission filtering
             List<string> containerNames = containers.Select(c => c.Name).ToList();
@@ -126,7 +120,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check View permission
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
@@ -166,7 +160,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check Start permission
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
@@ -225,7 +219,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check Stop permission
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
@@ -271,7 +265,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check Restart permission
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
@@ -317,7 +311,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check Delete permission
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
@@ -375,7 +369,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check Logs permission
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,
@@ -421,7 +415,7 @@ public class ContainersController : ControllerBase
             }
 
             // Check View permission (stats are part of viewing container details)
-            int userId = GetUserId();
+            int userId = GetCurrentUserIdRequired();
             bool hasPermission = await _permissionService.HasPermissionAsync(
                 userId,
                 ResourceType.Container,

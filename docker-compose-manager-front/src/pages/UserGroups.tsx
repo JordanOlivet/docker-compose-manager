@@ -12,8 +12,9 @@ import { CopyPermissionsDialog } from '../components/CopyPermissionsDialog';
 import type { UserGroup } from '../types';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
 import type { ResourcePermissionInput } from '../types/permissions';
+import { t } from '../i18n';
 
-export default function UserGroups() {
+function UserGroups() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<UserGroup | null>(null);
@@ -206,16 +207,16 @@ export default function UserGroups() {
       {/* Page Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">User Groups</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('users.groups')}</h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            Manage user groups for easier permission assignment
+            {t('users.groupsSubtitle')}
           </p>
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
+          className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
         >
-          <span>+</span> Create Group
+          <span>+</span> {t('common.create')} {t('users.groups')}
         </button>
       </div>
 
@@ -224,12 +225,12 @@ export default function UserGroups() {
         {groups?.map((group) => (
           <div
             key={group.id}
-            className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-all duration-200"
+            className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-all duration-200"
           >
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">{group.name}</h3>
               <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
-                {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
+                {group.memberCount} {group.memberCount === 1 ? t('users.members').slice(0, -1) : t('users.members')}
               </span>
             </div>
 
@@ -242,17 +243,17 @@ export default function UserGroups() {
                 onClick={() => openEditModal(group)}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
               >
-                Edit
+                {t('common.edit')}
               </button>
               <button
                 onClick={() => {
-                  if (confirm(`Are you sure you want to delete the group "${group.name}"?`)) {
+                  if (confirm(`${t('users.deleteUser')} "${group.name}"?`)) {
                     deleteMutation.mutate(group.id);
                   }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>
@@ -262,7 +263,7 @@ export default function UserGroups() {
       {groups?.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400 text-lg">
-            No user groups found. Create one to get started!
+            {t('users.noUsers')}
           </p>
         </div>
       )}
@@ -273,7 +274,7 @@ export default function UserGroups() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-8 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {editMode ? 'Edit Group' : 'Create Group'}
+                {editMode ? t('common.edit') : t('common.create')} {t('users.groups')}
               </h2>
             </div>
 
@@ -288,7 +289,7 @@ export default function UserGroups() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  Information
+                  {t('users.general')}
                   {activeTab === 'info' && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
                   )}
@@ -301,7 +302,7 @@ export default function UserGroups() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  Members
+                  {t('users.members')}
                   {(editMode ? (groupMembers?.length ?? 0) : selectedMembers.length) > 0 && (
                     <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs">
                       {editMode ? (groupMembers?.length ?? 0) : selectedMembers.length}
@@ -319,7 +320,7 @@ export default function UserGroups() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  Permissions
+                  {t('users.permissions')}
                   {permissions.length > 0 && (
                     <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs">
                       {permissions.length}
@@ -338,26 +339,26 @@ export default function UserGroups() {
                 <div className="p-8 space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Group Name
+                      {t('users.groupName')}
                     </label>
                     <input
                       type="text"
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Enter group name"
+                      placeholder={t('users.groupNamePlaceholder')}
                       required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Description
+                      {t('users.description')}
                     </label>
                     <textarea
                       value={groupDescription}
                       onChange={(e) => setGroupDescription(e.target.value)}
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Enter group description (optional)"
+                      placeholder={t('users.descriptionPlaceholder')}
                       rows={3}
                     />
                   </div>
@@ -372,11 +373,11 @@ export default function UserGroups() {
                     <>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                          Current Members ({groupMembers?.length || 0})
+                          {t('users.members')} ({groupMembers?.length || 0})
                         </h3>
                         <div className="space-y-2 mb-6">
                           {groupMembers?.length === 0 && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">No members yet</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{t('users.noMembers')}</p>
                           )}
                           {groupMembers?.map((member) => (
                             <div
@@ -396,7 +397,7 @@ export default function UserGroups() {
                                 onClick={() => handleRemoveMember(member.id)}
                                 className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1 rounded transition-colors text-sm"
                               >
-                                Remove
+                                {t('common.delete')}
                               </button>
                             </div>
                           ))}
@@ -405,12 +406,12 @@ export default function UserGroups() {
 
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                          Add Members
+                          {t('common.create')} {t('users.members')}
                         </h3>
                         <div className="space-y-2">
                           {availableUsers?.length === 0 && (
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                              No available users to add
+                              {t('users.noUsers')}
                             </p>
                           )}
                           {availableUsers?.map((user) => (
@@ -431,7 +432,7 @@ export default function UserGroups() {
                                 onClick={() => handleAddMember(user.id)}
                                 className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1 rounded transition-colors text-sm"
                               >
-                                Add
+                                {t('common.create')}
                               </button>
                             </div>
                           ))}
@@ -442,7 +443,7 @@ export default function UserGroups() {
                     // Create mode: select initial members
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Select Initial Members (Optional)
+                        {t('users.members')} ({t('common.all')})
                       </h3>
                       <div className="space-y-2">
                         {allUsers?.map((user) => (
@@ -495,20 +496,20 @@ export default function UserGroups() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createMutation.isPending || updateMutation.isPending
-                    ? 'Saving...'
+                    ? `${t('common.save')}...`
                     : editMode
-                    ? 'Update Group'
-                    : 'Create Group'}
+                    ? `${t('common.edit')} ${t('users.groups')}`
+                    : `${t('common.create')} ${t('users.groups')}`}
                 </button>
                 <button
                   type="button"
                   onClick={closeModal}
                   className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-semibold"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -529,3 +530,5 @@ export default function UserGroups() {
     </div>
   );
 }
+
+export default UserGroups;

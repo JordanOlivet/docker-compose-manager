@@ -5,6 +5,7 @@ import Editor from '@monaco-editor/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { composeApi } from '../api';
 import { LoadingSpinner, ErrorDisplay } from '../components/common';
+import { t } from '../i18n';
 
 const DEFAULT_COMPOSE_CONTENT = `version: '3.8'
 
@@ -18,7 +19,7 @@ services:
     restart: unless-stopped
 `;
 
-export const ComposeEditor = () => {
+function ComposeEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -81,7 +82,7 @@ export const ComposeEditor = () => {
       });
     } else {
       if (!filePath.trim()) {
-        alert('Please enter a file path');
+        alert(t('compose.filePath'));
         return;
       }
       createMutation.mutate({ filePath, content });
@@ -90,7 +91,7 @@ export const ComposeEditor = () => {
 
   const handleCancel = () => {
     if (hasChanges) {
-      if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
+      if (confirm(t('compose.unsavedChanges'))) {
         navigate('/compose/files');
       }
     } else {
@@ -116,7 +117,7 @@ export const ComposeEditor = () => {
   if (isEditMode && loadError) {
     return (
       <ErrorDisplay
-        title="Failed to load compose file"
+        title={t('compose.failedToLoadFile')}
         message={loadError instanceof Error ? loadError.message : 'An unexpected error occurred'}
         onRetry={() => navigate('/compose/files')}
       />
@@ -133,10 +134,10 @@ export const ComposeEditor = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {isEditMode ? 'Edit Compose File' : 'Create Compose File'}
+              {isEditMode ? t('compose.editFile') : t('compose.createFile')}
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              {isEditMode ? fileData?.fullPath : 'Create a new Docker Compose configuration file'}
+              {isEditMode ? fileData?.fullPath : t('compose.filePathPlaceholder')}
             </p>
           </div>
           <div className="flex gap-3">
@@ -146,7 +147,7 @@ export const ComposeEditor = () => {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <X className="w-4 h-4" />
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -154,7 +155,7 @@ export const ComposeEditor = () => {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? `${t('common.save')}...` : t('common.save')}
             </button>
           </div>
         </div>
@@ -164,7 +165,7 @@ export const ComposeEditor = () => {
       {!isEditMode && (
         <div className="mb-4">
           <label htmlFor="filePath" className="block text-sm font-medium text-gray-700 mb-2">
-            File Path *
+            {t('compose.filePath')} *
           </label>
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-gray-400" />
@@ -173,13 +174,13 @@ export const ComposeEditor = () => {
               id="filePath"
               value={filePath}
               onChange={(e) => setFilePath(e.target.value)}
-              placeholder="/path/to/docker-compose.yml"
+              placeholder={t('compose.filePathPlaceholder')}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               disabled={isSaving}
             />
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Must end with .yml or .yaml and be within an allowed compose path
+            {t('compose.fileContent')}
           </p>
         </div>
       )}
@@ -221,18 +222,19 @@ export const ComposeEditor = () => {
       {/* Status Bar */}
       <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
         <div className="flex items-center gap-4">
-          <span>YAML</span>
-          <span>UTF-8</span>
-          <span>{content.split('\n').length} lines</span>
-          <span>{content.length} characters</span>
+          <span>{t('compose.yaml')}</span>
+          <span>{t('compose.utf8')}</span>
+          <span>{content.split('\n').length} {t('compose.lines')}</span>
+          <span>{content.length} {t('compose.characters')}</span>
         </div>
         {hasChanges && (
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-            <span className="text-orange-600 font-medium">Unsaved changes</span>
+            <span className="text-orange-600 font-medium">{t('compose.unsavedChanges')}</span>
           </div>
         )}
       </div>
     </div>
   );
-};
+}
+export default ComposeEditor;

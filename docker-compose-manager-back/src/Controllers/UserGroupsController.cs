@@ -12,7 +12,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class UserGroupsController : ControllerBase
+public class UserGroupsController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly IAuditService _auditService;
@@ -26,17 +26,6 @@ public class UserGroupsController : ControllerBase
         _context = context;
         _auditService = auditService;
         _logger = logger;
-    }
-
-    private int GetUserId()
-    {
-        string? userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(userIdString ?? "0");
-    }
-
-    private string GetIpAddress()
-    {
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     /// <summary>
@@ -157,7 +146,7 @@ public class UserGroupsController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        await _auditService.LogActionAsync(GetUserId(), $"Created user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetIpAddress());
+        await _auditService.LogActionAsync(GetCurrentUserId(), $"Created user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetUserIpAddress());
 
         var dto = new UserGroupDto
         {
@@ -223,7 +212,7 @@ public class UserGroupsController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetUserId(), $"Updated user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetIpAddress());
+        await _auditService.LogActionAsync(GetCurrentUserId(), $"Updated user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetUserIpAddress());
 
         var dto = new UserGroupDto
         {
@@ -254,7 +243,7 @@ public class UserGroupsController : ControllerBase
 
         _context.UserGroups.Remove(group);
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetUserId(), $"Deleted user group: {group.Name}", GetIpAddress());
+        await _auditService.LogActionAsync(GetCurrentUserId(), $"Deleted user group: {group.Name}", GetUserIpAddress());
 
         return Ok(ApiResponse.Ok<object?>(null, "User group deleted successfully"));
     }
@@ -292,7 +281,7 @@ public class UserGroupsController : ControllerBase
 
         _context.UserGroupMemberships.Add(membership);
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetUserId(), $"Added user {user.Username} to group {group.Name}", GetIpAddress());
+        await _auditService.LogActionAsync(GetCurrentUserId(), $"Added user {user.Username} to group {group.Name}", GetUserIpAddress());
 
         return Ok(ApiResponse.Ok<object?>(null, "User added to group successfully"));
     }
@@ -315,7 +304,7 @@ public class UserGroupsController : ControllerBase
 
         _context.UserGroupMemberships.Remove(membership);
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetUserId(), $"Removed user {membership.User?.Username} from group {membership.UserGroup?.Name}", GetIpAddress());
+        await _auditService.LogActionAsync(GetCurrentUserId(), $"Removed user {membership.User?.Username} from group {membership.UserGroup?.Name}", GetUserIpAddress());
 
         return Ok(ApiResponse.Ok<object?>(null, "User removed from group successfully"));
     }

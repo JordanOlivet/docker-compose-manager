@@ -1,5 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { t } from '../../i18n';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -34,8 +35,8 @@ export const ConfirmDialog = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText = t('common.confirm'),
+  cancelText = t('common.cancel'),
   variant = 'danger',
   isLoading = false,
 }: ConfirmDialogProps) => {

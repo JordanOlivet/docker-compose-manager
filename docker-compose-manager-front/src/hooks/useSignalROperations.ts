@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { signalRService } from '../services/signalRService';
 import { useToast } from './useToast';
+import type { OperationUpdateEvent } from '@/types/operations';
 
 export interface SignalROperationConfig {
   /**
@@ -71,6 +72,8 @@ export interface OperationUpdate {
  * });
  */
 export const useSignalROperations = (config: SignalROperationConfig = {}) => {
+    // Memoize already-refreshed operations for each status
+    const alreadyRefreshedRef = useRef<{ [opId: string]: Set<string> }>({});
   const {
     queryKeys,
     operationTypeFilter,
@@ -99,14 +102,13 @@ export const useSignalROperations = (config: SignalROperationConfig = {}) => {
         await signalRService.connect();
 
         // Listen for operation updates
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const handleOperationUpdate = (update: any) => {
+        const handleOperationUpdate = (update: OperationUpdateEvent) => {
           const operationUpdate: OperationUpdate = {
             operationId: update.operationId,
             status: update.status,
-            type: update.type,
+            type: update.type || '',
             errorMessage: update.errorMessage,
-            message: update.message,
+            message: update.logs,
             progress: update.progress,
           };
 
@@ -123,13 +125,27 @@ export const useSignalROperations = (config: SignalROperationConfig = {}) => {
           // Check if the status should trigger invalidation
           const statusMatch = invalidateOnStatuses.includes(update.status);
 
-          // Invalidate and refetch queries immediately if conditions are met
-          if (typeMatch && statusMatch && queryKeys) {
-            const keysArray = Array.isArray(queryKeys) ? queryKeys : [queryKeys];
-            keysArray.forEach((key) => {
-              // Use refetchQueries instead of invalidateQueries for immediate refetch
-              queryClient.refetchQueries({ queryKey: [key], type: 'active' });
-            });
+          // Invalidate and refetch queries only once per operationId+status
+          if (typeMatch && statusMatch && queryKeys && update.operationId) {
+            const opId = update.operationId;
+            const status = update.status;
+            if (!alreadyRefreshedRef.current[opId]) {
+              alreadyRefreshedRef.current[opId] = new Set();
+            }
+            if (!alreadyRefreshedRef.current[opId].has(status)) {
+              alreadyRefreshedRef.current[opId].add(status);
+              const keysArray = Array.isArray(queryKeys) ? queryKeys : [queryKeys];
+              keysArray.forEach((key) => {
+                queryClient.refetchQueries({ queryKey: [key], type: 'active' });
+              });
+              // Optionally, clean up after 5 minutes to avoid memory leak
+              setTimeout(() => {
+                alreadyRefreshedRef.current[opId].delete(status);
+                if (alreadyRefreshedRef.current[opId].size === 0) {
+                  delete alreadyRefreshedRef.current[opId];
+                }
+              }, 5 * 60 * 1000);
+            }
           }
 
           // Show error toast for failed operations (only once per operation)
@@ -160,7 +176,7 @@ export const useSignalROperations = (config: SignalROperationConfig = {}) => {
           ) {
             if (!shownToastsRef.current.successes.has(update.operationId)) {
               shownToastsRef.current.successes.add(update.operationId);
-              const message = update.message || 'Operation completed successfully';
+              const message = update.logs || 'Operation completed successfully';
               toast.success(message);
 
               // Clean up old entries after 5 minutes to prevent memory leak

@@ -1,4 +1,5 @@
 import { Circle } from 'lucide-react';
+import { t } from '@/i18n';
 
 interface StateBadgeProps {
   status: string;
@@ -52,7 +53,7 @@ export const StateBadge = ({
         className={`inline-flex items-center gap-1.5 font-medium rounded-full ${statusStyles.unknown.bg} ${statusStyles.unknown.text} ${statusStyles.unknown.border} ${sizeClasses[size].container} ${className}`}
       >
         {showIcon && <Circle className={`${sizeClasses[size].icon} fill-current`} />}
-        <span className="capitalize">unknown</span>
+        <span className="capitalize">{t('common.unknown')}</span>
       </span>
     );
   }

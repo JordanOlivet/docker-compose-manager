@@ -83,6 +83,15 @@ public class OperationService
                 return false;
             }
 
+            // Log if a final status is being set again
+            bool isFinalStatus = status == OperationStatus.Completed || status == OperationStatus.Failed || status == OperationStatus.Cancelled;
+            bool wasFinalStatus = operation.Status == OperationStatus.Completed || operation.Status == OperationStatus.Failed || operation.Status == OperationStatus.Cancelled;
+
+            if (isFinalStatus && wasFinalStatus)
+            {
+                _logger.LogWarning("[DUPLICATE NOTIFICATION] Operation {OperationId} already had final status {OldStatus}, now set again to {NewStatus}", operationId, operation.Status, status);
+            }
+
             operation.Status = status;
 
             if (progress.HasValue)
@@ -95,9 +104,7 @@ public class OperationService
                 operation.ErrorMessage = errorMessage;
             }
 
-            if (status == OperationStatus.Completed ||
-                status == OperationStatus.Failed ||
-                status == OperationStatus.Cancelled)
+            if (isFinalStatus)
             {
                 operation.CompletedAt = DateTime.UtcNow;
             }

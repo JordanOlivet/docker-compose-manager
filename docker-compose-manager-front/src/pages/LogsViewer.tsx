@@ -3,13 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import { Play, Square, Trash2 } from 'lucide-react';
 import { signalRService } from '../services/signalRService';
 import { useToast } from '../hooks/useToast';
+import { t } from '../i18n';
 
 type LogEntry = {
   timestamp: string;
   message: string;
 };
 
-export default function LogsViewer() {
+function LogsViewer() {
   const [searchParams] = useSearchParams();
   const containerId = searchParams.get('containerId');
   const projectPath = searchParams.get('projectPath');
@@ -97,20 +98,13 @@ export default function LogsViewer() {
     };
   }, [isStreaming]);
 
-  const getTitle = () => {
-    if (containerId) return `Container Logs: ${containerId.substring(0, 12)}`;
-    if (projectPath && serviceName) return `Compose Logs: ${projectPath} / ${serviceName}`;
-    if (projectPath) return `Compose Logs: ${projectPath}`;
-    return 'Logs Viewer';
-  };
-
   return (
     <div className="h-full flex flex-col space-y-6">
       {/* Page Header */}
       <div className="mb-4">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{getTitle()}</h1>
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('logs.title')}</h1>
         <p className="text-lg text-gray-600 dark:text-gray-400">
-          Stream and view real-time logs from your containers
+          {t('logs.subtitle')}
         </p>
       </div>
 
@@ -118,7 +112,7 @@ export default function LogsViewer() {
       <div className="flex justify-between items-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tail:</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('logs.tail')}:</label>
             <input
               type="number"
               value={tail}
@@ -137,7 +131,7 @@ export default function LogsViewer() {
             disabled={logs.length === 0}
           >
             <Trash2 className="w-4 h-4" />
-            <span>Clear</span>
+              <span>{t('common.clear')}</span>
           </button>
           {!isStreaming ? (
             <button
@@ -145,7 +139,7 @@ export default function LogsViewer() {
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
             >
               <Play className="w-4 h-4" />
-              <span>Start Streaming</span>
+              <span>{t('logs.start')}</span>
             </button>
           ) : (
             <button
@@ -153,7 +147,7 @@ export default function LogsViewer() {
               className="flex items-center space-x-2 px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
             >
               <Square className="w-4 h-4" />
-              <span>Stop Streaming</span>
+              <span>{t('containers.stop')}</span>
             </button>
           )}
         </div>
@@ -166,8 +160,8 @@ export default function LogsViewer() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 dark:bg-gray-900 mb-3">
               <Play className="w-8 h-8 text-gray-600 dark:text-gray-500" />
             </div>
-            <p className="text-lg font-medium">{isStreaming ? 'Waiting for logs...' : 'No logs to display'}</p>
-            <p className="text-sm mt-1">{isStreaming ? '' : 'Click "Start Streaming" to begin.'}</p>
+            <p className="text-lg font-medium">{isStreaming ? t('logs.waitingForLogs') : t('logs.noLogs')}</p>
+            <p className="text-sm mt-1">{!isStreaming && t('logs.selectContainer')}</p>
           </div>
         ) : (
           <div>
@@ -188,17 +182,19 @@ export default function LogsViewer() {
           {isStreaming && (
             <span className="flex items-center text-sm text-gray-700 dark:text-gray-300">
               <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse mr-2"></span>
-              Streaming active
+              {t('logs.streaming')}
             </span>
           )}
           {!isStreaming && logs.length > 0 && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">Streaming stopped</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t('logs.streamingStopped')}</span>
           )}
         </div>
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          Total logs: <span className="font-semibold text-gray-900 dark:text-white">{logs.length}</span>
+          {t('logs.totalLogs')}: <span className="font-semibold text-gray-900 dark:text-white">{logs.length}</span>
         </div>
       </div>
     </div>
   );
 }
+
+export default LogsViewer;

@@ -9,7 +9,7 @@ namespace docker_compose_manager_back.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class SystemController : ControllerBase
+public class SystemController : BaseController
 {
     private readonly ILogger<SystemController> _logger;
 

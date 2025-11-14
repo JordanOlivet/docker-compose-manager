@@ -12,7 +12,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ProfileController : ControllerBase
+public class ProfileController : BaseController
 {
     private readonly IUserService _userService;
     private readonly AuthService _authService;
@@ -44,7 +44,7 @@ public class ProfileController : ControllerBase
     {
         try
         {
-            int userId = GetCurrentUserId();
+            int userId = GetCurrentUserIdRequired();
             UserDto? user = await _userService.GetUserByIdAsync(userId);
 
             if (user == null)
@@ -77,7 +77,7 @@ public class ProfileController : ControllerBase
     {
         try
         {
-            int userId = GetCurrentUserId();
+            int userId = GetCurrentUserIdRequired();
             string ipAddress = GetUserIpAddress();
 
             // Get current user data for audit
@@ -119,7 +119,7 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating profile for user {UserId}", GetCurrentUserId());
+            _logger.LogError(ex, "Error updating profile for user {UserId}", GetCurrentUserId() ?? 0);
             return StatusCode(500, ApiResponse.Fail<UserDto>("An error occurred while updating profile"));
         }
     }
@@ -140,7 +140,7 @@ public class ProfileController : ControllerBase
     {
         try
         {
-            int userId = GetCurrentUserId();
+            int userId = GetCurrentUserIdRequired();
             string ipAddress = GetUserIpAddress();
 
             // Validate password complexity
@@ -180,27 +180,12 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error changing password for user {UserId}", GetCurrentUserId());
+            _logger.LogError(ex, "Error changing password for user {UserId}", GetCurrentUserId() ?? 0);
             return StatusCode(500, ApiResponse.Fail<bool>("An error occurred while changing password"));
         }
     }
 
     #region Helper Methods
-
-    private int GetCurrentUserId()
-    {
-        string? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-        {
-            throw new UnauthorizedAccessException("Invalid user token");
-        }
-        return userId;
-    }
-
-    private string GetUserIpAddress()
-    {
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-    }
 
     private (bool IsValid, string? ErrorMessage) ValidatePasswordComplexity(string password)
     {

@@ -13,8 +13,9 @@ import {
   type ResourcePermission,
 } from '../types';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
+import { t } from '../i18n';
 
-export default function Permissions() {
+function Permissions() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPermission, setEditingPermission] = useState<ResourcePermission | null>(null);
   const [editPermissions, setEditPermissions] = useState<number>(0);
@@ -130,12 +131,12 @@ export default function Permissions() {
       {/* Page Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Permissions</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('users.permissions')}</h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            View and manage resource permissions for users and groups
+            {t('users.permissionsSubtitle')}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-            💡 Tip: Permissions are now managed directly from User Management and User Groups pages
+            💡 {t('common.all')}
           </p>
         </div>
       </div>
@@ -144,39 +145,39 @@ export default function Permissions() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
         <div className="flex items-center gap-4">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Filter by type:
+            {t('common.filter')}:
           </label>
           <select
             value={filterResourceType}
             onChange={(e) => setFilterResourceType(e.target.value as PermissionResourceType | 'all')}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
-            <option value="all">All Resources</option>
-            <option value={PermissionResourceType.Container}>Containers</option>
-            <option value={PermissionResourceType.ComposeProject}>Compose Projects</option>
+            <option value="all">{t('common.all')}</option>
+            <option value={PermissionResourceType.Container}>{t('containers.title')}</option>
+            <option value={PermissionResourceType.ComposeProject}>{t('compose.projects')}</option>
           </select>
         </div>
       </div>
 
       {/* Permissions Table */}
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table className="w-full">
           <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
             <tr>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Resource
+                {t('audit.resourceType')}
               </th>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Type
+                {t('common.filter')}
               </th>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Assignee
+                {t('users.username')}
               </th>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Permissions
+                {t('users.permissions')}
               </th>
               <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Actions
+                {t('users.actions')}
               </th>
             </tr>
           </thead>
@@ -185,7 +186,7 @@ export default function Permissions() {
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-lg">
-                    No permissions found. Create users or groups and assign permissions from their respective pages.
+                    {t('audit.noLogs')}
                   </p>
                 </td>
               </tr>
@@ -208,7 +209,7 @@ export default function Permissions() {
                       {permission.username || permission.userGroupName}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {permission.userId ? 'User' : 'Group'}
+                      {permission.userId ? t('users.title') : t('users.groups')}
                     </span>
                   </div>
                 </td>
@@ -230,13 +231,13 @@ export default function Permissions() {
                       onClick={() => handleEdit(permission)}
                       className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                     <button
                       onClick={() => {
                         if (
                           confirm(
-                            `Are you sure you want to delete this permission for "${permission.resourceName}"?`
+                            `${t('common.delete')} ${t('users.permissions').toLowerCase()} "${permission.resourceName}"?`
                           )
                         ) {
                           deleteMutation.mutate(permission.id);
@@ -244,7 +245,7 @@ export default function Permissions() {
                       }}
                       className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
                     >
-                      Delete
+                      {t('common.delete')}
                     </button>
                   </div>
                 </td>
@@ -260,29 +261,29 @@ export default function Permissions() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 dark:border-gray-700">
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                Edit Permission
+                {t('common.edit')} {t('users.permissions')}
               </h2>
 
               <form onSubmit={handleUpdateSubmit} className="space-y-6">
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Resource:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('audit.resourceType')}:</span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {editingPermission.resourceName}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Type:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('common.filter')}:</span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {getResourceTypeLabel(editingPermission.resourceType)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Assignee:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('users.username')}:</span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {editingPermission.username || editingPermission.userGroupName}
                       <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                        ({editingPermission.userId ? 'User' : 'Group'})
+                        ({editingPermission.userId ? t('users.title') : t('users.groups')})
                       </span>
                     </span>
                   </div>
@@ -290,7 +291,7 @@ export default function Permissions() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Permissions
+                    {t('users.permissions')}
                   </label>
 
                   {/* Presets */}
@@ -300,21 +301,21 @@ export default function Permissions() {
                       onClick={() => setPreset('readonly')}
                       className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
                     >
-                      Read Only
+                      {t('settings.access')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setPreset('standard')}
                       className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
                     >
-                      Standard
+                      {t('common.all')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setPreset('full')}
                       className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
                     >
-                      Full Access
+                      {t('settings.access')}
                     </button>
                   </div>
 
@@ -343,9 +344,9 @@ export default function Permissions() {
                   <button
                     type="submit"
                     disabled={updateMutation.isPending}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {updateMutation.isPending ? 'Updating...' : 'Update Permission'}
+                    {updateMutation.isPending ? `${t('common.save')}...` : `${t('common.edit')} ${t('users.permissions')}`}
                   </button>
                   <button
                     type="button"
@@ -355,7 +356,7 @@ export default function Permissions() {
                     }}
                     className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-semibold"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>
@@ -366,3 +367,5 @@ export default function Permissions() {
     </div>
   );
 }
+
+export default Permissions;

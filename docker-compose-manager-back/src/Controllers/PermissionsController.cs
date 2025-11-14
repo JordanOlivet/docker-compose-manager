@@ -12,7 +12,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PermissionsController : ControllerBase
+public class PermissionsController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly IPermissionService _permissionService;
@@ -29,17 +29,6 @@ public class PermissionsController : ControllerBase
         _permissionService = permissionService;
         _auditService = auditService;
         _logger = logger;
-    }
-
-    private int GetUserId()
-    {
-        string? userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(userIdString ?? "0");
-    }
-
-    private string GetIpAddress()
-    {
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     /// <summary>
@@ -185,9 +174,9 @@ public class PermissionsController : ControllerBase
             : $"group {permission.UserGroup?.Name}";
 
         await _auditService.LogActionAsync(
-            GetUserId(),
+            GetCurrentUserId(),
             $"Created permission for {permission.ResourceType} '{permission.ResourceName}' to {target}",
-            GetIpAddress());
+            GetUserIpAddress());
 
         var dto = new ResourcePermissionDto
         {
@@ -233,9 +222,9 @@ public class PermissionsController : ControllerBase
             : $"group {permission.UserGroup?.Name}";
 
         await _auditService.LogActionAsync(
-            GetUserId(),
+            GetCurrentUserId(),
             $"Updated permission for {permission.ResourceType} '{permission.ResourceName}' to {target}",
-            GetIpAddress());
+            GetUserIpAddress());
 
         var dto = new ResourcePermissionDto
         {
@@ -279,9 +268,9 @@ public class PermissionsController : ControllerBase
         await _context.SaveChangesAsync();
 
         await _auditService.LogActionAsync(
-            GetUserId(),
+            GetCurrentUserId(),
             $"Deleted permission for {permission.ResourceType} '{permission.ResourceName}' from {target}",
-            GetIpAddress());
+            GetUserIpAddress());
 
         return Ok(ApiResponse.Ok<object?>(null, "Permission deleted successfully"));
     }
@@ -343,9 +332,9 @@ public class PermissionsController : ControllerBase
         }
 
         await _auditService.LogActionAsync(
-            GetUserId(),
+            GetCurrentUserId(),
             $"Bulk created {createdPermissions.Count} permissions",
-            GetIpAddress());
+            GetUserIpAddress());
 
         var dtos = createdPermissions.Select(p => new ResourcePermissionDto
         {
@@ -370,7 +359,7 @@ public class PermissionsController : ControllerBase
     [HttpPost("check")]
     public async Task<ActionResult<ApiResponse<CheckPermissionResponse>>> CheckPermission([FromBody] CheckPermissionRequest request)
     {
-        var userId = GetUserId();
+        var userId = GetCurrentUserIdRequired();
         var hasPermission = await _permissionService.HasPermissionAsync(
             userId,
             request.ResourceType,
@@ -397,7 +386,7 @@ public class PermissionsController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<ApiResponse<UserPermissionsResponse>>> GetMyPermissions()
     {
-        var userId = GetUserId();
+        var userId = GetCurrentUserIdRequired();
         var isAdmin = await _permissionService.IsAdminAsync(userId);
 
         var directPermissions = await _context.ResourcePermissions
@@ -573,9 +562,9 @@ public class PermissionsController : ControllerBase
             var targetId = request.TargetUserId ?? request.TargetUserGroupId;
 
             await _auditService.LogActionAsync(
-                GetUserId(),
+                GetCurrentUserId(),
                 $"Copied permissions from {sourceType} {sourceId} to {targetType} {targetId}",
-                GetIpAddress());
+                GetUserIpAddress());
 
             return Ok(ApiResponse.Ok<object?>(null, "Permissions copied successfully"));
         }

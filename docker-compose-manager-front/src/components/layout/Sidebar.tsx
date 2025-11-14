@@ -13,6 +13,7 @@ import {
   Boxes
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { t } from '../../i18n';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -32,22 +33,22 @@ export const Sidebar = ({ isOpen }: SidebarProps) => {
   if (!isOpen) return null;
 
   const navItems: NavItem[] = user?.role === "admin" ? [
-    { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
-    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Compose Projects', category: 'Docker' },
-    { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },  
-    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Docker' },
-    { to: '/users', icon: <Users className="w-5 h-5" />, label: 'User Management', category: 'Administration' },
-    { to: '/user-groups', icon: <UsersRound className="w-5 h-5" />, label: 'User Groups', category: 'Administration' },
-    { to: '/permissions', icon: <Shield className="w-5 h-5" />, label: 'Permissions', category: 'Administration' },
-    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: 'Audit Logs', category: 'Administration' },
-    { to: '/compose/files', icon: <FileText className="w-5 h-5" />, label: 'Compose Files', category: 'Administration' },
-    { to: '/settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', category: 'Administration' },
+    { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: t('navigation.dashboard'), category: t('navigation.categories.overview') },
+    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: t('navigation.composeProjects'), category: t('navigation.categories.docker') },
+    { to: '/containers', icon: <Container className="w-5 h-5" />, label: t('navigation.containers'), category: t('navigation.categories.docker') },  
+    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: t('navigation.logsViewer'), category: t('navigation.categories.docker') },
+    { to: '/users', icon: <Users className="w-5 h-5" />, label: t('navigation.userManagement'), category: t('navigation.categories.administration') },
+    { to: '/user-groups', icon: <UsersRound className="w-5 h-5" />, label: t('navigation.userGroups'), category: t('navigation.categories.administration') },
+    { to: '/permissions', icon: <Shield className="w-5 h-5" />, label: t('navigation.permissions'), category: t('navigation.categories.administration') },
+    { to: '/audit', icon: <ClipboardList className="w-5 h-5" />, label: t('navigation.auditLogs'), category: t('navigation.categories.administration') },
+    { to: '/compose/files', icon: <FileText className="w-5 h-5" />, label: t('navigation.composeFiles'), category: t('navigation.categories.administration') },
+    { to: '/settings', icon: <Settings className="w-5 h-5" />, label: t('navigation.settings'), category: t('navigation.categories.administration') },
   ] : 
   [
-    { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', category: 'Overview' },
-    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: 'Compose Projects', category: 'Docker' },
-    { to: '/containers', icon: <Container className="w-5 h-5" />, label: 'Containers', category: 'Docker' },  
-    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: 'Logs Viewer', category: 'Docker' },
+    { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: t('navigation.dashboard'), category: t('navigation.categories.overview') },
+    { to: '/compose/projects', icon: <Package className="w-5 h-5" />, label: t('navigation.composeProjects'), category: t('navigation.categories.docker') },
+    { to: '/containers', icon: <Container className="w-5 h-5" />, label: t('navigation.containers'), category: t('navigation.categories.docker') },  
+    { to: '/logs', icon: <FileOutput className="w-5 h-5" />, label: t('navigation.logsViewer'), category: t('navigation.categories.docker') },
   ];
 
   // Group items by category
@@ -70,7 +71,7 @@ export const Sidebar = ({ isOpen }: SidebarProps) => {
           </div>
           <div>
             <span className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">DCM</span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Compose Manager</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('app.composeManager')}</p>
           </div>
         </div>
       </div>
@@ -123,7 +124,7 @@ export const Sidebar = ({ isOpen }: SidebarProps) => {
       {/* Footer */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
         <div className="text-xs space-y-1">
-          <p className="font-semibold text-gray-700 dark:text-gray-300">Docker Compose Manager</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-300">{t('app.title')}</p>
           <p className="text-gray-500 dark:text-gray-500">Version 0.1.0</p>
         </div>
       </div>

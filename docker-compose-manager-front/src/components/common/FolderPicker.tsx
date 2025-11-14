@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import configApi, { type DirectoryBrowseResult } from '../../api/config';
 import { LoadingSpinner } from './LoadingSpinner';
+import { t } from '@/i18n';
 
 interface FolderPickerProps {
   onSelect: (path: string) => void;
@@ -60,7 +61,7 @@ export function FolderPicker({ onSelect, onCancel, initialPath }: FolderPickerPr
                 <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Select Folder</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('common.selectFolder')}</h2>
           </div>
           <div className="flex gap-2">
             <input
@@ -68,7 +69,7 @@ export function FolderPicker({ onSelect, onCancel, initialPath }: FolderPickerPr
               value={selectedPath}
               onChange={handleInputChange}
               onKeyDown={handleInputKeyDown}
-              placeholder="Enter or select a path"
+              placeholder={t('common.enterOrSelectPath')}
               className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-colors"
             />
             <button
@@ -76,7 +77,7 @@ export function FolderPicker({ onSelect, onCancel, initialPath }: FolderPickerPr
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!selectedPath}
             >
-              Go
+              {t('common.go')}
             </button>
           </div>
         </div>

@@ -16,6 +16,7 @@ import {
   ConfirmDialog,
   StateBadge,
 } from "../components/common";
+import { t } from '../i18n';
 import {
   EntityState,
   type ComposeProject,
@@ -30,7 +31,7 @@ interface ProjectAction {
   type: "up" | "down" | "restart" | "stop" | "up-recreate";
 }
 
-export const ComposeProjects = () => {
+function ComposeProjects() {
   const navigate = useNavigate();
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<ProjectAction | null>(
@@ -94,22 +95,21 @@ export const ComposeProjects = () => {
   const getActionMessage = (action: ProjectAction | null) => {
     if (!action) return "";
 
-    const actionMessages = {
-      up: "start all services",
-      "up-build": "start and build all services",
-      "up-recreate": "recreate and start all services (force recreate)",
-      "up-build-recreate":
-        "rebuild, recreate and start all services (build + force recreate)",
-      down: "stop and remove all containers, networks, and optionally volumes",
-      restart: "restart all services",
-      stop: "stop all services without removing them",
-      start: "start all stopped services",
+    const actionMessages: Record<string, string> = {
+      up: t('compose.confirmUpMessage'),
+      "up-build": t('compose.confirmUpMessage'),
+      "up-recreate": t('compose.confirmRecreateMessage'),
+      "up-build-recreate": t('compose.confirmRecreateMessage'),
+      down: t('compose.confirmDownMessage'),
+      restart: t('compose.confirmRestartMessage'),
+      stop: t('compose.confirmStopMessage'),
+      start: t('compose.confirmUpMessage'),
     };
 
     return (
       <>
-        Are you sure you want to <strong>{actionMessages[action.type]}</strong>{" "}
-        for project <strong>{action.project?.name}</strong>?
+        {t('compose.confirmAction')} <strong>{actionMessages[action.type]}</strong>{" "}
+        {t('settings.project').toLowerCase()} <strong>{action.project?.name}</strong>?
       </>
     );
   };
@@ -136,8 +136,8 @@ export const ComposeProjects = () => {
   const handleRemoveComposeProject = (project: ComposeProject) => {
     const isRunning = project.state == EntityState.Running;
     const message = isRunning
-      ? `Compose project ${project.name} is running. Force remove it?`
-      : `Remove compose project ${project.name}?`;
+      ? `${t('compose.title')} ${project.name} ${t('containers.confirmRemoveRunning')}`
+      : `${t('common.delete')} ${t('compose.title').toLowerCase()} ${project.name}?`;
 
     if (confirm(message)) {
       downProject(project.name);
@@ -147,8 +147,8 @@ export const ComposeProjects = () => {
   const handleRemove = (service: ComposeService) => {
     const isRunning = service.state == EntityState.Running;
     const message = isRunning
-      ? `Container ${service.name} is running. Force remove it?`
-      : `Remove container ${service.name}?`;
+      ? `${t('containers.title')} ${service.name} ${t('containers.confirmRemoveRunning')}`
+      : `${t('containers.confirmRemove')} ${service.name}?`;
 
     if (confirm(message)) {
       removeContainer(service.id, service.name, isRunning);
@@ -158,7 +158,7 @@ export const ComposeProjects = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <LoadingSpinner size="lg" text="Loading compose projects..." />
+        <LoadingSpinner size="lg" text={t('common.loading')} />
       </div>
     );
   }
@@ -166,11 +166,11 @@ export const ComposeProjects = () => {
   if (error) {
     return (
       <ErrorDisplay
-        title="Failed to load compose projects"
+        title={t('compose.failedToLoad')}
         message={
           error instanceof Error
             ? error.message
-            : "An unexpected error occurred"
+            : t('errors.unknownError')
         }
         onRetry={() => refetch()}
       />
@@ -196,10 +196,10 @@ export const ComposeProjects = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              Compose Projects
+              {t('compose.projects')}
             </h1>
             <p className="text-base text-gray-600 dark:text-gray-400">
-              Manage your Docker Compose projects and services
+              {t('compose.subtitle')}
             </p>
           </div>
           <button
@@ -207,7 +207,7 @@ export const ComposeProjects = () => {
             className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <RefreshCw className="w-3 h-3" />
-            Refresh
+            {t('common.refresh')}
           </button>
         </div>
       </div>
@@ -215,7 +215,7 @@ export const ComposeProjects = () => {
       {/* Project Count */}
       <div className="mb-2">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          {projects.length} {projects.length === 1 ? "project" : "projects"} found
+          {projects.length} {projects.length === 1 ? t('settings.project').toLowerCase() : t('compose.projects').toLowerCase()} {t('common.search').toLowerCase()}
         </p>
       </div>
 
@@ -226,10 +226,10 @@ export const ComposeProjects = () => {
             <Square className="w-8 h-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No projects found
+            {t('compose.noProjects')}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Create compose files and start them to see projects here
+            {t('compose.noProjectsMessage')}
           </p>
         </div>
       ) : (
@@ -297,14 +297,14 @@ export const ComposeProjects = () => {
                           <button
                             onClick={() => upProject(project.name, { detach: true })}
                             className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
-                            title="Start"
+                            title={t('compose.up')}
                           >
                             <Play className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => upProject(project.name, { detach: true, forceRecreate: true })}
                             className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                            title="Start and Force Recreate"
+                            title={t('compose.forceRecreate')}
                           >
                             <Zap className="w-3 h-3" />
                           </button>
@@ -316,14 +316,14 @@ export const ComposeProjects = () => {
                           <button
                             onClick={() => restartProject(project.name)}
                             className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
-                            title="Restart"
+                            title={t('compose.restart')}
                           >
                             <RotateCw className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => stopProject(project.name)}
                             className="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
-                            title="Stop"
+                            title={t('compose.stop')}
                           >
                             <Square className="w-4 h-4" />
                           </button>
@@ -333,7 +333,7 @@ export const ComposeProjects = () => {
                         <button
                           onClick={() => handleRemoveComposeProject(project)}
                           className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
-                          title="Remove"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -341,7 +341,7 @@ export const ComposeProjects = () => {
                     </div>
                   </div>
                   <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                    {project.path && <span>Directory: {project.path}</span>}
+                    {project.path && <span>{t('compose.directoryPath')}: {project.path}</span>}
                   </div>
                 </div>
 
@@ -358,19 +358,19 @@ export const ComposeProjects = () => {
                           <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                             <tr>
                               <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                Name
+                                {t('containers.name')}
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                Image
+                                {t('containers.image')}
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                State
+                                {t('containers.state')}
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                Status
+                                {t('containers.status')}
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                Actions
+                                {t('containers.actions')}
                               </th>
                             </tr>
                           </thead>
@@ -413,23 +413,23 @@ export const ComposeProjects = () => {
                                       <button
                                           onClick={() => restartContainer(service.id, service.name)}
                                           className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
-                                          title="Restart"
+                                          title={t('containers.restart')}
                                         >
                                           <RotateCw className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={() => stopContainer(service.id, service.name)}
                                           className="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
-                                          title="Stop"
+                                          title={t('containers.stop')}
                                         >
                                           <Square className="w-3 h-3" />
                                         </button>
                                       </>
                                     ) : (
-                                      <button
+                                        <button
                                         onClick={() => startContainer(service.id, service.name)}
                                         className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
-                                        title="Start"
+                                        title={t('containers.start')}
                                       >
                                         <Play className="w-3 h-3" />
                                       </button>
@@ -437,7 +437,7 @@ export const ComposeProjects = () => {
                                     <button
                                       onClick={() => handleRemove(service)}
                                       className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
-                                      title="Remove"
+                                      title={t('containers.remove')}
                                     >
                                       <Trash2 className="w-3 h-3" />
                                     </button>
@@ -465,23 +465,23 @@ export const ComposeProjects = () => {
           setCurrentAction(null);
         }}
         onConfirm={confirmAction}
-        title={`${
+        title={`$${
           currentAction?.type
-            ? currentAction.type.charAt(0).toUpperCase() +
-              currentAction.type.slice(1)
-            : "Confirm"
-        } Project`}
+            ? t('compose.' + (currentAction.type === 'up-recreate' ? 'forceRecreate' : currentAction.type))
+            : t('common.confirm')
+        } ${t('compose.projects')}`}
         message={getActionMessage(currentAction)}
         confirmText={
           currentAction?.type
-            ? currentAction.type.charAt(0).toUpperCase() +
-              currentAction.type.slice(1)
-            : "Confirm"
+            ? t('compose.' + (currentAction.type === 'up-recreate' ? 'forceRecreate' : currentAction.type))
+            : t('common.confirm')
         }
-        cancelText="Cancel"
+        cancelText={t('common.cancel')}
         variant={currentAction?.type === "down" ? "danger" : "warning"}
         isLoading={isComposeActionPending}
       />
     </div>
   );
-};
+}
+
+export default ComposeProjects;

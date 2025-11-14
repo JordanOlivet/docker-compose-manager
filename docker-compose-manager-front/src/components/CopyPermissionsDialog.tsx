@@ -5,6 +5,7 @@ import usersApi from '@/api/users';
 import userGroupsApi from '@/api/userGroups';
 import permissionsApi from '@/api/permissions';
 import { useToast } from '@/hooks/useToast';
+import { t } from '@/i18n';
 
 interface CopyPermissionsDialogProps {
   open: boolean;
@@ -19,7 +20,7 @@ export function CopyPermissionsDialog({
   onOpenChange,
   targetType,
   targetId,
-  onSuccess
+  onSuccess,
 }: CopyPermissionsDialogProps) {
   const [sourceType, setSourceType] = useState<'user' | 'group'>('user');
   const [sourceId, setSourceId] = useState<string>('');
@@ -72,7 +73,7 @@ export function CopyPermissionsDialog({
       onOpenChange(false);
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || 'Failed to copy permissions');
     }
   });
@@ -128,7 +129,7 @@ export function CopyPermissionsDialog({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Warning */}
           <div className="flex gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
                 Warning: This action will replace all current permissions
@@ -145,7 +146,7 @@ export function CopyPermissionsDialog({
               Copy from
             </label>
             <div className="flex gap-3">
-              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-checked:border-blue-500 has-checked:bg-blue-50 dark:has-checked:bg-blue-900/20">
                 <input
                   type="radio"
                   name="sourceType"
@@ -161,7 +162,7 @@ export function CopyPermissionsDialog({
                   User
                 </span>
               </label>
-              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+              <label className="flex-1 flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-2 border-transparent has-checked:border-blue-500 has-checked:bg-blue-50 dark:has-checked:bg-blue-900/20">
                 <input
                   type="radio"
                   name="sourceType"
@@ -183,20 +184,20 @@ export function CopyPermissionsDialog({
           {/* Source Selection */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Select {sourceType === 'user' ? 'User' : 'Group'}
+              {t('common.selectA')} {sourceType === 'user' ? t('common.user') : t('common.group')}
             </label>
             <select
               value={sourceId}
               onChange={(e) => setSourceId(e.target.value)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
-              <option value="">Select a {sourceType}</option>
+              <option value="">{t('common.selectA')} {sourceType}</option>
               {filteredList.length === 0 && (
-                <option disabled>No {sourceType}s available</option>
+                <option disabled>{t('common.noAvailable', { type: sourceType })}</option>
               )}
               {filteredList.map(item => (
                 <option key={item.id} value={item.id.toString()}>
-                  {sourceType === 'user' ? (item as any).username : (item as any).name}
+                  {sourceType === 'user' ? (item as { username: string }).username : (item as { name: string }).name}
                 </option>
               ))}
             </select>
@@ -206,18 +207,18 @@ export function CopyPermissionsDialog({
           {sourceId && (
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Permissions Preview
+                {t('common.permissionsPreview')}
               </label>
               {isLoadingPermissions && (
                 <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                  Loading permissions...
+                  {t('common.loadingPermissions')}
                 </div>
               )}
               {!isLoadingPermissions && sourcePermissions && (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 max-h-[250px] overflow-y-auto">
                   {sourcePermissions.length === 0 && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                      No permissions found
+                      {t('common.noPermissionsFound')}
                     </p>
                   )}
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -225,8 +226,8 @@ export function CopyPermissionsDialog({
                       <div key={perm.id} className="p-4 hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded text-xs font-medium flex-shrink-0">
-                              {perm.resourceType === 1 ? 'Container' : 'Project'}
+                            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded text-xs font-medium shrink-0">
+                              {perm.resourceType === 1 ? t('common.container') : t('common.project')}
                             </span>
                             <span className="font-medium text-gray-900 dark:text-white truncate">
                               {perm.resourceName}
@@ -275,7 +276,7 @@ export function CopyPermissionsDialog({
           <button
             onClick={handleCopy}
             disabled={!sourceId || copyMutation.isPending}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {copyMutation.isPending ? 'Copying...' : 'Copy Permissions'}
           </button>

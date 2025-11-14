@@ -16,7 +16,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "admin")]
-public class RolesController : ControllerBase
+public class RolesController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly IAuditService _auditService;
@@ -160,10 +160,14 @@ public class RolesController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Audit log
-            int userId = GetCurrentUserId();
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<RoleDto>("User not authenticated"));
+            }
             string ipAddress = GetUserIpAddress();
             await _auditService.LogActionAsync(
-                userId,
+                userId.Value,
                 "role.create",
                 ipAddress,
                 $"Created role: {role.Name}",
@@ -248,10 +252,14 @@ public class RolesController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Audit log
-            int userId = GetCurrentUserId();
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<RoleDto>("User not authenticated"));
+            }
             string ipAddress = GetUserIpAddress();
             await _auditService.LogActionAsync(
-                userId,
+                userId.Value,
                 "role.update",
                 ipAddress,
                 $"Updated role: {role.Name}",
@@ -321,10 +329,14 @@ public class RolesController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Audit log
-            int userId = GetCurrentUserId();
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<bool>("User not authenticated"));
+            }
             string ipAddress = GetUserIpAddress();
             await _auditService.LogActionAsync(
-                userId,
+                userId.Value,
                 "role.delete",
                 ipAddress,
                 $"Deleted role: {role.Name}",
@@ -345,21 +357,6 @@ public class RolesController : ControllerBase
     }
 
     #region Helper Methods
-
-    private int GetCurrentUserId()
-    {
-        string? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-        {
-            throw new UnauthorizedAccessException("Invalid user token");
-        }
-        return userId;
-    }
-
-    private string GetUserIpAddress()
-    {
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-    }
 
     private List<string> DeserializePermissions(string permissionsJson)
     {

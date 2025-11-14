@@ -12,6 +12,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { containersApi } from '@/api/containers';
 import { composeApi } from '@/api/compose';
+import { t } from '@/i18n';
 
 interface PermissionSelectorProps {
   permissions: ResourcePermissionInput[];
@@ -45,8 +46,8 @@ export function PermissionSelector({
   });
 
   const availableResources = newPermission.resourceType === PermissionResourceType.Container
-    ? (containers as any[]).map((c: any) => c.name)
-    : (projects as any[]).map((p: any) => p.name);
+    ? (containers as Array<{ name: string }>).map((c) => c.name)
+    : (projects as Array<{ name: string }>).map((p) => p.name);
 
   const handleAddPermission = () => {
     if (!newPermission.resourceName) {
@@ -108,7 +109,7 @@ export function PermissionSelector({
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <label className="text-base font-semibold text-gray-900 dark:text-white">Resource Permissions</label>
+        <label className="text-base font-semibold text-gray-900 dark:text-white">{t('permissions.resourcePermissions')}</label>
         <div className="flex gap-2">
           {showCopyButton && onCopyClick && (
             <button
@@ -116,17 +117,17 @@ export function PermissionSelector({
               onClick={onCopyClick}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hover:scale-105 transition-all duration-200 text-sm font-medium"
             >
-              Copy from...
+              {t('permissions.copyFrom')}
             </button>
           )}
           {!isAdding && (
             <button
               type="button"
               onClick={() => setIsAdding(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium"
+              className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium"
             >
               <Plus className="h-4 w-4" />
-              Add Permission
+              {t('permissions.addPermission')}
             </button>
           )}
         </div>
@@ -136,12 +137,12 @@ export function PermissionSelector({
       <div className="space-y-3">
         {permissions.length === 0 && !isAdding && (
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            No permissions assigned yet. Click "Add Permission" to get started.
+            {t('permissions.noPermissionsAssigned')}
           </p>
         )}
 
         {permissions.map((perm, index) => (
-          <div key={index} className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div key={index} className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
             <div className="flex justify-between items-start gap-4">
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
@@ -258,16 +259,16 @@ export function PermissionSelector({
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Resource Name
+              {t('permissions.resourceName')}
             </label>
             <select
               value={newPermission.resourceName}
               onChange={(e) => setNewPermission({ ...newPermission, resourceName: e.target.value })}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
-              <option value="">Select resource</option>
+              <option value="">{t('permissions.selectResource')}</option>
               {availableResources.length === 0 && (
-                <option disabled>No resources available</option>
+                <option disabled>{t('permissions.noResourcesAvailable')}</option>
               )}
               {availableResources.map(name => (
                 <option key={name} value={name}>
@@ -279,7 +280,7 @@ export function PermissionSelector({
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Permissions
+              {t('permissions.permissions')}
             </label>
             <div className="flex gap-2 mb-3">
               <button
@@ -287,14 +288,14 @@ export function PermissionSelector({
                 onClick={() => setNewPermission({ ...newPermission, permissions: setPreset(newPermission.permissions, 'readonly') })}
                 className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
               >
-                Read Only
+                {t('permissions.readOnly')}
               </button>
               <button
                 type="button"
                 onClick={() => setNewPermission({ ...newPermission, permissions: setPreset(newPermission.permissions, 'standard') })}
                 className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
               >
-                Standard
+                {t('permissions.standard')}
               </button>
               <button
                 type="button"
@@ -352,15 +353,15 @@ export function PermissionSelector({
               }}
               className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
               onClick={handleAddPermission}
               disabled={!newPermission.resourceName}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              Add
+              {t('common.add')}
             </button>
           </div>
         </div>

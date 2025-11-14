@@ -5,8 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { composeApi } from '../api';
 import { LoadingSpinner, ErrorDisplay, ConfirmDialog, StateBadge } from '../components/common';
 import type { ComposeFile } from '../types';
+import { t } from '../i18n';
 
-export const ComposeFiles = () => {
+function ComposeFiles() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -87,9 +88,9 @@ export const ComposeFiles = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Compose Files</h1>
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('compose.files')}</h1>
             <p className="text-lg text-gray-600 dark:text-gray-400">
-              Manage your Docker Compose configuration files
+              {t('compose.subtitle')}
             </p>
           </div>
           <div className="flex gap-3">
@@ -98,14 +99,14 @@ export const ComposeFiles = () => {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
-              Refresh
+              {t('common.refresh')}
             </button>
             <button
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shadow-lg hover:shadow-xl"
             >
               <Plus className="w-4 h-4" />
-              New File
+              {t('compose.createFile')}
             </button>
           </div>
         </div>
@@ -126,16 +127,16 @@ export const ComposeFiles = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
             <FileText className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No compose files found</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('compose.noFiles')}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Get started by creating a new compose file or configuring compose paths
+            {t('compose.noFilesMessage')}
           </p>
           <button
             onClick={handleCreate}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shadow-lg hover:shadow-xl"
           >
             <Plus className="w-4 h-4" />
-            Create First File
+            {t('compose.createFile')}
           </button>
         </div>
       ) : (
@@ -161,19 +162,19 @@ export const ComposeFiles = () => {
                   <thead className="bg-white/50 dark:bg-gray-800/50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Name
+                        {t('containers.name')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Size
+                        {t('common.all')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Modified
+                        {t('containers.created')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Source
+                        {t('common.all')}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Actions
+                        {t('users.actions')}
                       </th>
                     </tr>
                   </thead>
@@ -204,14 +205,14 @@ export const ComposeFiles = () => {
                             <button
                               onClick={() => handleEdit(file)}
                               className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                              title="Edit file"
+                              title={t('compose.editFile')}
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(file)}
                               className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                              title="Delete file"
+                              title={t('compose.deleteFile')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -250,4 +251,6 @@ export const ComposeFiles = () => {
       />
     </div>
   );
-};
+}
+// ...existing code...
+export default ComposeFiles;

@@ -5,8 +5,9 @@ import { auditApi } from '../api';
 import { LoadingSpinner, ErrorDisplay } from '../components/common';
 import { AuditSortField, SortOrder } from '../types';
 import type { AuditFilterRequest } from '../types';
+import { t } from '../i18n';
 
-export const AuditLogs = () => {
+function AuditLogs() {
   const [filter, setFilter] = useState<AuditFilterRequest>({
     page: 1,
     pageSize: 50,
@@ -92,9 +93,9 @@ export const AuditLogs = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Audit Logs</h1>
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('audit.title')}</h1>
             <p className="text-lg text-gray-600 dark:text-gray-400">
-              View system activity and user actions
+              {t('audit.subtitle')}
             </p>
           </div>
           <button
@@ -102,7 +103,7 @@ export const AuditLogs = () => {
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            Refresh
+            {t('common.refresh')}
           </button>
         </div>
       </div>
@@ -113,12 +114,12 @@ export const AuditLogs = () => {
           <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
             <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Filters</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('audit.filters')}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label htmlFor="actionFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Action
+              {t('audit.action')}
             </label>
             <select
               id="actionFilter"
@@ -126,7 +127,7 @@ export const AuditLogs = () => {
               onChange={(e) => setActionFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
-              <option value="">All Actions</option>
+              <option value="">{t('common.all')} {t('audit.action')}</option>
               {distinctActions.map((action) => (
                 <option key={action} value={action}>
                   {action}
@@ -136,7 +137,7 @@ export const AuditLogs = () => {
           </div>
           <div>
             <label htmlFor="resourceTypeFilter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Resource Type
+              {t('audit.resourceType')}
             </label>
             <select
               id="resourceTypeFilter"
@@ -144,7 +145,7 @@ export const AuditLogs = () => {
               onChange={(e) => setResourceTypeFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
-              <option value="">All Types</option>
+              <option value="">{t('common.all')}</option>
               {distinctResourceTypes.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -157,13 +158,13 @@ export const AuditLogs = () => {
               onClick={applyFilters}
               className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
             >
-              Apply
+              {t('common.apply')}
             </button>
             <button
               onClick={clearFilters}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              Clear
+              {t('common.clear')}
             </button>
           </div>
         </div>
@@ -182,9 +183,9 @@ export const AuditLogs = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
             <Eye className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No audit logs found</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('audit.noLogs')}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            No logs match your current filters
+            {t('audit.noLogs')}
           </p>
         </div>
       ) : (
@@ -194,19 +195,19 @@ export const AuditLogs = () => {
               <thead className="bg-white/50 dark:bg-gray-800/50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Timestamp
+                    {t('audit.timestamp')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    User
+                    {t('audit.user')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Action
+                    {t('audit.action')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Resource
+                    {t('audit.resourceType')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    IP Address
+                    {t('audit.ipAddress')}
                   </th>
                 </tr>
               </thead>
@@ -255,14 +256,14 @@ export const AuditLogs = () => {
                     disabled={currentPage === 1}
                     className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Previous
+                    {t('common.previous')}
                   </button>
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Next
+                    {t('common.next')}
                   </button>
                 </div>
               </div>
@@ -272,4 +273,6 @@ export const AuditLogs = () => {
       )}
     </div>
   );
-};
+}
+// ...existing code...
+export default AuditLogs;

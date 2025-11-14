@@ -11,6 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { composeApi } from "../api";
 import { LoadingSpinner, ErrorDisplay, StateBadge } from "../components/common";
+import { t } from '../i18n';
 import {
   EntityState,
   type ComposeProject,
@@ -23,7 +24,7 @@ import { ProjectStatsCard } from "../components/compose/ProjectStatsCard";
 import { ProjectInfoSection } from "../components/compose/ProjectInfoSection";
 import { ComposeLogs } from "../components/compose/ComposeLogs";
 
-export const ComposeDetails = () => {
+function ComposeDetails() {
   const { projectName } = useParams<{ projectName: string }>();
   const navigate = useNavigate();
 
@@ -80,8 +81,8 @@ export const ComposeDetails = () => {
   const handleRemoveComposeProject = (project: ComposeProject) => {
     const isRunning = project.state == EntityState.Running;
     const message = isRunning
-      ? `Compose project ${project.name} is running. Force remove it?`
-      : `Remove compose project ${project.name}?`;
+      ? t('compose.confirmRemoveRunningWithName').replace('{name}', project.name)
+      : t('compose.confirmRemoveWithName').replace('{name}', project.name);
 
     if (confirm(message)) {
       downProject(project.name);
@@ -91,8 +92,8 @@ export const ComposeDetails = () => {
   const handleRemove = (service: ComposeService) => {
     const isRunning = service.state == EntityState.Running;
     const message = isRunning
-      ? `Container ${service.name} is running. Force remove it?`
-      : `Remove container ${service.name}?`;
+      ? t('containers.confirmRemoveRunningWithName').replace('{name}', service.name)
+      : t('containers.confirmRemoveWithName').replace('{name}', service.name);
 
     if (confirm(message)) {
       removeContainer(service.id, service.name, isRunning);
@@ -102,7 +103,7 @@ export const ComposeDetails = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <LoadingSpinner size="lg" text="Loading project details..." />
+        <LoadingSpinner size="lg" text={t('compose.loadingDetails')} />
       </div>
     );
   }
@@ -110,7 +111,7 @@ export const ComposeDetails = () => {
   if (error) {
     return (
       <ErrorDisplay
-        title="Failed to load project details"
+        title={t('compose.failedToLoadProject')}
         message={
           error instanceof Error
             ? error.message
@@ -124,8 +125,8 @@ export const ComposeDetails = () => {
   if (!project) {
     return (
       <ErrorDisplay
-        title="Project not found"
-        message="The requested compose project could not be found"
+        title={t('compose.projectNotFound')}
+        message={t('compose.projectNotFoundMessage')}
         onRetry={() => navigate("/compose/projects")}
       />
     );
@@ -148,17 +149,16 @@ export const ComposeDetails = () => {
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
                 {project.name}
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400">
-                Project details and services
-              </p>
+              <p className="text-lg text-gray-600 dark:text-gray-400">{t('compose.projectDetails')}</p>
             </div>
           </div>
           <button
             onClick={() => refetch()}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
+              title={t('compose.backToProjects')}
+            >
             <RefreshCw className="w-4 h-4" />
-            Refresh
+            {t('common.refresh')}
           </button>
         </div>
       </div>
@@ -189,7 +189,7 @@ export const ComposeDetails = () => {
                       upProject(project.name, { detach: true })
                     }
                     className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                    title="Start"
+                    title={t('containers.start')}
                   >
                     <Play className="w-4 h-4" />
                   </button>
@@ -198,7 +198,7 @@ export const ComposeDetails = () => {
                       upProject(project.name, { detach: true, forceRecreate: true })
                     }
                     className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                    title="Start and Force Recreate"
+                    title={t('compose.forceRecreate')}
                   >
                     <Zap className="w-4 h-4" />
                   </button>
@@ -210,14 +210,14 @@ export const ComposeDetails = () => {
                   <button
                     onClick={() => restartProject(project.name)}
                     className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-                    title="Restart"
+                    title={t('containers.restart')}
                   >
                     <RotateCw className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => stopProject(project.name)}
                     className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-                    title="Stop"
+                    title={t('containers.stop')}
                   >
                     <Square className="w-4 h-4" />
                   </button>
@@ -228,7 +228,7 @@ export const ComposeDetails = () => {
                   <button
                     onClick={() => handleRemoveComposeProject(project)}
                     className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                    title="Remove"
+                    title={t('containers.remove')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -237,7 +237,7 @@ export const ComposeDetails = () => {
             </div>
           </div>
           <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {project.path && <span>Directory: {project.path}</span>}
+            {project.path && <span>{t('compose.directoryPath')}: {project.path}</span>}
           </div>
         </div>
 
@@ -250,19 +250,19 @@ export const ComposeDetails = () => {
               <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
                   <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Name
+                    {t('containers.name')}
                   </th>
                   <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Image
+                    {t('containers.image')}
                   </th>
                   <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    State
+                    {t('containers.state')}
                   </th>
                   <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Status
+                    {t('containers.status')}
                   </th>
                   <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
+                    {t('users.actions')}
                   </th>
                 </tr>
               </thead>
@@ -307,7 +307,7 @@ export const ComposeDetails = () => {
                                 restartContainer(service.id, service.name)
                               }
                               className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-                              title="Restart"
+                              title={t('containers.restart')}
                             >
                               <RotateCw className="w-4 h-4" />
                             </button>
@@ -316,7 +316,7 @@ export const ComposeDetails = () => {
                                 stopContainer(service.id, service.name)
                               }
                               className="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-                              title="Stop"
+                              title={t('containers.stop')}
                             >
                               <Square className="w-4 h-4" />
                             </button>
@@ -327,7 +327,7 @@ export const ComposeDetails = () => {
                               startContainer(service.id, service.name)
                             }
                             className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                            title="Start"
+                            title={t('containers.start')}
                           >
                             <Play className="w-4 h-4" />
                           </button>
@@ -335,7 +335,7 @@ export const ComposeDetails = () => {
                         <button
                           onClick={() => handleRemove(service)}
                           className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                          title="Remove"
+                          title={t('containers.remove')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -375,4 +375,6 @@ export const ComposeDetails = () => {
       </div>
     </div>
   );
-};
+}
+
+export default ComposeDetails;

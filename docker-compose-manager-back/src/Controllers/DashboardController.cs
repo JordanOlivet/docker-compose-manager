@@ -15,7 +15,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class DashboardController : ControllerBase
+public class DashboardController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly DockerService _dockerService;

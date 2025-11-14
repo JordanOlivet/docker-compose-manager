@@ -40,30 +40,24 @@ export interface HealthStatus {
   };
 }
 
-const dashboardApi = {
-  /**
-   * Get dashboard statistics
-   */
-  getStats: async (): Promise<DashboardStats> => {
-    const response = await apiClient.get('/dashboard/stats');
-    return response.data.data;
-  },
 
-  /**
-   * Get recent activity
-   */
-  getActivity: async (limit: number = 20): Promise<Activity[]> => {
-    const response = await apiClient.get(`/dashboard/activity?limit=${limit}`);
-    return response.data.data;
-  },
-
-  /**
-   * Get health status
-   */
-  getHealth: async (): Promise<HealthStatus> => {
-    const response = await apiClient.get('/dashboard/health');
-    return response.data.data;
-  },
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  const response = await apiClient.get('/dashboard/stats');
+  return response.data.data;
 };
 
-export default dashboardApi;
+export const getDashboardActivity = async (limit: number = 20): Promise<Activity[]> => {
+  const response = await apiClient.get(`/dashboard/activity?limit=${limit}`);
+  return response.data.data;
+};
+
+export const getDashboardHealth = async (): Promise<HealthStatus> => {
+  const response = await apiClient.get('/dashboard/health');
+  return response.data.data;
+};
+
+export const dashboardApi = {
+  getStats: getDashboardStats,
+  getActivity: getDashboardActivity,
+  getHealth: getDashboardHealth,
+};

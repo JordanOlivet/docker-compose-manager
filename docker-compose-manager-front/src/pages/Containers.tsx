@@ -10,8 +10,9 @@ import { ErrorDisplay } from '../components/common/ErrorDisplay';
 import { Play, Square, RotateCw, Trash2, Container as ContainerIcon } from 'lucide-react';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
 import { signalRService } from "../services/signalRService";
+import { t } from '../i18n';
 
-export default function Containers() {
+function Containers() {
   const navigate = useNavigate();
   const [showAllContainers, setShowAllContainers] = useState(true);
   // Sorting state: column key & direction
@@ -30,10 +31,10 @@ export default function Containers() {
     mutationFn: ({ id }: { id: string; name: string }) => containersApi.start(id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success(`Container "${variables.name}" started successfully`);
+      toast.success(`${t('containers.startSuccess')}: "${variables.name}"`);
     },
     onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(error.response?.data?.message || `Failed to start container "${variables.name}"`);
+      toast.error(error.response?.data?.message || `${t('containers.startFailed')}: "${variables.name}"`);
     },
   });
 
@@ -41,10 +42,10 @@ export default function Containers() {
     mutationFn: ({ id }: { id: string; name: string }) => containersApi.stop(id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success(`Container "${variables.name}" stopped successfully`);
+      toast.success(`${t('containers.stopSuccess')}: "${variables.name}"`);
     },
     onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(error.response?.data?.message || `Failed to stop container "${variables.name}"`);
+      toast.error(error.response?.data?.message || `${t('containers.stopFailed')}: "${variables.name}"`);
     },
   });
 
@@ -52,10 +53,10 @@ export default function Containers() {
     mutationFn: ({ id }: { id: string; name: string }) => containersApi.restart(id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success(`Container "${variables.name}" restarted successfully`);
+      toast.success(`${t('containers.restartSuccess')}: "${variables.name}"`);
     },
     onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(error.response?.data?.message || `Failed to restart container "${variables.name}"`);
+      toast.error(error.response?.data?.message || `${t('containers.restartFailed')}: "${variables.name}"`);
     },
   });
 
@@ -63,10 +64,10 @@ export default function Containers() {
     mutationFn: ({ id, force }: { id: string; name: string; force: boolean }) => containersApi.remove(id, force),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
-      toast.success(`Container "${variables.name}" removed successfully`);
+      toast.success(`${t('containers.removeSuccess')}: "${variables.name}"`);
     },
     onError: (error: AxiosError<ApiErrorResponse>, variables) => {
-      toast.error(error.response?.data?.message || `Failed to remove container "${variables.name}"`);
+      toast.error(error.response?.data?.message || `${t('containers.removeFailed')}: "${variables.name}"`);
     },
   });
 
@@ -200,9 +201,9 @@ export default function Containers() {
       <div className="mb-2">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Containers</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{t('containers.title')}</h1>
             <p className="text-base text-gray-600 dark:text-gray-400">
-              Manage your Docker containers
+              {t('containers.subtitle')}
             </p>
           </div>
           <label className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
@@ -212,7 +213,7 @@ export default function Containers() {
               onChange={(e) => setShowAllContainers(e.target.checked)}
               className="w-4 h-4 rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
             />
-            <span>Show all containers</span>
+            <span>{t('containers.showAll')}</span>
           </label>
         </div>
       </div>
@@ -223,10 +224,10 @@ export default function Containers() {
             <ContainerIcon className="w-8 h-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No containers found
+            {t('containers.noContainers')}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Start containers to see them here
+            {t('containers.subtitle')}
           </p>
         </div>
       ) : (
@@ -240,31 +241,31 @@ export default function Containers() {
                     aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                   >
-                    Name {renderSortIndicator('name')}
+                    {t('containers.name')} {renderSortIndicator('name')}
                   </th>
                   <th
                     onClick={() => toggleSort('image')}
                     aria-sort={sortKey === 'image' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                   >
-                    Image {renderSortIndicator('image')}
+                    {t('containers.image')} {renderSortIndicator('image')}
                   </th>
                   <th
                     onClick={() => toggleSort('state')}
                     aria-sort={sortKey === 'state' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                   >
-                    State {renderSortIndicator('state')}
+                    {t('containers.state')} {renderSortIndicator('state')}
                   </th>
                   <th
                     onClick={() => toggleSort('status')}
                     aria-sort={sortKey === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                   >
-                    Status {renderSortIndicator('status')}
+                    {t('containers.status')} {renderSortIndicator('status')}
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
+                    {t('containers.actions')}
                   </th>
                 </tr>
               </thead>
@@ -275,7 +276,7 @@ export default function Containers() {
                       <button
                         className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none"
                         onClick={() => navigate(`/containers/${container.id}`)}
-                        title="Voir les détails du container"
+                        title={t('containers.viewDetails')}
                       >
                         {container.name.startsWith('/') ? container.name.slice(1) : container.name}
                       </button>
@@ -306,14 +307,14 @@ export default function Containers() {
                           <button
                               onClick={() => restartMutation.mutate({ id: container.id, name: container.name })}
                               className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
-                              title="Restart"
+                              title={t('containers.restart')}
                             >
                               <RotateCw className="w-3 h-3" />
                             </button>
                             <button
                               onClick={() => stopMutation.mutate({ id: container.id, name: container.name })}
                               className="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
-                              title="Stop"
+                              title={t('containers.stop')}
                             >
                               <Square className="w-3 h-3" />
                             </button>
@@ -324,7 +325,7 @@ export default function Containers() {
                           <button
                             onClick={() => startMutation.mutate({ id: container.id, name: container.name })}
                             className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
-                            title="Start"
+                            title={t('containers.start')}
                           >
                             <Play className="w-3 h-3" />
                           </button>
@@ -332,7 +333,7 @@ export default function Containers() {
                         <button
                           onClick={() => handleRemove(container)}
                           className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
-                          title="Remove"
+                          title={t('containers.remove')}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -348,3 +349,5 @@ export default function Containers() {
     </div>
   );
 }
+
+export default Containers;
