@@ -4,3 +4,4 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { StateBadge } from './StateBadge';
 export { DropdownMenu, SplitButton } from './DropdownMenu';
 export { VersionInfo } from './VersionInfo';
+export { PasswordInput } from './PasswordInput';

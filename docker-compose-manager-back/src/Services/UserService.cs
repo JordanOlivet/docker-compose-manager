@@ -231,6 +231,18 @@ public class UserService : IUserService
 
         var changes = new List<string>();
 
+        // Update username if provided
+        if (request.Username != null && request.Username != user.Username)
+        {
+            // Check if username is already taken
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == request.Username.ToLower() && u.Id != id);
+            if (existingUser != null)
+                throw new InvalidOperationException($"Username '{request.Username}' is already taken");
+
+            changes.Add($"Username changed from '{user.Username}' to '{request.Username}'");
+            user.Username = request.Username;
+        }
+
         // Update role if provided (case-insensitive)
         if (request.Role != null && request.Role != user.Role?.Name)
         {

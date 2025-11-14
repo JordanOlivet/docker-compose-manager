@@ -17,6 +17,7 @@ export interface CreateUserRequest {
 }
 
 export interface UpdateUserRequest {
+  username?: string;
   role?: string;
   isEnabled?: boolean;
   newPassword?: string;
