@@ -1,3 +1,14 @@
+## Changes in v0.9.0
+
+**Merged Pull Requests:**
+- Users and permissions revamp (#19)
+
+**Commits:**
+- Users and permissions revamp (#19) (3c76c14)
+- Password management overall + some fixes (#18) (95f687f)
+- docs: update CHANGELOG for v0.8.0 [skip ci] (05cc892)
+- chore: bump version to v0.8.0 [skip ci] (bd910f3)
+
 ## Changes in v0.8.0
 
 **Merged Pull Requests:**
