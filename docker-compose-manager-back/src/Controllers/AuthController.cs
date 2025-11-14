@@ -11,7 +11,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [EnableRateLimiting(RateLimitingConfiguration.AuthPolicy)]
-public class AuthController : ControllerBase
+public class AuthController : BaseController
 {
     private readonly AuthService _authService;
     private readonly ILogger<AuthController> _logger;

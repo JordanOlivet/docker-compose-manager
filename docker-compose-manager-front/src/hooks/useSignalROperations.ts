@@ -71,6 +71,8 @@ export interface OperationUpdate {
  * });
  */
 export const useSignalROperations = (config: SignalROperationConfig = {}) => {
+    // Memoize already-refreshed operations for each status
+    const alreadyRefreshedRef = useRef<{ [opId: string]: Set<string> }>({});
   const {
     queryKeys,
     operationTypeFilter,
@@ -123,13 +125,27 @@ export const useSignalROperations = (config: SignalROperationConfig = {}) => {
           // Check if the status should trigger invalidation
           const statusMatch = invalidateOnStatuses.includes(update.status);
 
-          // Invalidate and refetch queries immediately if conditions are met
-          if (typeMatch && statusMatch && queryKeys) {
-            const keysArray = Array.isArray(queryKeys) ? queryKeys : [queryKeys];
-            keysArray.forEach((key) => {
-              // Use refetchQueries instead of invalidateQueries for immediate refetch
-              queryClient.refetchQueries({ queryKey: [key], type: 'active' });
-            });
+          // Invalidate and refetch queries only once per operationId+status
+          if (typeMatch && statusMatch && queryKeys && update.operationId) {
+            const opId = update.operationId;
+            const status = update.status;
+            if (!alreadyRefreshedRef.current[opId]) {
+              alreadyRefreshedRef.current[opId] = new Set();
+            }
+            if (!alreadyRefreshedRef.current[opId].has(status)) {
+              alreadyRefreshedRef.current[opId].add(status);
+              const keysArray = Array.isArray(queryKeys) ? queryKeys : [queryKeys];
+              keysArray.forEach((key) => {
+                queryClient.refetchQueries({ queryKey: [key], type: 'active' });
+              });
+              // Optionally, clean up after 5 minutes to avoid memory leak
+              setTimeout(() => {
+                alreadyRefreshedRef.current[opId].delete(status);
+                if (alreadyRefreshedRef.current[opId].size === 0) {
+                  delete alreadyRefreshedRef.current[opId];
+                }
+              }, 5 * 60 * 1000);
+            }
           }
 
           // Show error toast for failed operations (only once per operation)

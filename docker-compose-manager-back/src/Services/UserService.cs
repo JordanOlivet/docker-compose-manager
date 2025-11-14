@@ -1,5 +1,6 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
+using docker_compose_manager_back.Extensions;
 using docker_compose_manager_back.Models;
 using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
@@ -51,15 +52,7 @@ public class UserService : IUserService
             .OrderByDescending(u => u.CreatedAt)
             .ToListAsync();
 
-        return users.Select(u => new UserDto(
-            u.Id,
-            u.Username,
-            u.Role?.Name ?? "user",
-            u.IsEnabled,
-            u.MustChangePassword,
-            u.CreatedAt,
-            u.LastLoginAt
-        )).ToList();
+        return users.ToDtoList();
     }
 
     public async Task<PaginatedResponse<UserDto>> GetAllUsersAsync(
@@ -120,15 +113,7 @@ public class UserService : IUserService
             .ToListAsync();
 
         // Map to DTOs
-        List<UserDto> userDtos = users.Select(u => new UserDto(
-            u.Id,
-            u.Username,
-            u.Role?.Name ?? "user",
-            u.IsEnabled,
-            u.MustChangePassword,
-            u.CreatedAt,
-            u.LastLoginAt
-        )).ToList();
+        List<UserDto> userDtos = users.ToDtoList();
 
         // Calculate pagination metadata
         int totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
@@ -152,18 +137,7 @@ public class UserService : IUserService
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Id == id);
 
-        if (user == null)
-            return null;
-
-        return new UserDto(
-            user.Id,
-            user.Username,
-            user.Role?.Name ?? "user",
-            user.IsEnabled,
-            user.MustChangePassword,
-            user.CreatedAt,
-            user.LastLoginAt
-        );
+        return user?.ToDto();
     }
 
     public async Task<UserDto> CreateUserAsync(CreateUserRequest request)
@@ -238,15 +212,7 @@ public class UserService : IUserService
             userAgent: null
         );
 
-        return new UserDto(
-            user.Id,
-            user.Username,
-            role.Name,
-            user.IsEnabled,
-            user.MustChangePassword,
-            user.CreatedAt,
-            user.LastLoginAt
-        );
+        return user.ToDto();
     }
 
     public async Task<UserDto> UpdateUserAsync(int id, UpdateUserRequest request)
@@ -356,15 +322,7 @@ public class UserService : IUserService
         // Reload role after changes
         await _context.Entry(user).Reference(u => u.Role).LoadAsync();
 
-        return new UserDto(
-            user.Id,
-            user.Username,
-            user.Role?.Name ?? "user",
-            user.IsEnabled,
-            user.MustChangePassword,
-            user.CreatedAt,
-            user.LastLoginAt
-        );
+        return user.ToDto();
     }
 
     public async Task DeleteUserAsync(int id)
@@ -494,14 +452,6 @@ public class UserService : IUserService
             userAgent: null
         );
 
-        return new UserDto(
-            user.Id,
-            user.Username,
-            user.Role?.Name ?? "user",
-            user.IsEnabled,
-            user.MustChangePassword,
-            user.CreatedAt,
-            user.LastLoginAt
-        );
+        return user.ToDto();
     }
 }

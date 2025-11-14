@@ -3,10 +3,10 @@ using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.src.Utils;
+using docker_compose_manager_back.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using EntityState = docker_compose_manager_back.src.Utils.EntityState;
 
 namespace docker_compose_manager_back.Controllers;
@@ -14,7 +14,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ComposeController : ControllerBase
+public class ComposeController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly FileService _fileService;
@@ -43,17 +43,6 @@ public class ComposeController : ControllerBase
         _permissionService = permissionService;
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
-    }
-
-    private int? GetCurrentUserId()
-    {
-        string? userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.TryParse(userIdStr, out int userId) ? userId : null;
-    }
-
-    private string GetUserIpAddress()
-    {
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     // ============================================
@@ -769,7 +758,7 @@ public class ComposeController : ControllerBase
 
         (bool success, string output, string error) = await _composeService.ListServicesAsync(projectPath);
 
-        if(!success)
+        if (!success)
         {
             _logger.LogWarning("Failed to get services for project {ProjectName}. Error : {error}", projectName, error);
             return new();
@@ -874,98 +863,31 @@ public class ComposeController : ControllerBase
         string projectName,
         [FromBody] ComposeUpRequest request)
     {
-        try
+        // Find project path
+        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+        if (projectPath == null)
         {
-            // Find project path
-            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+            return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
+        }
 
-            if (projectPath == null)
+        return await ExecuteComposeOperationAsync(
+            projectName,
+            projectPath,
+            OperationType.ComposeUp,
+            PermissionFlags.Update,
+            AuditActions.ComposeUp,
+            async (scope, composeService, operationService) =>
             {
-                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
-            }
-
-            // Check Update permission (up can recreate containers)
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Update);
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to start/update this compose project",
-                    "PERMISSION_DENIED"));
-            }
-
-            // Create operation tracking
-            Operation operation = await _operationService.CreateOperationAsync(
-                OperationType.ComposeUp,
-                GetCurrentUserId(),
-                projectPath,
-                projectName
-            );
-
-            // Start compose up in background
-            _ = Task.Run(async () =>
-            {
-                // Create a new scope for the background task to avoid DbContext disposal issues
-                using IServiceScope scope = _serviceScopeFactory.CreateScope();
-                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                (bool success, string output, string error) = await composeService.UpProjectAsync(
+                return await composeService.UpProjectAsync(
                     projectPath,
                     request.Build,
                     request.Detach,
                     request.ForceRecreate
                 );
-
-                await operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
-
-                await operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
-            });
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.ComposeUp,
-                GetUserIpAddress(),
-                $"Started compose up: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                OperationStatus.Pending,
-                $"Compose up started for project: {projectName}"
-            );
-
-            return Ok(ApiResponse.Ok(response));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error starting compose up for project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error starting project", "SERVER_ERROR"));
-        }
+            }
+        );
     }
 
     /// <summary>
@@ -976,97 +898,30 @@ public class ComposeController : ControllerBase
         string projectName,
         [FromBody] ComposeDownRequest request)
     {
-        try
+        // Find project path
+        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+        if (projectPath == null)
         {
-            // Find project path
-            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+            return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
+        }
 
-            if (projectPath == null)
+        return await ExecuteComposeOperationAsync(
+            projectName,
+            projectPath,
+            OperationType.ComposeDown,
+            PermissionFlags.Stop,
+            AuditActions.ComposeDown,
+            async (scope, composeService, operationService) =>
             {
-                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
-            }
-
-            // Check Stop permission (down stops containers, may remove volumes if requested)
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Stop);
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to stop this compose project",
-                    "PERMISSION_DENIED"));
-            }
-
-            // Create operation tracking
-            Operation operation = await _operationService.CreateOperationAsync(
-                OperationType.ComposeDown,
-                GetCurrentUserId(),
-                projectPath,
-                projectName
-            );
-
-            // Start compose down in background
-            _ = Task.Run(async () =>
-            {
-                // Create a new scope for the background task to avoid DbContext disposal issues
-                using IServiceScope scope = _serviceScopeFactory.CreateScope();
-                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                (bool success, string output, string error) = await composeService.DownProjectAsync(
+                return await composeService.DownProjectAsync(
                     projectPath,
                     request.RemoveVolumes,
                     request.RemoveImages
                 );
-
-                await operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
-
-                await operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
-            });
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.ComposeDown,
-                GetUserIpAddress(),
-                $"Started compose down: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                OperationStatus.Pending,
-                $"Compose down started for project: {projectName}"
-            );
-
-            return Ok(ApiResponse.Ok(response));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error starting compose down for project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error stopping project", "SERVER_ERROR"));
-        }
+            }
+        );
     }
 
     /// <summary>
@@ -1411,11 +1266,7 @@ volumes:
             // Parse YAML
             try
             {
-                var deserializer = new YamlDotNet.Serialization.DeserializerBuilder()
-                    .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
-                    .Build();
-
-                var composeData = deserializer.Deserialize<Dictionary<string, object>>(content);
+                Dictionary<string, object>? composeData = YamlParserHelper.Deserialize(content);
 
                 if (composeData == null)
                 {
@@ -1428,13 +1279,13 @@ volumes:
                     : null;
 
                 // Extract services
-                var servicesDict = new Dictionary<string, ServiceDetailsDto>();
+                Dictionary<string, ServiceDetailsDto> servicesDict = new();
                 if (composeData.ContainsKey("services") && composeData["services"] is Dictionary<object, object> services)
                 {
-                    foreach (var svcEntry in services)
+                    foreach (KeyValuePair<object, object> svcEntry in services)
                     {
                         string serviceName = svcEntry.Key.ToString() ?? "unknown";
-                        var svcData = svcEntry.Value as Dictionary<object, object>;
+                        Dictionary<object, object>? svcData = svcEntry.Value as Dictionary<object, object>;
 
                         if (svcData != null)
                         {
@@ -1442,13 +1293,13 @@ volumes:
                                 Name: serviceName,
                                 Image: svcData.ContainsKey("image") ? svcData["image"]?.ToString() : null,
                                 Build: svcData.ContainsKey("build") ? svcData["build"]?.ToString() : null,
-                                Ports: ExtractStringList(svcData, "ports"),
-                                Environment: ExtractEnvironment(svcData),
-                                Labels: ExtractStringDictionary(svcData, "labels"),
-                                Volumes: ExtractStringList(svcData, "volumes"),
-                                DependsOn: ExtractStringList(svcData, "depends_on"),
+                                Ports: YamlParserHelper.ExtractStringList(svcData, "ports"),
+                                Environment: YamlParserHelper.ExtractEnvironment(svcData),
+                                Labels: YamlParserHelper.ExtractStringDictionary(svcData, "labels"),
+                                Volumes: YamlParserHelper.ExtractStringList(svcData, "volumes"),
+                                DependsOn: YamlParserHelper.ExtractStringList(svcData, "depends_on"),
                                 Restart: svcData.ContainsKey("restart") ? svcData["restart"]?.ToString() : null,
-                                Networks: ExtractStringDictionary(svcData, "networks")
+                                Networks: YamlParserHelper.ExtractStringDictionary(svcData, "networks")
                             );
                         }
                     }
@@ -1459,10 +1310,10 @@ volumes:
                 if (composeData.ContainsKey("networks") && composeData["networks"] is Dictionary<object, object> networks)
                 {
                     networksDict = new Dictionary<string, NetworkDetailsDto>();
-                    foreach (var netEntry in networks)
+                    foreach (KeyValuePair<object, object> netEntry in networks)
                     {
                         string networkName = netEntry.Key.ToString() ?? "unknown";
-                        var netData = netEntry.Value as Dictionary<object, object>;
+                        Dictionary<object, object>? netData = netEntry.Value as Dictionary<object, object>;
 
                         if (netData != null)
                         {
@@ -1470,8 +1321,8 @@ volumes:
                                 Name: networkName,
                                 Driver: netData.ContainsKey("driver") ? netData["driver"]?.ToString() : null,
                                 External: netData.ContainsKey("external") ? Convert.ToBoolean(netData["external"]) : null,
-                                DriverOpts: ExtractObjectDictionary(netData, "driver_opts"),
-                                Labels: ExtractStringDictionary(netData, "labels")
+                                DriverOpts: YamlParserHelper.ExtractObjectDictionary(netData, "driver_opts"),
+                                Labels: YamlParserHelper.ExtractStringDictionary(netData, "labels")
                             );
                         }
                     }
@@ -1482,10 +1333,10 @@ volumes:
                 if (composeData.ContainsKey("volumes") && composeData["volumes"] is Dictionary<object, object> volumes)
                 {
                     volumesDict = new Dictionary<string, VolumeDetailsDto>();
-                    foreach (var volEntry in volumes)
+                    foreach (KeyValuePair<object, object> volEntry in volumes)
                     {
                         string volumeName = volEntry.Key.ToString() ?? "unknown";
-                        var volData = volEntry.Value as Dictionary<object, object>;
+                        Dictionary<object, object>? volData = volEntry.Value as Dictionary<object, object>;
 
                         if (volData != null)
                         {
@@ -1493,14 +1344,14 @@ volumes:
                                 Name: volumeName,
                                 Driver: volData.ContainsKey("driver") ? volData["driver"]?.ToString() : null,
                                 External: volData.ContainsKey("external") ? Convert.ToBoolean(volData["external"]) : null,
-                                DriverOpts: ExtractObjectDictionary(volData, "driver_opts"),
-                                Labels: ExtractStringDictionary(volData, "labels")
+                                DriverOpts: YamlParserHelper.ExtractObjectDictionary(volData, "driver_opts"),
+                                Labels: YamlParserHelper.ExtractStringDictionary(volData, "labels")
                             );
                         }
                     }
                 }
 
-                var result = new ComposeFileDetailsDto(
+                ComposeFileDetailsDto result = new(
                     ProjectName: projectName,
                     Version: version,
                     Services: servicesDict,
@@ -1533,83 +1384,96 @@ volumes:
         }
     }
 
-    // Helper methods for parsing compose file
-    private List<string>? ExtractStringList(Dictionary<object, object> data, string key)
+    #region Helper Methods
+
+    /// <summary>
+    /// Generic method to execute compose operations in the background
+    /// </summary>
+    private async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> ExecuteComposeOperationAsync(
+        string projectName,
+        string projectPath,
+        string operationType,
+        PermissionFlags requiredPermission,
+        string auditAction,
+        Func<IServiceScope, ComposeService, OperationService, Task<(bool success, string output, string error)>> operationExecutor)
     {
-        if (!data.ContainsKey(key)) return null;
-
-        var value = data[key];
-        if (value is List<object> list)
+        try
         {
-            return list.Select(i => i?.ToString() ?? "").Where(s => !string.IsNullOrEmpty(s)).ToList();
-        }
-        return null;
-    }
-
-    private Dictionary<string, string>? ExtractStringDictionary(Dictionary<object, object> data, string key)
-    {
-        if (!data.ContainsKey(key)) return null;
-
-        var value = data[key];
-        if (value is Dictionary<object, object> dict)
-        {
-            return dict.ToDictionary(
-                kvp => kvp.Key?.ToString() ?? "",
-                kvp => kvp.Value?.ToString() ?? ""
-            );
-        }
-        return null;
-    }
-
-    private Dictionary<string, object>? ExtractObjectDictionary(Dictionary<object, object> data, string key)
-    {
-        if (!data.ContainsKey(key)) return null;
-
-        var value = data[key];
-        if (value is Dictionary<object, object> dict)
-        {
-            return dict.ToDictionary(
-                kvp => kvp.Key?.ToString() ?? "",
-                kvp => kvp.Value ?? new object()
-            );
-        }
-        return null;
-    }
-
-    private Dictionary<string, string>? ExtractEnvironment(Dictionary<object, object> data)
-    {
-        if (!data.ContainsKey("environment")) return null;
-
-        var value = data["environment"];
-
-        // Environment can be either a dictionary or a list of strings
-        if (value is Dictionary<object, object> dict)
-        {
-            return dict.ToDictionary(
-                kvp => kvp.Key?.ToString() ?? "",
-                kvp => kvp.Value?.ToString() ?? ""
-            );
-        }
-        else if (value is List<object> list)
-        {
-            var envDict = new Dictionary<string, string>();
-            foreach (var item in list)
+            // Check permission
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
             {
-                string envStr = item?.ToString() ?? "";
-                string[] parts = envStr.Split('=', 2);
-                if (parts.Length == 2)
-                {
-                    envDict[parts[0]] = parts[1];
-                }
-                else if (parts.Length == 1)
-                {
-                    envDict[parts[0]] = "";
-                }
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
             }
-            return envDict;
-        }
 
-        return null;
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                requiredPermission);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    $"You don't have permission to {requiredPermission.ToString().ToLower()} this compose project",
+                    "PERMISSION_DENIED"));
+            }
+
+            // Create operation tracking
+            Operation operation = await _operationService.CreateOperationAsync(
+                operationType,
+                GetCurrentUserId(),
+                projectPath,
+                projectName
+            );
+
+            // Start operation in background
+            _ = Task.Run(async () =>
+            {
+                using IServiceScope scope = _serviceScopeFactory.CreateScope();
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
+
+                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                (bool success, string output, string error) = await operationExecutor(scope, composeService, operationService);
+
+                await operationService.AppendLogsAsync(operation.OperationId, output);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
+                }
+
+                await operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    success ? null : error
+                );
+            });
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                auditAction,
+                GetUserIpAddress(),
+                $"Started {operationType}: {projectName}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            ComposeOperationResponse response = new(
+                operation.OperationId,
+                OperationStatus.Pending,
+                $"{operationType} started for project: {projectName}"
+            );
+
+            return Ok(ApiResponse.Ok(response));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing {OperationType} for project: {ProjectName}", operationType, projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>($"Error executing {operationType}", "SERVER_ERROR"));
+        }
     }
 
     /// <summary>
@@ -1618,66 +1482,27 @@ volumes:
     [HttpPost("projects/{projectName}/start")]
     public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> StartProject(string projectName)
     {
-        try
+        // Find project path
+        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+        if (projectPath == null)
         {
-            // Find project path
-            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+            return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
+        }
 
-            if (projectPath == null)
+        return await ExecuteComposeOperationAsync(
+            projectName,
+            projectPath,
+            OperationType.ComposeStart,
+            PermissionFlags.Start,
+            AuditActions.ComposeStart,
+            async (scope, composeService, operationService) =>
             {
-                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
-            }
-
-            // Check Start permission
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Start);
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to start this compose project",
-                    "PERMISSION_DENIED"));
-            }
-
-            // Create operation tracking
-            Operation operation = await _operationService.CreateOperationAsync(
-                OperationType.ComposeStart,
-                GetCurrentUserId(),
-                projectPath,
-                projectName
-            );
-
-            // Start compose start in background
-            _ = Task.Run(async () =>
-            {
-                // Create a new scope for the background task to avoid DbContext disposal issues
-                using IServiceScope scope = _serviceScopeFactory.CreateScope();
-                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                // Find the compose file
                 string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
                 if (composeFile == null)
                 {
-                    await operationService.UpdateOperationStatusAsync(
-                        operation.OperationId,
-                        OperationStatus.Failed,
-                        100,
-                        "No compose file found in project directory"
-                    );
-                    return;
+                    return (false, "", "No compose file found in project directory");
                 }
 
                 (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
@@ -1686,44 +1511,9 @@ volumes:
                     composeFile
                 );
 
-                bool success = exitCode == 0;
-
-                await operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
-
-                await operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
-            });
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.ComposeStart,
-                GetUserIpAddress(),
-                $"Started compose start: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                OperationStatus.Pending,
-                $"Compose start started for project: {projectName}"
-            );
-
-            return Ok(ApiResponse.Ok(response));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error starting project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error starting project", "SERVER_ERROR"));
-        }
+                return (exitCode == 0, output, error);
+            }
+        );
     }
 
     /// <summary>
@@ -1732,66 +1522,27 @@ volumes:
     [HttpPost("projects/{projectName}/stop")]
     public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> StopProject(string projectName)
     {
-        try
+        // Find project path
+        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+        if (projectPath == null)
         {
-            // Find project path
-            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+            return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
+        }
 
-            if (projectPath == null)
+        return await ExecuteComposeOperationAsync(
+            projectName,
+            projectPath,
+            OperationType.ComposeStop,
+            PermissionFlags.Stop,
+            AuditActions.ComposeStop,
+            async (scope, composeService, operationService) =>
             {
-                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
-            }
-
-            // Check Stop permission
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Stop);
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to stop this compose project",
-                    "PERMISSION_DENIED"));
-            }
-
-            // Create operation tracking
-            Operation operation = await _operationService.CreateOperationAsync(
-                OperationType.ComposeStop,
-                GetCurrentUserId(),
-                projectPath,
-                projectName
-            );
-
-            // Start compose stop in background
-            _ = Task.Run(async () =>
-            {
-                // Create a new scope for the background task to avoid DbContext disposal issues
-                using IServiceScope scope = _serviceScopeFactory.CreateScope();
-                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                // Find the compose file
                 string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
                 if (composeFile == null)
                 {
-                    await operationService.UpdateOperationStatusAsync(
-                        operation.OperationId,
-                        OperationStatus.Failed,
-                        100,
-                        "No compose file found in project directory"
-                    );
-                    return;
+                    return (false, "", "No compose file found in project directory");
                 }
 
                 (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
@@ -1800,44 +1551,9 @@ volumes:
                     composeFile
                 );
 
-                bool success = exitCode == 0;
-
-                await operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
-
-                await operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
-            });
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.ComposeStop,
-                GetUserIpAddress(),
-                $"Started compose stop: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                OperationStatus.Pending,
-                $"Compose stop started for project: {projectName}"
-            );
-
-            return Ok(ApiResponse.Ok(response));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error stopping project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error stopping project", "SERVER_ERROR"));
-        }
+                return (exitCode == 0, output, error);
+            }
+        );
     }
 
     /// <summary>
@@ -1846,66 +1562,27 @@ volumes:
     [HttpPost("projects/{projectName}/restart")]
     public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> RestartProject(string projectName)
     {
-        try
+        // Find project path
+        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
+        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+
+        if (projectPath == null)
         {
-            // Find project path
-            List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-            string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+            return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
+        }
 
-            if (projectPath == null)
+        return await ExecuteComposeOperationAsync(
+            projectName,
+            projectPath,
+            OperationType.ComposeRestart,
+            PermissionFlags.Restart,
+            AuditActions.ComposeRestart,
+            async (scope, composeService, operationService) =>
             {
-                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found", "PROJECT_NOT_FOUND"));
-            }
-
-            // Check Restart permission
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Restart);
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to restart this compose project",
-                    "PERMISSION_DENIED"));
-            }
-
-            // Create operation tracking
-            Operation operation = await _operationService.CreateOperationAsync(
-                OperationType.ComposeRestart,
-                GetCurrentUserId(),
-                projectPath,
-                projectName
-            );
-
-            // Start compose restart in background
-            _ = Task.Run(async () =>
-            {
-                // Create a new scope for the background task to avoid DbContext disposal issues
-                using IServiceScope scope = _serviceScopeFactory.CreateScope();
-                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                // Find the compose file
                 string? composeFile = composeService.GetPrimaryComposeFile(projectPath);
                 if (composeFile == null)
                 {
-                    await operationService.UpdateOperationStatusAsync(
-                        operation.OperationId,
-                        OperationStatus.Failed,
-                        100,
-                        "No compose file found in project directory"
-                    );
-                    return;
+                    return (false, "", "No compose file found in project directory");
                 }
 
                 (int exitCode, string output, string error) = await composeService.ExecuteComposeCommandAsync(
@@ -1914,44 +1591,9 @@ volumes:
                     composeFile
                 );
 
-                bool success = exitCode == 0;
-
-                await operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
-
-                await operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
-            });
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.ComposeRestart,
-                GetUserIpAddress(),
-                $"Started compose restart: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                OperationStatus.Pending,
-                $"Compose restart started for project: {projectName}"
-            );
-
-            return Ok(ApiResponse.Ok(response));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error restarting project: {ProjectName}", projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error restarting project", "SERVER_ERROR"));
-        }
+                return (exitCode == 0, output, error);
+            }
+        );
     }
 
     /// <summary>
@@ -2046,6 +1688,8 @@ volumes:
             return StatusCode(500, ApiResponse.Fail<List<ComposeServiceStatusDto>>("Error getting services", "SERVER_ERROR"));
         }
     }
+
+    #endregion
 }
 
 public record ComposeTemplateDto(string Id, string Name, string Description, string Content);

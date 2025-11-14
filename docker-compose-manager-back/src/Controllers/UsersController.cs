@@ -12,7 +12,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "admin")]
-public class UsersController : ControllerBase
+public class UsersController : BaseController
 {
     private readonly IUserService _userService;
     private readonly ILogger<UsersController> _logger;

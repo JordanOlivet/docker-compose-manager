@@ -10,7 +10,7 @@ namespace docker_compose_manager_back.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class AuditController : ControllerBase
+public class AuditController : BaseController
 {
     private readonly IAuditService _auditService;
     private readonly ILogger<AuditController> _logger;
@@ -19,17 +19,6 @@ public class AuditController : ControllerBase
     {
         _auditService = auditService;
         _logger = logger;
-    }
-
-    private int? GetCurrentUserId()
-    {
-        string? userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.TryParse(userIdStr, out int userId) ? userId : null;
-    }
-
-    private string GetUserIpAddress()
-    {
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     /// <summary>
