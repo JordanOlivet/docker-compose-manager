@@ -4,6 +4,7 @@ import { composeApi } from '@/api/compose';
 import { Edit, Network, HardDrive, Tag, Variable } from 'lucide-react';
 import type { ServiceDetails, NetworkDetails, VolumeDetails } from '@/types/compose';
 import { InfoCard, type InfoSection } from '@/components/common/InfoCard';
+import { t } from '@/i18n';
 
 interface ProjectInfoSectionProps {
   projectName: string;
@@ -61,7 +62,7 @@ export function ProjectInfoSection({ projectName, projectPath }: ProjectInfoSect
                 <div className="space-y-1">
                   <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                     <Variable className="h-3 w-3" />
-                    <span>Environment Variables</span>
+                    <span>{t('common.environmentVariables')}</span>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-32 overflow-y-auto">
                     {Object.entries(service.environment).map(([key, value]) => (
@@ -75,7 +76,7 @@ export function ProjectInfoSection({ projectName, projectPath }: ProjectInfoSect
               )}
               {service.ports && service.ports.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-gray-600 dark:text-gray-400">Ports</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">{t('containers.ports')}</div>
                   <div className="flex flex-wrap gap-1">
                     {service.ports.map((port: string, idx: number) => (
                       <span key={idx} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
@@ -87,7 +88,7 @@ export function ProjectInfoSection({ projectName, projectPath }: ProjectInfoSect
               )}
               {service.volumes && service.volumes.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-gray-600 dark:text-gray-400">Volumes</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">{t('containers.volumes')}</div>
                   <div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-24 overflow-y-auto">
                     {service.volumes.map((volume: string, idx: number) => (
                       <div key={idx} className="text-gray-700 dark:text-gray-300">{volume}</div>
@@ -97,7 +98,7 @@ export function ProjectInfoSection({ projectName, projectPath }: ProjectInfoSect
               )}
               {service.labels && Object.keys(service.labels).length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-gray-600 dark:text-gray-400">Labels</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">{t('containers.labels')}</div>
                   <div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-24 overflow-y-auto">
                     {Object.entries(service.labels).map(([key, value]) => (
                       <div key={key} className="flex gap-2">

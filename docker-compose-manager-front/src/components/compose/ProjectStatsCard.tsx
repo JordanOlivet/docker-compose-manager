@@ -4,6 +4,7 @@ import { containersApi } from '@/api/containers';
 import { EntityState, type ComposeService, type ContainerStats } from '@/types';
 import { Activity, Cpu, HardDrive } from 'lucide-react';
 import { ResourceStatsCard, type StatsMetricConfig } from '@/components/common/ResourceStatsCard';
+import { t } from '@/i18n';
 
 interface ProjectStatsCardProps {
   services: ComposeService[];
@@ -137,9 +138,9 @@ export function ProjectStatsCard({ services }: ProjectStatsCardProps) {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg p-6">
         <div className="flex items-center gap-2 mb-4">
           <Activity className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Project Statistics</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('common.projectStatistics')}</h3>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400">No running services to display stats.</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{t('common.noRunningServices')}</p>
       </div>
     );
   }

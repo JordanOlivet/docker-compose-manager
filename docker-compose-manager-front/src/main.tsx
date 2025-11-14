@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
-// Silence non-critical console outputs in production builds
-if (import.meta.env.PROD) {
+// Silence non-critical console outputs if VITE_DISABLE_LOGS is set
+if (import.meta.env.VITE_DISABLE_LOGS === 'true') {
   const noop = () => {}
   console.log = noop
   console.info = noop

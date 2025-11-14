@@ -3,6 +3,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../api';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { LanguageSelector } from '../common/LanguageSelector';
+import { t } from '../../i18n';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -33,17 +35,18 @@ export const Header = ({ onToggleSidebar }: HeaderProps) => {
           <button
             onClick={onToggleSidebar}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
-            aria-label="Toggle sidebar"
+            aria-label={t('common.toggleSidebar')}
           >
             <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
 
           <h1 className="text-xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 hidden sm:block">
-            Docker Compose Manager
+            {t('app.title')}
           </h1>
         </div>
 
         <div className="flex items-center gap-3">
+          <LanguageSelector />
           <ThemeToggle />
 
           <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-linear-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 shadow-sm">
@@ -65,10 +68,10 @@ export const Header = ({ onToggleSidebar }: HeaderProps) => {
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105 group"
-            aria-label="Logout"
+            aria-label={t('auth.logout')}
           >
             <LogOut className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
-            <span className="text-sm font-medium hidden sm:inline">Logout</span>
+            <span className="text-sm font-medium hidden sm:inline">{t('auth.logout')}</span>
           </button>
         </div>
       </div>

@@ -10,7 +10,6 @@ describe('useAuth', () => {
       user: null,
       accessToken: null,
       refreshToken: null,
-      isAuthenticated: false,
     });
   });
 
@@ -35,7 +34,6 @@ describe('useAuth', () => {
       },
       accessToken: 'token',
       refreshToken: 'refresh',
-      isAuthenticated: true,
     });
 
     const { result } = renderHook(() => useAuth());
@@ -58,7 +56,6 @@ describe('useAuth', () => {
       },
       accessToken: 'token',
       refreshToken: 'refresh',
-      isAuthenticated: true,
     });
 
     const { result } = renderHook(() => useAuth());

@@ -7,8 +7,9 @@ import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { FolderPicker } from '../components/common/FolderPicker';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
+import { t } from '../i18n';
 
-export default function Settings() {
+function Settings() {
   const [showAddPath, setShowAddPath] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [newPath, setNewPath] = useState('');
@@ -95,9 +96,9 @@ export default function Settings() {
     <div className="space-y-8">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Settings</h1>
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('settings.title')}</h1>
         <p className="text-lg text-gray-600 dark:text-gray-400">
-          Configure your Docker Compose management system
+          {t('settings.subtitle')}
         </p>
       </div>
 
@@ -110,7 +111,7 @@ export default function Settings() {
                 <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Compose File Paths</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('settings.composePathsTitle')}</h2>
           </div>
           <button
             onClick={() => setShowAddPath(true)}
@@ -119,7 +120,7 @@ export default function Settings() {
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
-            Add Path
+            {t('settings.addPath')}
           </button>
         </div>
 
@@ -127,10 +128,10 @@ export default function Settings() {
           <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-white/50 dark:bg-gray-800/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Path</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Access</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('settings.path')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('settings.status')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('settings.access')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('settings.actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -143,7 +144,7 @@ export default function Settings() {
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                     }`}>
-                      {path.isEnabled ? 'Enabled' : 'Disabled'}
+                      {path.isEnabled ? t('users.enabled') : t('users.disabled')}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -152,7 +153,7 @@ export default function Settings() {
                         ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
                         : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                     }`}>
-                      {path.isReadOnly ? 'Read-Only' : 'Read-Write'}
+                      {path.isReadOnly ? t('settings.access') : `${t('common.edit')}-${t('settings.access')}`}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -161,13 +162,13 @@ export default function Settings() {
                         onClick={() => toggleEnabledMutation.mutate({ id: path.id, enabled: path.isEnabled })}
                         className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                       >
-                        {path.isEnabled ? 'Disable' : 'Enable'}
+                        {path.isEnabled ? t('users.disabled') : t('users.enabled')}
                       </button>
                       <button
-                        onClick={() => { if (confirm(`Delete path ${path.path}?`)) deletePathMutation.mutate(path.id); }}
+                        onClick={() => { if (confirm(`${t('common.delete')} ${t('settings.path').toLowerCase()} ${path.path}?`)) deletePathMutation.mutate(path.id); }}
                         className="text-sm font-medium text-red-600 dark:text-red-400 hover:underline"
                       >
-                        Delete
+                        {t('common.delete')}
                       </button>
                     </div>
                   </td>
@@ -184,7 +185,7 @@ export default function Settings() {
               <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.342 11.28A2 2 0 0116.342 17H3.658a2 2 0 01-1.743-2.62l6.342-11.28zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-2a.75.75 0 01-.75-.75v-3.5a.75.75 0 011.5 0v3.5A.75.75 0 0110 11z" clipRule="evenodd" />
               </svg>
-              Projets détectés hors des chemins configurés
+              {t('settings.externalProjectsDetected')}
             </h3>
             {externalProjects.map((proj) => (
               <div
@@ -193,10 +194,10 @@ export default function Settings() {
               >
                 <div className="flex-1">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    Chemin: <span className="font-mono">{proj.path}</span>
+                    {t('settings.pathLabel')}: <span className="font-mono">{proj.path}</span>
                   </p>
                   <p className="text-xs mt-1 text-yellow-700 dark:text-yellow-300">
-                    <span className="font-medium">Projet:</span> <span className="font-semibold">{proj.name}</span>
+                    <span className="font-medium">{t('settings.projectLabel')}:</span> <span className="font-semibold">{proj.name}</span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -204,7 +205,7 @@ export default function Settings() {
                     onClick={() => addPathMutation.mutate({ path: proj.path, isReadOnly: false })}
                     className="px-4 py-2 text-sm font-medium rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white shadow-md hover:shadow-lg transition-colors"
                   >
-                    Ajouter ce path
+                    {t('settings.addThisPath')}
                   </button>
                 </div>
               </div>
@@ -217,16 +218,16 @@ export default function Settings() {
       {showAddPath && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Compose Path</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">{t('settings.addPathTitle')}</h2>
             <form onSubmit={handleAddPath} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Directory Path</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('compose.directoryPath')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newPath}
                     onChange={(e) => setNewPath(e.target.value)}
-                    placeholder="/path/to/compose/files"
+                    placeholder={t('compose.directoryPathPlaceholder')}
                     className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500"
                     required
                   />
@@ -238,7 +239,7 @@ export default function Settings() {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                     </svg>
-                    Browse
+                    {t('common.search')}
                   </button>
                 </div>
               </div>
@@ -249,21 +250,21 @@ export default function Settings() {
                   onChange={(e) => setIsReadOnly(e.target.checked)}
                   className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
                 />
-                <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">Read-only access</label>
+                <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">{t('settings.access')}</label>
               </div>
               <div className="flex space-x-2 pt-4">
                 <button
                   type="submit"
                   className="flex-1 bg-blue-600 dark:bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium shadow-lg hover:shadow-xl"
                 >
-                  Add Path
+                  {t('settings.addPath')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddPath(false)}
                   className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors font-medium"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -284,3 +285,5 @@ export default function Settings() {
     </div>
   );
 }
+
+export default Settings;

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../api/auth';
+import { authApi } from '../api';
 import { useToast } from '../hooks/useToast';
 import { PasswordInput } from '../components/common/PasswordInput';
 import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
 import type { AxiosError } from 'axios';
+import { t } from '../i18n';
 
-export default function ChangePassword() {
+function ChangePassword() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,7 +19,7 @@ export default function ChangePassword() {
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error(t('auth.passwordMismatch'));
       return;
     }
 
@@ -30,7 +31,7 @@ export default function ChangePassword() {
     setLoading(true);
     try {
       await authApi.changePassword(currentPassword, newPassword);
-      toast.success('Password changed successfully');
+      toast.success(t('auth.passwordChanged'));
       navigate('/dashboard');
     } catch (error: unknown) {
       toast.error(formatApiError(error as AxiosError<ApiErrorResponse>, 'Failed to change password'));
@@ -42,35 +43,35 @@ export default function ChangePassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-6">Change Password</h1>
+        <h1 className="text-2xl font-bold mb-6">{t('auth.changePassword')}</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Current Password</label>
+            <label className="block text-sm font-medium mb-2">{t('auth.currentPassword')}</label>
             <PasswordInput
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               className="w-full border rounded px-3 py-2 pr-10"
-              placeholder="Enter current password"
+              placeholder={t('auth.currentPasswordPlaceholder')}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">New Password</label>
+            <label className="block text-sm font-medium mb-2">{t('auth.newPassword')}</label>
             <PasswordInput
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               className="w-full border rounded px-3 py-2 pr-10"
-              placeholder="Enter new password"
+              placeholder={t('auth.newPasswordPlaceholder')}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Confirm Password</label>
+            <label className="block text-sm font-medium mb-2">{t('auth.confirmPassword')}</label>
             <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full border rounded px-3 py-2 pr-10"
-              placeholder="Confirm new password"
+              placeholder={t('auth.confirmPasswordPlaceholder')}
               required
             />
           </div>
@@ -79,10 +80,12 @@ export default function ChangePassword() {
             disabled={loading}
             className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50"
           >
-            {loading ? 'Changing...' : 'Change Password'}
+            {loading ? `${t('auth.changePassword')}...` : t('auth.changePassword')}
           </button>
         </form>
       </div>
     </div>
   );
 }
+
+export default ChangePassword;

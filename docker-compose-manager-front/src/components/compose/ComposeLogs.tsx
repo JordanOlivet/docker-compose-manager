@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { signalRService } from '@/services/signalRService';
 import { FileText, Play, Pause, Trash2, AlertCircle } from 'lucide-react';
+import { t } from '@/i18n';
 
 interface ComposeLogsProps {
   // Compose project streaming
@@ -324,10 +325,10 @@ export function ComposeLogs({ projectPath, projectName, containerId, containerNa
               {isStreaming ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500"></div>
-                  <span>Waiting for logs...</span>
+                  <span>{t('common.waitingForLogs')}</span>
                 </div>
               ) : (
-                'Streaming paused. Click "Resume" to continue.'
+                t('common.streamingPaused')
               )}
             </div>
           ) : (

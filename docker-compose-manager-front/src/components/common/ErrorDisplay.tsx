@@ -1,4 +1,5 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { t } from '../../i18n';
 
 interface ErrorDisplayProps {
   title?: string;
@@ -8,7 +9,7 @@ interface ErrorDisplayProps {
 }
 
 export const ErrorDisplay = ({
-  title = 'Error',
+  title = t('common.error'),
   message,
   onRetry,
   className = ''
@@ -26,7 +27,7 @@ export const ErrorDisplay = ({
               className="mt-3 flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
-              Try Again
+              {t('common.retry')}
             </button>
           )}
         </div>

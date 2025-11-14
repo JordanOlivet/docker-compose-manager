@@ -1,4 +1,10 @@
-import { apiClient } from './client';
+// Types d’API partagés
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  error?: string;
+}
 
 export interface DashboardStats {
   totalContainers: number;
@@ -39,25 +45,3 @@ export interface HealthStatus {
     message: string;
   };
 }
-
-
-export const getDashboardStats = async (): Promise<DashboardStats> => {
-  const response = await apiClient.get('/dashboard/stats');
-  return response.data.data;
-};
-
-export const getDashboardActivity = async (limit: number = 20): Promise<Activity[]> => {
-  const response = await apiClient.get(`/dashboard/activity?limit=${limit}`);
-  return response.data.data;
-};
-
-export const getDashboardHealth = async (): Promise<HealthStatus> => {
-  const response = await apiClient.get('/dashboard/health');
-  return response.data.data;
-};
-
-export const dashboardApi = {
-  getStats: getDashboardStats,
-  getActivity: getDashboardActivity,
-  getHealth: getDashboardHealth,
-};

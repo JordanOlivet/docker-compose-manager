@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react';
+import { t } from '../../i18n';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -17,7 +18,7 @@ export const LoadingSpinner = ({ size = 'md', text, className = '' }: LoadingSpi
     <div
       role="status"
       aria-live="polite"
-      aria-label={text || "Loading"}
+      aria-label={text || t('common.loading')}
       className={`flex flex-col items-center justify-center gap-3 ${className}`}
     >
       <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-600`} aria-hidden="true" />

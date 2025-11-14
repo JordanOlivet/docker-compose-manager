@@ -11,8 +11,9 @@ import { PermissionSelector } from '../components/PermissionSelector';
 import { CopyPermissionsDialog } from '../components/CopyPermissionsDialog';
 import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
 import type { ResourcePermissionInput } from '../types/permissions';
+import { t } from '../i18n';
 
-export default function UserManagement() {
+function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
@@ -157,34 +158,34 @@ export default function UserManagement() {
   };
 
   if (isLoading) return <LoadingSpinner />;
-  if (error) return <ErrorDisplay message="Failed to load users" />;
+  if (error) return <ErrorDisplay message={t('users.failedToCreate')} />;
 
   return (
     <div className="space-y-8">
       {/* Page Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">User Management</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('users.title')}</h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            Manage system users and permissions
+            {t('users.subtitle')}
           </p>
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
+          className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium"
         >
-          <span>+</span> Create User
+          <span>+</span> {t('users.createUser')}
         </button>
       </div>
 
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table className="w-full">
           <thead className="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
             <tr>
-              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Username</th>
-              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Role</th>
-              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Status</th>
-              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('users.username')}</th>
+              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('users.role')}</th>
+              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('users.status')}</th>
+              <th className="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{t('users.actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -200,7 +201,7 @@ export default function UserManagement() {
                 </td>
                 <td className="px-8 py-5">
                   <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${user.isEnabled ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'}`}>
-                    {user.isEnabled ? 'Enabled' : 'Disabled'}
+                    {user.isEnabled ? t('users.enabled') : t('users.disabled')}
                   </span>
                 </td>
                 <td className="px-8 py-5">
@@ -209,19 +210,19 @@ export default function UserManagement() {
                       onClick={() => openEditModal(user)}
                       className="px-3 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                     <button
                       onClick={() => toggleEnabledMutation.mutate({ id: user.id, enabled: user.isEnabled })}
                       className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                     >
-                      {user.isEnabled ? 'Disable' : 'Enable'}
+                      {user.isEnabled ? t('users.disabled') : t('users.enabled')}
                     </button>
                     <button
-                      onClick={() => { if (confirm(`Delete user ${user.username}?`)) deleteMutation.mutate(user.id); }}
+                      onClick={() => { if (confirm(`${t('users.deleteUser')}: ${user.username}?`)) deleteMutation.mutate(user.id); }}
                       className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                     >
-                      Delete
+                      {t('common.delete')}
                     </button>
                   </div>
                 </td>
@@ -236,7 +237,7 @@ export default function UserManagement() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-8 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {editMode ? 'Edit User' : 'Create User'}
+                {editMode ? t('users.editUser') : t('users.createUser')}
               </h2>
             </div>
 
@@ -251,7 +252,7 @@ export default function UserManagement() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  General Information
+                  {t('users.general')}
                   {activeTab === 'general' && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
                   )}
@@ -264,7 +265,7 @@ export default function UserManagement() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  Permissions
+                  {t('users.permissions')}
                   {permissions.length > 0 && (
                     <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs">
                       {permissions.length}
@@ -282,19 +283,19 @@ export default function UserManagement() {
               {activeTab === 'general' && (
                 <div className="p-8 space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('users.username')}</label>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Enter username"
+                      placeholder={t('users.usernamePlaceholder')}
                       required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Password {editMode && <span className="text-gray-500 text-xs">(leave blank to keep current)</span>}
+                      {t('users.password')} {editMode && <span className="text-gray-500 text-xs">(leave blank to keep current)</span>}
                     </label>
                     <PasswordInput
                       value={password}
@@ -304,14 +305,14 @@ export default function UserManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Role</label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('users.role')}</label>
                     <select
                       value={role}
                       onChange={(e) => setRole(e.target.value as 'admin' | 'user')}
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
+                      <option value="user">{t('users.user')}</option>
+                      <option value="admin">{t('users.admin')}</option>
                     </select>
                   </div>
                 </div>
@@ -334,20 +335,20 @@ export default function UserManagement() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createMutation.isPending || updateMutation.isPending
-                    ? 'Saving...'
+                    ? `${t('common.save')}...`
                     : editMode
-                    ? 'Update User'
-                    : 'Create User'}
+                    ? t('users.editUser')
+                    : t('users.createUser')}
                 </button>
                 <button
                   type="button"
                   onClick={closeModal}
                   className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-semibold"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -368,3 +369,5 @@ export default function UserManagement() {
     </div>
   );
 }
+
+export default UserManagement;

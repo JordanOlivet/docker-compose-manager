@@ -1,4 +1,3 @@
-import ContainerDetails from './pages/ContainerDetails';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -7,20 +6,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthInitializer } from './components/AuthInitializer';
 import { MainLayout } from './components/layout';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
-import Containers from './pages/Containers';
-import { ComposeFiles } from './pages/ComposeFiles';
-import { ComposeEditor } from './pages/ComposeEditor';
-import { ComposeProjects } from './pages/ComposeProjects';
-import { AuditLogs } from './pages/AuditLogs';
-import ChangePassword from './pages/ChangePassword';
-import UserManagement from './pages/UserManagement';
-import UserGroups from './pages/UserGroups';
-import Permissions from './pages/Permissions';
-import Settings from './pages/Settings';
-import LogsViewer from './pages/LogsViewer';
-import { ComposeDetails } from './pages/ComposeDetails';
+import { appRoutes } from './routes';
+import { Suspense } from 'react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,161 +49,27 @@ function App() {
                   },
                 }}
               />
-              <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/change-password" element={<ChangePassword />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Dashboard />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Dashboard />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/containers"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Containers />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/containers/:containerId"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <ContainerDetails />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/users"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <UserManagement />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/user-groups"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <UserGroups />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/permissions"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Permissions />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Settings />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compose/files"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <ComposeFiles />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compose/files/:id/edit"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <ComposeEditor />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compose/files/create"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <ComposeEditor />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compose/projects"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <ComposeProjects />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compose/projects/:projectName"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <ComposeDetails/>
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/audit"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <AuditLogs />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/logs"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <LogsViewer />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Suspense fallback={<div className="p-8 text-center">Chargement...</div>}>
+                <Routes>
+                  {appRoutes.map(({ path, element: Element, protected: isProtected }) => {
+                    if (isProtected) {
+                      return (
+                        <Route
+                          key={path}
+                          path={path}
+                          element={
+                            <ProtectedRoute>
+                              <MainLayout><Element /></MainLayout>
+                            </ProtectedRoute>
+                          }
+                        />
+                      );
+                    }
+                    return <Route key={path} path={path} element={<Element />} />;
+                  })}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
             </AuthInitializer>
           </BrowserRouter>
         </QueryClientProvider>

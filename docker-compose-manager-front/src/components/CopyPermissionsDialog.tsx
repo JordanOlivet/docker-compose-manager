@@ -5,6 +5,7 @@ import usersApi from '@/api/users';
 import userGroupsApi from '@/api/userGroups';
 import permissionsApi from '@/api/permissions';
 import { useToast } from '@/hooks/useToast';
+import { t } from '@/i18n';
 
 interface CopyPermissionsDialogProps {
   open: boolean;
@@ -19,7 +20,7 @@ export function CopyPermissionsDialog({
   onOpenChange,
   targetType,
   targetId,
-  onSuccess
+  onSuccess,
 }: CopyPermissionsDialogProps) {
   const [sourceType, setSourceType] = useState<'user' | 'group'>('user');
   const [sourceId, setSourceId] = useState<string>('');
@@ -183,16 +184,16 @@ export function CopyPermissionsDialog({
           {/* Source Selection */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Select {sourceType === 'user' ? 'User' : 'Group'}
+              {t('common.selectA')} {sourceType === 'user' ? t('common.user') : t('common.group')}
             </label>
             <select
               value={sourceId}
               onChange={(e) => setSourceId(e.target.value)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
-              <option value="">Select a {sourceType}</option>
+              <option value="">{t('common.selectA')} {sourceType}</option>
               {filteredList.length === 0 && (
-                <option disabled>No {sourceType}s available</option>
+                <option disabled>{t('common.noAvailable', { type: sourceType })}</option>
               )}
               {filteredList.map(item => (
                 <option key={item.id} value={item.id.toString()}>
@@ -206,18 +207,18 @@ export function CopyPermissionsDialog({
           {sourceId && (
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Permissions Preview
+                {t('common.permissionsPreview')}
               </label>
               {isLoadingPermissions && (
                 <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                  Loading permissions...
+                  {t('common.loadingPermissions')}
                 </div>
               )}
               {!isLoadingPermissions && sourcePermissions && (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 max-h-[250px] overflow-y-auto">
                   {sourcePermissions.length === 0 && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                      No permissions found
+                      {t('common.noPermissionsFound')}
                     </p>
                   )}
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -226,7 +227,7 @@ export function CopyPermissionsDialog({
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded text-xs font-medium flex-shrink-0">
-                              {perm.resourceType === 1 ? 'Container' : 'Project'}
+                              {perm.resourceType === 1 ? t('common.container') : t('common.project')}
                             </span>
                             <span className="font-medium text-gray-900 dark:text-white truncate">
                               {perm.resourceName}
