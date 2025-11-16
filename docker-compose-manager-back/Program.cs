@@ -63,7 +63,7 @@ catch (Exception ex)
 }
 
 // Add Database Context
-string connectionString = /*builder.Configuration["Database:ConnectionString"] ??*/ "Data Source=Data/app.db";
+string connectionString = builder.Configuration["Database:ConnectionString"] ?? "Data Source=Data/app.db";
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
