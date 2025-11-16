@@ -22,11 +22,9 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet build docker
     -p:AssemblyVersion=${ASSEMBLY_VERSION} \
     -p:FileVersion=${ASSEMBLY_VERSION} \
     -p:InformationalVersion=${VERSION}
-# Single-file publish (self-contained) for linux-x64, trimmed when possible
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish docker-compose-manager-back.csproj -c Release -r linux-x64 --self-contained true \
-    -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
-    -p:InvariantGlobalization=true -p:DebugType=None -p:DebugSymbols=false \
-    -p:Version=${ASSEMBLY_VERSION} -p:InformationalVersion=${VERSION} -o /app/publish
+# Publish framework-dependent
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish docker-compose-manager-back.csproj -c Release -o /app/publish \
+    -p:Version=${ASSEMBLY_VERSION} -p:InformationalVersion=${VERSION}
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/runtime-deps:9.0 AS runtime
@@ -55,8 +53,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy published app
-COPY --from=build /app/publish /app
+# Copy published app (framework-dependent)
+COPY --from=build /app/publish/ /app/
 
 # Create directories for data and logs
 RUN mkdir -p /app/data /app/logs
@@ -74,5 +72,5 @@ ENV GIT_COMMIT=${VCS_REF}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Start application
-ENTRYPOINT ["/app/docker-compose-manager-back"]
+# Start application (framework-dependent)
+ENTRYPOINT ["dotnet", "/app/docker-compose-manager-back.dll"]
