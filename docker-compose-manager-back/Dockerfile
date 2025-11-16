@@ -27,7 +27,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish dock
     -p:Version=${ASSEMBLY_VERSION} -p:InformationalVersion=${VERSION}
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/runtime-deps:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 
 # Re-declare build arguments for runtime stage
 ARG VERSION=0.1.0-dev
