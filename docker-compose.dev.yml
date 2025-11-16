@@ -12,11 +12,13 @@ services:
       context: ./docker-compose-manager-back
       dockerfile: Dockerfile
     image: docker-compose-manager-backend:dev
+    ports:
+      - "5000:5000"
     environment:
       # Configuration pour le développement
       - ASPNETCORE_ENVIRONMENT=Development
       - Serilog__MinimumLevel__Default=Debug
-    volumes:
+    # volumes:
       # Ajouter le mapping pour hot-reload (optionnel, nécessite configuration supplémentaire)
       # - ./docker-compose-manager-back/src:/app/src:ro
 
@@ -30,5 +32,5 @@ services:
         VITE_API_URL: /api
     image: docker-compose-manager-frontend:dev
     # Optionnel: exposer le port Vite dev server au lieu de Nginx
-    # ports:
-    #   - "5173:5173"
+    ports:
+      - "5173:80"
