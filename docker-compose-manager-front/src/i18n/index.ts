@@ -1,9 +1,25 @@
-import en from './en.json';
-import fr from './fr.json';
-import es from './es.json';
+import en from './en';
+import fr from './fr';
+import es from './es';
+
+// Vérification au build (sera tree-shaken en production)
+if (import.meta.env.DEV) {
+  const checkKeys = (obj: any, ref: any, lang: string, path = '') => {
+    for (const key in ref) {
+      const currentPath = path ? `${path}.${key}` : key;
+      if (!(key in obj)) {
+        console.error(`Missing key in ${lang}: ${currentPath}`);
+      } else if (typeof ref[key] === 'object' && ref[key] !== null) {
+        checkKeys(obj[key], ref[key], lang, currentPath);
+      }
+    }
+  };
+  
+  checkKeys(fr, en, 'fr');
+  checkKeys(es, en, 'es');
+}
 
 export type SupportedLocale = 'en' | 'fr' | 'es';
-
 // Type pour les clés de traduction (inféré depuis en.json)
 export type TranslationKeys = typeof en;
 
