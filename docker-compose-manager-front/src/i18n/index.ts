@@ -1,8 +1,11 @@
-import { en, type TranslationKeys } from './en';
-import { fr } from './fr';
-import { es } from './es';
+import en from './en.json';
+import fr from './fr.json';
+import es from './es.json';
 
 export type SupportedLocale = 'en' | 'fr' | 'es';
+
+// Type pour les clés de traduction (inféré depuis en.json)
+export type TranslationKeys = typeof en;
 
 // Récupérer la langue sauvegardée ou utiliser 'en' par défaut
 const savedLocale = (localStorage.getItem('locale') as SupportedLocale) || 'en';
@@ -20,11 +23,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
  */
 export function t(key: string, params?: Record<string, string | number>): string {
   const keys = key.split('.');
-  let value: TranslationKeys | string | undefined = translations[currentLocale];
+  let value: any = translations[currentLocale];
   
   for (const k of keys) {
     if (typeof value === 'object' && value !== null) {
-      value = (value as Record<string, unknown>)[k] as TranslationKeys | string | undefined;
+      value = value[k];
     } else {
       value = undefined;
     }
@@ -63,4 +66,3 @@ export function getLocale(): SupportedLocale {
 
 // Export des traductions pour usage direct si besoin
 export { en, fr, es };
-export type { TranslationKeys };
