@@ -165,8 +165,7 @@ jobs:
           push: true
           tags: ${{ startsWith(github.ref, 'refs/tags/v') && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
+          no-cache: true
           provenance: false
           sbom: false
           build-args: |
