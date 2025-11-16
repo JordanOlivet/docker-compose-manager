@@ -15,10 +15,27 @@ using System.Text;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .CreateLogger();
+// Configure Serilog with explicit assemblies (single-file publish safe)
+try
+{
+
+    Serilog.Settings.Configuration.ConfigurationReaderOptions readerOptions = new(
+        typeof(Serilog.Sinks.SystemConsole.Themes.ConsoleTheme).Assembly,
+        typeof(Serilog.Sinks.File.FileSink).Assembly
+    );
+
+    Log.Logger = new LoggerConfiguration()
+        .ReadFrom.Configuration(builder.Configuration, readerOptions)
+        .CreateLogger();
+}
+catch (Exception ex)
+{
+    // Fallback minimal logger if configuration loading fails
+    Log.Logger = new LoggerConfiguration()
+        .WriteTo.Console()
+        .CreateLogger();
+    Log.Error(ex, "Failed to initialize Serilog from configuration; fallback console logger in use");
+}
 
 builder.Host.UseSerilog();
 

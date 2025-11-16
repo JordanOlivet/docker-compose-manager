@@ -24,7 +24,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet build docker
     -p:InformationalVersion=${VERSION}
 # Single-file publish (self-contained) for linux-x64, trimmed when possible
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish docker-compose-manager-back.csproj -c Release -r linux-x64 --self-contained true \
-    -p:PublishSingleFile=true -p:PublishTrimmed=true -p:EnableCompressionInSingleFile=true \
+    -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
     -p:InvariantGlobalization=true -p:DebugType=None -p:DebugSymbols=false \
     -p:Version=${ASSEMBLY_VERSION} -p:InformationalVersion=${VERSION} -o /app/publish
 
