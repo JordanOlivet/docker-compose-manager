@@ -5,9 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { composeApi } from '../api';
 import { LoadingSpinner, ErrorDisplay, ConfirmDialog, StateBadge } from '../components/common';
 import type { ComposeFile } from '../types';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function ComposeFiles() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

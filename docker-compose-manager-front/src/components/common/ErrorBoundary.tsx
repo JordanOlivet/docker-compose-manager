@@ -1,8 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { t } from '../../i18n';
+import { withTranslation } from 'react-i18next';
 
 interface Props {
   children: ReactNode;
+  t?: (key: string) => string;
 }
 
 interface State {
@@ -50,6 +51,8 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   render() {
+    const t = this.props.t || ((key: string) => key);
+    
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -104,3 +107,6 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+// Export HOC wrapped version for use with translations
+export const ErrorBoundaryWithTranslation = withTranslation()<React.ComponentType<Omit<Props, 't'>>>(ErrorBoundary as any);

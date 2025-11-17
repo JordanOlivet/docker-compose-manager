@@ -13,9 +13,10 @@ import {
   type ResourcePermission,
 } from '../types';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function Permissions() {
+  const { t } = useTranslation();
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPermission, setEditingPermission] = useState<ResourcePermission | null>(null);
   const [editPermissions, setEditPermissions] = useState<number>(0);

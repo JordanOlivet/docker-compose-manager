@@ -5,9 +5,10 @@ import { useToast } from '../hooks/useToast';
 import { PasswordInput } from '../components/common/PasswordInput';
 import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
 import type { AxiosError } from 'axios';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function ChangePassword() {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

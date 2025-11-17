@@ -1,8 +1,6 @@
-import type en from './en';
-
-const es: typeof en =  {
+const es = {
   app: {
-    title: 'Gestor Docker Compose',
+    title: 'Docker Compose Manager',
     composeManager: 'Gestor Compose',
   },
 
@@ -127,6 +125,7 @@ const es: typeof en =  {
     stopped: 'detenidos',
     active: 'activos',
     totalFilesTracked: 'Total de archivos rastreados',
+    systemHealth: 'Estado del sistema',
   },
   
   containers: {
@@ -346,6 +345,6 @@ const es: typeof en =  {
     validationError: 'Error de validación. Por favor, verifique su entrada.',
     unknownError: 'Ocurrió un error inesperado.',
   },
-} as const;
+};
 
 export default es;

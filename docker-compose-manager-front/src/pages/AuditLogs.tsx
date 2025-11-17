@@ -5,9 +5,10 @@ import { auditApi } from '../api';
 import { LoadingSpinner, ErrorDisplay } from '../components/common';
 import { AuditSortField, SortOrder } from '../types';
 import type { AuditFilterRequest } from '../types';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function AuditLogs() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<AuditFilterRequest>({
     page: 1,
     pageSize: 50,

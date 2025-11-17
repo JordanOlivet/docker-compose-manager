@@ -125,6 +125,7 @@ export default {
     stopped: 'stopped',
     active: 'active',
     totalFilesTracked: 'Total files tracked',
+    systemHealth: 'System Health',
   },
   
   containers: {

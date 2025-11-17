@@ -1,6 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { t } from '../../i18n';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -35,11 +35,15 @@ export const ConfirmDialog = ({
   onConfirm,
   title,
   message,
-  confirmText = t('common.confirm'),
-  cancelText = t('common.cancel'),
+  confirmText,
+  cancelText,
   variant = 'danger',
   isLoading = false,
 }: ConfirmDialogProps) => {
+  const { t } = useTranslation();
+  const finalConfirmText = confirmText || t('common.confirm');
+  const finalCancelText = cancelText || t('common.cancel');
+  
   if (!isOpen) return null;
 
   const styles = variantStyles[variant];
@@ -85,14 +89,14 @@ export const ConfirmDialog = ({
             disabled={isLoading}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {cancelText}
+            {finalCancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
             className={`px-4 py-2 text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${styles.button}`}
           >
-            {isLoading ? 'Processing...' : confirmText}
+            {isLoading ? 'Processing...' : finalConfirmText}
           </button>
         </div>
       </div>

@@ -16,7 +16,7 @@ import {
   ConfirmDialog,
   StateBadge,
 } from "../components/common";
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 import {
   EntityState,
   type ComposeProject,
@@ -32,6 +32,7 @@ interface ProjectAction {
 }
 
 function ComposeProjects() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<ProjectAction | null>(

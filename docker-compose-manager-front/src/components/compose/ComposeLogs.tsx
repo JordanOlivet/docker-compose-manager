@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { signalRService } from '@/services/signalRService';
 import { FileText, Play, Pause, Trash2, AlertCircle } from 'lucide-react';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface ComposeLogsProps {
   // Compose project streaming
@@ -20,6 +20,7 @@ interface LogEntry {
 }
 
 export function ComposeLogs({ projectPath, projectName, containerId, containerName }: ComposeLogsProps) {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -4,7 +4,7 @@ import { containersApi } from '@/api/containers';
 import { EntityState, type ComposeService, type ContainerStats } from '@/types';
 import { Activity, Cpu, HardDrive } from 'lucide-react';
 import { ResourceStatsCard, type StatsMetricConfig } from '@/components/common/ResourceStatsCard';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface ProjectStatsCardProps {
   services: ComposeService[];
@@ -23,6 +23,7 @@ interface AggregatedStats {
 }
 
 export function ProjectStatsCard({ services }: ProjectStatsCardProps) {
+  const { t } = useTranslation();
   const [statsHistory, setStatsHistory] = useState<AggregatedStats[]>([]);
   const [currentStats, setCurrentStats] = useState<AggregatedStats | null>(null);
 

@@ -1,5 +1,5 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { t } from '../../i18n';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorDisplayProps {
   title?: string;
@@ -9,17 +9,19 @@ interface ErrorDisplayProps {
 }
 
 export const ErrorDisplay = ({
-  title = t('common.error'),
+  title,
   message,
   onRetry,
   className = ''
 }: ErrorDisplayProps) => {
+  const { t } = useTranslation();
+  const finalTitle = title || t('common.error');
   return (
     <div className={`rounded-lg border border-red-200 bg-red-50 p-6 ${className}`}>
       <div className="flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
         <div className="flex-1">
-          <h3 className="text-sm font-semibold text-red-900 mb-1">{title}</h3>
+          <h3 className="text-sm font-semibold text-red-900 mb-1">{finalTitle}</h3>
           <p className="text-sm text-red-700">{message}</p>
           {onRetry && (
             <button

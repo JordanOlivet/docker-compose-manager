@@ -1,8 +1,6 @@
-import type en from './en';
-
-const fr: typeof en =  {
+const fr = {
   app: {
-    title: 'Gestionnaire Docker Compose',
+    title: 'Docker Compose Manager',
     composeManager: 'Gestionnaire Compose',
   },
 
@@ -115,7 +113,7 @@ const fr: typeof en =  {
     database: 'Base de données',
     docker: 'Docker',
     composePaths: 'Chemins Compose',
-    recentActivity: 'Activité récente',
+    recentActivity: 'Activités récentes',
     noActivity: 'Aucune activité récente',
     loadingActivity: 'Chargement de l\'activité...',
     containers: 'Conteneurs',
@@ -127,6 +125,7 @@ const fr: typeof en =  {
     stopped: 'arrêtés',
     active: 'actifs',
     totalFilesTracked: 'Total des fichiers suivis',
+    systemHealth: 'État du système',
   },
   
   containers: {
@@ -346,6 +345,6 @@ const fr: typeof en =  {
     validationError: 'Erreur de validation. Veuillez vérifier votre saisie.',
     unknownError: 'Une erreur inattendue s\'est produite.',
   },
-} as const;
+};
 
 export default fr;

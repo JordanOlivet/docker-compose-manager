@@ -4,7 +4,7 @@ import { composeApi } from '@/api/compose';
 import { Edit, Network, HardDrive, Tag, Variable } from 'lucide-react';
 import type { ServiceDetails, NetworkDetails, VolumeDetails } from '@/types/compose';
 import { InfoCard, type InfoSection } from '@/components/common/InfoCard';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface ProjectInfoSectionProps {
   projectName: string;
@@ -12,6 +12,7 @@ interface ProjectInfoSectionProps {
 }
 
 export function ProjectInfoSection({ projectName, projectPath }: ProjectInfoSectionProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: parsedDetails, isLoading, error } = useQuery({
     queryKey: ['projectParsedDetails', projectName],
