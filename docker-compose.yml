@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/JordanOlivet/docker-compose-manager-backend:latest
+    image: ghcr.io/jordanolivet/docker-compose-manager-backend:latest
     container_name: docker-manager-backend
     ports:
       - "5000:5000"
@@ -35,7 +35,7 @@ services:
       start_period: 40s
 
   frontend:
-    image: ghcr.io/JordanOlivet/docker-compose-manager-frontend:latest
+    image: ghcr.io/jordanolivet/docker-compose-manager-frontend:latest
     container_name: docker-manager-frontend
     ports:
       - "3000:80"

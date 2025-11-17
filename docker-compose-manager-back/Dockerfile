@@ -48,9 +48,19 @@ LABEL org.opencontainers.image.title="Docker Compose Manager Backend" \
 
 WORKDIR /app
 
-# Install curl for healthcheck
+# Install curl for healthcheck and Docker CLI for compose operations
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg lsb-release && \
+    # Add Docker's official GPG key
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    # Add Docker repository
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list && \
+    # Install Docker CLI (includes docker compose v2)
+    apt-get update && \
+    apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin && \
+    # Clean up
     rm -rf /var/lib/apt/lists/*
 
 # Copy published app (framework-dependent)
