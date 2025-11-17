@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { t } from '../../i18n';
+import { useTranslation } from 'react-i18next';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -14,6 +14,7 @@ const sizeClasses = {
 };
 
 export const LoadingSpinner = ({ size = 'md', text, className = '' }: LoadingSpinnerProps) => {
+  const { t } = useTranslation();
   return (
     <div
       role="status"

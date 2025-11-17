@@ -1,6 +1,8 @@
 import { Globe } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { getLocale, setLocale, type SupportedLocale } from '../../i18n';
+import { useTranslation } from 'react-i18next';
+
+type SupportedLocale = 'en' | 'fr' | 'es';
 
 interface Language {
   code: SupportedLocale;
@@ -15,8 +17,9 @@ const languages: Language[] = [
 ];
 
 export const LanguageSelector = () => {
+  const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentLocale, setCurrentLocale] = useState<SupportedLocale>(getLocale());
+  const [currentLocale, setCurrentLocale] = useState<SupportedLocale>(i18n.language as SupportedLocale);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentLanguage = languages.find(lang => lang.code === currentLocale) || languages[0];
@@ -38,11 +41,9 @@ export const LanguageSelector = () => {
   }, [isOpen]);
 
   const handleLanguageChange = (languageCode: SupportedLocale) => {
-    setLocale(languageCode);
+    i18n.changeLanguage(languageCode);
     setCurrentLocale(languageCode);
     setIsOpen(false);
-    // Force reload to apply translations
-    window.location.reload();
   };
 
   return (

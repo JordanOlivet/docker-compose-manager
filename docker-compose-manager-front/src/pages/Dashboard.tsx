@@ -17,9 +17,12 @@ import { StatsCard } from '../components/common/StatsCard';
 import { HealthItem } from '../components/common/HealthItem';
 import { ActivityItem } from '../components/common/ActivityItem';
 import { LoadingState } from '../components/common/LoadingState';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../hooks/useAuth';
 
 function Dashboard() {
+  const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   // Fetch dashboard data
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard', 'stats'],
@@ -57,7 +60,7 @@ function Dashboard() {
               <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <ActivityIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
-              System Health
+              {t('dashboard.systemHealth')}
             </h2>
             {health.overall ? (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 rounded-full">
@@ -130,34 +133,36 @@ function Dashboard() {
         />
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <ActivityIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            Recent Activity
-          </h2>
-        </div>
-
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-           {activityLoading && <LoadingState message={t('dashboard.loadingActivity')} />}
-
-          {!activityLoading && activity && activity.length === 0 && (
-            <div className="p-8 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
-                <ActivityIcon className="w-8 h-8 text-gray-400" />
+      {/* Recent Activity - Admin Only */}
+      {isAdmin && (
+        <div className="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <ActivityIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <p className="text-gray-600 dark:text-gray-400">{t('dashboard.noActivity')}</p>
-            </div>
-          )}
+              {t('dashboard.recentActivity')}
+            </h2>
+          </div>
 
-           {!activityLoading && activity && activity.map((item: Activity) => (
-             <ActivityItem key={item.id} item={item} />
-           ))}
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+             {activityLoading && <LoadingState message={t('dashboard.loadingActivity')} />}
+
+            {!activityLoading && activity && activity.length === 0 && (
+              <div className="p-8 text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                  <ActivityIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-600 dark:text-gray-400">{t('dashboard.noActivity')}</p>
+              </div>
+            )}
+
+             {!activityLoading && activity && activity.map((item: Activity) => (
+               <ActivityItem key={item.id} item={item} />
+             ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

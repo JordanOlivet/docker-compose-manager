@@ -5,7 +5,7 @@ import usersApi from '@/api/users';
 import userGroupsApi from '@/api/userGroups';
 import permissionsApi from '@/api/permissions';
 import { useToast } from '@/hooks/useToast';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface CopyPermissionsDialogProps {
   open: boolean;
@@ -22,6 +22,7 @@ export function CopyPermissionsDialog({
   targetId,
   onSuccess,
 }: CopyPermissionsDialogProps) {
+  const { t } = useTranslation();
   const [sourceType, setSourceType] = useState<'user' | 'group'>('user');
   const [sourceId, setSourceId] = useState<string>('');
   const queryClient = useQueryClient();

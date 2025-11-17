@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../api';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { LanguageSelector } from '../common/LanguageSelector';
-import { t } from '../../i18n';
+import { useTranslation } from 'react-i18next';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
 export const Header = ({ onToggleSidebar }: HeaderProps) => {
+  const { t } = useTranslation();
   const { user, logout: logoutStore } = useAuthStore();
   const navigate = useNavigate();
 

@@ -11,7 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { composeApi } from "../api";
 import { LoadingSpinner, ErrorDisplay, StateBadge } from "../components/common";
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 import {
   EntityState,
   type ComposeProject,
@@ -25,6 +25,7 @@ import { ProjectInfoSection } from "../components/compose/ProjectInfoSection";
 import { ComposeLogs } from "../components/compose/ComposeLogs";
 
 function ComposeDetails() {
+  const { t } = useTranslation();
   const { projectName } = useParams<{ projectName: string }>();
   const navigate = useNavigate();
 

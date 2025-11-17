@@ -11,9 +11,10 @@ import { PermissionSelector } from '../components/PermissionSelector';
 import { CopyPermissionsDialog } from '../components/CopyPermissionsDialog';
 import { formatApiError, type ApiErrorResponse } from '../utils/errorFormatter';
 import type { ResourcePermissionInput } from '../types/permissions';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function UserManagement() {
+  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);

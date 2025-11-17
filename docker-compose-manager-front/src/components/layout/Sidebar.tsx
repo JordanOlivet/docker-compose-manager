@@ -13,7 +13,7 @@ import {
   Boxes
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { t } from '../../i18n';
+import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -28,6 +28,7 @@ interface NavItem {
 }
 
 export const Sidebar = ({ isOpen }: SidebarProps) => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
 
   if (!isOpen) return null;

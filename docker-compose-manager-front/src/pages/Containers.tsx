@@ -10,9 +10,10 @@ import { ErrorDisplay } from '../components/common/ErrorDisplay';
 import { Play, Square, RotateCw, Trash2, Container as ContainerIcon } from 'lucide-react';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
 import { signalRService } from "../services/signalRService";
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function Containers() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [showAllContainers, setShowAllContainers] = useState(true);
   // Sorting state: column key & direction

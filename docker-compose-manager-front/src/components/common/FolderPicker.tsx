@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import configApi, { type DirectoryBrowseResult } from '../../api/config';
 import { LoadingSpinner } from './LoadingSpinner';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface FolderPickerProps {
   onSelect: (path: string) => void;
@@ -11,6 +11,7 @@ interface FolderPickerProps {
 }
 
 export function FolderPicker({ onSelect, onCancel, initialPath }: FolderPickerProps) {
+  const { t } = useTranslation();
   const [currentPath, setCurrentPath] = useState<string | undefined>(initialPath);
   const [selectedPath, setSelectedPath] = useState<string>(initialPath || '');
 

@@ -1,5 +1,5 @@
 import { Circle } from 'lucide-react';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface StateBadgeProps {
   status: string;
@@ -46,6 +46,7 @@ export const StateBadge = ({
   showIcon = true,
   className = '',
 }: StateBadgeProps) => {
+  const { t } = useTranslation();
   // Handle undefined or null status
   if (!status) {
     return (

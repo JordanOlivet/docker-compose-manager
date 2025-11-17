@@ -12,9 +12,10 @@ import { CopyPermissionsDialog } from '../components/CopyPermissionsDialog';
 import type { UserGroup } from '../types';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
 import type { ResourcePermissionInput } from '../types/permissions';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function UserGroups() {
+  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<UserGroup | null>(null);

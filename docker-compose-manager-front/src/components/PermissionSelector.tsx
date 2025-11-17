@@ -12,7 +12,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { containersApi } from '@/api/containers';
 import { composeApi } from '@/api/compose';
-import { t } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface PermissionSelectorProps {
   permissions: ResourcePermissionInput[];
@@ -27,6 +27,7 @@ export function PermissionSelector({
   onCopyClick,
   showCopyButton = true
 }: PermissionSelectorProps) {
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [newPermission, setNewPermission] = useState<ResourcePermissionInput>({
     resourceType: PermissionResourceType.Container,

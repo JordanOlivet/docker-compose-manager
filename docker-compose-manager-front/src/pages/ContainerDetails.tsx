@@ -6,7 +6,7 @@ import { useContainerMutations } from "../hooks/useContainerMutations";
 import { StateBadge } from "../components/common/StateBadge";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { ErrorDisplay } from "../components/common/ErrorDisplay";
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 import { EntityState, type ContainerDetails, type ContainerStats } from "../types";
 // Removed local polling state (handled by ResourceStatsCard) -> no React hooks needed here
 import { ComposeLogs } from "../components/compose/ComposeLogs";
@@ -15,6 +15,7 @@ import { ResourceStatsCard, type StatsMetricConfig, type StatsGroupConfig } from
 import { Variable, Network as NetworkIcon, HardDrive, Tag } from "lucide-react";
 
 function ContainerDetails() {
+	const { t } = useTranslation();
 	const { containerId } = useParams<{ containerId: string }>();
 	const navigate = useNavigate();
 
@@ -86,6 +87,102 @@ function ContainerDetails() {
 		if (confirm(message)) {
 			removeContainer(container.id, container.name, isRunning);
 		}
+	};
+
+	// Build generic sections for container technical details using InfoCard.
+	const buildContainerSections = (container: ContainerDetails): InfoSection[] => {
+		const sections: InfoSection[] = [];
+
+		if (container.env && Object.keys(container.env).length > 0) {
+			sections.push({
+				id: 'env',
+				title: t('containers.environment'),
+				icon: <Variable className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+				count: Object.keys(container.env).length,
+				initiallyOpen: true,
+				content: (
+					<div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-48 overflow-y-auto">
+						{Object.entries(container.env).map(([key, value]) => (
+							<div key={key} className="flex gap-2">
+								<span className="text-blue-600 dark:text-blue-400 font-semibold">{key}:</span>
+								<span className="text-gray-700 dark:text-gray-300 break-all">{value}</span>
+							</div>
+						))}
+					</div>
+				),
+			});
+		}
+
+		if (container.ports && Object.keys(container.ports).length > 0) {
+			sections.push({
+				id: 'ports',
+				title: t('containers.ports'),
+				icon: <Tag className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
+				count: Object.keys(container.ports).length,
+				content: (
+					<div className="flex flex-col gap-1 text-xs font-mono">
+						{Object.entries(container.ports).map(([k, v]) => (
+							<span key={k} className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">{k} → {v}</span>
+						))}
+					</div>
+				),
+			});
+		}
+
+		if (container.mounts && container.mounts.length > 0) {
+			sections.push({
+				id: 'mounts',
+				title: t('containers.volumes'),
+				icon: <HardDrive className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
+				count: container.mounts.length,
+				content: (
+					<ul className="text-xs font-mono space-y-1">
+						{container.mounts.map((m, i) => (
+							<li key={i} className="text-gray-700 dark:text-gray-300">
+								{m.source} : <span className="italic">{m.destination}</span> {m.readOnly ? t('containers.readOnly') : ''}
+							</li>
+						))}
+					</ul>
+				),
+			});
+		}
+
+		if (container.networks && container.networks.length > 0) {
+			sections.push({
+				id: 'networks',
+				title: t('containers.networks'),
+				icon: <NetworkIcon className="h-4 w-4 text-green-600 dark:text-green-400" />,
+				count: container.networks.length,
+				content: (
+					<ul className="text-xs font-mono flex flex-wrap gap-1">
+						{container.networks.map(n => (
+							<li key={n} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">{n}</li>
+						))}
+					</ul>
+				),
+			});
+		}
+
+		if (container.labels && Object.keys(container.labels).length > 0) {
+			sections.push({
+				id: 'labels',
+				title: t('containers.labels'),
+				icon: <Tag className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />,
+				count: Object.keys(container.labels).length,
+				content: (
+					<div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-48 overflow-y-auto">
+						{Object.entries(container.labels).map(([k, v]) => (
+							<div key={k} className="flex gap-2">
+								<span className="text-blue-600 dark:text-blue-400">{k}:</span>
+								<span className="text-gray-700 dark:text-gray-300">{v}</span>
+							</div>
+						))}
+					</div>
+				),
+			});
+		}
+
+		return sections;
 	};
 
 	if (isLoading) {
@@ -213,101 +310,3 @@ function ContainerDetails() {
 }
 
 export default ContainerDetails;
-
-
-
-// Build generic sections for container technical details using InfoCard.
-function buildContainerSections(container: ContainerDetails): InfoSection[] {
-	const sections: InfoSection[] = [];
-
-	if (container.env && Object.keys(container.env).length > 0) {
-		sections.push({
-			id: 'env',
-			title: t('containers.environment'),
-			icon: <Variable className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-			count: Object.keys(container.env).length,
-			initiallyOpen: true,
-			content: (
-				<div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-48 overflow-y-auto">
-					{Object.entries(container.env).map(([key, value]) => (
-						<div key={key} className="flex gap-2">
-							<span className="text-blue-600 dark:text-blue-400 font-semibold">{key}:</span>
-							<span className="text-gray-700 dark:text-gray-300 break-all">{value}</span>
-						</div>
-					))}
-				</div>
-			),
-		});
-	}
-
-	if (container.ports && Object.keys(container.ports).length > 0) {
-		sections.push({
-			id: 'ports',
-			title: t('containers.ports'),
-			icon: <Tag className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
-			count: Object.keys(container.ports).length,
-			content: (
-				<div className="flex flex-col gap-1 text-xs font-mono">
-					{Object.entries(container.ports).map(([k, v]) => (
-						<span key={k} className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">{k} → {v}</span>
-					))}
-				</div>
-			),
-		});
-	}
-
-	if (container.mounts && container.mounts.length > 0) {
-		sections.push({
-			id: 'mounts',
-			title: t('containers.volumes'),
-			icon: <HardDrive className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
-			count: container.mounts.length,
-			content: (
-				<ul className="text-xs font-mono space-y-1">
-					{container.mounts.map((m, i) => (
-						<li key={i} className="text-gray-700 dark:text-gray-300">
-							{m.source} : <span className="italic">{m.destination}</span> {m.readOnly ? t('containers.readOnly') : ''}
-						</li>
-					))}
-				</ul>
-			),
-		});
-	}
-
-	if (container.networks && container.networks.length > 0) {
-		sections.push({
-			id: 'networks',
-			title: t('containers.networks'),
-			icon: <NetworkIcon className="h-4 w-4 text-green-600 dark:text-green-400" />,
-			count: container.networks.length,
-			content: (
-				<ul className="text-xs font-mono flex flex-wrap gap-1">
-					{container.networks.map(n => (
-						<li key={n} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">{n}</li>
-					))}
-				</ul>
-			),
-		});
-	}
-
-	if (container.labels && Object.keys(container.labels).length > 0) {
-		sections.push({
-			id: 'labels',
-			title: t('containers.labels'),
-			icon: <Tag className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />,
-			count: Object.keys(container.labels).length,
-			content: (
-				<div className="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-48 overflow-y-auto">
-					{Object.entries(container.labels).map(([k, v]) => (
-						<div key={k} className="flex gap-2">
-							<span className="text-blue-600 dark:text-blue-400">{k}:</span>
-							<span className="text-gray-700 dark:text-gray-300">{v}</span>
-						</div>
-					))}
-				</div>
-			),
-		});
-	}
-
-	return sections;
-}

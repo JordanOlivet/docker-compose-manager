@@ -5,7 +5,7 @@ import Editor from '@monaco-editor/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { composeApi } from '../api';
 import { LoadingSpinner, ErrorDisplay } from '../components/common';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 const DEFAULT_COMPOSE_CONTENT = `version: '3.8'
 
@@ -20,6 +20,7 @@ services:
 `;
 
 function ComposeEditor() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

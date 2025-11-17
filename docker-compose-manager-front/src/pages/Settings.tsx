@@ -7,9 +7,10 @@ import { useToast } from '../hooks/useToast';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { FolderPicker } from '../components/common/FolderPicker';
 import { type ApiErrorResponse } from '../utils/errorFormatter';
-import { t } from '../i18n';
+import { useTranslation } from 'react-i18next';
 
 function Settings() {
+  const { t } = useTranslation();
   const [showAddPath, setShowAddPath] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [newPath, setNewPath] = useState('');
