@@ -28,3 +28,4 @@ user-password-maker/bin
 user-password-maker/obj
 NUL
 node_modules
+logs
