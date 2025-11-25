@@ -49,21 +49,19 @@
     { to: '/logs', icon: FileOutput, label: 'navigation.logsViewer', category: 'navigation.categories.docker' },
   ];
 
-  function getNavItems() {
-    return authStore.isAdmin ? adminNavItems : userNavItems;
-  }
+  // Utiliser $derived pour la réactivité quand authStore.isAdmin change
+  const navItems = $derived(authStore.isAdmin ? adminNavItems : userNavItems);
 
-  function getGroupedNavItems() {
-    const items = getNavItems();
-    return items.reduce((acc, item) => {
+  const groupedNavItems = $derived(
+    navItems.reduce((acc, item) => {
       const category = item.category ? t(item.category) : 'Other';
       if (!acc[category]) {
         acc[category] = [];
       }
       acc[category].push(item);
       return acc;
-    }, {} as Record<string, NavItem[]>);
-  }
+    }, {} as Record<string, NavItem[]>)
+  );
 
   function isActive(path: string, currentPath: string): boolean {
     if (path === '/') {
@@ -78,7 +76,7 @@
     <!-- Logo Header -->
     <div class="flex items-center h-16 px-6 border-b border-gray-200 dark:border-gray-800">
       <div class="flex items-center gap-3">
-        <div class="p-2 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-md">
+        <div class="p-2 bg-linear-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-md">
           <Boxes class="w-5 h-5 text-white" />
         </div>
         <div>
@@ -90,7 +88,7 @@
 
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto py-4">
-      {#each Object.entries(getGroupedNavItems()) as [category, items]}
+      {#each Object.entries(groupedNavItems) as [category, items]}
         <div class="mb-6">
           <div class="px-6 mb-2">
             <h3 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">

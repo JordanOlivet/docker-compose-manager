@@ -19,7 +19,7 @@ function createAuthStore() {
     get accessToken() { return state.accessToken; },
     get refreshToken() { return state.refreshToken; },
     get isAuthenticated() { return !!state.accessToken; },
-    get isAdmin() { return state.user?.role === 'Admin'; },
+    get isAdmin() { return state.user?.role?.toLowerCase() === 'admin'; },
 
     login(accessToken: string, refreshToken: string, user: User) {
       if (browser) {

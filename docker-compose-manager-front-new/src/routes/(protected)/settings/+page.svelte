@@ -5,6 +5,7 @@
   import type { ComposePath } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import Dialog from '$lib/components/ui/dialog.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Card from '$lib/components/ui/card.svelte';
   import CardHeader from '$lib/components/ui/card-header.svelte';
@@ -21,11 +22,25 @@
     onConfirm: () => {},
   });
 
+  let addPathDialog = $state({ open: false });
+  let newPath = $state('');
+  let isReadOnly = $state(false);
+
   const queryClient = useQueryClient();
 
   const pathsQuery = createQuery(() => ({
     queryKey: ['config', 'paths'],
     queryFn: () => configApi.getPaths(),
+  }));
+
+  const addMutation = createMutation(() => ({
+    mutationFn: (data: { path: string; isReadOnly?: boolean }) => configApi.addPath(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['config', 'paths'] });
+      toast.success(t('settings.pathAdded'));
+      closeAddDialog();
+    },
+    onError: () => toast.error(t('errors.generic')),
   }));
 
   const deleteMutation = createMutation(() => ({
@@ -36,6 +51,26 @@
     },
     onError: () => toast.error(t('errors.generic')),
   }));
+
+  function openAddDialog() {
+    newPath = '';
+    isReadOnly = false;
+    addPathDialog.open = true;
+  }
+
+  function closeAddDialog() {
+    addPathDialog.open = false;
+    newPath = '';
+    isReadOnly = false;
+  }
+
+  function handleAddPath() {
+    if (!newPath.trim()) {
+      toast.error('Please enter a path');
+      return;
+    }
+    addMutation.mutate({ path: newPath.trim(), isReadOnly });
+  }
 
   function confirmDelete(pathId: number, path: string) {
     confirmDialog = {
@@ -62,7 +97,7 @@
     <CardHeader>
       <div class="flex items-center justify-between">
         <CardTitle>{t('settings.composePathsTitle')}</CardTitle>
-        <Button size="sm">
+        <Button size="sm" onclick={openAddDialog}>
           <Plus class="w-4 h-4 mr-2" />
           {t('settings.addPath')}
         </Button>
@@ -122,3 +157,51 @@
   onconfirm={confirmDialog.onConfirm}
   oncancel={() => confirmDialog.open = false}
 />
+
+<Dialog open={addPathDialog.open} onclose={closeAddDialog}>
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+      {t('settings.addPathTitle')}
+    </h2>
+    
+    <div class="space-y-4">
+      <div>
+        <label for="path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('settings.path')}
+        </label>
+        <input
+          id="path"
+          type="text"
+          bind:value={newPath}
+          placeholder="/path/to/compose/files"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <input
+          id="readonly"
+          type="checkbox"
+          bind:checked={isReadOnly}
+          class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        <label for="readonly" class="text-sm text-gray-700 dark:text-gray-300">
+          Read Only
+        </label>
+      </div>
+    </div>
+    
+    <div class="flex justify-end gap-3 mt-6">
+      <Button variant="outline" onclick={closeAddDialog}>
+        {t('common.cancel')}
+      </Button>
+      <Button onclick={handleAddPath} disabled={addMutation.isPending}>
+        {#if addMutation.isPending}
+          Adding...
+        {:else}
+          {t('settings.addPath')}
+        {/if}
+      </Button>
+    </div>
+  </div>
+</Dialog>
