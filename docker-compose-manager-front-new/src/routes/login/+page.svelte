@@ -54,14 +54,13 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
+<div class="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
   <Card class="max-w-md w-full mx-4 shadow-xl">
     <CardHeader class="text-center pb-2">
-      <div class="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
+      <div class="mx-auto w-16 h-16 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
         <Boxes class="w-8 h-8 text-white" />
       </div>
       <CardTitle class="text-2xl font-bold">{t('app.title')}</CardTitle>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('auth.loginSubtitle')}</p>
     </CardHeader>
     <CardContent class="pt-6">
       {#if error}

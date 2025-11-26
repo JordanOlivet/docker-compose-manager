@@ -1,17 +1,55 @@
 <script lang="ts">
-  import { createQuery } from '@tanstack/svelte-query';
-  import { UsersRound, Plus, Users } from 'lucide-svelte';
+  import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
+  import { UsersRound, Plus, Users, Edit, Trash2 } from 'lucide-svelte';
   import userGroupsApi from '$lib/api/userGroups';
   import type { UserGroup } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
+  import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import UserGroupFormDialog from '$lib/components/UserGroupFormDialog.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Badge from '$lib/components/ui/badge.svelte';
   import { t } from '$lib/i18n';
+  import { toast } from 'svelte-sonner';
+
+  let confirmDialog = $state<{ open: boolean; title: string; description: string; onConfirm: () => void }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  let groupFormDialog = $state<{ open: boolean; group?: UserGroup }>({
+    open: false,
+    group: undefined,
+  });
+
+  const queryClient = useQueryClient();
 
   const groupsQuery = createQuery(() => ({
     queryKey: ['userGroups'],
     queryFn: () => userGroupsApi.list(),
   }));
+
+  const deleteMutation = createMutation(() => ({
+    mutationFn: (id: number) => userGroupsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userGroups'] });
+      toast.success('Group deleted successfully');
+    },
+    onError: () => toast.error('Failed to delete group'),
+  }));
+
+  function confirmDelete(groupId: number, groupName: string) {
+    confirmDialog = {
+      open: true,
+      title: 'Delete Group',
+      description: `Are you sure you want to delete group "${groupName}"?`,
+      onConfirm: () => {
+        deleteMutation.mutate(groupId);
+        confirmDialog.open = false;
+      },
+    };
+  }
 
   function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString(undefined, {
@@ -29,7 +67,7 @@
       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('users.groups')}</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1">{t('users.groupsSubtitle')}</p>
     </div>
-    <Button>
+    <Button onclick={() => groupFormDialog = { open: true, group: undefined }}>
       <Plus class="w-4 h-4 mr-2" />
       Create Group
     </Button>
@@ -66,14 +104,33 @@
               </div>
             </div>
 
-            <div class="mt-4 flex items-center gap-4">
-              <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <Users class="w-4 h-4" />
-                <span>{group.memberCount} {t('users.members')}</span>
+            <div class="mt-4 flex items-center justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <Users class="w-4 h-4" />
+                  <span>{group.memberCount} {t('users.members')}</span>
+                </div>
+                <Badge variant="secondary">
+                  {formatDate(group.createdAt)}
+                </Badge>
               </div>
-              <Badge variant="secondary">
-                {formatDate(group.createdAt)}
-              </Badge>
+              <div class="flex gap-2">
+                <button
+                  onclick={() => groupFormDialog = { open: true, group }}
+                  class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                  title="Edit"
+                >
+                  <Edit class="w-4 h-4" />
+                </button>
+                <button
+                  onclick={() => confirmDelete(group.id, group.name)}
+                  class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                  title="Delete"
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -81,3 +138,17 @@
     </div>
   {/if}
 </div>
+
+<ConfirmDialog
+  open={confirmDialog.open}
+  title={confirmDialog.title}
+  description={confirmDialog.description}
+  onconfirm={confirmDialog.onConfirm}
+  oncancel={() => confirmDialog.open = false}
+/>
+
+<UserGroupFormDialog
+  open={groupFormDialog.open}
+  group={groupFormDialog.group}
+  onClose={() => groupFormDialog = { open: false, group: undefined }}
+/>

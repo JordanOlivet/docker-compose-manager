@@ -29,7 +29,12 @@
       "Bash(fi)",
       "Bash(timeout 10 npm run dev:*)",
       "Bash(tree:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(timeout 5 echo:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(xargs sed:*)"
     ],
     "deny": [],
     "ask": []

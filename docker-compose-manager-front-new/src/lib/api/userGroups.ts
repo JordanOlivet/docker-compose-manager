@@ -28,7 +28,18 @@ const userGroupsApi = {
    * Create new user group
    */
   create: async (data: CreateUserGroupRequest): Promise<UserGroup> => {
-    const response = await apiClient.post('/usergroups', data);
+    // Transform to PascalCase for C# backend
+    const backendData = {
+      Name: data.name,
+      Description: data.description || null,
+      MemberIds: data.memberIds || [],
+      Permissions: data.permissions?.map(p => ({
+        ResourceType: p.resourceType,
+        ResourceName: p.resourceName,
+        Permissions: p.permissions
+      })) || null
+    };
+    const response = await apiClient.post('/usergroups', backendData);
     return response.data.data;
   },
 
@@ -36,7 +47,17 @@ const userGroupsApi = {
    * Update user group
    */
   update: async (id: number, data: UpdateUserGroupRequest): Promise<UserGroup> => {
-    const response = await apiClient.put(`/usergroups/${id}`, data);
+    // Transform to PascalCase for C# backend
+    const backendData: any = {
+      Name: data.name,
+      Description: data.description || null,
+      Permissions: data.permissions?.map(p => ({
+        ResourceType: p.resourceType,
+        ResourceName: p.resourceName,
+        Permissions: p.permissions
+      })) || null
+    };
+    const response = await apiClient.put(`/usergroups/${id}`, backendData);
     return response.data.data;
   },
 
@@ -51,7 +72,11 @@ const userGroupsApi = {
    * Add user to group
    */
   addMember: async (groupId: number, data: AddUserToGroupRequest): Promise<void> => {
-    await apiClient.post(`/usergroups/${groupId}/members`, data);
+    // Transform to PascalCase for C# backend
+    const backendData = {
+      UserId: data.userId
+    };
+    await apiClient.post(`/usergroups/${groupId}/members`, backendData);
   },
 
   /**

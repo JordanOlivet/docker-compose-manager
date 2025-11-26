@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Package, Play, Square, RotateCcw, Search, Eye } from 'lucide-svelte';
+  import { Package, Play, Square, RotateCcw, Search, Eye, Download, Hammer } from 'lucide-svelte';
   import { composeApi } from '$lib/api';
   import type { ComposeProject } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
@@ -51,6 +51,24 @@
       toast.success(t('compose.restartSuccess'));
     },
     onError: () => toast.error(t('compose.failedToLoad')),
+  }));
+
+  const pullMutation = createMutation(() => ({
+    mutationFn: (projectName: string) => composeApi.pullProject(projectName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      toast.success('Images pulled successfully');
+    },
+    onError: () => toast.error('Failed to pull images'),
+  }));
+
+  const buildMutation = createMutation(() => ({
+    mutationFn: (projectName: string) => composeApi.buildProject(projectName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      toast.success('Project built successfully');
+    },
+    onError: () => toast.error('Failed to build project'),
   }));
 
   function confirmAction(action: string, projectName: string, onConfirm: () => void) {
@@ -141,41 +159,63 @@
             {/if}
 
             <!-- Actions -->
-            <div class="mt-4 flex gap-2 border-t border-gray-100 dark:border-gray-700 pt-4">
-              <a
-                href="/compose/projects/{encodeURIComponent(project.name)}"
-                class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-              >
-                <Eye class="w-4 h-4" />
-                {t('common.edit')}
-              </a>
-              {#if isRunning}
-                <button
-                  onclick={() => confirmAction('Down', project.name, () => downMutation.mutate(project.name))}
-                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  disabled={downMutation.isPending}
+            <div class="mt-4 flex flex-col gap-2 border-t border-gray-100 dark:border-gray-700 pt-4">
+              <div class="flex gap-2">
+                <a
+                  href="/compose/projects/{encodeURIComponent(project.name)}"
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 >
-                  <Square class="w-4 h-4" />
-                  {t('compose.down')}
+                  <Eye class="w-4 h-4" />
+                  {t('common.edit')}
+                </a>
+                {#if isRunning}
+                  <button
+                    onclick={() => confirmAction('Down', project.name, () => downMutation.mutate(project.name))}
+                    class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    disabled={downMutation.isPending}
+                  >
+                    <Square class="w-4 h-4" />
+                    {t('compose.down')}
+                  </button>
+                  <button
+                    onclick={() => confirmAction('Restart', project.name, () => restartMutation.mutate(project.name))}
+                    class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
+                    disabled={restartMutation.isPending}
+                  >
+                    <RotateCcw class="w-4 h-4" />
+                    {t('compose.restart')}
+                  </button>
+                {:else}
+                  <button
+                    onclick={() => confirmAction('Up', project.name, () => upMutation.mutate(project.name))}
+                    class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                    disabled={upMutation.isPending}
+                  >
+                    <Play class="w-4 h-4" />
+                    {t('compose.up')}
+                  </button>
+                {/if}
+              </div>
+              <div class="flex gap-2">
+                <button
+                  onclick={() => pullMutation.mutate(project.name)}
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                  disabled={pullMutation.isPending}
+                  title="Pull latest images"
+                >
+                  <Download class="w-4 h-4" />
+                  Pull
                 </button>
                 <button
-                  onclick={() => confirmAction('Restart', project.name, () => restartMutation.mutate(project.name))}
-                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
-                  disabled={restartMutation.isPending}
+                  onclick={() => buildMutation.mutate(project.name)}
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                  disabled={buildMutation.isPending}
+                  title="Build project images"
                 >
-                  <RotateCcw class="w-4 h-4" />
-                  {t('compose.restart')}
+                  <Hammer class="w-4 h-4" />
+                  Build
                 </button>
-              {:else}
-                <button
-                  onclick={() => confirmAction('Up', project.name, () => upMutation.mutate(project.name))}
-                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                  disabled={upMutation.isPending}
-                >
-                  <Play class="w-4 h-4" />
-                  {t('compose.up')}
-                </button>
-              {/if}
+              </div>
             </div>
           </div>
         </div>

@@ -1,21 +1,48 @@
 <script lang="ts">
-  import { createQuery } from '@tanstack/svelte-query';
-  import { ClipboardList, Search, Filter } from 'lucide-svelte';
+  import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
+  import { ClipboardList, Search, Filter, Trash2, BarChart3 } from 'lucide-svelte';
   import { auditApi } from '$lib/api';
   import type { AuditLog } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
+  import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import StatsCard from '$lib/components/common/StatsCard.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import Badge from '$lib/components/ui/badge.svelte';
+  import Button from '$lib/components/ui/button.svelte';
   import { t } from '$lib/i18n';
+  import { toast } from 'svelte-sonner';
 
   let searchQuery = $state('');
   let page = $state(1);
   const pageSize = 20;
+  let purgeDialog = $state<{ open: boolean; days: number }>({ open: false, days: 30 });
+
+  const queryClient = useQueryClient();
 
   const auditQuery = createQuery(() => ({
     queryKey: ['audit', page, searchQuery],
     queryFn: () => auditApi.listAuditLogs({ page, pageSize, search: searchQuery || undefined }),
   }));
+
+  // TODO: Implement /api/audit/stats endpoint in backend
+  // const statsQuery = createQuery(() => ({
+  //   queryKey: ['audit', 'stats'],
+  //   queryFn: () => auditApi.getAuditStats(),
+  // }));
+
+  const purgeMutation = createMutation(() => ({
+    mutationFn: (daysOld: number) => auditApi.purgeOldLogs({ daysOld }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
+      toast.success(`Purged ${result.deletedCount} old audit logs`);
+      purgeDialog.open = false;
+    },
+    onError: () => toast.error('Failed to purge logs'),
+  }));
+
+  function confirmPurge() {
+    purgeDialog.open = true;
+  }
 
   function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleString(undefined, {
@@ -28,12 +55,67 @@
   }
 </script>
 
+<ConfirmDialog
+  open={purgeDialog.open}
+  title="Purge Old Audit Logs"
+  description="This will permanently delete audit logs older than {purgeDialog.days} days. This action cannot be undone."
+  onconfirm={() => purgeMutation.mutate(purgeDialog.days)}
+  oncancel={() => purgeDialog.open = false}
+>
+  <div class="mt-4 space-y-2" slot="content">
+    <label for="purge-days" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      Delete logs older than (days):
+    </label>
+    <Input
+      id="purge-days"
+      type="number"
+      bind:value={purgeDialog.days}
+      min="1"
+      max="365"
+      class="w-full"
+    />
+  </div>
+</ConfirmDialog>
+
 <div class="space-y-6">
   <!-- Header -->
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('audit.title')}</h1>
-    <p class="text-gray-600 dark:text-gray-400 mt-1">{t('audit.subtitle')}</p>
+  <div class="flex justify-between items-start">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('audit.title')}</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('audit.subtitle')}</p>
+    </div>
+    <Button variant="destructive" onclick={confirmPurge}>
+      <Trash2 class="w-4 h-4 mr-2" />
+      Purge Old Logs
+    </Button>
   </div>
+
+  <!-- Statistics -->
+  <!-- TODO: Uncomment when /api/audit/stats endpoint is implemented in backend -->
+  <!-- {#if statsQuery.data}
+    <div class="grid gap-4 md:grid-cols-4">
+      <StatsCard
+        title="Total Logs"
+        value={statsQuery.data.totalLogs.toString()}
+        icon={BarChart3}
+      />
+      <StatsCard
+        title="Today"
+        value={statsQuery.data.logsToday.toString()}
+        icon={ClipboardList}
+      />
+      <StatsCard
+        title="This Week"
+        value={statsQuery.data.logsThisWeek.toString()}
+        icon={ClipboardList}
+      />
+      <StatsCard
+        title="This Month"
+        value={statsQuery.data.logsThisMonth.toString()}
+        icon={ClipboardList}
+      />
+    </div>
+  {/if} -->
 
   <!-- Search and Filters -->
   <div class="flex gap-4">

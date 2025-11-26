@@ -40,7 +40,18 @@ const usersApi = {
    * Create new user (admin only)
    */
   create: async (data: CreateUserRequest): Promise<User> => {
-    const response = await apiClient.post('/users', data);
+    // Transform to PascalCase for C# backend
+    const backendData = {
+      Username: data.username,
+      Password: data.password,
+      Role: data.role,
+      Permissions: data.permissions?.map(p => ({
+        ResourceType: p.resourceType,
+        ResourceName: p.resourceName,
+        Permissions: p.permissions
+      })) || null
+    };
+    const response = await apiClient.post('/users', backendData);
     return response.data.data;
   },
 
@@ -48,7 +59,21 @@ const usersApi = {
    * Update user (admin only)
    */
   update: async (id: number, data: UpdateUserRequest): Promise<User> => {
-    const response = await apiClient.put(`/users/${id}`, data);
+    // Transform to PascalCase for C# backend
+    const backendData: any = {};
+    if (data.username !== undefined) backendData.Username = data.username;
+    if (data.role !== undefined) backendData.Role = data.role;
+    if (data.isEnabled !== undefined) backendData.IsEnabled = data.isEnabled;
+    if (data.newPassword !== undefined) backendData.NewPassword = data.newPassword;
+    if (data.permissions !== undefined) {
+      backendData.Permissions = data.permissions?.map(p => ({
+        ResourceType: p.resourceType,
+        ResourceName: p.resourceName,
+        Permissions: p.permissions
+      })) || null;
+    }
+
+    const response = await apiClient.put(`/users/${id}`, backendData);
     return response.data.data;
   },
 

@@ -44,7 +44,7 @@ locale.subscribe((lng) => {
   }
 });
 
-// Translation function that returns a reactive value
+// Translation function
 export function t(key: string, options?: Record<string, unknown>): string {
   return i18n.t(key, options);
 }

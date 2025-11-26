@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { ArrowLeft, Play, Square, RotateCcw, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, Play, Square, RotateCcw, Trash2, Pause, PlayCircle } from 'lucide-svelte';
   import { containersApi } from '$lib/api';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
@@ -65,6 +65,24 @@
       goto('/containers');
     },
     onError: () => toast.error(t('containers.removeFailed')),
+  }));
+
+  const pauseMutation = createMutation(() => ({
+    mutationFn: () => containersApi.pause(containerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
+      toast.success('Container paused successfully');
+    },
+    onError: () => toast.error('Failed to pause container'),
+  }));
+
+  const unpauseMutation = createMutation(() => ({
+    mutationFn: () => containersApi.unpause(containerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
+      toast.success('Container unpaused successfully');
+    },
+    onError: () => toast.error('Failed to unpause container'),
   }));
 
   function formatBytes(bytes: number): string {
@@ -133,7 +151,7 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-2 mt-6">
+        <div class="flex gap-2 mt-6 flex-wrap">
           {#if isRunning}
             <Button
               variant="outline"
@@ -151,6 +169,25 @@
               <RotateCcw class="w-4 h-4 mr-2" />
               {t('containers.restart')}
             </Button>
+            {#if container.status.toLowerCase().includes('paused')}
+              <Button
+                variant="outline"
+                onclick={() => unpauseMutation.mutate()}
+                disabled={unpauseMutation.isPending}
+              >
+                <PlayCircle class="w-4 h-4 mr-2" />
+                Unpause
+              </Button>
+            {:else}
+              <Button
+                variant="outline"
+                onclick={() => pauseMutation.mutate()}
+                disabled={pauseMutation.isPending}
+              >
+                <Pause class="w-4 h-4 mr-2" />
+                Pause
+              </Button>
+            {/if}
           {:else}
             <Button
               onclick={() => startMutation.mutate()}

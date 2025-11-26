@@ -36,24 +36,25 @@ export const auditApi = {
 
   // Get distinct action values for filtering
   getDistinctActions: async (): Promise<string[]> => {
-    const response = await apiClient.get<ApiResponseWrapper<DistinctActionsResponse>>(
-      '/audit/actions/distinct'
+    const response = await apiClient.get<ApiResponseWrapper<string[]>>(
+      '/audit/actions'
     );
-    return response.data.data?.actions || [];
+    return response.data.data || [];
   },
 
   // Get distinct resource type values for filtering
   getDistinctResourceTypes: async (): Promise<string[]> => {
-    const response = await apiClient.get<ApiResponseWrapper<DistinctResourceTypesResponse>>(
-      '/audit/resource-types/distinct'
+    const response = await apiClient.get<ApiResponseWrapper<string[]>>(
+      '/audit/resource-types'
     );
-    return response.data.data?.resourceTypes || [];
+    return response.data.data || [];
   },
 
   // Get audit activity for a specific user
-  getUserAuditActivity: async (userId: number): Promise<UserAuditActivityResponse> => {
+  getUserAuditActivity: async (userId: number, limit = 100): Promise<UserAuditActivityResponse> => {
     const response = await apiClient.get<ApiResponseWrapper<UserAuditActivityResponse>>(
-      `/audit/users/${userId}/activity`
+      `/audit/users/${userId}`,
+      { params: { limit } }
     );
     if (!response.data.data) {
       throw new Error('Failed to fetch user audit activity');
@@ -72,14 +73,19 @@ export const auditApi = {
 
   // Purge old audit logs (admin only)
   purgeOldLogs: async (request: PurgeLogsRequest): Promise<PurgeLogsResponse> => {
-    const response = await apiClient.post<ApiResponseWrapper<PurgeLogsResponse>>(
+    // Calculate beforeDate from daysOld
+    const beforeDate = new Date();
+    beforeDate.setDate(beforeDate.getDate() - request.daysOld);
+
+    const response = await apiClient.delete<ApiResponseWrapper<number>>(
       '/audit/purge',
-      request
+      { params: { beforeDate: beforeDate.toISOString() } }
     );
-    if (!response.data.data) {
+    if (response.data.data === undefined) {
       throw new Error('Failed to purge logs');
     }
-    return response.data.data;
+    // Convert backend response (count) to frontend expected format
+    return { deletedCount: response.data.data };
   }
 };
 

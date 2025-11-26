@@ -5,6 +5,7 @@
   import type { User } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import UserFormDialog from '$lib/components/UserFormDialog.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Badge from '$lib/components/ui/badge.svelte';
   import { t } from '$lib/i18n';
@@ -15,6 +16,11 @@
     title: '',
     description: '',
     onConfirm: () => {},
+  });
+
+  let userFormDialog = $state<{ open: boolean; user?: User }>({
+    open: false,
+    user: undefined,
   });
 
   const queryClient = useQueryClient();
@@ -79,7 +85,7 @@
       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('users.title')}</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1">{t('users.subtitle')}</p>
     </div>
-    <Button>
+    <Button onclick={() => userFormDialog = { open: true, user: undefined }}>
       <Plus class="w-4 h-4 mr-2" />
       {t('users.createUser')}
     </Button>
@@ -146,6 +152,7 @@
               <td class="px-6 py-4 whitespace-nowrap text-right">
                 <div class="flex justify-end gap-2">
                   <button
+                    onclick={() => userFormDialog = { open: true, user }}
                     class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                     title={t('common.edit')}
                   >
@@ -194,4 +201,10 @@
   description={confirmDialog.description}
   onconfirm={confirmDialog.onConfirm}
   oncancel={() => confirmDialog.open = false}
+/>
+
+<UserFormDialog
+  open={userFormDialog.open}
+  user={userFormDialog.user}
+  onClose={() => userFormDialog = { open: false, user: undefined }}
 />
