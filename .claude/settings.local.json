@@ -36,7 +36,9 @@
       "Bash(netstat:*)",
       "Bash(xargs sed:*)",
       "Bash(cd:*)",
-      "Bash(npm run check:*)"
+      "Bash(npm run check:*)",
+      "Bash(Select-String -Pattern \"error|warning CS\")",
+      "Bash(Select-Object -Last 10)"
     ],
     "deny": [],
     "ask": []

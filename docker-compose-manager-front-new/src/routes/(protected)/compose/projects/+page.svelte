@@ -12,7 +12,7 @@
   } from 'lucide-svelte';
   import { composeApi } from '$lib/api/compose';
   import { containersApi } from '$lib/api/containers';
-  import type { ComposeProject, ComposeService } from '$lib/types';
+  import type { ComposeProject, ComposeService, OperationUpdateEvent } from '$lib/types';
   import { EntityState } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
@@ -21,6 +21,8 @@
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
+  import { createSignalRConnection, startConnection, stopConnection, type ComposeProjectStateChangedEvent, type ContainerStateChangedEvent } from '$lib/services/signalr';
+  import { onMount, onDestroy } from 'svelte';
 
   let searchQuery = $state('');
   let openProjects = $state<Record<string, boolean>>({});
@@ -36,8 +38,85 @@
   const projectsQuery = createQuery(() => ({
     queryKey: ['compose', 'projects'],
     queryFn: () => composeApi.listProjects(),
-    refetchInterval: 10000,
+    refetchInterval: false, // SignalR handles real-time updates
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
+    staleTime: 60000, // Consider data fresh for 1 minute to avoid excessive refetches
   }));
+
+  // Setup SignalR connection for real-time compose project updates
+  let unsubscribe: (() => void) | null = null;
+  let invalidateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Debounced invalidation to avoid excessive refetches when multiple events arrive quickly
+  function invalidateProjects() {
+    if (invalidateTimeout) {
+      clearTimeout(invalidateTimeout);
+    }
+    invalidateTimeout = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      invalidateTimeout = null;
+    }, 500); // Wait 500ms after the last event before invalidating
+  }
+
+  onMount(async () => {
+    unsubscribe = createSignalRConnection({
+      onOperationUpdate: (update: OperationUpdateEvent) => {
+        // Listen for compose-related operations that are completed or failed
+        const statusMatch = update.status === 'completed' || update.status === 'failed';
+        const typeMatch = update.type && update.type.toLowerCase().includes('compose');
+
+        if (statusMatch && typeMatch) {
+          // Debounced invalidation
+          invalidateProjects();
+        }
+
+        if (update.errorMessage) {
+          toast.error(`Operation error: ${update.errorMessage}`);
+        }
+      },
+      onContainerStateChanged: (event: ContainerStateChangedEvent) => {
+        // Listen for any container state changes - this catches containers that might belong
+        // to compose projects even if the ComposeProjectStateChanged event isn't fired
+        console.log(`Container ${event.containerName} changed state: ${event.action}`);
+
+        // Debounced invalidation to refresh projects and their services
+        invalidateProjects();
+      },
+      onComposeProjectStateChanged: (event: ComposeProjectStateChangedEvent) => {
+        // Listen for Docker events (external changes like Docker Desktop, Docker CLI)
+        console.log(`Compose project ${event.projectName} - service ${event.serviceName} changed state: ${event.action}`);
+
+        // Debounced invalidation
+        invalidateProjects();
+      },
+      onConnected: () => {
+        console.log('SignalR connected - listening for compose project updates');
+      },
+      onDisconnected: (error) => {
+        if (error) {
+          console.error('SignalR disconnected with error:', error);
+        }
+      },
+      onReconnecting: (error) => {
+        console.warn('SignalR reconnecting...', error);
+      }
+    });
+
+    await startConnection();
+  });
+
+  onDestroy(() => {
+    // Clear pending invalidation timeout
+    if (invalidateTimeout) {
+      clearTimeout(invalidateTimeout);
+    }
+
+    // Unsubscribe from events but keep the connection alive for other pages
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  });
 
   // Compose Project Mutations
   const upMutation = createMutation(() => ({

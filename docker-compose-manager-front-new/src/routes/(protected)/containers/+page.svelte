@@ -9,7 +9,7 @@
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { EntityState, type OperationUpdateEvent } from '$lib/types';
-  import { createSignalRConnection, startConnection, stopConnection } from '$lib/services/signalr';
+  import { createSignalRConnection, startConnection, stopConnection, type ContainerStateChangedEvent } from '$lib/services/signalr';
   import { onMount, onDestroy } from 'svelte';
 
   let showAll = $state(true);
@@ -27,24 +27,48 @@
     queryKey: ['containers', { all: showAll }],
     queryFn: () => containersApi.list(showAll),
     refetchInterval: false, // SignalR handles real-time updates
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
+    staleTime: 60000, // Consider data fresh for 1 minute to avoid excessive refetches
   }));
 
   // Setup SignalR connection for real-time container updates
+  let unsubscribe: (() => void) | null = null;
+  let invalidateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Debounced invalidation to avoid excessive refetches when multiple events arrive quickly
+  function invalidateContainers() {
+    if (invalidateTimeout) {
+      clearTimeout(invalidateTimeout);
+    }
+    invalidateTimeout = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['containers'] });
+      invalidateTimeout = null;
+    }, 500); // Wait 500ms after the last event before invalidating
+  }
+
   onMount(async () => {
-    const connection = createSignalRConnection({
+    unsubscribe = createSignalRConnection({
       onOperationUpdate: (update: OperationUpdateEvent) => {
         // Listen for container-related operations that are completed or failed
         const statusMatch = update.status === 'completed' || update.status === 'failed';
         const typeMatch = update.type && update.type.toLowerCase().includes('container');
 
         if (statusMatch && typeMatch) {
-          // Invalidate containers cache to trigger a refetch
-          queryClient.invalidateQueries({ queryKey: ['containers'] });
+          // Debounced invalidation
+          invalidateContainers();
         }
 
         if (update.errorMessage) {
           toast.error(`Operation error: ${update.errorMessage}`);
         }
+      },
+      onContainerStateChanged: (event: ContainerStateChangedEvent) => {
+        // Listen for Docker events (external changes like Docker Desktop, Docker CLI)
+        console.log(`Container ${event.containerName} changed state: ${event.action}`);
+
+        // Debounced invalidation
+        invalidateContainers();
       },
       onConnected: () => {
         console.log('SignalR connected - listening for container updates');
@@ -62,8 +86,16 @@
     await startConnection();
   });
 
-  onDestroy(async () => {
-    await stopConnection();
+  onDestroy(() => {
+    // Clear pending invalidation timeout
+    if (invalidateTimeout) {
+      clearTimeout(invalidateTimeout);
+    }
+
+    // Unsubscribe from events but keep the connection alive for other pages
+    if (unsubscribe) {
+      unsubscribe();
+    }
   });
 
   const startMutation = createMutation(() => ({

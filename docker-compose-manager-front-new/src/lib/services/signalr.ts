@@ -3,7 +3,15 @@ import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
 
 let connection: signalR.HubConnection | null = null;
-let callbacks: SignalRCallbacks = {};
+let isConnecting = false;
+
+// Store multiple callbacks from different components
+const operationUpdateCallbacks = new Set<(event: OperationUpdateEvent) => void>();
+const containerStateChangedCallbacks = new Set<(event: ContainerStateChangedEvent) => void>();
+const composeProjectStateChangedCallbacks = new Set<(event: ComposeProjectStateChangedEvent) => void>();
+const connectedCallbacks = new Set<() => void>();
+const disconnectedCallbacks = new Set<(error?: Error) => void>();
+const reconnectingCallbacks = new Set<(error?: Error) => void>();
 
 const getApiUrl = () => {
   if (!browser) return '';
@@ -18,17 +26,34 @@ const getApiUrl = () => {
   return 'http://localhost:5000';
 };
 
+export interface ContainerStateChangedEvent {
+  action: string;
+  containerId: string;
+  containerName: string;
+  timestamp: Date;
+}
+
+export interface ComposeProjectStateChangedEvent {
+  projectName: string;
+  action: string;
+  serviceName?: string;
+  containerId: string;
+  containerName: string;
+  timestamp: Date;
+}
+
 export interface SignalRCallbacks {
   onOperationUpdate?: (event: OperationUpdateEvent) => void;
+  onContainerStateChanged?: (event: ContainerStateChangedEvent) => void;
+  onComposeProjectStateChanged?: (event: ComposeProjectStateChangedEvent) => void;
   onConnected?: () => void;
   onDisconnected?: (error?: Error) => void;
   onReconnecting?: (error?: Error) => void;
 }
 
-export function createSignalRConnection(callbacksParam: SignalRCallbacks = {}) {
-  if (!browser) return null;
-
-  callbacks = callbacksParam;
+// Initialize the connection once
+function initializeConnection() {
+  if (connection || !browser) return;
 
   const apiUrl = getApiUrl();
   const hubUrl = apiUrl ? `${apiUrl}/hubs/operations` : '/hubs/operations';
@@ -41,38 +66,104 @@ export function createSignalRConnection(callbacksParam: SignalRCallbacks = {}) {
     .configureLogging(signalR.LogLevel.Warning)
     .build();
 
-  // Register event handlers
-  if (callbacks.onOperationUpdate) {
-    connection.on('OperationUpdate', callbacks.onOperationUpdate);
-  }
+  // Register event handlers that notify all registered callbacks
+  connection.on('OperationUpdate', (event: OperationUpdateEvent) => {
+    operationUpdateCallbacks.forEach(cb => cb(event));
+  });
+
+  connection.on('ContainerStateChanged', (event: ContainerStateChangedEvent) => {
+    containerStateChangedCallbacks.forEach(cb => cb(event));
+  });
+
+  connection.on('ComposeProjectStateChanged', (event: ComposeProjectStateChangedEvent) => {
+    composeProjectStateChangedCallbacks.forEach(cb => cb(event));
+  });
 
   connection.onclose((error) => {
-    callbacks.onDisconnected?.(error ?? undefined);
+    disconnectedCallbacks.forEach(cb => cb(error ?? undefined));
   });
 
   connection.onreconnecting((error) => {
-    callbacks.onReconnecting?.(error ?? undefined);
+    reconnectingCallbacks.forEach(cb => cb(error ?? undefined));
   });
 
   connection.onreconnected(() => {
-    callbacks.onConnected?.();
+    connectedCallbacks.forEach(cb => cb());
   });
+}
 
-  return connection;
+// Subscribe to events - returns unsubscribe function
+export function createSignalRConnection(callbacksParam: SignalRCallbacks = {}) {
+  if (!browser) return null;
+
+  // Initialize connection if not already done
+  initializeConnection();
+
+  // Register callbacks
+  if (callbacksParam.onOperationUpdate) {
+    operationUpdateCallbacks.add(callbacksParam.onOperationUpdate);
+  }
+  if (callbacksParam.onContainerStateChanged) {
+    containerStateChangedCallbacks.add(callbacksParam.onContainerStateChanged);
+  }
+  if (callbacksParam.onComposeProjectStateChanged) {
+    composeProjectStateChangedCallbacks.add(callbacksParam.onComposeProjectStateChanged);
+  }
+  if (callbacksParam.onConnected) {
+    connectedCallbacks.add(callbacksParam.onConnected);
+  }
+  if (callbacksParam.onDisconnected) {
+    disconnectedCallbacks.add(callbacksParam.onDisconnected);
+  }
+  if (callbacksParam.onReconnecting) {
+    reconnectingCallbacks.add(callbacksParam.onReconnecting);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (callbacksParam.onOperationUpdate) {
+      operationUpdateCallbacks.delete(callbacksParam.onOperationUpdate);
+    }
+    if (callbacksParam.onContainerStateChanged) {
+      containerStateChangedCallbacks.delete(callbacksParam.onContainerStateChanged);
+    }
+    if (callbacksParam.onComposeProjectStateChanged) {
+      composeProjectStateChangedCallbacks.delete(callbacksParam.onComposeProjectStateChanged);
+    }
+    if (callbacksParam.onConnected) {
+      connectedCallbacks.delete(callbacksParam.onConnected);
+    }
+    if (callbacksParam.onDisconnected) {
+      disconnectedCallbacks.delete(callbacksParam.onDisconnected);
+    }
+    if (callbacksParam.onReconnecting) {
+      reconnectingCallbacks.delete(callbacksParam.onReconnecting);
+    }
+  };
 }
 
 export async function startConnection() {
-  if (!connection) return;
+  if (!connection || isConnecting) return;
+
+  if (connection.state === signalR.HubConnectionState.Connected) {
+    // Already connected, notify callbacks
+    connectedCallbacks.forEach(cb => cb());
+    return;
+  }
+
+  isConnecting = true;
 
   try {
     await connection.start();
     console.log('SignalR connected');
-    // Call onConnected callback for initial connection
-    callbacks.onConnected?.();
+    // Call all onConnected callbacks for initial connection
+    connectedCallbacks.forEach(cb => cb());
   } catch (error) {
     console.error('SignalR connection error:', error);
     // Retry after 5 seconds
     setTimeout(startConnection, 5000);
+  } finally {
+    isConnecting = false;
   }
 }
 
