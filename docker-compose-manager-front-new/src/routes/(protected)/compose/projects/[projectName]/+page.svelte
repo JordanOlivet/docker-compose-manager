@@ -58,9 +58,9 @@
   <div class="flex items-center gap-4">
     <a
       href="/compose/projects"
-      class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+      class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
     >
-      <ArrowLeft class="w-5 h-5" />
+      <ArrowLeft class="w-5 h-5 text-gray-900 dark:text-white" />
     </a>
     <div class="flex-1">
       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{projectName}</h1>

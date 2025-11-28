@@ -1,10 +1,12 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Settings, Plus, Trash2, FolderOpen } from 'lucide-svelte';
+  import { Settings, Plus, Trash2, FolderOpen, Search, AlertTriangle } from 'lucide-svelte';
   import configApi from '$lib/api/config';
-  import type { ComposePath } from '$lib/types';
+  import { composeApi } from '$lib/api/compose';
+  import type { ComposePath, ComposeProject } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import FolderPicker from '$lib/components/common/FolderPicker.svelte';
   import Dialog from '$lib/components/ui/dialog.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Card from '$lib/components/ui/card.svelte';
@@ -23,6 +25,7 @@
   });
 
   let addPathDialog = $state({ open: false });
+  let showFolderPicker = $state(false);
   let newPath = $state('');
   let isReadOnly = $state(false);
 
@@ -32,6 +35,33 @@
     queryKey: ['config', 'paths'],
     queryFn: () => configApi.getPaths(),
   }));
+
+  // Retrieve discovered Docker Compose projects (includes those outside configured paths)
+  const projectsQuery = createQuery(() => ({
+    queryKey: ['compose', 'projects'],
+    queryFn: () => composeApi.listProjects(),
+  }));
+
+  // Path normalization for comparison (Windows + trailing slash removal)
+  const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().replace(/\/$/, '');
+
+  // Extract external projects (name + path) detected outside configured paths
+  let externalProjects = $derived.by(() => {
+    if (!projectsQuery.data || !pathsQuery.data) return [];
+    const configured = pathsQuery.data.map(p => normalizePath(p.path));
+    const map = new Map<string, { path: string; name: string }>();
+
+    for (const proj of projectsQuery.data) {
+      if (!proj.path) continue;
+      const projNorm = normalizePath(proj.path);
+      const isInside = configured.some(cfg => projNorm.startsWith(cfg) && (projNorm.length === cfg.length || projNorm[cfg.length] === '/'));
+      if (!isInside) {
+        // Use the project name returned by the API, otherwise fallback
+        map.set(proj.path, { path: proj.path, name: proj.name || 'Projet sans nom' });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path));
+  });
 
   const addMutation = createMutation(() => ({
     mutationFn: (data: { path: string; isReadOnly?: boolean }) => configApi.addPath(data),
@@ -82,6 +112,15 @@
         confirmDialog.open = false;
       },
     };
+  }
+
+  function handleFolderSelect(path: string) {
+    newPath = path;
+    showFolderPicker = false;
+  }
+
+  function handleFolderCancel() {
+    showFolderPicker = false;
   }
 </script>
 
@@ -136,12 +175,44 @@
               </div>
               <button
                 onclick={() => confirmDelete(path.id, path.path)}
-                class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer"
                 title={t('settings.removePath')}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 class="w-4 h-4" />
               </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+
+      <!-- Warning banner for external projects detected -->
+      {#if externalProjects.length > 0}
+        <div class="mt-6 space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <AlertTriangle class="w-5 h-5 text-yellow-500" />
+            {t('settings.externalProjectsDetected')}
+          </h3>
+          {#each externalProjects as proj (proj.path)}
+            <div
+              class="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border border-yellow-300 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 shadow-sm"
+            >
+              <div class="flex-1">
+                <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                  {t('settings.pathLabel')}: <span class="font-mono">{proj.path}</span>
+                </p>
+                <p class="text-xs mt-1 text-yellow-700 dark:text-yellow-300">
+                  <span class="font-medium">{t('settings.projectLabel')}:</span> <span class="font-semibold">{proj.name}</span>
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  onclick={() => addMutation.mutate({ path: proj.path, isReadOnly: false })}
+                  class="px-4 py-2 text-sm font-medium rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white shadow-md hover:shadow-lg transition-colors cursor-pointer"
+                >
+                  {t('settings.addThisPath')}
+                </button>
+              </div>
             </div>
           {/each}
         </div>
@@ -158,6 +229,14 @@
   oncancel={() => confirmDialog.open = false}
 />
 
+{#if showFolderPicker}
+  <FolderPicker
+    initialPath={newPath}
+    onSelect={handleFolderSelect}
+    onCancel={handleFolderCancel}
+  />
+{/if}
+
 <Dialog open={addPathDialog.open} onclose={closeAddDialog}>
   <div class="p-6">
     <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -169,13 +248,23 @@
         <label for="path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           {t('settings.path')}
         </label>
-        <input
-          id="path"
-          type="text"
-          bind:value={newPath}
-          placeholder="/path/to/compose/files"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+        <div class="flex gap-2">
+          <input
+            id="path"
+            type="text"
+            bind:value={newPath}
+            placeholder="/path/to/compose/files"
+            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button
+            type="button"
+            onclick={() => showFolderPicker = true}
+            class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            <Search class="w-4 h-4" />
+            {t('common.search')}
+          </button>
+        </div>
       </div>
       
       <div class="flex items-center gap-2">

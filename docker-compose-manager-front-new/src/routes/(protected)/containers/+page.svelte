@@ -1,31 +1,70 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Container, Play, StopCircle, RotateCw, Trash2, Eye, Search, RefreshCw } from 'lucide-svelte';
+  import { Container, Play, Square, RotateCw, Trash2, Search } from 'lucide-svelte';
   import { containersApi } from '$lib/api';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
-  import StateBadge from '$lib/components/common/StateBadge.svelte';
-  import Button from '$lib/components/ui/button.svelte';
-  import Input from '$lib/components/ui/input.svelte';
-  import Card from '$lib/components/ui/card.svelte';
-  import CardHeader from '$lib/components/ui/card-header.svelte';
-  import CardTitle from '$lib/components/ui/card-title.svelte';
-  import CardContent from '$lib/components/ui/card-content.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import Button from '$lib/components/ui/button.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
+  import { EntityState, type OperationUpdateEvent } from '$lib/types';
+  import { createSignalRConnection, startConnection, stopConnection } from '$lib/services/signalr';
+  import { onMount, onDestroy } from 'svelte';
 
   let showAll = $state(true);
   let search = $state('');
   let confirmDialog = $state({ open: false, containerId: '', containerName: '', isRunning: false });
+
+  type SortKey = 'name' | 'image' | 'state' | 'status';
+  type SortDir = 'asc' | 'desc';
+  let sortKey = $state<SortKey>('name');
+  let sortDir = $state<SortDir>('asc');
 
   const queryClient = useQueryClient();
 
   const containersQuery = createQuery(() => ({
     queryKey: ['containers', { all: showAll }],
     queryFn: () => containersApi.list(showAll),
-    refetchInterval: 5000,
+    refetchInterval: false, // SignalR handles real-time updates
   }));
+
+  // Setup SignalR connection for real-time container updates
+  onMount(async () => {
+    const connection = createSignalRConnection({
+      onOperationUpdate: (update: OperationUpdateEvent) => {
+        // Listen for container-related operations that are completed or failed
+        const statusMatch = update.status === 'completed' || update.status === 'failed';
+        const typeMatch = update.type && update.type.toLowerCase().includes('container');
+
+        if (statusMatch && typeMatch) {
+          // Invalidate containers cache to trigger a refetch
+          queryClient.invalidateQueries({ queryKey: ['containers'] });
+        }
+
+        if (update.errorMessage) {
+          toast.error(`Operation error: ${update.errorMessage}`);
+        }
+      },
+      onConnected: () => {
+        console.log('SignalR connected - listening for container updates');
+      },
+      onDisconnected: (error) => {
+        if (error) {
+          console.error('SignalR disconnected with error:', error);
+        }
+      },
+      onReconnecting: (error) => {
+        console.warn('SignalR reconnecting...', error);
+      }
+    });
+
+    await startConnection();
+  });
+
+  onDestroy(async () => {
+    await stopConnection();
+  });
 
   const startMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.start(id),
@@ -72,12 +111,56 @@
     },
   }));
 
-  const filteredContainers = $derived(
-    (containersQuery.data ?? []).filter((c: any) =>
+  const filteredAndSortedContainers = $derived.by(() => {
+    // First filter
+    const filtered = (containersQuery.data ?? []).filter((c: any) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.image.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+    );
+
+    // Then sort
+    return [...filtered].sort((a: any, b: any) => {
+      const getVal = (c: any) => {
+        switch (sortKey) {
+          case 'name':
+            return c.name.startsWith('/') ? c.name.slice(1) : c.name;
+          case 'image':
+            return c.image || '';
+          case 'state':
+            return c.state || '';
+          case 'status':
+            return c.status || '';
+          default:
+            return '';
+        }
+      };
+      const va = getVal(a)?.toString().toLowerCase();
+      const vb = getVal(b)?.toString().toLowerCase();
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  });
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDir = 'asc';
+    }
+  }
+
+  function getStateColor(state: EntityState) {
+    switch (state) {
+      case EntityState.Running:
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case EntityState.Exited:
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
+  }
 
   function handleRemove() {
     removeMutation.mutate({
@@ -87,119 +170,187 @@
   }
 </script>
 
-<div class="space-y-6">
-  <!-- Header -->
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-        <Container class="w-8 h-8 text-blue-500" />
-        {t('containers.title')}
-      </h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('containers.subtitle')}</p>
+<div class="space-y-4">
+  {#if containersQuery.isLoading}
+    <LoadingState message={t('common.loading')} />
+  {:else if containersQuery.error}
+    <div class="text-center py-8 text-red-500">
+      {t('errors.failedToLoad')}: {containersQuery.error.message}
     </div>
-    <div class="flex items-center gap-3">
-      <Button variant={showAll ? 'default' : 'outline'} onclick={() => showAll = !showAll}>
-        {showAll ? t('containers.showRunning') : t('containers.showAll')}
-      </Button>
-      <Button variant="outline" onclick={() => containersQuery.refetch()}>
-        <RefreshCw class="w-4 h-4 mr-2" />
-        {t('common.refresh')}
-      </Button>
+  {:else}
+    <!-- Page Header -->
+    <div class="mb-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">{t('containers.title')}</h1>
+          <p class="text-base text-gray-600 dark:text-gray-400">
+            {t('containers.subtitle')}
+          </p>
+        </div>
+        <Button variant={showAll ? 'default' : 'outline'} onclick={() => showAll = !showAll}>
+          {showAll ? t('containers.showRunning') : t('containers.showAll')}
+        </Button>
+      </div>
     </div>
-  </div>
 
-  <!-- Search -->
-  <div class="relative max-w-md">
-    <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-    <Input
-      type="text"
-      placeholder={t('containers.searchPlaceholder')}
-      bind:value={search}
-      class="pl-10"
-    />
-  </div>
+    <!-- Search -->
+    <div class="relative max-w-md">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder={t('containers.searchPlaceholder') || 'Search containers...'}
+        bind:value={search}
+        class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
 
-  <!-- Containers List -->
-  <Card>
-    <CardHeader>
-      <CardTitle>{t('containers.list')}</CardTitle>
-    </CardHeader>
-    <CardContent>
-      {#if containersQuery.isLoading}
-        <LoadingState message={t('common.loading')} />
-      {:else if containersQuery.error}
-        <div class="text-center py-8 text-red-500">
-          {t('errors.failedToLoad')}: {containersQuery.error.message}
+    {#if !containersQuery.data || containersQuery.data.length === 0}
+      <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
+          <Container class="w-8 h-8 text-gray-400" />
         </div>
-      {:else if filteredContainers.length === 0}
-        <div class="text-center py-12">
-          <Container class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-          <p class="text-gray-500 dark:text-gray-400">{t('containers.noContainers')}</p>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          {t('containers.noContainers')}
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          {t('containers.subtitle')}
+        </p>
+      </div>
+    {:else if filteredAndSortedContainers.length === 0}
+      <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
+          <Search class="w-8 h-8 text-gray-400" />
         </div>
-      {:else}
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          No containers found
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          Try adjusting your search criteria
+        </p>
+      </div>
+    {:else}
+      <div class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-visible shadow hover:shadow-lg transition-all duration-300">
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead class="bg-gray-50 dark:bg-gray-800">
+          <table class="w-full">
+            <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th
+                  onclick={() => toggleSort('name')}
+                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                >
                   {t('containers.name')}
+                  {#if sortKey === 'name'}
+                    <span class="inline-block ml-1">
+                      {sortDir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  {/if}
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th
+                  onclick={() => toggleSort('image')}
+                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                >
                   {t('containers.image')}
+                  {#if sortKey === 'image'}
+                    <span class="inline-block ml-1">
+                      {sortDir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  {/if}
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th
+                  onclick={() => toggleSort('state')}
+                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                >
                   {t('containers.state')}
+                  {#if sortKey === 'state'}
+                    <span class="inline-block ml-1">
+                      {sortDir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  {/if}
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th
+                  onclick={() => toggleSort('status')}
+                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                >
                   {t('containers.status')}
+                  {#if sortKey === 'status'}
+                    <span class="inline-block ml-1">
+                      {sortDir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  {/if}
                 </th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   {t('containers.actions')}
                 </th>
               </tr>
             </thead>
-            <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-              {#each filteredContainers as container (container.id)}
-                {@const isRunning = container.state.toLowerCase() === 'running'}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="font-medium text-gray-900 dark:text-white">{container.name}</div>
-                    <div class="text-xs text-gray-500 font-mono">{container.id.substring(0, 12)}</div>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              {#each filteredAndSortedContainers as container (container.id)}
+                {@const isRunning = container.state === EntityState.Running}
+                <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <button
+                      class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+                      onclick={() => goto(`/containers/${container.id}`)}
+                      title={t('containers.viewDetails')}
+                    >
+                      {container.name.startsWith('/') ? container.name.slice(1) : container.name}
+                    </button>
+                    <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                      {container.id.substring(0, 12)}
+                    </div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {container.image}
+                  <td class="px-4 py-2">
+                    <div class="text-xs text-gray-900 dark:text-gray-300">
+                      {container.image}
+                    </div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <StateBadge status={container.state} />
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <span class={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStateColor(container.state)}`}>
+                      {container.state}
+                    </span>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {container.status}
+                  <td class="px-4 py-2">
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                      {container.status}
+                    </div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-right">
-                    <div class="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" onclick={() => goto(`/containers/${container.id}`)}>
-                        <Eye class="w-4 h-4" />
-                      </Button>
+                  <td class="px-4 py-2 whitespace-nowrap text-xs">
+                    <div class="flex items-center gap-1">
                       {#if isRunning}
-                        <Button variant="ghost" size="icon" onclick={() => stopMutation.mutate(container.id)} disabled={stopMutation.isPending}>
-                          <StopCircle class="w-4 h-4 text-yellow-500" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onclick={() => restartMutation.mutate(container.id)} disabled={restartMutation.isPending}>
-                          <RotateCw class="w-4 h-4 text-blue-500" />
-                        </Button>
+                        <button
+                          onclick={() => restartMutation.mutate(container.id)}
+                          class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
+                          title={t('containers.restart')}
+                          disabled={restartMutation.isPending}
+                        >
+                          <RotateCw class="w-3 h-3" />
+                        </button>
+                        <button
+                          onclick={() => stopMutation.mutate(container.id)}
+                          class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
+                          title={t('containers.stop')}
+                          disabled={stopMutation.isPending}
+                        >
+                          <Square class="w-3 h-3" />
+                        </button>
                       {:else}
-                        <Button variant="ghost" size="icon" onclick={() => startMutation.mutate(container.id)} disabled={startMutation.isPending}>
-                          <Play class="w-4 h-4 text-green-500" />
-                        </Button>
+                        <button
+                          onclick={() => startMutation.mutate(container.id)}
+                          class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
+                          title={t('containers.start')}
+                          disabled={startMutation.isPending}
+                        >
+                          <Play class="w-3 h-3" />
+                        </button>
                       {/if}
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                      <button
                         onclick={() => confirmDialog = { open: true, containerId: container.id, containerName: container.name, isRunning }}
+                        class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
+                        title={t('containers.remove')}
                         disabled={removeMutation.isPending}
                       >
-                        <Trash2 class="w-4 h-4 text-red-500" />
-                      </Button>
+                        <Trash2 class="w-3 h-3" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -207,9 +358,9 @@
             </tbody>
           </table>
         </div>
-      {/if}
-    </CardContent>
-  </Card>
+      </div>
+    {/if}
+  {/if}
 
   <!-- Confirm Dialog -->
   <ConfirmDialog

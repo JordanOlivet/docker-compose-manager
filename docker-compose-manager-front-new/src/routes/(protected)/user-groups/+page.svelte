@@ -117,14 +117,14 @@
               <div class="flex gap-2">
                 <button
                   onclick={() => groupFormDialog = { open: true, group }}
-                  class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                  class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
                   title="Edit"
                 >
                   <Edit class="w-4 h-4" />
                 </button>
                 <button
                   onclick={() => confirmDelete(group.id, group.name)}
-                  class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                  class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer"
                   title="Delete"
                   disabled={deleteMutation.isPending}
                 >

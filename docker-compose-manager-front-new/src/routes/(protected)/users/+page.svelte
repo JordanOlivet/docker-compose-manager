@@ -153,7 +153,7 @@
                 <div class="flex justify-end gap-2">
                   <button
                     onclick={() => userFormDialog = { open: true, user }}
-                    class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                    class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
                     title={t('common.edit')}
                   >
                     <Edit class="w-4 h-4" />
@@ -161,7 +161,7 @@
                   {#if user.isEnabled}
                     <button
                       onclick={() => disableMutation.mutate(user.id)}
-                      class="p-2 text-yellow-600 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-lg transition-colors"
+                      class="p-2 text-yellow-600 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-lg transition-colors cursor-pointer"
                       title="Disable"
                       disabled={disableMutation.isPending}
                     >
@@ -170,7 +170,7 @@
                   {:else}
                     <button
                       onclick={() => enableMutation.mutate(user.id)}
-                      class="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                      class="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors cursor-pointer"
                       title="Enable"
                       disabled={enableMutation.isPending}
                     >
@@ -179,7 +179,7 @@
                   {/if}
                   <button
                     onclick={() => confirmDelete(user.id, user.username)}
-                    class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer"
                     title={t('common.delete')}
                     disabled={deleteMutation.isPending}
                   >

@@ -3,10 +3,11 @@ import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
 
 let connection: signalR.HubConnection | null = null;
+let callbacks: SignalRCallbacks = {};
 
 const getApiUrl = () => {
   if (!browser) return '';
-  
+
   const viteApiUrl = import.meta.env.VITE_API_URL;
   if (viteApiUrl !== undefined && viteApiUrl !== '') {
     return viteApiUrl;
@@ -24,8 +25,10 @@ export interface SignalRCallbacks {
   onReconnecting?: (error?: Error) => void;
 }
 
-export function createSignalRConnection(callbacks: SignalRCallbacks = {}) {
+export function createSignalRConnection(callbacksParam: SignalRCallbacks = {}) {
   if (!browser) return null;
+
+  callbacks = callbacksParam;
 
   const apiUrl = getApiUrl();
   const hubUrl = apiUrl ? `${apiUrl}/hubs/operations` : '/hubs/operations';
@@ -64,6 +67,8 @@ export async function startConnection() {
   try {
     await connection.start();
     console.log('SignalR connected');
+    // Call onConnected callback for initial connection
+    callbacks.onConnected?.();
   } catch (error) {
     console.error('SignalR connection error:', error);
     // Retry after 5 seconds

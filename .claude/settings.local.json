@@ -34,7 +34,9 @@
       "Bash(timeout 5 echo:*)",
       "Bash(taskkill:*)",
       "Bash(netstat:*)",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(cd:*)",
+      "Bash(npm run check:*)"
     ],
     "deny": [],
     "ask": []

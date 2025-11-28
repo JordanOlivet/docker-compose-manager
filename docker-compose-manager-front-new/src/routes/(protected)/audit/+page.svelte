@@ -200,14 +200,14 @@
             <button
               onclick={() => page = Math.max(1, page - 1)}
               disabled={page === 1}
-              class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700"
+              class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
             >
               {t('common.previous')}
             </button>
             <button
               onclick={() => page = Math.min(auditQuery.data!.totalPages, page + 1)}
               disabled={page === auditQuery.data.totalPages}
-              class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700"
+              class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
             >
               {t('common.next')}
             </button>
