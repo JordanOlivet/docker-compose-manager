@@ -15,7 +15,7 @@
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
 
-  let showAll = $state(false);
+  let showAll = $state(true);
   let search = $state('');
   let confirmDialog = $state({ open: false, containerId: '', containerName: '', isRunning: false });
 
@@ -99,7 +99,7 @@
     </div>
     <div class="flex items-center gap-3">
       <Button variant={showAll ? 'default' : 'outline'} onclick={() => showAll = !showAll}>
-        {showAll ? t('containers.showAll') : t('containers.showRunning')}
+        {showAll ? t('containers.showRunning') : t('containers.showAll')}
       </Button>
       <Button variant="outline" onclick={() => containersQuery.refetch()}>
         <RefreshCw class="w-4 h-4 mr-2" />
