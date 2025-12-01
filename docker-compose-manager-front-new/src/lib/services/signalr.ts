@@ -3,7 +3,9 @@ import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
 
 let connection: signalR.HubConnection | null = null;
+let logsConnection: signalR.HubConnection | null = null;
 let isConnecting = false;
+let isLogsConnecting = false;
 
 // Store multiple callbacks from different components
 const operationUpdateCallbacks = new Set<(event: OperationUpdateEvent) => void>();
@@ -12,6 +14,11 @@ const composeProjectStateChangedCallbacks = new Set<(event: ComposeProjectStateC
 const connectedCallbacks = new Set<() => void>();
 const disconnectedCallbacks = new Set<(error?: Error) => void>();
 const reconnectingCallbacks = new Set<(error?: Error) => void>();
+
+// Logs callbacks
+const receiveLogsCallbacks = new Set<(logs: string) => void>();
+const logErrorCallbacks = new Set<(error: string) => void>();
+const streamCompleteCallbacks = new Set<() => void>();
 
 const getApiUrl = () => {
   if (!browser) return '';
@@ -201,6 +208,186 @@ export function unsubscribeFromOperation(operationId: string) {
 
 export function getConnectionState(): signalR.HubConnectionState {
   return connection?.state ?? signalR.HubConnectionState.Disconnected;
+}
+
+// ============== LOGS HUB FUNCTIONS ==============
+
+// Initialize logs hub connection
+async function initializeLogsConnection() {
+  if (logsConnection || !browser) return;
+
+  const apiUrl = getApiUrl();
+  const hubUrl = apiUrl ? `${apiUrl}/hubs/logs` : '/hubs/logs';
+
+  logsConnection = new signalR.HubConnectionBuilder()
+    .withUrl(hubUrl, {
+      accessTokenFactory: () => localStorage.getItem('accessToken') || '',
+    })
+    .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+    .configureLogging(signalR.LogLevel.Warning)
+    .build();
+
+  // Register event handlers
+  logsConnection.on('ReceiveLogs', (logs: string) => {
+    receiveLogsCallbacks.forEach(cb => cb(logs));
+  });
+
+  logsConnection.on('LogError', (error: string) => {
+    logErrorCallbacks.forEach(cb => cb(error));
+  });
+
+  logsConnection.on('StreamComplete', () => {
+    streamCompleteCallbacks.forEach(cb => cb());
+  });
+
+  logsConnection.onclose((error) => {
+    console.error('Logs SignalR connection closed:', error);
+    isLogsConnecting = false;
+  });
+
+  logsConnection.onreconnecting((error) => {
+    console.warn('Logs SignalR connection lost. Reconnecting...', error);
+  });
+
+  logsConnection.onreconnected((connectionId) => {
+    console.log('Logs SignalR reconnected. Connection ID:', connectionId);
+  });
+}
+
+export async function connectToLogsHub(): Promise<void> {
+  if (!browser) return;
+
+  // If already connected, return
+  if (logsConnection && logsConnection.state === signalR.HubConnectionState.Connected) {
+    return;
+  }
+
+  // If a connection attempt is already in progress, wait for it
+  if (isLogsConnecting) {
+    const maxWaitMs = 5000;
+    const start = Date.now();
+    while (isLogsConnecting && Date.now() - start < maxWaitMs) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    if (logsConnection && logsConnection.state === signalR.HubConnectionState.Connected) {
+      return;
+    }
+  }
+
+  isLogsConnecting = true;
+
+  try {
+    // Initialize connection if not already done
+    if (!logsConnection) {
+      await initializeLogsConnection();
+    }
+
+    if (!logsConnection) {
+      throw new Error('Failed to initialize logs connection');
+    }
+
+    await logsConnection.start();
+    console.log('Logs SignalR connected successfully');
+  } catch (error) {
+    console.error('Logs SignalR connection error:', error);
+    throw error;
+  } finally {
+    isLogsConnecting = false;
+  }
+}
+
+export async function disconnectFromLogsHub(): Promise<void> {
+  if (!logsConnection) return;
+
+  try {
+    await logsConnection.stop();
+    console.log('Logs SignalR disconnected');
+    logsConnection = null;
+  } catch (error) {
+    console.error('Logs SignalR disconnection error:', error);
+  }
+}
+
+export async function streamComposeLogs(projectPath: string, serviceName?: string): Promise<void> {
+  if (!logsConnection) {
+    throw new Error('Logs SignalR connection not initialized. Call connectToLogsHub() first.');
+  }
+
+  // Wait for connection to be ready
+  const maxWaitTime = 5000;
+  const startTime = Date.now();
+  while (logsConnection.state !== signalR.HubConnectionState.Connected) {
+    if (Date.now() - startTime > maxWaitTime) {
+      throw new Error('Timeout waiting for logs connection to be established');
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  await logsConnection.invoke('StreamComposeLogs', projectPath, serviceName);
+}
+
+export async function streamContainerLogs(containerId: string, tail: number = 100): Promise<void> {
+  // Ensure connection is established
+  await connectToLogsHub();
+
+  if (!logsConnection) {
+    throw new Error('Logs SignalR connection unavailable after connect attempt');
+  }
+
+  // Wait for connection ID
+  if (!logsConnection.connectionId) {
+    const maxWaitTime = 3000;
+    const startTime = Date.now();
+    while (logsConnection && !logsConnection.connectionId) {
+      if (Date.now() - startTime > maxWaitTime) {
+        throw new Error('Timeout waiting for logs connection to become connected');
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  await logsConnection.invoke('StreamContainerLogs', containerId, tail);
+}
+
+export async function stopLogsStream(): Promise<void> {
+  if (!logsConnection) return;
+
+  if (logsConnection.state === signalR.HubConnectionState.Connected) {
+    await logsConnection.invoke('StopStream');
+  }
+}
+
+// Logs event subscriptions
+export function onReceiveLogs(callback: (logs: string) => void): void {
+  receiveLogsCallbacks.add(callback);
+}
+
+export function offReceiveLogs(callback: (logs: string) => void): void {
+  receiveLogsCallbacks.delete(callback);
+}
+
+export function onLogError(callback: (error: string) => void): void {
+  logErrorCallbacks.add(callback);
+}
+
+export function offLogError(callback: (error: string) => void): void {
+  logErrorCallbacks.delete(callback);
+}
+
+export function onStreamComplete(callback: () => void): void {
+  streamCompleteCallbacks.add(callback);
+}
+
+export function offStreamComplete(callback: () => void): void {
+  streamCompleteCallbacks.delete(callback);
+}
+
+export function isLogsConnected(): boolean {
+  return logsConnection?.state === signalR.HubConnectionState.Connected;
+}
+
+export function getLogsConnectionState(): signalR.HubConnectionState {
+  return logsConnection?.state ?? signalR.HubConnectionState.Disconnected;
 }
 
 

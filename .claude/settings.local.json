@@ -38,7 +38,9 @@
       "Bash(cd:*)",
       "Bash(npm run check:*)",
       "Bash(Select-String -Pattern \"error|warning CS\")",
-      "Bash(Select-Object -Last 10)"
+      "Bash(Select-Object -Last 10)",
+      "Bash(ls:*)",
+      "Bash(Select-String -Pattern \"compose\" -Context 2,2)"
     ],
     "deny": [],
     "ask": []
