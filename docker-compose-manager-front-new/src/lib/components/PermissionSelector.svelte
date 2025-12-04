@@ -145,7 +145,7 @@
 				<button
 					type="button"
 					onclick={() => (isAdding = true)}
-					class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium"
+					class="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium"
 				>
 					<Plus class="h-4 w-4" />
 					{t('permissions.addPermission')}
@@ -166,7 +166,7 @@
 
 		{#each permissions as perm, index}
 			<div
-				class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5"
+				class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5"
 			>
 				<div class="flex justify-between items-start gap-4">
 					<div class="flex-1 space-y-3">
@@ -356,9 +356,9 @@
 					type="button"
 					onclick={handleAddPermission}
 					disabled={!newPermission.resourceName}
-					class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+					class="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
 				>
-					{t('common.add')}
+					{t('permissions.addPermission')}
 				</button>
 			</div>
 		</div>

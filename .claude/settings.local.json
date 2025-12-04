@@ -32,7 +32,6 @@
       "Bash(cat:*)",
       "Bash(find:*)",
       "Bash(timeout 5 echo:*)",
-      "Bash(taskkill:*)",
       "Bash(netstat:*)",
       "Bash(xargs sed:*)",
       "Bash(cd:*)",
@@ -40,7 +39,9 @@
       "Bash(Select-String -Pattern \"error|warning CS\")",
       "Bash(Select-Object -Last 10)",
       "Bash(ls:*)",
-      "Bash(Select-String -Pattern \"compose\" -Context 2,2)"
+      "Bash(Select-String -Pattern \"compose\" -Context 2,2)",
+      "Bash(timeout 3 echo:*)",
+      "Bash(timeout 2 echo:*)"
     ],
     "deny": [],
     "ask": []

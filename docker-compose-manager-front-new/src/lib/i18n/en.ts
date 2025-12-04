@@ -321,6 +321,14 @@ export default {
     details: 'Details',
     noLogs: 'No audit logs found',
     failedToLoad: 'Failed to load audit logs',
+    sortBy: 'Sort By',
+    sortOrder: 'Sort Order',
+    ascending: 'Ascending',
+    descending: 'Descending',
+    purgeLogs: 'Purge Old Logs',
+    searchPlaceholder: 'Search logs...',
+    totalLogsFound: '{count} total logs found',
+    pageInfo: 'Page {current} of {total} ({count} total)',
   },
 
   logs: {

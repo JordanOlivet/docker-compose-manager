@@ -29,7 +29,9 @@ i18n.init({
   lng: savedLocale,
   fallbackLng: 'en',
   interpolation: {
-    escapeValue: false // Svelte handles escaping
+    escapeValue: false, // Svelte handles escaping
+    prefix: '{',
+    suffix: '}'
   }
 });
 

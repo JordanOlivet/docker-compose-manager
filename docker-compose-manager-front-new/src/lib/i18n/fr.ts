@@ -321,6 +321,14 @@ const fr = {
     details: 'Détails',
     noLogs: 'Aucun journal d\'audit trouvé',
     failedToLoad: 'Échec du chargement des journaux d\'audit',
+    sortBy: 'Trier par',
+    sortOrder: 'Ordre de tri',
+    ascending: 'Croissant',
+    descending: 'Décroissant',
+    purgeLogs: 'Purger les anciens journaux',
+    searchPlaceholder: 'Rechercher dans les journaux...',
+    totalLogsFound: '{count} journaux trouvés',
+    pageInfo: 'Page {current} sur {total} ({count} au total)',
   },
 
   logs: {

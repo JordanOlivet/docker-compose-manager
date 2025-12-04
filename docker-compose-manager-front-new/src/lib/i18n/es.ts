@@ -321,6 +321,14 @@ const es = {
     details: 'Detalles',
     noLogs: 'No se encontraron registros de auditoría',
     failedToLoad: 'Error al cargar registros de auditoría',
+    sortBy: 'Ordenar por',
+    sortOrder: 'Orden',
+    ascending: 'Ascendente',
+    descending: 'Descendente',
+    purgeLogs: 'Purgar registros antiguos',
+    searchPlaceholder: 'Buscar en registros...',
+    totalLogsFound: '{count} registros encontrados',
+    pageInfo: 'Página {current} de {total} ({count} en total)',
   },
 
   logs: {
