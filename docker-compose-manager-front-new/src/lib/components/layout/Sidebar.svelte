@@ -33,7 +33,7 @@
     { to: '/', icon: LayoutDashboard, label: 'navigation.dashboard', category: 'navigation.categories.overview' },
     { to: '/compose/projects', icon: Package, label: 'navigation.composeProjects', category: 'navigation.categories.docker' },
     { to: '/containers', icon: Container, label: 'navigation.containers', category: 'navigation.categories.docker' },
-    { to: '/logs', icon: FileOutput, label: 'navigation.logsViewer', category: 'navigation.categories.docker' },
+    //{ to: '/logs', icon: FileOutput, label: 'navigation.logsViewer', category: 'navigation.categories.docker' },
     { to: '/users', icon: Users, label: 'navigation.userManagement', category: 'navigation.categories.administration' },
     { to: '/user-groups', icon: UsersRound, label: 'navigation.userGroups', category: 'navigation.categories.administration' },
     { to: '/permissions', icon: Shield, label: 'navigation.permissions', category: 'navigation.categories.administration' },
@@ -46,7 +46,7 @@
     { to: '/', icon: LayoutDashboard, label: 'navigation.dashboard', category: 'navigation.categories.overview' },
     { to: '/compose/projects', icon: Package, label: 'navigation.composeProjects', category: 'navigation.categories.docker' },
     { to: '/containers', icon: Container, label: 'navigation.containers', category: 'navigation.categories.docker' },
-    { to: '/logs', icon: FileOutput, label: 'navigation.logsViewer', category: 'navigation.categories.docker' },
+    //{ to: '/logs', icon: FileOutput, label: 'navigation.logsViewer', category: 'navigation.categories.docker' },
   ];
 
   // Utiliser $derived pour la réactivité quand authStore.isAdmin change
