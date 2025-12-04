@@ -167,6 +167,7 @@ export default {
     actions: 'Actions',
     technicalDetails: 'Technical Details',
     liveResourceStats: 'Live Resource Stats',
+    containerNotRunning: 'Container is not running',
     noContainers: 'No containers found',
     containerNotFound: 'Container not found',
     containerNotFoundMessage: 'The requested container could not be found',

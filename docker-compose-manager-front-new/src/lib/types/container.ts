@@ -33,6 +33,7 @@ export interface ContainerStats {
   networkTx: number;
   diskRead: number;
   diskWrite: number;
+  timestamp?: Date;
 }
 
 

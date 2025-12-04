@@ -1,280 +1,237 @@
 <script lang="ts">
-  import { page } from '$app/stores';
-  import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { ArrowLeft, Play, Square, RotateCcw, Trash2, Pause, PlayCircle } from 'lucide-svelte';
-  import { containersApi } from '$lib/api';
-  import StateBadge from '$lib/components/common/StateBadge.svelte';
-  import LoadingState from '$lib/components/common/LoadingState.svelte';
-  import Button from '$lib/components/ui/button.svelte';
-  import Card from '$lib/components/ui/card.svelte';
-  import CardHeader from '$lib/components/ui/card-header.svelte';
-  import CardTitle from '$lib/components/ui/card-title.svelte';
-  import CardContent from '$lib/components/ui/card-content.svelte';
-  import { t } from '$lib/i18n';
-  import { toast } from 'svelte-sonner';
-  import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
+	import {
+		ArrowLeft,
+		Play,
+		Square,
+		RotateCw,
+		Trash2,
+		RefreshCw
+	} from 'lucide-svelte';
+	import { containersApi } from '$lib/api';
+	import StateBadge from '$lib/components/common/StateBadge.svelte';
+	import LoadingState from '$lib/components/common/LoadingState.svelte';
+	import ContainerStatsCard from '$lib/components/compose/ContainerStatsCard.svelte';
+	import ContainerInfoSection from '$lib/components/compose/ContainerInfoSection.svelte';
+	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
+	import { t } from '$lib/i18n';
+	import { toast } from 'svelte-sonner';
+	import { goto } from '$app/navigation';
 
-  const containerId = $derived($page.params.containerId ?? '');
+	const containerId = $derived($page.params.containerId ?? '');
 
-  const queryClient = useQueryClient();
+	const queryClient = useQueryClient();
 
-  const containerQuery = createQuery(() => ({
-    queryKey: ['container', containerId],
-    queryFn: () => containersApi.get(containerId),
-    enabled: !!containerId,
-  }));
+	const containerQuery = createQuery(() => ({
+		queryKey: ['container', containerId],
+		queryFn: () => containersApi.get(containerId),
+		enabled: !!containerId
+	}));
 
-  const statsQuery = createQuery(() => ({
-    queryKey: ['container', containerId, 'stats'],
-    queryFn: () => containersApi.getStats(containerId),
-    enabled: !!containerId && containerQuery.data?.state.toLowerCase() === 'running',
-    refetchInterval: 5000,
-  }));
+	const startMutation = createMutation(() => ({
+		mutationFn: () => containersApi.start(containerId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['container', containerId] });
+			toast.success(t('containers.startSuccess'));
+		},
+		onError: () => toast.error(t('containers.startFailed'))
+	}));
 
-  const startMutation = createMutation(() => ({
-    mutationFn: () => containersApi.start(containerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-      toast.success(t('containers.startSuccess'));
-    },
-    onError: () => toast.error(t('containers.startFailed')),
-  }));
+	const stopMutation = createMutation(() => ({
+		mutationFn: () => containersApi.stop(containerId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['container', containerId] });
+			toast.success(t('containers.stopSuccess'));
+		},
+		onError: () => toast.error(t('containers.stopFailed'))
+	}));
 
-  const stopMutation = createMutation(() => ({
-    mutationFn: () => containersApi.stop(containerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-      toast.success(t('containers.stopSuccess'));
-    },
-    onError: () => toast.error(t('containers.stopFailed')),
-  }));
+	const restartMutation = createMutation(() => ({
+		mutationFn: () => containersApi.restart(containerId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['container', containerId] });
+			toast.success(t('containers.restartSuccess'));
+		},
+		onError: () => toast.error(t('containers.restartFailed'))
+	}));
 
-  const restartMutation = createMutation(() => ({
-    mutationFn: () => containersApi.restart(containerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-      toast.success(t('containers.restartSuccess'));
-    },
-    onError: () => toast.error(t('containers.restartFailed')),
-  }));
+	const removeMutation = createMutation(() => ({
+		mutationFn: ({ force }: { force: boolean }) => containersApi.remove(containerId, force),
+		onSuccess: () => {
+			toast.success(t('containers.removeSuccess'));
+			goto('/containers');
+		},
+		onError: () => toast.error(t('containers.removeFailed'))
+	}));
 
-  const removeMutation = createMutation(() => ({
-    mutationFn: () => containersApi.remove(containerId, true),
-    onSuccess: () => {
-      toast.success(t('containers.removeSuccess'));
-      goto('/containers');
-    },
-    onError: () => toast.error(t('containers.removeFailed')),
-  }));
+	function getStateColor(state: string) {
+		switch (state.toLowerCase()) {
+			case 'running':
+				return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+			case 'exited':
+			case 'stopped':
+				return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+			default:
+				return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+		}
+	}
 
-  const pauseMutation = createMutation(() => ({
-    mutationFn: () => containersApi.pause(containerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-      toast.success('Container paused successfully');
-    },
-    onError: () => toast.error('Failed to pause container'),
-  }));
+	function handleRemove() {
+		const container = containerQuery.data;
+		if (!container) return;
 
-  const unpauseMutation = createMutation(() => ({
-    mutationFn: () => containersApi.unpause(containerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-      toast.success('Container unpaused successfully');
-    },
-    onError: () => toast.error('Failed to unpause container'),
-  }));
+		const isRunning = container.state.toLowerCase() === 'running';
+		const message = isRunning
+			? t('containers.confirmRemoveRunningWithName').replace('{name}', container.name)
+			: t('containers.confirmRemoveWithName').replace('{name}', container.name);
 
-  function formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
+		if (confirm(message)) {
+			removeMutation.mutate({ force: isRunning });
+		}
+	}
 </script>
 
-<div class="space-y-6">
-  <!-- Header -->
-  <div class="flex items-center gap-4">
-    <a
-      href="/containers"
-      class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-    >
-      <ArrowLeft class="w-5 h-5 text-gray-900 dark:text-white" />
-    </a>
-    <div class="flex-1">
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('containers.details')}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('containers.detailsSubtitle')}</p>
-    </div>
-  </div>
+<div class="space-y-8">
+	<!-- Header -->
+	<div class="mb-8">
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-4">
+				<a
+					href="/containers"
+					class="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+					title={t('containers.backToContainers')}
+				>
+					<ArrowLeft class="w-5 h-5" />
+				</a>
+				<div>
+					<h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+						{containerQuery.data?.name || t('containers.details')}
+					</h1>
+					<p class="text-lg text-gray-600 dark:text-gray-400">{t('containers.detailsSubtitle')}</p>
+				</div>
+			</div>
+			<button
+				onclick={() => containerQuery.refetch()}
+				class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+				title={t('common.refresh')}
+			>
+				<RefreshCw class="w-4 h-4" />
+				{t('common.refresh')}
+			</button>
+		</div>
+	</div>
 
-  {#if containerQuery.isLoading}
-    <LoadingState message={t('containers.loadingDetails')} />
-  {:else if containerQuery.error}
-    <div class="text-center py-8">
-      <p class="text-red-500">{t('containers.failedToLoad')}</p>
-      <Button variant="outline" class="mt-4" onclick={() => goto('/containers')}>
-        {t('containers.backToContainers')}
-      </Button>
-    </div>
-  {:else if containerQuery.data}
-    {@const container = containerQuery.data}
-    {@const isRunning = container.state.toLowerCase() === 'running'}
+	{#if containerQuery.isLoading}
+		<LoadingState message={t('containers.loadingDetails')} />
+	{:else if containerQuery.error}
+		<div class="text-center py-8">
+			<p class="text-red-500">{t('containers.failedToLoad')}</p>
+			<button
+				onclick={() => goto('/containers')}
+				class="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+			>
+				{t('containers.backToContainers')}
+			</button>
+		</div>
+	{:else if containerQuery.data}
+		{@const container = containerQuery.data}
+		{@const isRunning = container.state.toLowerCase() === 'running'}
 
-    <!-- Container Info -->
-    <Card>
-      <CardHeader>
-        <div class="flex items-center justify-between">
-          <CardTitle>{container.name}</CardTitle>
-          <StateBadge status={container.state} size="lg" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{t('containers.id')}</p>
-            <p class="font-mono text-sm">{container.id.slice(0, 12)}</p>
-          </div>
-          <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{t('containers.image')}</p>
-            <p class="font-mono text-sm">{container.image}</p>
-          </div>
-          <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{t('containers.status')}</p>
-            <p class="text-sm">{container.status}</p>
-          </div>
-          <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{t('containers.created')}</p>
-            <p class="text-sm">{new Date(container.created).toLocaleString()}</p>
-          </div>
-        </div>
+		<!-- Container Info Card -->
+		<div
+			class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg px-6 py-4 flex flex-col gap-6"
+		>
+			<!-- Header sur deux lignes -->
+			<div class="flex flex-col gap-1 w-full">
+				<!-- Ligne 1 : nom + state + actions -->
+				<div class="flex items-center justify-between w-full gap-4">
+					<div class="flex items-center gap-4 min-w-0 flex-1">
+						<h2 class="text-2xl font-bold text-gray-900 dark:text-white truncate max-w-xs">
+							{container.name}
+						</h2>
+						<StateBadge class={getStateColor(container.state)} status={container.state} size="md" />
+					</div>
+					<div class="flex gap-2 shrink-0">
+						{#if isRunning}
+							<button
+								onclick={() => restartMutation.mutate()}
+								class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+								title={t('containers.restart')}
+								disabled={restartMutation.isPending}
+							>
+								<RotateCw class="w-4 h-4" />
+							</button>
+							<button
+								onclick={() => stopMutation.mutate()}
+								class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
+								title={t('containers.stop')}
+								disabled={stopMutation.isPending}
+							>
+								<Square class="w-4 h-4" />
+							</button>
+						{:else}
+							<button
+								onclick={() => startMutation.mutate()}
+								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+								title={t('containers.start')}
+								disabled={startMutation.isPending}
+							>
+								<Play class="w-4 h-4" />
+							</button>
+						{/if}
+						<button
+							onclick={handleRemove}
+							class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+							title={t('containers.remove')}
+							disabled={removeMutation.isPending}
+						>
+							<Trash2 class="w-4 h-4" />
+						</button>
+					</div>
+				</div>
 
-        <!-- Actions -->
-        <div class="flex gap-2 mt-6 flex-wrap">
-          {#if isRunning}
-            <Button
-              variant="outline"
-              onclick={() => stopMutation.mutate()}
-              disabled={stopMutation.isPending}
-            >
-              <Square class="w-4 h-4 mr-2" />
-              {t('containers.stop')}
-            </Button>
-            <Button
-              variant="outline"
-              onclick={() => restartMutation.mutate()}
-              disabled={restartMutation.isPending}
-            >
-              <RotateCcw class="w-4 h-4 mr-2" />
-              {t('containers.restart')}
-            </Button>
-            {#if container.status.toLowerCase().includes('paused')}
-              <Button
-                variant="outline"
-                onclick={() => unpauseMutation.mutate()}
-                disabled={unpauseMutation.isPending}
-              >
-                <PlayCircle class="w-4 h-4 mr-2" />
-                Unpause
-              </Button>
-            {:else}
-              <Button
-                variant="outline"
-                onclick={() => pauseMutation.mutate()}
-                disabled={pauseMutation.isPending}
-              >
-                <Pause class="w-4 h-4 mr-2" />
-                Pause
-              </Button>
-            {/if}
-          {:else}
-            <Button
-              onclick={() => startMutation.mutate()}
-              disabled={startMutation.isPending}
-            >
-              <Play class="w-4 h-4 mr-2" />
-              {t('containers.start')}
-            </Button>
-          {/if}
-          <Button
-            variant="destructive"
-            onclick={() => removeMutation.mutate()}
-            disabled={removeMutation.isPending}
-          >
-            <Trash2 class="w-4 h-4 mr-2" />
-            {t('containers.remove')}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+				<!-- Ligne 2 : infos secondaires -->
+				<div
+					class="flex flex-wrap items-center gap-6 mt-1 text-sm text-gray-600 dark:text-gray-400"
+				>
+					<span class="font-mono"
+						>{t('containers.id')}: {container.id.substring(0, 12)}</span
+					>
+					<span
+						>{t('containers.image')}:
+						<span class="font-mono text-gray-900 dark:text-white">{container.image}</span></span
+					>
+					<span
+						>{t('containers.status')}:
+						<span class="text-gray-900 dark:text-white">{container.status}</span></span
+					>
+					<span
+						>{t('containers.created')}:
+						<span class="text-gray-900 dark:text-white"
+							>{new Date(container.created).toLocaleString()}</span
+						></span
+					>
+				</div>
+			</div>
+		</div>
 
-    <!-- Stats (if running) -->
-    {#if isRunning && statsQuery.data}
-      {@const stats = statsQuery.data}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('containers.liveResourceStats')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="text-center p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <p class="text-2xl font-bold text-blue-600">{stats.cpuPercentage.toFixed(1)}%</p>
-              <p class="text-sm text-gray-500">{t('containers.cpu')}</p>
-            </div>
-            <div class="text-center p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <p class="text-2xl font-bold text-green-600">{formatBytes(stats.memoryUsage)}</p>
-              <p class="text-sm text-gray-500">{t('containers.ram')}</p>
-            </div>
-            <div class="text-center p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <p class="text-lg font-bold text-purple-600">{formatBytes(stats.networkRx)} / {formatBytes(stats.networkTx)}</p>
-              <p class="text-sm text-gray-500">{t('containers.networkStats')}</p>
-            </div>
-            <div class="text-center p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <p class="text-lg font-bold text-orange-600">{formatBytes(stats.diskRead)} / {formatBytes(stats.diskWrite)}</p>
-              <p class="text-sm text-gray-500">{t('containers.diskStats')}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    {/if}
+		<!-- Details Section: Two Columns -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- Left: Technical Details -->
+			<div>
+				<ContainerInfoSection {container} />
+			</div>
 
-    <!-- Environment Variables -->
-    {#if container.env && Object.keys(container.env).length > 0}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('containers.environment')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="space-y-2 max-h-64 overflow-auto">
-            {#each Object.entries(container.env) as [key, value]}
-              <div class="flex gap-2 font-mono text-sm">
-                <span class="text-blue-600 dark:text-blue-400">{key}</span>
-                <span class="text-gray-400">=</span>
-                <span class="text-gray-700 dark:text-gray-300">{value}</span>
-              </div>
-            {/each}
-          </div>
-        </CardContent>
-      </Card>
-    {/if}
+			<!-- Right: Live Resource Stats -->
+			<div>
+				<ContainerStatsCard {containerId} isActive={isRunning} />
+			</div>
+		</div>
 
-    <!-- Ports -->
-    {#if container.ports && Object.keys(container.ports).length > 0}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('containers.ports')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="flex flex-wrap gap-2">
-            {#each Object.entries(container.ports) as [containerPort, hostPort]}
-              <span class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm font-mono">
-                {hostPort} → {containerPort}
-              </span>
-            {/each}
-          </div>
-        </CardContent>
-      </Card>
-    {/if}
-  {/if}
+		<!-- Logs Section -->
+		<div class="w-full h-[400px] resize-y overflow-auto min-h-[300px] max-h-[800px]">
+			<ComposeLogs containerId={container.id} containerName={container.name} />
+		</div>
+	{/if}
 </div>

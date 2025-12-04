@@ -167,6 +167,7 @@ const es = {
     actions: 'Acciones',
     technicalDetails: 'Detalles técnicos',
     liveResourceStats: 'Estadísticas de recursos en vivo',
+    containerNotRunning: 'El contenedor no está en ejecución',
     noContainers: 'No se encontraron contenedores',
     containerNotFound: 'Contenedor no encontrado',
     containerNotFoundMessage: 'No se pudo encontrar el contenedor solicitado',

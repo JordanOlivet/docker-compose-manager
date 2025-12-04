@@ -103,7 +103,7 @@
 <div style="height: {height}px;" class="relative w-full overflow-hidden">
 	{#if data.length > 0}
 		<!-- Legend -->
-		<div class="absolute top-2 left-2 flex flex-wrap gap-3 z-10">
+		<div class="flex justify-center items-center gap-4 mb-2 pt-1">
 			{#each lines as line}
 				<div class="flex items-center gap-1.5 text-xs">
 					<div class="w-3 h-3 rounded-full" style="background-color: {line.color}"></div>
@@ -113,8 +113,8 @@
 		</div>
 
 		<!-- SVG Chart -->
-		<svg class="w-full" style="height: {height}px;" viewBox="0 0 {width + 80} {height}">
-			<g transform="translate(60, 20)">
+		<svg class="w-full" style="height: {height - 30}px;" viewBox="0 0 {width + 80} {height - 30}">
+			<g transform="translate(60, 10)">
 				<!-- Grid lines -->
 				<g class="grid">
 					{#each yTicks as tick}
