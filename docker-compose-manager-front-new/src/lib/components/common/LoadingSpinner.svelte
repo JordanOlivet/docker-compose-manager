@@ -22,7 +22,7 @@
 <div
   role="status"
   aria-live="polite"
-  aria-label={text || t('common.loading')}
+  aria-label={text || $t('common.loading')}
   class="flex flex-col items-center justify-center gap-3 {className}"
 >
   <Loader2 class="{sizeClasses[size]} animate-spin text-blue-600" aria-hidden="true" />

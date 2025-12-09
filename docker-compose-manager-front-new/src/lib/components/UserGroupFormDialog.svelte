@@ -224,9 +224,9 @@
 						class="flex-1"
 					>
 						{#if createGroupMutation.isPending || updateGroupMutation.isPending}
-							{t('common.saving')}...
+							{$t('common.saving')}...
 						{:else}
-							{isEditMode ? t('common.update') : t('common.create')}
+							{isEditMode ? $t('common.update') : $t('common.create')}
 						{/if}
 					</Button>
 					<Button
@@ -236,7 +236,7 @@
 						disabled={createGroupMutation.isPending || updateGroupMutation.isPending}
 						class="flex-1"
 					>
-						{t('common.cancel')}
+						{$t('common.cancel')}
 					</Button>
 				</div>
 			</form>

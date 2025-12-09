@@ -42,7 +42,7 @@
       queryClient.invalidateQueries({ queryKey: ['compose', 'file', fileId] });
       toast.success('File saved successfully');
     },
-    onError: () => toast.error(t('compose.failedToSave')),
+    onError: () => toast.error($t('compose.failedToSave')),
   }));
 
   function handleContentChange(newContent: string) {
@@ -62,7 +62,7 @@
       </a>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {fileQuery.data?.fileName || t('compose.editFile')}
+          {fileQuery.data?.fileName || $t('compose.editFile')}
         </h1>
         {#if fileQuery.data?.fullPath}
           <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{fileQuery.data.fullPath}</p>
@@ -73,7 +73,7 @@
       {#if hasChanges}
         <span class="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400">
           <AlertCircle class="w-4 h-4" />
-          {t('compose.unsavedChanges')}
+          {$t('compose.unsavedChanges')}
         </span>
       {/if}
       <Button
@@ -81,31 +81,31 @@
         disabled={!hasChanges || saveMutation.isPending}
       >
         <Save class="w-4 h-4 mr-2" />
-        {saveMutation.isPending ? t('common.loading') : t('common.save')}
+        {saveMutation.isPending ? $t('common.loading') : $t('common.save')}
       </Button>
     </div>
   </div>
 
   {#if fileQuery.isLoading}
-    <LoadingState message={t('compose.loadingDetails')} />
+    <LoadingState message={$t('compose.loadingDetails')} />
   {:else if fileQuery.error}
     <div class="text-center py-8">
-      <p class="text-red-500">{t('compose.failedToLoadFile')}</p>
+      <p class="text-red-500">{$t('compose.failedToLoadFile')}</p>
       <Button variant="outline" class="mt-4" onclick={() => goto('/compose/files')}>
-        {t('common.back')}
+        {$t('common.back')}
       </Button>
     </div>
   {:else}
     <!-- Editor Info Bar -->
     <div class="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-t-lg text-sm">
       <div class="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-        <span>{t('compose.yaml')}</span>
+        <span>{$t('compose.yaml')}</span>
         <span>|</span>
-        <span>{t('compose.utf8')}</span>
+        <span>{$t('compose.utf8')}</span>
       </div>
       <div class="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-        <span>{content.split('\n').length} {t('compose.lines')}</span>
-        <span>{content.length} {t('compose.characters')}</span>
+        <span>{content.split('\n').length} {$t('compose.lines')}</span>
+        <span>{content.length} {$t('compose.characters')}</span>
       </div>
     </div>
 

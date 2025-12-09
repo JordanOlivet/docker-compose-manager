@@ -51,7 +51,7 @@
     {#if showIcon}
       <Circle class="{sizeClasses[size].icon} fill-current" />
     {/if}
-    <span class="capitalize">{t('common.unknown')}</span>
+    <span class="capitalize">{$t('common.unknown')}</span>
   </span>
 {:else}
   <span class="inline-flex items-center gap-1.5 font-medium rounded-full border {styles.bg} {styles.text} {styles.border} {sizes.container} {className}">

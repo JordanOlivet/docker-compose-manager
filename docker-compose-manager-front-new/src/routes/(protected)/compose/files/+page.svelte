@@ -45,13 +45,13 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('compose.files')}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('compose.subtitle')}</p>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('compose.files')}</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('compose.subtitle')}</p>
     </div>
     <a href="/compose/files/create">
       <Button>
         <Plus class="w-4 h-4 mr-2" />
-        {t('compose.createFile')}
+        {$t('compose.createFile')}
       </Button>
     </a>
   </div>
@@ -61,7 +61,7 @@
     <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
     <Input
       type="text"
-      placeholder={t('common.search')}
+      placeholder={$t('common.search')}
       bind:value={searchQuery}
       class="pl-10"
     />
@@ -69,16 +69,16 @@
 
   <!-- Files List -->
   {#if filesQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if filesQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('compose.failedToLoadFiles')}
+      {$t('compose.failedToLoadFiles')}
     </div>
   {:else if filteredFiles.length === 0}
     <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
       <FileText class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-      <p class="text-gray-600 dark:text-gray-400">{t('compose.noFiles')}</p>
-      <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">{t('compose.noFilesMessage')}</p>
+      <p class="text-gray-600 dark:text-gray-400">{$t('compose.noFiles')}</p>
+      <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">{$t('compose.noFilesMessage')}</p>
     </div>
   {:else}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -86,7 +86,7 @@
         <thead class="bg-gray-50 dark:bg-gray-900">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('compose.filePath')}
+              {$t('compose.filePath')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Size
@@ -95,7 +95,7 @@
               Last Modified
             </th>
             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('common.edit')}
+              {$t('common.edit')}
             </th>
           </tr>
         </thead>
@@ -125,7 +125,7 @@
                   class="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
                 >
                   <Edit class="w-4 h-4" />
-                  {t('common.edit')}
+                  {$t('common.edit')}
                 </a>
               </td>
             </tr>

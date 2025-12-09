@@ -28,19 +28,19 @@
   }
 </script>
 
-<header class="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 transition-all backdrop-blur-sm bg-opacity-95">
+<header class="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 transition-all backdrop-blur-sm bg-opacity-95 relative z-[100]">
   <div class="flex items-center justify-between h-16 px-6">
     <div class="flex items-center gap-4">
       <button
         onclick={onToggleSidebar}
         class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
-        aria-label={t('common.toggleSidebar')}
+        aria-label={$t('common.toggleSidebar')}
       >
         <Menu class="w-5 h-5 text-gray-600 dark:text-gray-300" />
       </button>
 
       <h1 class="text-xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 hidden sm:block">
-        {t('app.title')}
+        {$t('app.title')}
       </h1>
     </div>
 
@@ -67,10 +67,10 @@
       <button
         onclick={handleLogout}
         class="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105 group"
-        aria-label={t('auth.logout')}
+        aria-label={$t('auth.logout')}
       >
         <LogOut class="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
-        <span class="text-sm font-medium hidden sm:inline">{t('auth.logout')}</span>
+        <span class="text-sm font-medium hidden sm:inline">{$t('auth.logout')}</span>
       </button>
     </div>
   </div>

@@ -129,7 +129,7 @@
 <div class="space-y-4">
 	<div class="flex justify-between items-center">
 		<h3 class="text-base font-semibold text-gray-900 dark:text-white">
-			{t('permissions.resourcePermissions')}
+			{$t('permissions.resourcePermissions')}
 		</h3>
 		<div class="flex gap-2">
 			{#if showCopyButton && onCopyClick}
@@ -138,7 +138,7 @@
 					onclick={onCopyClick}
 					class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hover:scale-105 transition-all duration-200 text-sm font-medium"
 				>
-					{t('permissions.copyFrom')}
+					{$t('permissions.copyFrom')}
 				</button>
 			{/if}
 			{#if !isAdding}
@@ -148,7 +148,7 @@
 					class="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium"
 				>
 					<Plus class="h-4 w-4" />
-					{t('permissions.addPermission')}
+					{$t('permissions.addPermission')}
 				</button>
 			{/if}
 		</div>
@@ -160,7 +160,7 @@
 			<p
 				class="text-sm text-gray-500 dark:text-gray-400 text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
 			>
-				{t('permissions.noPermissionsAssigned')}
+				{$t('permissions.noPermissionsAssigned')}
 			</p>
 		{/if}
 
@@ -268,16 +268,16 @@
 
 			<div class="space-y-2">
 				<label for="resource-name" class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-					{t('permissions.resourceName')}
+					{$t('permissions.resourceName')}
 				</label>
 				<select
 					id="resource-name"
 					bind:value={newPermission.resourceName}
 					class="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
 				>
-					<option value="">{t('permissions.selectResource')}</option>
+					<option value="">{$t('permissions.selectResource')}</option>
 					{#if availableResources.length === 0}
-						<option disabled>{t('permissions.noResourcesAvailable')}</option>
+						<option disabled>{$t('permissions.noResourcesAvailable')}</option>
 					{/if}
 					{#each availableResources as name}
 						<option value={name}>
@@ -289,7 +289,7 @@
 
 			<div class="space-y-2">
 				<div class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-					{t('permissions.permissions')}
+					{$t('permissions.permissions')}
 				</div>
 				<div class="flex gap-2 mb-3">
 					<button
@@ -298,7 +298,7 @@
 							(newPermission.permissions = setPreset(newPermission.permissions, 'readonly'))}
 						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
 					>
-						{t('permissions.readOnly')}
+						{$t('permissions.readOnly')}
 					</button>
 					<button
 						type="button"
@@ -306,7 +306,7 @@
 							(newPermission.permissions = setPreset(newPermission.permissions, 'standard'))}
 						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
 					>
-						{t('permissions.standard')}
+						{$t('permissions.standard')}
 					</button>
 					<button
 						type="button"
@@ -350,7 +350,7 @@
 					}}
 					class="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium"
 				>
-					{t('common.cancel')}
+					{$t('common.cancel')}
 				</button>
 				<button
 					type="button"
@@ -358,7 +358,7 @@
 					disabled={!newPermission.resourceName}
 					class="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
 				>
-					{t('permissions.addPermission')}
+					{$t('permissions.addPermission')}
 				</button>
 			</div>
 		</div>

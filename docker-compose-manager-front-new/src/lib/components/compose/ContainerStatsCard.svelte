@@ -181,11 +181,11 @@
 		<div class="flex items-center gap-2 mb-4">
 			<Activity class="h-5 w-5 text-gray-600 dark:text-gray-400" />
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-				{t('containers.liveResourceStats')}
+				{$t('containers.liveResourceStats')}
 			</h3>
 		</div>
 		<p class="text-sm text-gray-600 dark:text-gray-400">
-			{t('containers.containerNotRunning')}
+			{$t('containers.containerNotRunning')}
 		</p>
 	</div>
 {:else}
@@ -197,7 +197,7 @@
 			<div class="flex items-center gap-2">
 				<Activity class="h-5 w-5 text-gray-600 dark:text-gray-400" />
 				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-					{t('containers.liveResourceStats')}
+					{$t('containers.liveResourceStats')}
 				</h3>
 			</div>
 		</div>
@@ -210,7 +210,7 @@
 					<div class="flex items-center gap-2">
 						<Cpu class="h-4 w-4 text-red-600 dark:text-red-400" />
 						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{t('containers.cpu')}</span
+							>{$t('containers.cpu')}</span
 						>
 					</div>
 					{#if currentStats}
@@ -233,7 +233,7 @@
 					<div class="flex items-center gap-2">
 						<HardDrive class="h-4 w-4 text-blue-600 dark:text-blue-400" />
 						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{t('containers.ram')}</span
+							>{$t('containers.ram')}</span
 						>
 					</div>
 					{#if currentStats}
@@ -268,12 +268,12 @@
 							/>
 						</svg>
 						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{t('containers.networkStats')}</span
+							>{$t('containers.networkStats')}</span
 						>
 					</div>
 					{#if currentStats}
 						<span class="text-sm font-mono text-green-600 dark:text-green-400">
-							{t('containers.rx')}: {formatBytes(currentStats.networkRx)} / {t('containers.tx')}: {formatBytes(
+							{$t('containers.rx')}: {formatBytes(currentStats.networkRx)} / {$t('containers.tx')}: {formatBytes(
 								currentStats.networkTx
 							)}
 						</span>
@@ -282,8 +282,8 @@
 				<LineChart
 					data={networkChartData}
 					lines={[
-						{ key: 'rx', label: `${t('containers.rx')} (${networkUnit.unit})`, color: '#10b981' },
-						{ key: 'tx', label: `${t('containers.tx')} (${networkUnit.unit})`, color: '#f59e0b' }
+						{ key: 'rx', label: `${$t('containers.rx')} (${networkUnit.unit})`, color: '#10b981' },
+						{ key: 'tx', label: `${$t('containers.tx')} (${networkUnit.unit})`, color: '#f59e0b' }
 					]}
 					height={150}
 					formatValue={(v) => `${v.toFixed(2)} ${networkUnit.unit}`}
@@ -296,12 +296,12 @@
 					<div class="flex items-center gap-2">
 						<HardDrive class="h-4 w-4 text-purple-600 dark:text-purple-400" />
 						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{t('containers.diskStats')}</span
+							>{$t('containers.diskStats')}</span
 						>
 					</div>
 					{#if currentStats}
 						<span class="text-sm font-mono text-purple-600 dark:text-purple-400">
-							{t('containers.read')}: {formatBytes(currentStats.diskRead)} / {t('containers.write')}: {formatBytes(
+							{$t('containers.read')}: {formatBytes(currentStats.diskRead)} / {$t('containers.write')}: {formatBytes(
 								currentStats.diskWrite
 							)}
 						</span>
@@ -312,12 +312,12 @@
 					lines={[
 						{
 							key: 'read',
-							label: `${t('containers.read')} (${diskUnit.unit})`,
+							label: `${$t('containers.read')} (${diskUnit.unit})`,
 							color: '#8b5cf6'
 						},
 						{
 							key: 'write',
-							label: `${t('containers.write')} (${diskUnit.unit})`,
+							label: `${$t('containers.write')} (${diskUnit.unit})`,
 							color: '#ec4899'
 						}
 					]}

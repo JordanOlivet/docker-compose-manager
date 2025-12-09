@@ -54,7 +54,7 @@
 
   const groupedNavItems = $derived(
     navItems.reduce((acc, item) => {
-      const category = item.category ? t(item.category) : 'Other';
+      const category = item.category ? $t(item.category) : 'Other';
       if (!acc[category]) {
         acc[category] = [];
       }
@@ -81,7 +81,7 @@
         </div>
         <div>
           <span class="font-bold text-lg tracking-tight text-gray-900 dark:text-white">DCM</span>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{t('app.composeManager')}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">{$t('app.composeManager')}</p>
         </div>
       </div>
     </div>
@@ -113,7 +113,7 @@
                   <span class="transition-all duration-200 {active ? 'scale-110' : 'group-hover:scale-105'}">
                     <IconComponent class="w-5 h-5" />
                   </span>
-                  <span class="font-medium text-sm">{t(item.label)}</span>
+                  <span class="font-medium text-sm">{$t(item.label)}</span>
                 </a>
               </li>
             {/each}
@@ -125,7 +125,7 @@
     <!-- Footer -->
     <div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
       <div class="text-xs space-y-1">
-        <p class="font-semibold text-gray-700 dark:text-gray-300">{t('app.title')}</p>
+        <p class="font-semibold text-gray-700 dark:text-gray-300">{$t('app.title')}</p>
         <p class="text-gray-500 dark:text-gray-500">Version 0.1.0</p>
       </div>
     </div>

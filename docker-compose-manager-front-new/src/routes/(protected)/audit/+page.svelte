@@ -136,17 +136,17 @@
   <!-- Header -->
   <div class="flex justify-between items-start">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('audit.title')}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('audit.subtitle')}</p>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('audit.title')}</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('audit.subtitle')}</p>
     </div>
     <div class="flex gap-2">
       <Button variant="outline" onclick={handleRefresh}>
         <RefreshCw class="w-4 h-4 mr-2" />
-        {t('common.refresh')}
+        {$t('common.refresh')}
       </Button>
       <Button variant="destructive" onclick={confirmPurge}>
         <Trash2 class="w-4 h-4 mr-2" />
-        {t('audit.purgeLogs')}
+        {$t('audit.purgeLogs')}
       </Button>
     </div>
   </div>
@@ -184,17 +184,17 @@
       <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
         <Filter class="w-4 h-4 text-blue-600 dark:text-blue-400" />
       </div>
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{t('audit.filters')}</h3>
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{$t('audit.filters')}</h3>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Action Filter -->
       <div>
         <label for="actionFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('audit.action')}
+          {$t('audit.action')}
         </label>
         <Select bind:value={actionFilter} disabled={distinctActionsQuery.isLoading}>
-          <option value="">{t('common.all')}</option>
+          <option value="">{$t('common.all')}</option>
           {#if distinctActionsQuery.data}
             {#each distinctActionsQuery.data as action}
               <option value={action}>{action}</option>
@@ -206,10 +206,10 @@
       <!-- Resource Type Filter -->
       <div>
         <label for="resourceTypeFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('audit.resourceType')}
+          {$t('audit.resourceType')}
         </label>
         <Select bind:value={resourceTypeFilter} disabled={distinctResourceTypesQuery.isLoading}>
-          <option value="">{t('common.all')}</option>
+          <option value="">{$t('common.all')}</option>
           {#if distinctResourceTypesQuery.data}
             {#each distinctResourceTypesQuery.data as type}
               <option value={type}>{type}</option>
@@ -221,24 +221,24 @@
       <!-- Sort By -->
       <div>
         <label for="sortBy" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('audit.sortBy')}
+          {$t('audit.sortBy')}
         </label>
         <Select bind:value={sortBy}>
-          <option value={AuditSortField.Timestamp}>{t('audit.timestamp')}</option>
-          <option value={AuditSortField.Action}>{t('audit.action')}</option>
-          <option value={AuditSortField.UserId}>{t('audit.user')}</option>
-          <option value={AuditSortField.ResourceType}>{t('audit.resourceType')}</option>
+          <option value={AuditSortField.Timestamp}>{$t('audit.timestamp')}</option>
+          <option value={AuditSortField.Action}>{$t('audit.action')}</option>
+          <option value={AuditSortField.UserId}>{$t('audit.user')}</option>
+          <option value={AuditSortField.ResourceType}>{$t('audit.resourceType')}</option>
         </Select>
       </div>
 
       <!-- Sort Order -->
       <div>
         <label for="sortOrder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('audit.sortOrder')}
+          {$t('audit.sortOrder')}
         </label>
         <Select bind:value={sortOrder}>
-          <option value={SortOrder.Descending}>{t('audit.descending')}</option>
-          <option value={SortOrder.Ascending}>{t('audit.ascending')}</option>
+          <option value={SortOrder.Descending}>{$t('audit.descending')}</option>
+          <option value={SortOrder.Ascending}>{$t('audit.ascending')}</option>
         </Select>
       </div>
     </div>
@@ -246,10 +246,10 @@
     <!-- Apply/Clear Buttons -->
     <div class="flex gap-2 mt-4">
       <Button onclick={applyFilters}>
-        {t('common.apply')}
+        {$t('common.apply')}
       </Button>
       <Button variant="outline" onclick={clearFilters}>
-        {t('common.clear')}
+        {$t('common.clear')}
       </Button>
     </div>
   </div>
@@ -260,7 +260,7 @@
       <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
       <Input
         type="text"
-        placeholder={t('common.search')}
+        placeholder={$t('common.search')}
         bind:value={searchQuery}
         class="pl-10"
       />
@@ -271,22 +271,22 @@
   {#if auditQuery.data}
     <div class="mb-4">
       <p class="text-sm text-gray-600 dark:text-gray-400">
-        {t('audit.totalLogsFound', { count: auditQuery.data.totalCount || 0 })}
+        {$t('audit.totalLogsFound', { count: auditQuery.data.totalCount || 0 })}
       </p>
     </div>
   {/if}
 
   <!-- Audit Logs -->
   {#if auditQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if auditQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('audit.failedToLoad')}
+      {$t('audit.failedToLoad')}
     </div>
   {:else if !auditQuery.data || auditQuery.data.logs.length === 0}
     <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
       <ClipboardList class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-      <p class="text-gray-600 dark:text-gray-400">{t('audit.noLogs')}</p>
+      <p class="text-gray-600 dark:text-gray-400">{$t('audit.noLogs')}</p>
     </div>
   {:else}
     <div class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
@@ -295,19 +295,19 @@
         <thead class="bg-gray-50 dark:bg-gray-900">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('audit.timestamp')}
+              {$t('audit.timestamp')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('audit.user')}
+              {$t('audit.user')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('audit.action')}
+              {$t('audit.action')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('audit.resourceType')}
+              {$t('audit.resourceType')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('audit.ipAddress')}
+              {$t('audit.ipAddress')}
             </th>
           </tr>
         </thead>
@@ -348,7 +348,7 @@
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
           <div class="flex items-center justify-between">
             <div class="text-sm text-gray-600 dark:text-gray-400">
-              {t('audit.pageInfo', {
+              {$t('audit.pageInfo', {
                 current: page,
                 total: auditQuery.data.totalPages,
                 count: auditQuery.data.totalCount
@@ -361,7 +361,7 @@
                 onclick={() => page = Math.max(1, page - 1)}
                 disabled={page === 1}
               >
-                {t('common.previous')}
+                {$t('common.previous')}
               </Button>
               <Button
                 variant="outline"
@@ -369,7 +369,7 @@
                 onclick={() => page = Math.min(auditQuery.data!.totalPages, page + 1)}
                 disabled={page === auditQuery.data.totalPages}
               >
-                {t('common.next')}
+                {$t('common.next')}
               </Button>
             </div>
           </div>

@@ -47,7 +47,7 @@
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       }
-      error = err.response?.data?.message || t('auth.loginFailed');
+      error = err.response?.data?.message || $t('auth.loginFailed');
     } finally {
       loading = false;
     }
@@ -60,7 +60,7 @@
       <div class="mx-auto w-16 h-16 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
         <Boxes class="w-8 h-8 text-white" />
       </div>
-      <CardTitle class="text-2xl font-bold">{t('app.title')}</CardTitle>
+      <CardTitle class="text-2xl font-bold">{$t('app.title')}</CardTitle>
     </CardHeader>
     <CardContent class="pt-6">
       {#if error}
@@ -72,7 +72,7 @@
       <form onsubmit={handleSubmit}>
         <div class="mb-4">
           <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            {t('auth.username')}
+            {$t('auth.username')}
           </label>
           <Input
             type="text"
@@ -85,7 +85,7 @@
 
         <div class="mb-6">
           <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            {t('auth.password')}
+            {$t('auth.password')}
           </label>
           <PasswordInput
             id="password"
@@ -99,16 +99,16 @@
           {#if loading}
             <span class="flex items-center justify-center gap-2">
               <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              {t('auth.loggingIn')}
+              {$t('auth.loggingIn')}
             </span>
           {:else}
-            {t('auth.login')}
+            {$t('auth.login')}
           {/if}
         </Button>
       </form>
 
       <div class="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-        <p>{t('auth.defaultCredentials')}</p>
+        <p>{$t('auth.defaultCredentials')}</p>
         <p class="font-mono bg-gray-100 dark:bg-gray-800 p-2 mt-2 rounded text-gray-800 dark:text-gray-200">admin / adminadmin</p>
       </div>
     </CardContent>

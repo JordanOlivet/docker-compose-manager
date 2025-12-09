@@ -33,36 +33,36 @@
 		mutationFn: () => containersApi.start(containerId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-			toast.success(t('containers.startSuccess'));
+			toast.success($t('containers.startSuccess'));
 		},
-		onError: () => toast.error(t('containers.startFailed'))
+		onError: () => toast.error($t('containers.startFailed'))
 	}));
 
 	const stopMutation = createMutation(() => ({
 		mutationFn: () => containersApi.stop(containerId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-			toast.success(t('containers.stopSuccess'));
+			toast.success($t('containers.stopSuccess'));
 		},
-		onError: () => toast.error(t('containers.stopFailed'))
+		onError: () => toast.error($t('containers.stopFailed'))
 	}));
 
 	const restartMutation = createMutation(() => ({
 		mutationFn: () => containersApi.restart(containerId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['container', containerId] });
-			toast.success(t('containers.restartSuccess'));
+			toast.success($t('containers.restartSuccess'));
 		},
-		onError: () => toast.error(t('containers.restartFailed'))
+		onError: () => toast.error($t('containers.restartFailed'))
 	}));
 
 	const removeMutation = createMutation(() => ({
 		mutationFn: ({ force }: { force: boolean }) => containersApi.remove(containerId, force),
 		onSuccess: () => {
-			toast.success(t('containers.removeSuccess'));
+			toast.success($t('containers.removeSuccess'));
 			goto('/containers');
 		},
-		onError: () => toast.error(t('containers.removeFailed'))
+		onError: () => toast.error($t('containers.removeFailed'))
 	}));
 
 	function getStateColor(state: string) {
@@ -83,8 +83,8 @@
 
 		const isRunning = container.state.toLowerCase() === 'running';
 		const message = isRunning
-			? t('containers.confirmRemoveRunningWithName').replace('{name}', container.name)
-			: t('containers.confirmRemoveWithName').replace('{name}', container.name);
+			? $t('containers.confirmRemoveRunningWithName').replace('{name}', container.name)
+			: $t('containers.confirmRemoveWithName').replace('{name}', container.name);
 
 		if (confirm(message)) {
 			removeMutation.mutate({ force: isRunning });
@@ -100,38 +100,38 @@
 				<a
 					href="/containers"
 					class="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
-					title={t('containers.backToContainers')}
+					title={$t('containers.backToContainers')}
 				>
 					<ArrowLeft class="w-5 h-5" />
 				</a>
 				<div>
 					<h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-3">
-						{containerQuery.data?.name || t('containers.details')}
+						{containerQuery.data?.name || $t('containers.details')}
 					</h1>
-					<p class="text-lg text-gray-600 dark:text-gray-400">{t('containers.detailsSubtitle')}</p>
+					<p class="text-lg text-gray-600 dark:text-gray-400">{$t('containers.detailsSubtitle')}</p>
 				</div>
 			</div>
 			<button
 				onclick={() => containerQuery.refetch()}
 				class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-				title={t('common.refresh')}
+				title={$t('common.refresh')}
 			>
 				<RefreshCw class="w-4 h-4" />
-				{t('common.refresh')}
+				{$t('common.refresh')}
 			</button>
 		</div>
 	</div>
 
 	{#if containerQuery.isLoading}
-		<LoadingState message={t('containers.loadingDetails')} />
+		<LoadingState message={$t('containers.loadingDetails')} />
 	{:else if containerQuery.error}
 		<div class="text-center py-8">
-			<p class="text-red-500">{t('containers.failedToLoad')}</p>
+			<p class="text-red-500">{$t('containers.failedToLoad')}</p>
 			<button
 				onclick={() => goto('/containers')}
 				class="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
 			>
-				{t('containers.backToContainers')}
+				{$t('containers.backToContainers')}
 			</button>
 		</div>
 	{:else if containerQuery.data}
@@ -157,7 +157,7 @@
 							<button
 								onclick={() => restartMutation.mutate()}
 								class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-								title={t('containers.restart')}
+								title={$t('containers.restart')}
 								disabled={restartMutation.isPending}
 							>
 								<RotateCw class="w-4 h-4" />
@@ -165,7 +165,7 @@
 							<button
 								onclick={() => stopMutation.mutate()}
 								class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-								title={t('containers.stop')}
+								title={$t('containers.stop')}
 								disabled={stopMutation.isPending}
 							>
 								<Square class="w-4 h-4" />
@@ -174,7 +174,7 @@
 							<button
 								onclick={() => startMutation.mutate()}
 								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-								title={t('containers.start')}
+								title={$t('containers.start')}
 								disabled={startMutation.isPending}
 							>
 								<Play class="w-4 h-4" />
@@ -183,7 +183,7 @@
 						<button
 							onclick={handleRemove}
 							class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-							title={t('containers.remove')}
+							title={$t('containers.remove')}
 							disabled={removeMutation.isPending}
 						>
 							<Trash2 class="w-4 h-4" />
@@ -196,18 +196,18 @@
 					class="flex flex-wrap items-center gap-6 mt-1 text-sm text-gray-600 dark:text-gray-400"
 				>
 					<span class="font-mono"
-						>{t('containers.id')}: {container.id.substring(0, 12)}</span
+						>{$t('containers.id')}: {container.id.substring(0, 12)}</span
 					>
 					<span
-						>{t('containers.image')}:
+						>{$t('containers.image')}:
 						<span class="font-mono text-gray-900 dark:text-white">{container.image}</span></span
 					>
 					<span
-						>{t('containers.status')}:
+						>{$t('containers.status')}:
 						<span class="text-gray-900 dark:text-white">{container.status}</span></span
 					>
 					<span
-						>{t('containers.created')}:
+						>{$t('containers.created')}:
 						<span class="text-gray-900 dark:text-white"
 							>{new Date(container.created).toLocaleString()}</span
 						></span

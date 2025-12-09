@@ -19,26 +19,26 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('users.permissions')}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('users.permissionsSubtitle')}</p>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('users.permissions')}</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('users.permissionsSubtitle')}</p>
     </div>
     <Button>
       <Plus class="w-4 h-4 mr-2" />
-      {t('permissions.addPermission')}
+      {$t('permissions.addPermission')}
     </Button>
   </div>
 
   <!-- Permissions List -->
   {#if permissionsQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if permissionsQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('errors.generic')}
+      {$t('errors.generic')}
     </div>
   {:else if !permissionsQuery.data || permissionsQuery.data.length === 0}
     <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
       <Shield class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-      <p class="text-gray-600 dark:text-gray-400">{t('permissions.noPermissionsAssigned')}</p>
+      <p class="text-gray-600 dark:text-gray-400">{$t('permissions.noPermissionsAssigned')}</p>
     </div>
   {:else}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -46,7 +46,7 @@
         <thead class="bg-gray-50 dark:bg-gray-900">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('permissions.resourceName')}
+              {$t('permissions.resourceName')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Type
@@ -55,7 +55,7 @@
               Assigned To
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('permissions.permissions')}
+              {$t('permissions.permissions')}
             </th>
           </tr>
         </thead>

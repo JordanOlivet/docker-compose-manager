@@ -45,9 +45,9 @@
 <div class="space-y-8">
   <!-- Page Header -->
   <div class="mb-8">
-    <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('dashboard.title')}</h1>
+    <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-3">{$t('dashboard.title')}</h1>
     <p class="text-lg text-gray-600 dark:text-gray-400">
-      {t('dashboard.subtitle')}
+      {$t('dashboard.subtitle')}
     </p>
   </div>
 
@@ -60,29 +60,29 @@
           <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
             <ActivityIcon class="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
-          {t('dashboard.systemHealth')}
+          {$t('dashboard.systemHealth')}
         </h2>
         {#if health.overall}
           <div class="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 rounded-full">
             <CheckCircle class="w-5 h-5 text-green-600 dark:text-green-400" />
-            <span class="text-sm font-semibold text-green-700 dark:text-green-300">{t('dashboard.healthy')}</span>
+            <span class="text-sm font-semibold text-green-700 dark:text-green-300">{$t('dashboard.healthy')}</span>
           </div>
         {:else}
           <div class="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 rounded-full">
             <XCircle class="w-5 h-5 text-red-600 dark:text-red-400" />
-            <span class="text-sm font-semibold text-red-700 dark:text-red-300">{t('dashboard.unhealthy')}</span>
+            <span class="text-sm font-semibold text-red-700 dark:text-red-300">{$t('dashboard.unhealthy')}</span>
           </div>
         {/if}
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
-        <HealthItem label={t('dashboard.database')} state={health.database}>
+        <HealthItem label={$t('dashboard.database')} state={health.database}>
           {#snippet icon()}<Database class="w-5 h-5" />{/snippet}
         </HealthItem>
-        <HealthItem label={t('dashboard.docker')} state={health.docker}>
+        <HealthItem label={$t('dashboard.docker')} state={health.docker}>
           {#snippet icon()}<Container class="w-5 h-5" />{/snippet}
         </HealthItem>
-        <HealthItem label={t('dashboard.composePaths')} state={health.composePaths}>
+        <HealthItem label={$t('dashboard.composePaths')} state={health.composePaths}>
           {#snippet icon()}<HardDrive class="w-5 h-5" />{/snippet}
         </HealthItem>
       </div>
@@ -93,7 +93,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
     <!-- Containers Stats -->
     <StatsCard
-      title={t('dashboard.totalContainers')}
+      title={$t('dashboard.totalContainers')}
       value={statsQuery.data?.totalContainers ?? 0}
       loading={statsQuery.isLoading}
     >
@@ -104,11 +104,11 @@
         <div class="flex items-center gap-3 text-sm">
           <span class="flex items-center gap-1 text-green-600 dark:text-green-400">
             <PlayCircle class="w-4 h-4" />
-            {statsQuery.data?.runningContainers ?? 0} {t('dashboard.running')}
+            {statsQuery.data?.runningContainers ?? 0} {$t('dashboard.running')}
           </span>
           <span class="flex items-center gap-1 text-gray-600 dark:text-gray-400">
             <StopCircle class="w-4 h-4" />
-            {statsQuery.data?.stoppedContainers ?? 0} {t('dashboard.stopped')}
+            {statsQuery.data?.stoppedContainers ?? 0} {$t('dashboard.stopped')}
           </span>
         </div>
       {/snippet}
@@ -116,9 +116,9 @@
 
     <!-- Compose Projects -->
     <StatsCard
-      title={t('dashboard.composeProjects')}
+      title={$t('dashboard.composeProjects')}
       value={statsQuery.data?.totalComposeProjects ?? 0}
-      subtitleText="{statsQuery.data?.activeProjects ?? 0} {t('dashboard.active')}"
+      subtitleText="{statsQuery.data?.activeProjects ?? 0} {$t('dashboard.active')}"
       loading={statsQuery.isLoading}
     >
       {#snippet icon()}
@@ -128,9 +128,9 @@
 
     <!-- Compose Files -->
     <StatsCard
-      title={t('dashboard.composeFiles')}
+      title={$t('dashboard.composeFiles')}
       value={statsQuery.data?.composeFilesCount ?? 0}
-      subtitleText={t('dashboard.totalFilesTracked')}
+      subtitleText={$t('dashboard.totalFilesTracked')}
       loading={statsQuery.isLoading}
     >
       {#snippet icon()}
@@ -140,9 +140,9 @@
 
     <!-- Users -->
     <StatsCard
-      title={t('dashboard.users')}
+      title={$t('dashboard.users')}
       value={statsQuery.data?.usersCount ?? 0}
-      subtitleText="{statsQuery.data?.activeUsersCount ?? 0} {t('dashboard.active')}"
+      subtitleText="{statsQuery.data?.activeUsersCount ?? 0} {$t('dashboard.active')}"
       loading={statsQuery.isLoading}
     >
       {#snippet icon()}
@@ -159,19 +159,19 @@
           <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
             <ActivityIcon class="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
-          {t('dashboard.recentActivity')}
+          {$t('dashboard.recentActivity')}
         </h2>
       </div>
 
       <div class="divide-y divide-gray-100 dark:divide-gray-700">
         {#if activityQuery.isLoading}
-          <LoadingState message={t('dashboard.loadingActivity')} />
+          <LoadingState message={$t('dashboard.loadingActivity')} />
         {:else if activityQuery.data && activityQuery.data.length === 0}
           <div class="p-8 text-center">
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
               <ActivityIcon class="w-8 h-8 text-gray-400" />
             </div>
-            <p class="text-gray-600 dark:text-gray-400">{t('dashboard.noActivity')}</p>
+            <p class="text-gray-600 dark:text-gray-400">{$t('dashboard.noActivity')}</p>
           </div>
         {:else if activityQuery.data}
           {#each activityQuery.data as item}

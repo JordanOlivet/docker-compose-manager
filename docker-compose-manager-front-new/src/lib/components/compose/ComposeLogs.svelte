@@ -302,10 +302,10 @@
 					{#if isStreaming}
 						<div class="flex flex-col items-center gap-2">
 							<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500"></div>
-							<span>{t('common.waitingForLogs')}</span>
+							<span>{$t('common.waitingForLogs')}</span>
 						</div>
 					{:else}
-						{t('common.streamingPaused')}
+						{$t('common.streamingPaused')}
 					{/if}
 				</div>
 			{:else}

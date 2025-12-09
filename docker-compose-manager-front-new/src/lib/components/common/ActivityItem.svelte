@@ -42,11 +42,11 @@
     <p class="text-sm font-medium text-gray-800 dark:text-gray-100">
       <span class="font-semibold">{item.username}</span>
       <span class="text-gray-600 dark:text-gray-400">
-        {t('common.performedAction', { action: item.action })}
+        {$t('common.performedAction', { action: item.action })}
       </span>
       {#if item.resourceType}
         <span class="text-gray-600 dark:text-gray-400">
-          {t('common.onResource', { type: item.resourceType })}
+          {$t('common.onResource', { type: item.resourceType })}
         </span>
         {#if item.resourceId}
           <span class="font-mono text-blue-600 dark:text-blue-400">

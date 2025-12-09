@@ -101,45 +101,45 @@
   const startMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.start(id),
     onSuccess: () => {
-      toast.success(t('containers.startSuccess'));
+      toast.success($t('containers.startSuccess'));
       queryClient.invalidateQueries({ queryKey: ['containers'] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || t('containers.startFailed'));
+      toast.error(error.response?.data?.message || $t('containers.startFailed'));
     },
   }));
 
   const stopMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.stop(id),
     onSuccess: () => {
-      toast.success(t('containers.stopSuccess'));
+      toast.success($t('containers.stopSuccess'));
       queryClient.invalidateQueries({ queryKey: ['containers'] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || t('containers.stopFailed'));
+      toast.error(error.response?.data?.message || $t('containers.stopFailed'));
     },
   }));
 
   const restartMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.restart(id),
     onSuccess: () => {
-      toast.success(t('containers.restartSuccess'));
+      toast.success($t('containers.restartSuccess'));
       queryClient.invalidateQueries({ queryKey: ['containers'] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || t('containers.restartFailed'));
+      toast.error(error.response?.data?.message || $t('containers.restartFailed'));
     },
   }));
 
   const removeMutation = createMutation(() => ({
     mutationFn: ({ id, force }: { id: string; force: boolean }) => containersApi.remove(id, force),
     onSuccess: () => {
-      toast.success(t('containers.removeSuccess'));
+      toast.success($t('containers.removeSuccess'));
       queryClient.invalidateQueries({ queryKey: ['containers'] });
       confirmDialog = { open: false, containerId: '', containerName: '', isRunning: false };
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || t('containers.removeFailed'));
+      toast.error(error.response?.data?.message || $t('containers.removeFailed'));
     },
   }));
 
@@ -204,23 +204,23 @@
 
 <div class="space-y-4">
   {#if containersQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if containersQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('errors.failedToLoad')}: {containersQuery.error.message}
+      {$t('errors.failedToLoad')}: {containersQuery.error.message}
     </div>
   {:else}
     <!-- Page Header -->
     <div class="mb-2">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">{t('containers.title')}</h1>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">{$t('containers.title')}</h1>
           <p class="text-base text-gray-600 dark:text-gray-400">
-            {t('containers.subtitle')}
+            {$t('containers.subtitle')}
           </p>
         </div>
         <Button variant={showAll ? 'default' : 'outline'} onclick={() => showAll = !showAll}>
-          {showAll ? t('containers.showRunning') : t('containers.showAll')}
+          {showAll ? $t('containers.showRunning') : $t('containers.showAll')}
         </Button>
       </div>
     </div>
@@ -230,7 +230,7 @@
       <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
       <input
         type="text"
-        placeholder={t('containers.searchPlaceholder') || 'Search containers...'}
+        placeholder={$t('containers.searchPlaceholder') || 'Search containers...'}
         bind:value={search}
         class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
@@ -242,10 +242,10 @@
           <Container class="w-8 h-8 text-gray-400" />
         </div>
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          {t('containers.noContainers')}
+          {$t('containers.noContainers')}
         </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          {t('containers.subtitle')}
+          {$t('containers.subtitle')}
         </p>
       </div>
     {:else if filteredAndSortedContainers.length === 0}
@@ -270,7 +270,7 @@
                   onclick={() => toggleSort('name')}
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
-                  {t('containers.name')}
+                  {$t('containers.name')}
                   {#if sortKey === 'name'}
                     <span class="inline-block ml-1">
                       {sortDir === 'asc' ? '↑' : '↓'}
@@ -281,7 +281,7 @@
                   onclick={() => toggleSort('image')}
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
-                  {t('containers.image')}
+                  {$t('containers.image')}
                   {#if sortKey === 'image'}
                     <span class="inline-block ml-1">
                       {sortDir === 'asc' ? '↑' : '↓'}
@@ -292,7 +292,7 @@
                   onclick={() => toggleSort('state')}
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
-                  {t('containers.state')}
+                  {$t('containers.state')}
                   {#if sortKey === 'state'}
                     <span class="inline-block ml-1">
                       {sortDir === 'asc' ? '↑' : '↓'}
@@ -303,7 +303,7 @@
                   onclick={() => toggleSort('status')}
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
-                  {t('containers.status')}
+                  {$t('containers.status')}
                   {#if sortKey === 'status'}
                     <span class="inline-block ml-1">
                       {sortDir === 'asc' ? '↑' : '↓'}
@@ -311,7 +311,7 @@
                   {/if}
                 </th>
                 <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                  {t('containers.actions')}
+                  {$t('containers.actions')}
                 </th>
               </tr>
             </thead>
@@ -323,7 +323,7 @@
                     <button
                       class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
                       onclick={() => goto(`/containers/${container.id}`)}
-                      title={t('containers.viewDetails')}
+                      title={$t('containers.viewDetails')}
                     >
                       {container.name.startsWith('/') ? container.name.slice(1) : container.name}
                     </button>
@@ -352,7 +352,7 @@
                         <button
                           onclick={() => restartMutation.mutate(container.id)}
                           class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
-                          title={t('containers.restart')}
+                          title={$t('containers.restart')}
                           disabled={restartMutation.isPending}
                         >
                           <RotateCw class="w-3 h-3" />
@@ -360,7 +360,7 @@
                         <button
                           onclick={() => stopMutation.mutate(container.id)}
                           class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
-                          title={t('containers.stop')}
+                          title={$t('containers.stop')}
                           disabled={stopMutation.isPending}
                         >
                           <Square class="w-3 h-3" />
@@ -369,7 +369,7 @@
                         <button
                           onclick={() => startMutation.mutate(container.id)}
                           class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
-                          title={t('containers.start')}
+                          title={$t('containers.start')}
                           disabled={startMutation.isPending}
                         >
                           <Play class="w-3 h-3" />
@@ -378,7 +378,7 @@
                       <button
                         onclick={() => confirmDialog = { open: true, containerId: container.id, containerName: container.name, isRunning }}
                         class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
-                        title={t('containers.remove')}
+                        title={$t('containers.remove')}
                         disabled={removeMutation.isPending}
                       >
                         <Trash2 class="w-3 h-3" />
@@ -397,10 +397,10 @@
   <!-- Confirm Dialog -->
   <ConfirmDialog
     open={confirmDialog.open}
-    title={t('containers.confirmRemove')}
+    title={$t('containers.confirmRemove')}
     description={confirmDialog.isRunning
-      ? t('containers.confirmRemoveRunningWithName', { name: confirmDialog.containerName })
-      : t('containers.confirmRemoveWithName', { name: confirmDialog.containerName })}
+      ? $t('containers.confirmRemoveRunningWithName', { name: confirmDialog.containerName })
+      : $t('containers.confirmRemoveWithName', { name: confirmDialog.containerName })}
     onconfirm={handleRemove}
     oncancel={() => confirmDialog.open = false}
   />

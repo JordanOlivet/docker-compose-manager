@@ -31,7 +31,7 @@
 		if (container.env && Object.keys(container.env).length > 0) {
 			result.push({
 				id: 'env',
-				title: t('containers.environment'),
+			title: $t('containers.environment'),
 				count: Object.keys(container.env).length
 			});
 		}
@@ -39,7 +39,7 @@
 		if (container.ports && Object.keys(container.ports).length > 0) {
 			result.push({
 				id: 'ports',
-				title: t('containers.ports'),
+			title: $t('containers.ports'),
 				count: Object.keys(container.ports).length
 			});
 		}
@@ -47,7 +47,7 @@
 		if (container.mounts && container.mounts.length > 0) {
 			result.push({
 				id: 'mounts',
-				title: t('containers.volumes'),
+			title: $t('containers.volumes'),
 				count: container.mounts.length
 			});
 		}
@@ -55,7 +55,7 @@
 		if (container.networks && container.networks.length > 0) {
 			result.push({
 				id: 'networks',
-				title: t('containers.networks'),
+			title: $t('containers.networks'),
 				count: container.networks.length
 			});
 		}
@@ -63,7 +63,7 @@
 		if (container.labels && Object.keys(container.labels).length > 0) {
 			result.push({
 				id: 'labels',
-				title: t('containers.labels'),
+			title: $t('containers.labels'),
 				count: Object.keys(container.labels).length
 			});
 		}
@@ -82,7 +82,7 @@
 	<!-- Header -->
 	<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
 		<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-			{t('containers.technicalDetails')}
+			{$t('containers.technicalDetails')}
 		</h3>
 	</div>
 
@@ -175,7 +175,7 @@
 								{#each container.mounts as mount}
 									<li class="text-gray-700 dark:text-gray-300">
 										{mount.source} : <span class="italic">{mount.destination}</span>
-										{mount.readOnly ? t('containers.readOnly') : ''}
+										{mount.readOnly ? $t('containers.readOnly') : ''}
 									</li>
 								{/each}
 							</ul>

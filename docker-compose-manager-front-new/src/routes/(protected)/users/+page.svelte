@@ -34,33 +34,33 @@
     mutationFn: (id: number) => usersApi.enable(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(t('users.userStatusUpdated'));
+      toast.success($t('users.userStatusUpdated'));
     },
-    onError: () => toast.error(t('users.failedToUpdate')),
+    onError: () => toast.error($t('users.failedToUpdate')),
   }));
 
   const disableMutation = createMutation(() => ({
     mutationFn: (id: number) => usersApi.disable(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(t('users.userStatusUpdated'));
+      toast.success($t('users.userStatusUpdated'));
     },
-    onError: () => toast.error(t('users.failedToUpdate')),
+    onError: () => toast.error($t('users.failedToUpdate')),
   }));
 
   const deleteMutation = createMutation(() => ({
     mutationFn: (id: number) => usersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(t('users.userDeleted'));
+      toast.success($t('users.userDeleted'));
     },
-    onError: () => toast.error(t('users.failedToDelete')),
+    onError: () => toast.error($t('users.failedToDelete')),
   }));
 
   function confirmDelete(userId: number, username: string) {
     confirmDialog = {
       open: true,
-      title: t('users.deleteUser'),
+     title: $t('users.deleteUser'),
       description: `Are you sure you want to delete user "${username}"?`,
       onConfirm: () => {
         deleteMutation.mutate(userId);
@@ -82,26 +82,26 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('users.title')}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('users.subtitle')}</p>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('users.title')}</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('users.subtitle')}</p>
     </div>
     <Button onclick={() => userFormDialog = { open: true, user: undefined }}>
       <Plus class="w-4 h-4 mr-2" />
-      {t('users.createUser')}
+      {$t('users.createUser')}
     </Button>
   </div>
 
   <!-- Users List -->
   {#if usersQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if usersQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('errors.generic')}
+      {$t('errors.generic')}
     </div>
   {:else if !usersQuery.data || usersQuery.data.length === 0}
     <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
       <Users class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-      <p class="text-gray-600 dark:text-gray-400">{t('users.noUsers')}</p>
+      <p class="text-gray-600 dark:text-gray-400">{$t('users.noUsers')}</p>
     </div>
   {:else}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -109,19 +109,19 @@
         <thead class="bg-gray-50 dark:bg-gray-900">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('users.username')}
+              {$t('users.username')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('users.role')}
+              {$t('users.role')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('users.status')}
+              {$t('users.status')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('users.createdAt')}
+              {$t('users.createdAt')}
             </th>
             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {t('users.actions')}
+              {$t('users.actions')}
             </th>
           </tr>
         </thead>
@@ -143,7 +143,7 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <Badge variant={user.isEnabled ? 'success' : 'destructive'}>
-                  {user.isEnabled ? t('users.enabled') : t('users.disabled')}
+                  {user.isEnabled ? $t('users.enabled') : $t('users.disabled')}
                 </Badge>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
@@ -154,7 +154,7 @@
                   <button
                     onclick={() => userFormDialog = { open: true, user }}
                     class="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
-                    title={t('common.edit')}
+                    title={$t('common.edit')}
                   >
                     <Edit class="w-4 h-4" />
                   </button>
@@ -180,7 +180,7 @@
                   <button
                     onclick={() => confirmDelete(user.id, user.username)}
                     class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer"
-                    title={t('common.delete')}
+                    title={$t('common.delete')}
                     disabled={deleteMutation.isPending}
                   >
                     <Trash2 class="w-4 h-4" />

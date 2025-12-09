@@ -26,7 +26,7 @@ services:
       toast.success('File created successfully');
       goto(`/compose/files/${data.id}/edit`);
     },
-    onError: () => toast.error(t('compose.failedToSave')),
+    onError: () => toast.error($t('compose.failedToSave')),
   }));
 
   function handleContentChange(newContent: string) {
@@ -45,7 +45,7 @@ services:
         <ArrowLeft class="w-5 h-5 text-gray-900 dark:text-white" />
       </a>
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{t('compose.createFile')}</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{$t('compose.createFile')}</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400">Create a new Docker Compose file</p>
       </div>
     </div>
@@ -54,17 +54,17 @@ services:
       disabled={!filePath || fileMutation.isPending}
     >
       <Save class="w-4 h-4 mr-2" />
-      {fileMutation.isPending ? t('common.loading') : t('common.create')}
+      {fileMutation.isPending ? $t('common.loading') : $t('common.create')}
     </Button>
   </div>
 
   <!-- File Path Input -->
   <div class="space-y-2">
-    <Label for="filePath">{t('compose.filePath')}</Label>
+    <Label for="filePath">{$t('compose.filePath')}</Label>
     <Input
       id="filePath"
       type="text"
-      placeholder={t('compose.filePathPlaceholder')}
+      placeholder={$t('compose.filePathPlaceholder')}
       bind:value={filePath}
     />
   </div>
@@ -72,13 +72,13 @@ services:
   <!-- Editor Info Bar -->
   <div class="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-t-lg text-sm">
     <div class="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-      <span>{t('compose.yaml')}</span>
+      <span>{$t('compose.yaml')}</span>
       <span>|</span>
-      <span>{t('compose.utf8')}</span>
+      <span>{$t('compose.utf8')}</span>
     </div>
     <div class="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-      <span>{content.split('\n').length} {t('compose.lines')}</span>
-      <span>{content.length} {t('compose.characters')}</span>
+      <span>{content.split('\n').length} {$t('compose.lines')}</span>
+      <span>{content.length} {$t('compose.characters')}</span>
     </div>
   </div>
 

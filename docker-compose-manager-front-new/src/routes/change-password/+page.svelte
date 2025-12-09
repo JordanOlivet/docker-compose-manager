@@ -23,19 +23,19 @@
     error = '';
 
     if (newPassword !== confirmPassword) {
-      error = t('auth.passwordMismatch');
+      error = $t('auth.passwordMismatch');
       return;
     }
 
     if (newPassword.length < 8) {
-      error = t('auth.passwordTooShort');
+      error = $t('auth.passwordTooShort');
       return;
     }
 
     loading = true;
     try {
       await authApi.changePassword(currentPassword, newPassword);
-      toast.success(t('auth.passwordChanged'));
+      toast.success($t('auth.passwordChanged'));
 
       // Update auth store
       const currentUser = authStore.user;
@@ -45,7 +45,7 @@
 
       goto('/dashboard');
     } catch (err: any) {
-      error = err.response?.data?.message || t('errors.generic');
+      error = err.response?.data?.message || $t('errors.generic');
       toast.error(error);
     } finally {
       loading = false;
@@ -59,8 +59,8 @@
       <div class="mx-auto w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
         <KeyRound class="w-8 h-8 text-white" />
       </div>
-      <CardTitle class="text-2xl font-bold">{t('auth.changePassword')}</CardTitle>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('auth.changePasswordSubtitle')}</p>
+      <CardTitle class="text-2xl font-bold">{$t('auth.changePassword')}</CardTitle>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">{$t('auth.changePasswordSubtitle')}</p>
     </CardHeader>
     <CardContent class="pt-6">
       {#if error}
@@ -72,36 +72,36 @@
       <form onsubmit={handleSubmit}>
         <div class="mb-4">
           <label for="currentPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            {t('auth.currentPassword')}
+            {$t('auth.currentPassword')}
           </label>
           <PasswordInput
             id="currentPassword"
             bind:value={currentPassword}
-            placeholder={t('auth.currentPasswordPlaceholder')}
+            placeholder={$t('auth.currentPasswordPlaceholder')}
             required
           />
         </div>
 
         <div class="mb-4">
           <label for="newPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            {t('auth.newPassword')}
+            {$t('auth.newPassword')}
           </label>
           <PasswordInput
             id="newPassword"
             bind:value={newPassword}
-            placeholder={t('auth.newPasswordPlaceholder')}
+            placeholder={$t('auth.newPasswordPlaceholder')}
             required
           />
         </div>
 
         <div class="mb-6">
           <label for="confirmPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            {t('auth.confirmPassword')}
+            {$t('auth.confirmPassword')}
           </label>
           <PasswordInput
             id="confirmPassword"
             bind:value={confirmPassword}
-            placeholder={t('auth.confirmPasswordPlaceholder')}
+            placeholder={$t('auth.confirmPasswordPlaceholder')}
             required
           />
         </div>
@@ -110,10 +110,10 @@
           {#if loading}
             <span class="flex items-center justify-center gap-2">
               <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              {t('common.loading')}
+              {$t('common.loading')}
             </span>
           {:else}
-            {t('auth.changePassword')}
+            {$t('auth.changePassword')}
           {/if}
         </Button>
       </form>

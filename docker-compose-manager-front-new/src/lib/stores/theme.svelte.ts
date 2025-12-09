@@ -33,16 +33,8 @@ function createThemeStore() {
   }
 
   // Apply initial theme on store creation
-  // Note: The Svelte warning about capturing initial value is expected here
-  // and is intentional for this use case
   if (browser) {
-    const initialTheme = theme;
-    const root = document.documentElement;
-    if (initialTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    applyTheme(theme);
   }
 
   return {

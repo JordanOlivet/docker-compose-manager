@@ -124,36 +124,36 @@
       composeApi.upProject(projectName, { detach: true, forceRecreate }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('compose.upSuccess'));
+      toast.success($t('compose.upSuccess'));
     },
-    onError: () => toast.error(t('compose.failedToLoad')),
+    onError: () => toast.error($t('compose.failedToLoad')),
   }));
 
   const downMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.downProject(projectName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('compose.downSuccess'));
+      toast.success($t('compose.downSuccess'));
     },
-    onError: () => toast.error(t('compose.failedToLoad')),
+    onError: () => toast.error($t('compose.failedToLoad')),
   }));
 
   const restartMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.restartProject(projectName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('compose.restartSuccess'));
+      toast.success($t('compose.restartSuccess'));
     },
-    onError: () => toast.error(t('compose.failedToLoad')),
+    onError: () => toast.error($t('compose.failedToLoad')),
   }));
 
   const stopMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.stopProject(projectName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('compose.stopSuccess'));
+      toast.success($t('compose.stopSuccess'));
     },
-    onError: () => toast.error(t('compose.failedToLoad')),
+    onError: () => toast.error($t('compose.failedToLoad')),
   }));
 
   // Container Mutations
@@ -161,27 +161,27 @@
     mutationFn: (containerId: string) => containersApi.start(containerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('containers.startSuccess'));
+      toast.success($t('containers.startSuccess'));
     },
-    onError: () => toast.error(t('containers.failedToStart')),
+    onError: () => toast.error($t('containers.failedToStart')),
   }));
 
   const stopContainerMutation = createMutation(() => ({
     mutationFn: (containerId: string) => containersApi.stop(containerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('containers.stopSuccess'));
+      toast.success($t('containers.stopSuccess'));
     },
-    onError: () => toast.error(t('containers.failedToStop')),
+    onError: () => toast.error($t('containers.failedToStop')),
   }));
 
   const restartContainerMutation = createMutation(() => ({
     mutationFn: (containerId: string) => containersApi.restart(containerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('containers.restartSuccess'));
+      toast.success($t('containers.restartSuccess'));
     },
-    onError: () => toast.error(t('containers.failedToRestart')),
+    onError: () => toast.error($t('containers.failedToRestart')),
   }));
 
   const removeContainerMutation = createMutation(() => ({
@@ -189,9 +189,9 @@
       containersApi.remove(containerId, force),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-      toast.success(t('containers.removeSuccess'));
+      toast.success($t('containers.removeSuccess'));
     },
-    onError: () => toast.error(t('containers.failedToRemove')),
+    onError: () => toast.error($t('containers.failedToRemove')),
   }));
 
   function toggleProjectOpen(projectName: string) {
@@ -208,12 +208,12 @@
   function handleRemoveProject(project: ComposeProject) {
     const isRunning = project.state === EntityState.Running;
     const message = isRunning
-      ? `${t('compose.title')} ${project.name} ${t('containers.confirmRemoveRunning')}`
-      : `${t('common.delete')} ${t('compose.title').toLowerCase()} ${project.name}?`;
+      ? `${$t('compose.title')} ${project.name} ${$t('containers.confirmRemoveRunning')}`
+      : `${$t('common.delete')} ${$t('compose.title').toLowerCase()} ${project.name}?`;
 
     confirmDialog = {
       open: true,
-      title: t('common.delete'),
+     title: $t('common.delete'),
       description: message,
       onConfirm: () => {
         downMutation.mutate(project.name);
@@ -225,12 +225,12 @@
   function handleRemoveService(service: ComposeService) {
     const isRunning = service.state === EntityState.Running;
     const message = isRunning
-      ? `${t('containers.title')} ${service.name} ${t('containers.confirmRemoveRunning')}`
-      : `${t('containers.confirmRemove')} ${service.name}?`;
+      ? `${$t('containers.title')} ${service.name} ${$t('containers.confirmRemoveRunning')}`
+      : `${$t('containers.confirmRemove')} ${service.name}?`;
 
     confirmDialog = {
       open: true,
-      title: t('containers.remove'),
+     title: $t('containers.remove'),
       description: message,
       onConfirm: () => {
         removeContainerMutation.mutate({ containerId: service.id, force: isRunning });
@@ -267,10 +267,10 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-          {t('compose.projects')}
+          {$t('compose.projects')}
         </h1>
         <p class="text-base text-gray-600 dark:text-gray-400">
-          {t('compose.subtitle')}
+          {$t('compose.subtitle')}
         </p>
       </div>
       <button
@@ -278,7 +278,7 @@
         class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
       >
         <RefreshCw class="w-3 h-3" />
-        {t('common.refresh')}
+        {$t('common.refresh')}
       </button>
     </div>
   </div>
@@ -288,7 +288,7 @@
     <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
     <Input
       type="text"
-      placeholder={t('common.search')}
+      placeholder={$t('common.search')}
       bind:value={searchQuery}
       class="pl-10"
     />
@@ -297,16 +297,16 @@
   <!-- Project Count -->
   <div class="mb-2">
     <p class="text-xs text-gray-600 dark:text-gray-400">
-      {filteredProjects.length} {filteredProjects.length === 1 ? t('settings.project').toLowerCase() : t('compose.projects').toLowerCase()} {t('common.search').toLowerCase()}
+      {filteredProjects.length} {filteredProjects.length === 1 ? $t('settings.project').toLowerCase() : $t('compose.projects').toLowerCase()} {$t('common.search').toLowerCase()}
     </p>
   </div>
 
   <!-- Projects List -->
   {#if projectsQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if projectsQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('compose.failedToLoad')}
+      {$t('compose.failedToLoad')}
     </div>
   {:else if filteredProjects.length === 0}
     <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
@@ -314,10 +314,10 @@
         <Square class="w-8 h-8 text-gray-400" />
       </div>
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-        {t('compose.noProjects')}
+        {$t('compose.noProjects')}
       </h3>
       <p class="text-sm text-gray-600 dark:text-gray-400">
-        {t('compose.noProjectsMessage')}
+        {$t('compose.noProjectsMessage')}
       </p>
     </div>
   {:else}
@@ -354,22 +354,16 @@
                 >
                   <ChevronRight class="w-4 h-4" />
                 </span>
-                <h3
-                  class="text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    navigateToProject(project.name);
-                  }}
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                <h3 class="text-base font-semibold">
+                  <button
+                    class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    onclick={(e) => {
                       e.stopPropagation();
                       navigateToProject(project.name);
-                    }
-                  }}
-                  role="link"
-                  tabindex="0"
-                >
-                  {project.name}
+                    }}
+                  >
+                    {project.name}
+                  </button>
                 </h3>
                 <StateBadge
                   class="{getStateColor(project.state)} text-xs px-2 py-0.5"
@@ -382,14 +376,14 @@
                   <button
                     onclick={() => upMutation.mutate({ projectName: project.name })}
                     class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                    title={t('compose.up')}
+                    title={$t('compose.up')}
                   >
                     <Play class="w-4 h-4" />
                   </button>
                   <button
                     onclick={() => upMutation.mutate({ projectName: project.name, forceRecreate: true })}
                     class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                    title={t('compose.forceRecreate')}
+                    title={$t('compose.forceRecreate')}
                   >
                     <Zap class="w-3 h-3" />
                   </button>
@@ -398,14 +392,14 @@
                   <button
                     onclick={() => restartMutation.mutate(project.name)}
                     class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                    title={t('compose.restart')}
+                    title={$t('compose.restart')}
                   >
                     <RotateCw class="w-4 h-4" />
                   </button>
                   <button
                     onclick={() => stopMutation.mutate(project.name)}
                     class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
-                    title={t('compose.stop')}
+                    title={$t('compose.stop')}
                   >
                     <Square class="w-4 h-4" />
                   </button>
@@ -414,7 +408,7 @@
                   <button
                     onclick={() => handleRemoveProject(project)}
                     class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                    title={t('common.delete')}
+                    title={$t('common.delete')}
                   >
                     <Trash2 class="w-4 h-4" />
                   </button>
@@ -423,7 +417,7 @@
             </div>
             <div class="mt-1 text-xs text-gray-600 dark:text-gray-400">
               {#if project.path}
-                <span>{t('compose.directoryPath')}: {project.path}</span>
+                <span>{$t('compose.directoryPath')}: {project.path}</span>
               {/if}
             </div>
           </div>
@@ -440,19 +434,19 @@
                     <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                       <tr>
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                          {t('containers.name')}
+                          {$t('containers.name')}
                         </th>
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                          {t('containers.image')}
+                          {$t('containers.image')}
                         </th>
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                          {t('containers.state')}
+                          {$t('containers.state')}
                         </th>
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                          {t('containers.status')}
+                          {$t('containers.status')}
                         </th>
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                          {t('containers.actions')}
+                          {$t('containers.actions')}
                         </th>
                       </tr>
                     </thead>
@@ -490,14 +484,14 @@
                                 <button
                                   onclick={() => restartContainerMutation.mutate(service.id)}
                                   class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                                  title={t('containers.restart')}
+                                  title={$t('containers.restart')}
                                 >
                                   <RotateCw class="w-3 h-3" />
                                 </button>
                                 <button
                                   onclick={() => stopContainerMutation.mutate(service.id)}
                                   class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
-                                  title={t('containers.stop')}
+                                  title={$t('containers.stop')}
                                 >
                                   <Square class="w-3 h-3" />
                                 </button>
@@ -505,7 +499,7 @@
                                 <button
                                   onclick={() => startContainerMutation.mutate(service.id)}
                                   class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                                  title={t('containers.start')}
+                                  title={$t('containers.start')}
                                 >
                                   <Play class="w-3 h-3" />
                                 </button>
@@ -513,7 +507,7 @@
                               <button
                                 onclick={() => handleRemoveService(service)}
                                 class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                title={t('containers.remove')}
+                                title={$t('containers.remove')}
                               >
                                 <Trash2 class="w-3 h-3" />
                               </button>

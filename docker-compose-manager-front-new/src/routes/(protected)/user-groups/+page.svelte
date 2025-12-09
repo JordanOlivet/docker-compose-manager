@@ -64,8 +64,8 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('users.groups')}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">{t('users.groupsSubtitle')}</p>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('users.groups')}</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('users.groupsSubtitle')}</p>
     </div>
     <Button onclick={() => groupFormDialog = { open: true, group: undefined }}>
       <Plus class="w-4 h-4 mr-2" />
@@ -75,10 +75,10 @@
 
   <!-- Groups List -->
   {#if groupsQuery.isLoading}
-    <LoadingState message={t('common.loading')} />
+    <LoadingState message={$t('common.loading')} />
   {:else if groupsQuery.error}
     <div class="text-center py-8 text-red-500">
-      {t('errors.generic')}
+      {$t('errors.generic')}
     </div>
   {:else if !groupsQuery.data || groupsQuery.data.length === 0}
     <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -108,7 +108,7 @@
               <div class="flex items-center gap-4">
                 <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                   <Users class="w-4 h-4" />
-                  <span>{group.memberCount} {t('users.members')}</span>
+                  <span>{group.memberCount} {$t('users.members')}</span>
                 </div>
                 <Badge variant="secondary">
                   {formatDate(group.createdAt)}

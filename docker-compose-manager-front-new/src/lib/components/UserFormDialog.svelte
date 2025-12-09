@@ -53,14 +53,14 @@
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
-			toast.success(t('users.userCreated'));
+			toast.success($t('users.userCreated'));
 			onClose();
 		},
 		onError: (error: any) => {
 			console.error('Full error:', error);
 			console.error('Error response:', error.response);
 			console.error('Error data:', error.response?.data);
-			const errorMessage = error.response?.data?.message || error.response?.data?.title || error.message || t('users.failedToCreate');
+			const errorMessage = error.response?.data?.message || error.response?.data?.title || error.message || $t('users.failedToCreate');
 			toast.error(errorMessage);
 		}
 	}));
@@ -76,11 +76,11 @@
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
-			toast.success(t('users.userUpdated'));
+			toast.success($t('users.userUpdated'));
 			onClose();
 		},
 		onError: (error: any) => {
-			toast.error(error.response?.data?.message || t('users.failedToUpdate'));
+			toast.error(error.response?.data?.message || $t('users.failedToUpdate'));
 		}
 	}));
 
@@ -113,19 +113,19 @@
 		>
 			<div class="p-6 border-b border-gray-200 dark:border-gray-700">
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-					{isEditMode ? t('users.editUser') : t('users.createUser')}
+					{isEditMode ? $t('users.editUser') : $t('users.createUser')}
 				</h2>
 			</div>
 
 			<form onsubmit={handleSubmit} class="p-6 space-y-6">
 				<!-- Username -->
 				<div class="space-y-2">
-					<Label for="username">{t('users.username')} *</Label>
+					<Label for="username">{$t('users.username')} *</Label>
 					<Input
 						id="username"
 						type="text"
 						bind:value={formData.username}
-						placeholder={t('users.username')}
+						placeholder={$t('users.username')}
 						required
 					/>
 				</div>
@@ -133,21 +133,21 @@
 				<!-- Password -->
 				<div class="space-y-2">
 					<Label for="password"
-						>{t('users.password')} {isEditMode ? `(${t('common.optional')})` : '*'}</Label
+						>{$t('users.password')} {isEditMode ? `(${$t('common.optional')})` : '*'}</Label
 					>
 					<PasswordInput
 						id="password"
 						bind:value={formData.password}
 						placeholder={isEditMode
-							? t('users.leaveBlankToKeepCurrent')
-							: t('users.password')}
+							? $t('users.leaveBlankToKeepCurrent')
+							: $t('users.password')}
 						required={!isEditMode}
 					/>
 				</div>
 
 				<!-- Role -->
 				<div class="space-y-2">
-					<Label for="role">{t('users.role')} *</Label>
+					<Label for="role">{$t('users.role')} *</Label>
 					<select
 						id="role"
 						bind:value={formData.role}
@@ -163,14 +163,14 @@
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input type="checkbox" bind:checked={formData.isEnabled} class="h-4 w-4" />
 						<span class="text-sm font-medium text-gray-900 dark:text-white"
-							>{t('users.enabled')}</span
+							>{$t('users.enabled')}</span
 						>
 					</label>
 
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input type="checkbox" bind:checked={formData.mustChangePassword} class="h-4 w-4" />
 						<span class="text-sm font-medium text-gray-900 dark:text-white"
-							>{t('users.mustChangePassword')}</span
+							>{$t('users.mustChangePassword')}</span
 						>
 					</label>
 				</div>
@@ -193,9 +193,9 @@
 						class="flex-1"
 					>
 						{#if createUserMutation.isPending || updateUserMutation.isPending}
-							{t('common.saving')}...
+							{$t('common.saving')}...
 						{:else}
-							{isEditMode ? t('common.update') : t('common.create')}
+							{isEditMode ? $t('common.update') : $t('common.create')}
 						{/if}
 					</Button>
 					<Button
@@ -205,7 +205,7 @@
 						disabled={createUserMutation.isPending || updateUserMutation.isPending}
 						class="flex-1"
 					>
-						{t('common.cancel')}
+						{$t('common.cancel')}
 					</Button>
 				</div>
 			</form>

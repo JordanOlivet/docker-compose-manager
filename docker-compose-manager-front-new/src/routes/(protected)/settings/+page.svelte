@@ -67,19 +67,19 @@
     mutationFn: (data: { path: string; isReadOnly?: boolean }) => configApi.addPath(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config', 'paths'] });
-      toast.success(t('settings.pathAdded'));
+      toast.success($t('settings.pathAdded'));
       closeAddDialog();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: () => toast.error($t('errors.generic')),
   }));
 
   const deleteMutation = createMutation(() => ({
     mutationFn: (id: number) => configApi.deletePath(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config', 'paths'] });
-      toast.success(t('settings.pathRemoved'));
+      toast.success($t('settings.pathRemoved'));
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: () => toast.error($t('errors.generic')),
   }));
 
   function openAddDialog() {
@@ -105,7 +105,7 @@
   function confirmDelete(pathId: number, path: string) {
     confirmDialog = {
       open: true,
-      title: t('settings.removePath'),
+     title: $t('settings.removePath'),
       description: `Are you sure you want to remove path "${path}"?`,
       onConfirm: () => {
         deleteMutation.mutate(pathId);
@@ -127,27 +127,27 @@
 <div class="space-y-6">
   <!-- Header -->
   <div>
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
-    <p class="text-gray-600 dark:text-gray-400 mt-1">{t('settings.subtitle')}</p>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('settings.title')}</h1>
+    <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('settings.subtitle')}</p>
   </div>
 
   <!-- Compose Paths -->
   <Card>
     <CardHeader>
       <div class="flex items-center justify-between">
-        <CardTitle>{t('settings.composePathsTitle')}</CardTitle>
+        <CardTitle>{$t('settings.composePathsTitle')}</CardTitle>
         <Button size="sm" onclick={openAddDialog}>
           <Plus class="w-4 h-4 mr-2" />
-          {t('settings.addPath')}
+          {$t('settings.addPath')}
         </Button>
       </div>
     </CardHeader>
     <CardContent>
       {#if pathsQuery.isLoading}
-        <LoadingState message={t('common.loading')} />
+        <LoadingState message={$t('common.loading')} />
       {:else if pathsQuery.error}
         <div class="text-center py-8 text-red-500">
-          {t('errors.generic')}
+          {$t('errors.generic')}
         </div>
       {:else if !pathsQuery.data || pathsQuery.data.length === 0}
         <div class="text-center py-8">
@@ -176,7 +176,7 @@
               <button
                 onclick={() => confirmDelete(path.id, path.path)}
                 class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors cursor-pointer"
-                title={t('settings.removePath')}
+                title={$t('settings.removePath')}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 class="w-4 h-4" />
@@ -191,7 +191,7 @@
         <div class="mt-6 space-y-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <AlertTriangle class="w-5 h-5 text-yellow-500" />
-            {t('settings.externalProjectsDetected')}
+            {$t('settings.externalProjectsDetected')}
           </h3>
           {#each externalProjects as proj (proj.path)}
             <div
@@ -199,10 +199,10 @@
             >
               <div class="flex-1">
                 <p class="text-sm text-yellow-800 dark:text-yellow-200">
-                  {t('settings.pathLabel')}: <span class="font-mono">{proj.path}</span>
+                  {$t('settings.pathLabel')}: <span class="font-mono">{proj.path}</span>
                 </p>
                 <p class="text-xs mt-1 text-yellow-700 dark:text-yellow-300">
-                  <span class="font-medium">{t('settings.projectLabel')}:</span> <span class="font-semibold">{proj.name}</span>
+                  <span class="font-medium">{$t('settings.projectLabel')}:</span> <span class="font-semibold">{proj.name}</span>
                 </p>
               </div>
               <div class="flex items-center gap-2">
@@ -210,7 +210,7 @@
                   onclick={() => addMutation.mutate({ path: proj.path, isReadOnly: false })}
                   class="px-4 py-2 text-sm font-medium rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white shadow-md hover:shadow-lg transition-colors cursor-pointer"
                 >
-                  {t('settings.addThisPath')}
+                  {$t('settings.addThisPath')}
                 </button>
               </div>
             </div>
@@ -240,13 +240,13 @@
 <Dialog open={addPathDialog.open} onclose={closeAddDialog}>
   <div class="p-6">
     <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-      {t('settings.addPathTitle')}
+      {$t('settings.addPathTitle')}
     </h2>
     
     <div class="space-y-4">
       <div>
         <label for="path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('settings.path')}
+          {$t('settings.path')}
         </label>
         <div class="flex gap-2">
           <input
@@ -262,7 +262,7 @@
             class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 cursor-pointer"
           >
             <Search class="w-4 h-4" />
-            {t('common.search')}
+            {$t('common.search')}
           </button>
         </div>
       </div>
@@ -282,13 +282,13 @@
     
     <div class="flex justify-end gap-3 mt-6">
       <Button variant="outline" onclick={closeAddDialog}>
-        {t('common.cancel')}
+        {$t('common.cancel')}
       </Button>
       <Button onclick={handleAddPath} disabled={addMutation.isPending}>
         {#if addMutation.isPending}
           Adding...
         {:else}
-          {t('settings.addPath')}
+          {$t('settings.addPath')}
         {/if}
       </Button>
     </div>

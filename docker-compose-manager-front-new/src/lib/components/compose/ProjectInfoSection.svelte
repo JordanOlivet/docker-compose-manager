@@ -94,7 +94,7 @@
 								<div class="space-y-1">
 									<div class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
 										<Variable class="h-3 w-3" />
-										<span>{t('common.environmentVariables')}</span>
+										<span>{$t('common.environmentVariables')}</span>
 									</div>
 									<div
 										class="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-32 overflow-y-auto"
@@ -114,7 +114,7 @@
 							{#if typedService.ports && typedService.ports.length > 0}
 								<div class="space-y-1">
 									<div class="text-xs text-gray-600 dark:text-gray-400">
-										{t('containers.ports')}
+										{$t('containers.ports')}
 									</div>
 									<div class="flex flex-wrap gap-1">
 										{#each typedService.ports as port}
@@ -131,7 +131,7 @@
 							{#if typedService.volumes && typedService.volumes.length > 0}
 								<div class="space-y-1">
 									<div class="text-xs text-gray-600 dark:text-gray-400">
-										{t('containers.volumes')}
+										{$t('containers.volumes')}
 									</div>
 									<div
 										class="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-24 overflow-y-auto"
@@ -146,7 +146,7 @@
 							{#if typedService.labels && Object.keys(typedService.labels).length > 0}
 								<div class="space-y-1">
 									<div class="text-xs text-gray-600 dark:text-gray-400">
-										{t('containers.labels')}
+										{$t('containers.labels')}
 									</div>
 									<div
 										class="bg-gray-50 dark:bg-gray-900/50 rounded p-2 text-xs font-mono space-y-1 max-h-24 overflow-y-auto"

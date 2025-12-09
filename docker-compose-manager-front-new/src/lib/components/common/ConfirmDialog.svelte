@@ -18,8 +18,8 @@
     open,
     title,
     description,
-    confirmText = t('common.confirm'),
-    cancelText = t('common.cancel'),
+    confirmText = $t('common.confirm'),
+    cancelText = $t('common.cancel'),
     confirmVariant = 'destructive',
     onconfirm,
     oncancel

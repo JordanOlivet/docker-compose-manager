@@ -6,7 +6,7 @@
     message?: string;
   }
 
-  let { message = t('common.loading') }: Props = $props();
+  let { message = $t('common.loading') }: Props = $props();
 </script>
 
 <div class="flex flex-col items-center justify-center py-12" role="status" aria-live="polite">
