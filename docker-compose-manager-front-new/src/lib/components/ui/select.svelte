@@ -26,5 +26,3 @@
   </select>
   <ChevronDown class="absolute right-3 top-3 h-4 w-4 opacity-50 pointer-events-none" />
 </div>
-
-

@@ -12,5 +12,3 @@ export const load: PageLoad = async () => {
   }
   throw redirect(302, '/login');
 };
-
-

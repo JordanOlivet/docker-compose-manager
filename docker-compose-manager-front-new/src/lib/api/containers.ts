@@ -48,5 +48,3 @@ export const containersApi = {
     await apiClient.post(`/containers/${id}/kill`).catch(() => {});
   },
 };
-
-

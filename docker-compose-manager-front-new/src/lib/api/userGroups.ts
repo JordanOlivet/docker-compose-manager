@@ -96,5 +96,3 @@ const userGroupsApi = {
 };
 
 export default userGroupsApi;
-
-

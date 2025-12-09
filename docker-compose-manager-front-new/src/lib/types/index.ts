@@ -38,5 +38,3 @@ export interface ApiResponseWrapper<T> {
   errors?: Record<string, string[]>;
   errorCode?: string;
 }
-
-

@@ -16,5 +16,3 @@
     {@render children()}
   {/if}
 </h3>
-
-

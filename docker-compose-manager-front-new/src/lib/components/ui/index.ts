@@ -9,5 +9,3 @@ export { default as Badge } from './badge.svelte';
 export { default as Dialog } from './dialog.svelte';
 export { default as Select } from './select.svelte';
 export { default as Checkbox } from './checkbox.svelte';
-
-

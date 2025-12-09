@@ -389,5 +389,3 @@ export function isLogsConnected(): boolean {
 export function getLogsConnectionState(): signalR.HubConnectionState {
   return logsConnection?.state ?? signalR.HubConnectionState.Disconnected;
 }
-
-

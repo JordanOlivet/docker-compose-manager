@@ -160,5 +160,3 @@ export interface CopyPermissionsRequest {
   targetUserId?: number;
   targetUserGroupId?: number;
 }
-
-

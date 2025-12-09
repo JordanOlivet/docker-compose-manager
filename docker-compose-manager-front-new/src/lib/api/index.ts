@@ -10,5 +10,3 @@ export { default as userGroupsApi } from './userGroups';
 export { default as permissionsApi } from './permissions';
 export { default as usersApi } from './users';
 export { default as configApi } from './config';
-
-

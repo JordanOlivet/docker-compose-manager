@@ -186,5 +186,3 @@ export interface VolumeDetails {
   driverOpts?: Record<string, string>;
   labels?: Record<string, string>;
 }
-
-

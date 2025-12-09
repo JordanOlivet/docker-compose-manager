@@ -93,5 +93,3 @@
 </script>
 
 <div bind:this={container} class="min-h-[400px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden {className}"></div>
-
-

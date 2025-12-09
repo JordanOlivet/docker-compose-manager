@@ -57,5 +57,3 @@ function createAuthStore() {
 }
 
 export const authStore = createAuthStore();
-
-

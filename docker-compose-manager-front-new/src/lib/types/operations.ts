@@ -100,5 +100,3 @@ export interface OperationUpdateEvent {
   projectName?: string;
   projectPath?: string;
 }
-
-

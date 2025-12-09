@@ -44,5 +44,3 @@ export const operationsApi = {
     return response.data.data?.count || 0;
   }
 };
-
-

@@ -62,5 +62,3 @@ function createThemeStore() {
 }
 
 export const themeStore = createThemeStore();
-
-

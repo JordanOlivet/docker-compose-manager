@@ -97,5 +97,3 @@ const permissionsApi = {
 };
 
 export default permissionsApi;
-
-
