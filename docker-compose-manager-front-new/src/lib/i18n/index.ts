@@ -1,5 +1,5 @@
 import i18n from 'i18next';
-import { writable, derived, get } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
 import en from './en';
 import fr from './fr';
 import es from './es';
@@ -36,24 +36,13 @@ i18n.init({
   }
 });
 
-// Reactive store for i18n
+// Use writable store for locale to maintain compatibility with $locale syntax
 export const locale = writable<Locale>(i18n.language as Locale);
 
-// Counter that increments on language change to force reactivity
+// Version counter to trigger reactivity on language change
 const translationVersion = writable<number>(0);
 
-// Update localStorage and i18n when locale changes
-locale.subscribe((lng) => {
-  if (browser) {
-    localStorage.setItem('locale', lng);
-    i18n.changeLanguage(lng);
-    // Increment version to trigger reactivity
-    translationVersion.update(v => v + 1);
-  }
-});
-
-// Reactive translation store for use in templates with $t('key') syntax
-// This will cause components to re-render when language changes
+// Derived translation function - works with $ syntax
 export const t = derived(
   translationVersion,
   () => {
@@ -63,24 +52,29 @@ export const t = derived(
   }
 );
 
-// Helper to get current translation function (for use in non-reactive contexts like callbacks)
+// Helper to get current translation function (for use in non-reactive contexts)
 export function getT(): (key: string, options?: Record<string, unknown>) => string {
   return (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
 }
 
-// Reactive translation store - matches what LanguageSelector expects
-export const i18nStore = {
-  subscribe: locale.subscribe,
-  t: (key: string, options?: Record<string, unknown>) => i18n.t(key, options),
-  setLocale: (lng: Locale) => {
-    locale.set(lng);
-  },
-  get locale() {
-    return get(locale);
+// Set locale function
+export function setLocale(lng: Locale) {
+  locale.set(lng);
+  if (browser) {
+    localStorage.setItem('locale', lng);
   }
-};
+  i18n.changeLanguage(lng);
+  translationVersion.update(v => v + 1);
+}
 
-// Listen to language changes from i18next
+// Get current locale
+export function getLocale(): Locale {
+  let currentLocale: Locale = 'en';
+  locale.subscribe(l => currentLocale = l)();
+  return currentLocale;
+}
+
+// Listen to language changes from i18next (e.g., from i18n.changeLanguage)
 i18n.on('languageChanged', (lng) => {
   locale.set(lng as Locale);
 });

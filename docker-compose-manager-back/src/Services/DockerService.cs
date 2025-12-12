@@ -165,7 +165,6 @@ public class DockerService
         }
     }
 
-    [Obsolete]
     public async Task<List<string>> GetContainerLogsAsync(string containerId, int tail = 100, bool timestamps = false)
     {
         try
@@ -178,28 +177,24 @@ public class DockerService
                 Timestamps = timestamps
             };
 
-            Stream logs = await _dockerClient.Containers.GetContainerLogsAsync(
+            MultiplexedStream logs = await _dockerClient.Containers.GetContainerLogsAsync(
                 containerId,
+                true,
                 parameters,
                 CancellationToken.None
             );
 
             List<string> logLines = new();
-            using (StreamReader reader = new(logs))
+            (string stdout, string stderr) = await logs.ReadOutputToEndAsync(CancellationToken.None);
+
+            // Combine stdout and stderr
+            if (!string.IsNullOrEmpty(stdout))
             {
-                string? line;
-                while ((line = await reader.ReadLineAsync()) != null)
-                {
-                    // Docker API prepends 8 bytes header, skip it if present
-                    if (line.Length > 8)
-                    {
-                        logLines.Add(line.Substring(8));
-                    }
-                    else
-                    {
-                        logLines.Add(line);
-                    }
-                }
+                logLines.AddRange(stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+            }
+            if (!string.IsNullOrEmpty(stderr))
+            {
+                logLines.AddRange(stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries));
             }
 
             _logger.LogDebug("Retrieved {LineCount} log lines from container {ContainerId}", logLines.Count, containerId);

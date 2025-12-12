@@ -41,7 +41,11 @@
       "Bash(ls:*)",
       "Bash(Select-String -Pattern \"compose\" -Context 2,2)",
       "Bash(timeout 3 echo:*)",
-      "Bash(timeout 2 echo:*)"
+      "Bash(timeout 2 echo:*)",
+      "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" log --oneline --all)",
+      "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" show d1a148d:docker-compose-manager-front/package.json)",
+      "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" show --stat d1a148d)",
+      "Bash(npx svelte-kit sync)"
     ],
     "deny": [],
     "ask": []

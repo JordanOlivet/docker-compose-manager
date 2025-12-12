@@ -9,46 +9,48 @@
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { EntityState, type OperationUpdateEvent } from '$lib/types';
-  import { createSignalRConnection, startConnection, stopConnection, type ContainerStateChangedEvent } from '$lib/services/signalr';
-  import { onMount, onDestroy } from 'svelte';
+  import { createSignalRConnection, type ContainerStateChangedEvent } from '$lib/services/signalr';
+  import { debounce } from '$lib/utils/debounce';
 
-  let showAll = $state(true);
-  let search = $state('');
-  let confirmDialog = $state({ open: false, containerId: '', containerName: '', isRunning: false });
-
+  // Grouped filter state
   type SortKey = 'name' | 'image' | 'state' | 'status';
   type SortDir = 'asc' | 'desc';
-  let sortKey = $state<SortKey>('name');
-  let sortDir = $state<SortDir>('asc');
+
+  let filters = $state({
+    showAll: true,
+    search: '',
+    sortKey: 'name' as SortKey,
+    sortDir: 'asc' as SortDir
+  });
+
+  // Dialog state
+  let confirmDialog = $state({
+    open: false,
+    containerId: '',
+    containerName: '',
+    isRunning: false
+  });
 
   const queryClient = useQueryClient();
 
   const containersQuery = createQuery(() => ({
-    queryKey: ['containers', { all: showAll }],
-    queryFn: () => containersApi.list(showAll),
-    refetchInterval: false, // SignalR handles real-time updates
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
-    staleTime: 60000, // Consider data fresh for 1 minute to avoid excessive refetches
+    queryKey: ['containers', { all: filters.showAll }],
+    queryFn: () => containersApi.list(filters.showAll),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 60000,
   }));
 
-  // Setup SignalR connection for real-time container updates
-  let unsubscribe: (() => void) | null = null;
-  let invalidateTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Debounced invalidation - using utility function
+  const invalidateContainers = debounce(
+    () => queryClient.invalidateQueries({ queryKey: ['containers'] }),
+    500
+  );
 
-  // Debounced invalidation to avoid excessive refetches when multiple events arrive quickly
-  function invalidateContainers() {
-    if (invalidateTimeout) {
-      clearTimeout(invalidateTimeout);
-    }
-    invalidateTimeout = setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ['containers'] });
-      invalidateTimeout = null;
-    }, 500); // Wait 500ms after the last event before invalidating
-  }
-
-  onMount(async () => {
-    unsubscribe = createSignalRConnection({
+  // Setup SignalR connection for real-time container updates using $effect
+  $effect(() => {
+    const unsubscribe = createSignalRConnection({
       onOperationUpdate: (update: OperationUpdateEvent) => {
         // Listen for container-related operations that are completed or failed
         const statusMatch = update.status === 'completed' || update.status === 'failed';
@@ -83,19 +85,8 @@
       }
     });
 
-    await startConnection();
-  });
-
-  onDestroy(() => {
-    // Clear pending invalidation timeout
-    if (invalidateTimeout) {
-      clearTimeout(invalidateTimeout);
-    }
-
-    // Unsubscribe from events but keep the connection alive for other pages
-    if (unsubscribe) {
-      unsubscribe();
-    }
+    // Cleanup function - Svelte automatically calls this
+    return () => unsubscribe?.();
   });
 
   const startMutation = createMutation(() => ({
@@ -146,14 +137,14 @@
   const filteredAndSortedContainers = $derived.by(() => {
     // First filter
     const filtered = (containersQuery.data ?? []).filter((c: any) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.image.toLowerCase().includes(search.toLowerCase())
+      c.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      c.image.toLowerCase().includes(filters.search.toLowerCase())
     );
 
     // Then sort
     return [...filtered].sort((a: any, b: any) => {
       const getVal = (c: any) => {
-        switch (sortKey) {
+        switch (filters.sortKey) {
           case 'name':
             return c.name.startsWith('/') ? c.name.slice(1) : c.name;
           case 'image':
@@ -168,18 +159,18 @@
       };
       const va = getVal(a)?.toString().toLowerCase();
       const vb = getVal(b)?.toString().toLowerCase();
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      if (va < vb) return filters.sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return filters.sortDir === 'asc' ? 1 : -1;
       return 0;
     });
   });
 
   function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    if (filters.sortKey === key) {
+      filters.sortDir = filters.sortDir === 'asc' ? 'desc' : 'asc';
     } else {
-      sortKey = key;
-      sortDir = 'asc';
+      filters.sortKey = key;
+      filters.sortDir = 'asc';
     }
   }
 
@@ -219,8 +210,8 @@
             {$t('containers.subtitle')}
           </p>
         </div>
-        <Button variant={showAll ? 'default' : 'outline'} onclick={() => showAll = !showAll}>
-          {showAll ? $t('containers.showRunning') : $t('containers.showAll')}
+        <Button variant={filters.showAll ? 'default' : 'outline'} onclick={() => filters.showAll = !filters.showAll}>
+          {filters.showAll ? $t('containers.showRunning') : $t('containers.showAll')}
         </Button>
       </div>
     </div>
@@ -231,7 +222,7 @@
       <input
         type="text"
         placeholder={$t('containers.searchPlaceholder') || 'Search containers...'}
-        bind:value={search}
+        bind:value={filters.search}
         class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
     </div>
@@ -271,9 +262,9 @@
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
                   {$t('containers.name')}
-                  {#if sortKey === 'name'}
+                  {#if filters.sortKey === 'name'}
                     <span class="inline-block ml-1">
-                      {sortDir === 'asc' ? '↑' : '↓'}
+                      {filters.sortDir === 'asc' ? '↑' : '↓'}
                     </span>
                   {/if}
                 </th>
@@ -282,9 +273,9 @@
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
                   {$t('containers.image')}
-                  {#if sortKey === 'image'}
+                  {#if filters.sortKey === 'image'}
                     <span class="inline-block ml-1">
-                      {sortDir === 'asc' ? '↑' : '↓'}
+                      {filters.sortDir === 'asc' ? '↑' : '↓'}
                     </span>
                   {/if}
                 </th>
@@ -293,9 +284,9 @@
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
                   {$t('containers.state')}
-                  {#if sortKey === 'state'}
+                  {#if filters.sortKey === 'state'}
                     <span class="inline-block ml-1">
-                      {sortDir === 'asc' ? '↑' : '↓'}
+                      {filters.sortDir === 'asc' ? '↑' : '↓'}
                     </span>
                   {/if}
                 </th>
@@ -304,9 +295,9 @@
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                 >
                   {$t('containers.status')}
-                  {#if sortKey === 'status'}
+                  {#if filters.sortKey === 'status'}
                     <span class="inline-block ml-1">
-                      {sortDir === 'asc' ? '↑' : '↓'}
+                      {filters.sortDir === 'asc' ? '↑' : '↓'}
                     </span>
                   {/if}
                 </th>

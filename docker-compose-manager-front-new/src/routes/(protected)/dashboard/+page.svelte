@@ -20,7 +20,7 @@
   import ActivityItem from '$lib/components/common/ActivityItem.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import { t } from '$lib/i18n';
-  import { authStore } from '$lib/stores';
+  import * as auth from '$lib/stores/auth.svelte';
 
   // Fetch dashboard data - TanStack Query v6 for Svelte 5 uses getter functions
   const statsQuery = createQuery(() => ({
@@ -152,7 +152,7 @@
   </div>
 
   <!-- Recent Activity - Admin Only -->
-  {#if authStore.isAdmin}
+  {#if auth.isAdmin.current}
     <div class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div class="p-6 border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">

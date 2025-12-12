@@ -73,18 +73,17 @@ export const auditApi = {
 
   // Purge old audit logs (admin only)
   purgeOldLogs: async (request: PurgeLogsRequest): Promise<PurgeLogsResponse> => {
-    // Calculate beforeDate from daysOld
+    // Calculate beforeDate from olderThanDays
     const beforeDate = new Date();
-    beforeDate.setDate(beforeDate.getDate() - request.daysOld);
+    beforeDate.setDate(beforeDate.getDate() - request.olderThanDays);
 
-    const response = await apiClient.delete<ApiResponseWrapper<number>>(
+    const response = await apiClient.delete<ApiResponseWrapper<PurgeLogsResponse>>(
       '/audit/purge',
-      { params: { beforeDate: beforeDate.toISOString() } }
+      { params: { beforeDate: beforeDate.toISOString(), dryRun: request.dryRun || false } }
     );
-    if (response.data.data === undefined) {
+    if (!response.data.data) {
       throw new Error('Failed to purge logs');
     }
-    // Convert backend response (count) to frontend expected format
-    return { deletedCount: response.data.data };
+    return response.data.data;
   }
 };

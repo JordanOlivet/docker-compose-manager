@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { authStore } from '$lib/stores';
+  import * as auth from '$lib/stores/auth.svelte';
   import { authApi } from '$lib/api';
   import { t } from '$lib/i18n';
   import Input from '$lib/components/ui/input.svelte';
@@ -35,7 +35,7 @@
       const user = await authApi.getCurrentUser();
 
       // Update auth store
-      authStore.login(response.accessToken, response.refreshToken, user);
+      auth.login(response.accessToken, response.refreshToken, user);
 
       if (response.mustChangePassword) {
         goto('/change-password');

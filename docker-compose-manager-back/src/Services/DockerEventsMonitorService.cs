@@ -1,7 +1,7 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
-using Microsoft.AspNetCore.SignalR;
 using docker_compose_manager_back.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace docker_compose_manager_back.Services;
 
@@ -80,7 +80,7 @@ public class DockerEventsMonitorService : BackgroundService
             }
         };
 
-        var progress = new Progress<Message>(async (message) =>
+        Progress<Message> progress = new Progress<Message>(async (message) =>
         {
             try
             {
@@ -104,7 +104,7 @@ public class DockerEventsMonitorService : BackgroundService
         }
 
         // Container events we care about
-        var relevantActions = new[]
+        string[] relevantActions = new[]
         {
             "start", "stop", "die", "kill", "pause", "unpause", "restart",
             "create", "destroy", "remove", "rename"
@@ -115,8 +115,8 @@ public class DockerEventsMonitorService : BackgroundService
             return;
         }
 
-        var containerId = message.Actor?.ID ?? "unknown";
-        var containerName = message.Actor?.Attributes != null && message.Actor.Attributes.TryGetValue("name", out var name)
+        string containerId = message.Actor?.ID ?? "unknown";
+        string containerName = message.Actor?.Attributes != null && message.Actor.Attributes.TryGetValue("name", out string? name)
             ? name
             : "unknown";
 
@@ -130,7 +130,7 @@ public class DockerEventsMonitorService : BackgroundService
         // Debug: Log all container labels to help diagnose compose project detection
         if (message.Actor?.Attributes != null)
         {
-            var labels = string.Join(", ", message.Actor.Attributes.Keys);
+            string labels = string.Join(", ", message.Actor.Attributes.Keys);
             _logger.LogDebug("Container {ContainerName} labels: {Labels}", containerName, labels);
         }
 
@@ -145,13 +145,13 @@ public class DockerEventsMonitorService : BackgroundService
 
         // Check if this container belongs to a Docker Compose project
         if (message.Actor?.Attributes != null &&
-            message.Actor.Attributes.TryGetValue("com.docker.compose.project", out var projectName))
+            message.Actor.Attributes.TryGetValue("com.docker.compose.project", out string? projectName))
         {
             _logger.LogInformation(
                 "Compose project event detected - Project: {ProjectName}, Action: {Action}, Service: {ServiceName}",
                 projectName,
                 message.Action,
-                message.Actor.Attributes.TryGetValue("com.docker.compose.service", out var serviceName) ? serviceName : "unknown"
+                message.Actor.Attributes.TryGetValue("com.docker.compose.service", out string? serviceName) ? serviceName : "unknown"
             );
 
             // Broadcast compose project state change to all connected SignalR clients
@@ -159,7 +159,7 @@ public class DockerEventsMonitorService : BackgroundService
             {
                 projectName = projectName,
                 action = message.Action,
-                serviceName = message.Actor.Attributes.TryGetValue("com.docker.compose.service", out var svc) ? svc : null,
+                serviceName = message.Actor.Attributes.TryGetValue("com.docker.compose.service", out string? svc) ? svc : null,
                 containerId = containerId,
                 containerName = containerName,
                 timestamp = DateTimeOffset.FromUnixTimeSeconds(message.Time).DateTime

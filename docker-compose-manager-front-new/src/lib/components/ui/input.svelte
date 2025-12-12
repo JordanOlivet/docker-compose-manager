@@ -2,12 +2,12 @@
   import { cn } from '$lib/utils';
   import type { HTMLInputAttributes } from 'svelte/elements';
 
-  interface Props extends HTMLInputAttributes {
+  interface Props extends Omit<HTMLInputAttributes, 'value'> {
     class?: string;
-    value?: string;
+    value?: string | number;
   }
 
-  let { class: className, value = $bindable(''), ...restProps }: Props = $props();
+  let { class: className, value = $bindable(), ...restProps }: Props = $props();
 </script>
 
 <input

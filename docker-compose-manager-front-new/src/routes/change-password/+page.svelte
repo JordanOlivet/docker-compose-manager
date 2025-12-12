@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { authApi } from '$lib/api';
   import { t } from '$lib/i18n';
-  import { authStore } from '$lib/stores';
+  import * as auth from '$lib/stores/auth.svelte';
   import PasswordInput from '$lib/components/common/PasswordInput.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Card from '$lib/components/ui/card.svelte';
@@ -38,9 +38,9 @@
       toast.success($t('auth.passwordChanged'));
 
       // Update auth store
-      const currentUser = authStore.user;
+      const currentUser = auth.auth.user;
       if (currentUser) {
-        authStore.updateUser({ ...currentUser, mustChangePassword: false });
+        auth.updateUser({ ...currentUser, mustChangePassword: false });
       }
 
       goto('/dashboard');

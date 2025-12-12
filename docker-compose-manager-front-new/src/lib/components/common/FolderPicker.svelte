@@ -1,20 +1,10 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
 	import { configApi } from '$lib/api';
+	import type { DirectoryBrowseResult } from '$lib/api/config';
 	import LoadingSpinner from './LoadingSpinner.svelte';
 	import { t } from '$lib/i18n';
-
-	interface DirectoryInfo {
-		name: string;
-		path: string;
-		isAccessible: boolean;
-	}
-
-	interface DirectoryBrowseResult {
-		currentPath: string;
-		parentPath: string | null;
-		directories: DirectoryInfo[];
-	}
+	import { clsx } from 'clsx';
 
 	interface Props {
 		onSelect: (path: string) => void;
@@ -58,7 +48,7 @@
 </script>
 
 <div
-	class="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100]"
+	class="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-100"
 >
 	<div
 		class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-[600px] max-h-[600px] flex flex-col"
@@ -145,19 +135,34 @@
 					{/if}
 
 					{#each directoriesQuery.data.directories as dir}
+						{@const isSelected = selectedPath === dir.path}
 						<button
 							onclick={() => dir.isAccessible && handleDirectoryClick(dir.path)}
 							disabled={!dir.isAccessible}
-							class="w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2 text-sm transition-all border {dir.isAccessible
-								? 'hover:bg-white dark:hover:bg-gray-800 cursor-pointer hover:border-gray-200 dark:hover:border-gray-700 text-gray-700 dark:text-gray-300'
-								: 'text-gray-400 dark:text-gray-600 cursor-not-allowed bg-gray-100 dark:bg-gray-800/50'} {selectedPath === dir.path
-								? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 dark:border-blue-400 shadow-sm'
-								: 'border-transparent'}"
+							class={clsx(
+								'w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2 text-sm transition-all border',
+								dir.isAccessible && [
+									'hover:bg-white dark:hover:bg-gray-800 cursor-pointer',
+									'hover:border-gray-200 dark:hover:border-gray-700',
+									'text-gray-700 dark:text-gray-300'
+								],
+								!dir.isAccessible && [
+									'text-gray-400 dark:text-gray-600 cursor-not-allowed',
+									'bg-gray-100 dark:bg-gray-800/50'
+								],
+								isSelected ? [
+									'bg-blue-50 dark:bg-blue-900/20',
+									'border-blue-500 dark:border-blue-400 shadow-sm'
+								] : 'border-transparent'
+							)}
 						>
 							<svg
-								class="w-4 h-4 shrink-0 {selectedPath === dir.path
-									? 'text-blue-600 dark:text-blue-400'
-									: 'text-gray-500 dark:text-gray-400'}"
+								class={clsx(
+									'w-4 h-4 shrink-0',
+									isSelected
+										? 'text-blue-600 dark:text-blue-400'
+										: 'text-gray-500 dark:text-gray-400'
+								)}
 								fill="currentColor"
 								viewBox="0 0 20 20"
 							>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Globe } from 'lucide-svelte';
-  import { locale, availableLocales, type Locale } from '$lib/i18n';
+  import { locale, availableLocales, setLocale, type Locale } from '$lib/i18n';
 
   interface Props {
     class?: string;
@@ -14,8 +14,8 @@
     availableLocales.find(lang => lang.code === $locale) || availableLocales[0]
   );
 
-  function selectLocale(localeCode: Locale) {
-    locale.set(localeCode);
+  function selectLanguage(localeCode: Locale) {
+    setLocale(localeCode);
     isOpen = false;
   }
 
@@ -45,7 +45,7 @@
     <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-[9999]">
       {#each availableLocales as language}
         <button
-          onclick={() => selectLocale(language.code)}
+          onclick={() => selectLanguage(language.code)}
           class="w-full flex items-center gap-3 px-4 py-2 text-left transition-colors {language.code === $locale
             ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}"

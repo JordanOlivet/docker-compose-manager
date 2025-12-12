@@ -65,7 +65,7 @@
   // }));
 
   const purgeMutation = createMutation(() => ({
-    mutationFn: (daysOld: number) => auditApi.purgeOldLogs({ daysOld }),
+    mutationFn: (daysOld: number) => auditApi.purgeOldLogs({ olderThanDays: daysOld }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['audit'] });
       toast.success(`Purged ${result.deletedCount} old audit logs`);
@@ -117,7 +117,7 @@
   onconfirm={() => purgeMutation.mutate(purgeDialog.days)}
   oncancel={() => purgeDialog.open = false}
 >
-  <div class="mt-4 space-y-2" slot="content">
+  <div class="mt-4 space-y-2">
     <label for="purge-days" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
       Delete logs older than (days):
     </label>

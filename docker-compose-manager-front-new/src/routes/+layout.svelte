@@ -2,9 +2,6 @@
 	import '../app.css';
 	import { QueryClientProvider, QueryClient } from '@tanstack/svelte-query';
 	import { Toaster } from 'svelte-sonner';
-	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import { themeStore } from '$lib/stores';
 
 	let { children } = $props();
 
@@ -19,20 +16,7 @@
 		},
 	});
 
-	onMount(() => {
-		if (browser) {
-			// Initialize theme from localStorage or system preference
-			const savedTheme = localStorage.getItem('theme');
-			if (savedTheme === 'dark' || savedTheme === 'light') {
-				themeStore.set(savedTheme);
-			} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-				themeStore.set('dark');
-			}
-
-			// Apply theme class
-			document.documentElement.classList.toggle('dark', themeStore.isDark);
-		}
-	});
+	// No need for theme initialization - theme.svelte.ts handles it automatically
 </script>
 
 <svelte:head>

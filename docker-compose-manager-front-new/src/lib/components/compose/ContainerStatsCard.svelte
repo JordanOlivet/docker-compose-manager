@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { containersApi } from '$lib/api';
 	import { Activity, Cpu, HardDrive } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import type { ContainerStats } from '$lib/types';
+	import { formatBytes, getBestMemoryUnit, getBestNetworkUnit, getBestDiskUnit } from '$lib/utils/units';
 
 	interface Props {
 		containerId: string;
@@ -42,25 +42,14 @@
 		currentStats = { ...stats, timestamp: new Date() };
 	});
 
-	// Add data points every 1 second
-	let chartInterval: ReturnType<typeof setInterval> | null = null;
-
+	// Add data points every 1 second - using $effect cleanup function
 	$effect(() => {
 		if (!isActive || !currentStats) {
-			if (chartInterval) {
-				clearInterval(chartInterval);
-				chartInterval = null;
-			}
 			statsHistory = [];
 			return;
 		}
 
-		// Clear existing interval if any
-		if (chartInterval) {
-			clearInterval(chartInterval);
-		}
-
-		chartInterval = setInterval(() => {
+		const interval = setInterval(() => {
 			if (!currentStats) return;
 
 			const newPoint: ContainerStats = {
@@ -73,74 +62,15 @@
 				return stat.timestamp && stat.timestamp >= fiveMinutesAgo;
 			});
 		}, 1000);
+
+		// Cleanup function - Svelte automatically calls this when effect reruns or component unmounts
+		return () => clearInterval(interval);
 	});
 
-	onDestroy(() => {
-		if (chartInterval) {
-			clearInterval(chartInterval);
-		}
-	});
-
-	// Helper functions
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const k = 1024;
-		const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-	}
-
-	function getBestMemoryUnit(data: ContainerStats[]): { unit: string; divisor: number } {
-		if (data.length === 0) return { unit: 'MB', divisor: 1024 * 1024 };
-
-		const maxValue = Math.max(...data.map((d) => d.memoryUsage));
-		const k = 1024;
-
-		if (maxValue >= k * k * k) {
-			return { unit: 'GB', divisor: k * k * k };
-		} else if (maxValue >= k * k) {
-			return { unit: 'MB', divisor: k * k };
-		} else if (maxValue >= k) {
-			return { unit: 'KB', divisor: k };
-		}
-		return { unit: 'B', divisor: 1 };
-	}
-
-	function getBestNetworkUnit(data: ContainerStats[]): { unit: string; divisor: number } {
-		if (data.length === 0) return { unit: 'KB', divisor: 1024 };
-
-		const maxValue = Math.max(...data.map((d) => Math.max(d.networkRx, d.networkTx)));
-		const k = 1024;
-
-		if (maxValue >= k * k * k) {
-			return { unit: 'GB', divisor: k * k * k };
-		} else if (maxValue >= k * k) {
-			return { unit: 'MB', divisor: k * k };
-		} else if (maxValue >= k) {
-			return { unit: 'KB', divisor: k };
-		}
-		return { unit: 'B', divisor: 1 };
-	}
-
-	function getBestDiskUnit(data: ContainerStats[]): { unit: string; divisor: number } {
-		if (data.length === 0) return { unit: 'KB', divisor: 1024 };
-
-		const maxValue = Math.max(...data.map((d) => Math.max(d.diskRead, d.diskWrite)));
-		const k = 1024;
-
-		if (maxValue >= k * k * k) {
-			return { unit: 'GB', divisor: k * k * k };
-		} else if (maxValue >= k * k) {
-			return { unit: 'MB', divisor: k * k };
-		} else if (maxValue >= k) {
-			return { unit: 'KB', divisor: k };
-		}
-		return { unit: 'B', divisor: 1 };
-	}
-
-	const memoryUnit = $derived(getBestMemoryUnit(statsHistory));
-	const networkUnit = $derived(getBestNetworkUnit(statsHistory));
-	const diskUnit = $derived(getBestDiskUnit(statsHistory));
+	// Use utility functions to get best units based on data
+	const memoryUnit = $derived(getBestMemoryUnit(statsHistory, (s) => s.memoryUsage));
+	const networkUnit = $derived(getBestNetworkUnit(statsHistory, (s) => Math.max(s.networkRx, s.networkTx)));
+	const diskUnit = $derived(getBestDiskUnit(statsHistory, (s) => Math.max(s.diskRead, s.diskWrite)));
 
 	// Prepare chart data
 	const cpuChartData = $derived(
