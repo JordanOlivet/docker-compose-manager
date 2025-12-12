@@ -1,0 +1,50 @@
+import { apiClient } from './client';
+import type { ApiResponseWrapper, Container, ContainerDetails, ContainerStats } from '$lib/types';
+
+export const containersApi = {
+  list: async (all: boolean = true): Promise<Container[]> => {
+    const response = await apiClient.get<ApiResponseWrapper<Container[]>>('/containers', {
+      params: { all },
+    });
+    return response.data.data!;
+  },
+
+  get: async (id: string): Promise<ContainerDetails> => {
+    const response = await apiClient.get<ApiResponseWrapper<ContainerDetails>>(`/containers/${id}`);
+    return response.data.data!;
+  },
+
+  getStats: async (id: string): Promise<ContainerStats> => {
+    const response = await apiClient.get<ApiResponseWrapper<ContainerStats>>(`/containers/${id}/stats`);
+    if (!response.data.data) {
+      throw new Error(`Failed to get stats for container ${id}`);
+    }
+    return response.data.data;
+  },
+
+  start: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/start`);
+  },
+
+  stop: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/stop`);
+  },
+
+  restart: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/restart`);
+  },
+
+  remove: async (id: string, force: boolean = false): Promise<void> => {
+    await apiClient.delete(`/containers/${id}`, { params: { force } });
+  },
+  // Additional optional container lifecycle operations (backend endpoints may not exist yet)
+  pause: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/pause`).catch(() => {});
+  },
+  unpause: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/unpause`).catch(() => {});
+  },
+  kill: async (id: string): Promise<void> => {
+    await apiClient.post(`/containers/${id}/kill`).catch(() => {});
+  },
+};

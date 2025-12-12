@@ -637,7 +637,7 @@ public class ComposeService
     }
 
     /// <summary>
-    /// Lists all compose projects with their status
+    /// Lists all compose projects with their status (optimized with parallel processing)
     /// </summary>
     public async Task<List<DTOs.ComposeProjectDto>> ListProjectsAsync()
     {
@@ -648,33 +648,52 @@ public class ComposeService
             // Discover all project directories
             List<string> projectPaths = await DiscoverComposeProjectsAsync();
 
-            foreach (string projectPath in projectPaths)
+            // Process all projects in parallel for better performance
+            var projectTasks = projectPaths.Select(async projectPath =>
             {
                 try
                 {
                     string projectName = GetProjectName(projectPath);
                     List<string> composeFiles = GetComposeFiles(projectPath);
 
-                    // Get services status for this project
-                    List<DTOs.ComposeServiceDto> services = await GetProjectServicesAsync(projectPath);
+                    // Get services status for this project with timeout (5 seconds max)
+                    var servicesTask = GetProjectServicesAsync(projectPath);
+                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+                    var completedTask = await Task.WhenAny(servicesTask, timeoutTask);
+
+                    List<DTOs.ComposeServiceDto> services;
+                    if (completedTask == timeoutTask)
+                    {
+                        _logger.LogWarning("Timeout (5s) getting services for project {ProjectName} at {ProjectPath}", projectName, projectPath);
+                        services = new List<DTOs.ComposeServiceDto>();
+                    }
+                    else
+                    {
+                        services = await servicesTask;
+                    }
 
                     // Determine overall project status
                     EntityState state = StateHelper.DetermineStateFromServices(services);
 
-                    projectDtos.Add(new DTOs.ComposeProjectDto(
+                    return new DTOs.ComposeProjectDto(
                         Name: projectName,
                         Path: projectPath,
                         State: state.ToStateString(),
                         Services: services,
                         ComposeFiles: composeFiles,
                         LastUpdated: DateTime.UtcNow
-                    ));
+                    );
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Error getting status for project at {ProjectPath}", projectPath);
+                    return null;
                 }
-            }
+            }).ToList();
+
+            // Wait for all projects to complete (with parallel execution)
+            var results = await Task.WhenAll(projectTasks);
+            projectDtos = results.Where(p => p != null).ToList()!;
 
             _logger.LogInformation("Listed {Count} compose projects", projectDtos.Count);
         }

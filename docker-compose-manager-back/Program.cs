@@ -155,6 +155,7 @@ builder.Services.AddSingleton<DockerService>();
 
 // Register background services
 builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
+builder.Services.AddHostedService<DockerEventsMonitorService>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();

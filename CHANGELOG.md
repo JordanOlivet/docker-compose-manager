@@ -1,3 +1,11 @@
+## Changes in v0.20.0
+
+**Merged Pull Requests:**
+- Migrate the Front to Svelte (#30)
+
+**Commits:**
+- Migrate the Front to Svelte (#30) (d1a148d)
+
 ## Changes in v0.10.0
 
 **Merged Pull Requests:**
