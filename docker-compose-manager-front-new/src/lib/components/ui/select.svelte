@@ -4,16 +4,18 @@
   import type { Snippet } from 'svelte';
   import type { HTMLSelectAttributes } from 'svelte/elements';
 
-  interface Props extends HTMLSelectAttributes {
+  interface Props extends Omit<HTMLSelectAttributes, 'value'> {
     children?: Snippet;
     class?: string;
+    value?: string | number;
   }
 
-  let { children, class: className, ...restProps }: Props = $props();
+  let { children, class: className, value = $bindable(), ...restProps }: Props = $props();
 </script>
 
 <div class="relative">
   <select
+    bind:value
     class={cn(
       'flex h-10 w-full items-center justify-between rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 ring-offset-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none',
       className

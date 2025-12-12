@@ -13,7 +13,7 @@
     Settings,
     Boxes
   } from 'lucide-svelte';
-  import { authStore } from '$lib/stores';
+  import * as auth from '$lib/stores/auth.svelte';
   import { t } from '$lib/i18n';
 
   interface Props {
@@ -49,8 +49,8 @@
     //{ to: '/logs', icon: FileOutput, label: 'navigation.logsViewer', category: 'navigation.categories.docker' },
   ];
 
-  // Utiliser $derived pour la réactivité quand authStore.isAdmin change
-  const navItems = $derived(authStore.isAdmin ? adminNavItems : userNavItems);
+  // Utiliser $derived pour la réactivité quand auth.isAdmin change
+  const navItems = $derived(auth.isAdmin.current ? adminNavItems : userNavItems);
 
   const groupedNavItems = $derived(
     navItems.reduce((acc, item) => {

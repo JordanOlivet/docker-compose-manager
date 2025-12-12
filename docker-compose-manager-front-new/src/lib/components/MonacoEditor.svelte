@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
-  import { themeStore } from '$lib/stores';
+  import * as theme from '$lib/stores/theme.svelte';
 
   interface Props {
     value?: string;
@@ -45,7 +45,7 @@
     editor = monaco.editor.create(container, {
       value,
       language,
-      theme: themeStore.isDark ? 'custom-dark' : 'custom-light',
+      theme: theme.isDark.current ? 'custom-dark' : 'custom-light',
       readOnly: readonly,
       minimap: { enabled: false },
       lineNumbers: 'on',
@@ -73,7 +73,7 @@
   // Update theme when it changes
   $effect(() => {
     if (editor && monaco) {
-      monaco.editor.setTheme(themeStore.isDark ? 'custom-dark' : 'custom-light');
+      monaco.editor.setTheme(theme.isDark.current ? 'custom-dark' : 'custom-light');
     }
   });
 

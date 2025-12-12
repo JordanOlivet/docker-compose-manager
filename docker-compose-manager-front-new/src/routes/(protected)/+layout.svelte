@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import MainLayout from '$lib/components/layout/MainLayout.svelte';
-	import { authStore } from '$lib/stores';
+	import * as auth from '$lib/stores/auth.svelte';
 	import { authApi } from '$lib/api';
 
 	let { children } = $props();
@@ -9,13 +9,13 @@
 
 	onMount(async () => {
 		// Si on a un token mais pas d'utilisateur, récupérer les infos utilisateur
-		if (authStore.isAuthenticated && !authStore.user) {
+		if (auth.isAuthenticated.current && !auth.auth.user) {
 			try {
 				const user = await authApi.getCurrentUser();
-				authStore.updateUser(user);
+				auth.updateUser(user);
 			} catch (error) {
 				// Si l'appel échoue (token invalide), déconnecter
-				authStore.logout();
+				auth.logout();
 				window.location.href = '/login';
 				return;
 			}
