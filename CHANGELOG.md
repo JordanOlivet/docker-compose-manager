@@ -1,3 +1,13 @@
+## Changes in v0.21.0
+
+**Merged Pull Requests:**
+- Docker debug fixes and more (#31)
+
+**Commits:**
+- Docker debug fixes and more (#31) (379289a)
+- docs: update CHANGELOG for v0.20.0 [skip ci] (73efed9)
+- chore: bump version to v0.20.0 [skip ci] (f006f0e)
+
 ## Changes in v0.20.0
 
 **Merged Pull Requests:**
