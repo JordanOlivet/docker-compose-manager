@@ -1,52 +1,31 @@
-# syntax=docker/dockerfile:1.7
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# Consultez https://aka.ms/customizecontainer pour savoir comment personnaliser votre conteneur de débogage et comment Visual Studio utilise ce Dockerfile pour générer vos images afin d’accélérer le débogage.
 
-# Build arguments for version information
-ARG VERSION=0.1.0-dev
-ARG ASSEMBLY_VERSION=0.1.0.0
-ARG BUILD_DATE=unknown
-ARG VCS_REF=unknown
-
-WORKDIR /src
-
-# Copy csproj and restore dependencies
-COPY ["docker-compose-manager-back.csproj", "./"]
-COPY ["nuget.config", "./"]
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet restore docker-compose-manager-back.csproj
-
-# Copy everything else and build
-COPY . .
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet build docker-compose-manager-back.csproj -c Release -o /app/build \
-    -p:Version=${ASSEMBLY_VERSION} \
-    -p:AssemblyVersion=${ASSEMBLY_VERSION} \
-    -p:FileVersion=${ASSEMBLY_VERSION} \
-    -p:InformationalVersion=${VERSION}
-# Publish framework-dependent
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages dotnet publish docker-compose-manager-back.csproj -c Release -o /app/publish \
-    -p:Version=${ASSEMBLY_VERSION} -p:InformationalVersion=${VERSION}
-
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
-
-# Re-declare build arguments for runtime stage
-ARG VERSION=0.1.0-dev
-ARG BUILD_DATE=unknown
-ARG VCS_REF=unknown
-
-# OCI image labels (https://github.com/opencontainers/image-spec/blob/main/annotations.md)
-LABEL org.opencontainers.image.title="Docker Compose Manager Backend" \
-      org.opencontainers.image.description="REST API backend for managing Docker containers and compose files" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.vendor="Docker Compose Manager Contributors" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.url="https://github.com/yourusername/docker-compose-manager" \
-      org.opencontainers.image.source="https://github.com/yourusername/docker-compose-manager" \
-      org.opencontainers.image.documentation="https://github.com/yourusername/docker-compose-manager/wiki"
-
+# Cet index est utilisé lors de l'exécution à partir de VS en mode rapide (par défaut pour la configuration de débogage)
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+# Note: Running as root is required for Docker socket access (/var/run/docker.sock)
+# This is standard practice for Docker management applications (Portainer, Yacht, etc.)
 WORKDIR /app
+EXPOSE 8080
+
+
+# Cette phase est utilisée pour générer le projet de service
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
+COPY ["nuget.config", "."]
+COPY ["docker-compose-manager-back.csproj", "."]
+RUN dotnet restore "./docker-compose-manager-back.csproj"
+COPY . .
+WORKDIR "/src/."
+RUN dotnet build "./docker-compose-manager-back.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+# Cette étape permet de publier le projet de service à copier dans la phase finale
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "./docker-compose-manager-back.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+
+# Cette phase est utilisée en production ou lors de l’exécution à partir de VS en mode normal (par défaut quand la configuration de débogage n’est pas utilisée)
+FROM base AS final
 
 # Install curl for healthcheck and Docker CLI for compose operations
 RUN apt-get update && \
@@ -63,24 +42,7 @@ RUN apt-get update && \
     # Clean up
     rm -rf /var/lib/apt/lists/*
 
-# Copy published app (framework-dependent)
-COPY --from=build /app/publish/ /app/
 
-# Create directories for data and logs
-RUN mkdir -p /app/data /app/logs
-
-# Expose port
-EXPOSE 5000
-
-# Set environment
-ENV ASPNETCORE_URLS=http://+:5000
-ENV ASPNETCORE_ENVIRONMENT=Production
-ENV BUILD_DATE=${BUILD_DATE}
-ENV GIT_COMMIT=${VCS_REF}
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
-
-# Start application (framework-dependent)
-ENTRYPOINT ["dotnet", "/app/docker-compose-manager-back.dll"]
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "docker-compose-manager-back.dll"]

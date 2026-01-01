@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Menu, LogOut } from 'lucide-svelte';
   import { goto } from '$app/navigation';
-  import { authStore } from '$lib/stores';
+  import * as auth from '$lib/stores/auth.svelte';
   import { authApi } from '$lib/api';
   import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
   import LanguageSelector from '$lib/components/common/LanguageSelector.svelte';
@@ -22,7 +22,7 @@
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      authStore.logout();
+      auth.logout();
       goto('/login');
     }
   }
@@ -50,15 +50,15 @@
 
       <div class="flex items-center gap-3 px-4 py-2 rounded-xl bg-linear-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 shadow-sm">
         <div class="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-semibold text-sm shadow-md">
-          {authStore.user?.username?.charAt(0).toUpperCase() || '?'}
+          {auth.auth.user?.username?.charAt(0).toUpperCase() || '?'}
         </div>
         <div class="hidden md:block">
           <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 block">
-            {authStore.user?.username || 'User'}
+            {auth.auth.user?.username || 'User'}
           </span>
-          {#if authStore.user?.role}
+          {#if auth.auth.user?.role}
             <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 font-medium">
-              {authStore.user.role}
+              {auth.auth.user.role}
             </span>
           {/if}
         </div>

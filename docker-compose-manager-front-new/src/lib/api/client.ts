@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
-import { authStore } from '$lib/stores/auth.svelte';
+import * as auth from '$lib/stores/auth.svelte';
 import { browser } from '$app/environment';
 
 // Extend InternalAxiosRequestConfig to include _retry property for token refresh
@@ -68,7 +68,7 @@ apiClient.interceptors.response.use(
       originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
       if (originalRequest._retryCount > 2) {
         // Trop de tentatives, logout
-        authStore.logout();
+        auth.logout();
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -90,13 +90,13 @@ apiClient.interceptors.response.use(
         localStorage.setItem('refreshToken', newRefreshToken);
 
         // Synchronise le store Svelte après refresh
-        authStore.refreshTokens(accessToken, newRefreshToken);
+        auth.refreshTokens(accessToken, newRefreshToken);
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         // Refresh failed, logout user via store
-        authStore.logout();
+        auth.logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

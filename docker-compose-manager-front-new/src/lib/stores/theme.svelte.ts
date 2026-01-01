@@ -2,55 +2,55 @@ import { browser } from '$app/environment';
 
 export type Theme = 'light' | 'dark';
 
-function createThemeStore() {
-  let theme = $state<Theme>(getInitialTheme());
+function getInitialTheme(): Theme {
+  if (!browser) return 'light';
 
-  function getInitialTheme(): Theme {
-    if (!browser) return 'light';
-    
-    // Check localStorage first
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      return savedTheme;
-    }
-    // Check system preference
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
+  // Check localStorage first
+  const savedTheme = localStorage.getItem('theme') as Theme | null;
+  if (savedTheme) {
+    return savedTheme;
   }
-
-  function applyTheme(newTheme: Theme) {
-    if (!browser) return;
-
-    const root = document.documentElement;
-    if (newTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', newTheme);
+  // Check system preference
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
   }
-
-  // Apply initial theme on store creation
-  if (browser) {
-    applyTheme(theme);
-  }
-
-  return {
-    get current() { return theme; },
-    get isDark() { return theme === 'dark'; },
-
-    toggle() {
-      theme = theme === 'light' ? 'dark' : 'light';
-      applyTheme(theme);
-    },
-
-    set(newTheme: Theme) {
-      theme = newTheme;
-      applyTheme(theme);
-    },
-  };
+  return 'light';
 }
 
-export const themeStore = createThemeStore();
+function applyTheme(newTheme: Theme) {
+  if (!browser) return;
+
+  const root = document.documentElement;
+  if (newTheme === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+  localStorage.setItem('theme', newTheme);
+}
+
+// Svelte 5 pattern: export state object
+export const themeState = $state({
+  current: getInitialTheme()
+});
+
+// Derived state as getter - Svelte 5 doesn't allow exporting $derived
+export const isDark = {
+  get current() { return themeState.current === 'dark'; }
+};
+
+// Apply initial theme
+if (browser) {
+  applyTheme(themeState.current);
+}
+
+// Actions
+export function toggle() {
+  themeState.current = themeState.current === 'light' ? 'dark' : 'light';
+  applyTheme(themeState.current);
+}
+
+export function setTheme(newTheme: Theme) {
+  themeState.current = newTheme;
+  applyTheme(newTheme);
+}

@@ -2,6 +2,7 @@
   import { AlertTriangle } from 'lucide-svelte';
   import Button from '$lib/components/ui/button.svelte';
   import { t } from '$lib/i18n';
+  import type { Snippet } from 'svelte';
 
   interface Props {
     open: boolean;
@@ -12,6 +13,7 @@
     confirmVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
     onconfirm: () => void;
     oncancel: () => void;
+    children?: Snippet;
   }
 
   let {
@@ -22,7 +24,8 @@
     cancelText = $t('common.cancel'),
     confirmVariant = 'destructive',
     onconfirm,
-    oncancel
+    oncancel,
+    children
   }: Props = $props();
 
   function handleBackdropClick(e: MouseEvent) {
@@ -66,6 +69,9 @@
           <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
             {description}
           </p>
+          {#if children}
+            {@render children()}
+          {/if}
         </div>
       </div>
 

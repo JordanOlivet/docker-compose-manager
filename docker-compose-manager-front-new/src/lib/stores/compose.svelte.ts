@@ -1,106 +1,80 @@
 import type { ComposeFile, ComposeProject, ComposeFileContent, EntityState } from '$lib/types';
 
-interface ComposeState {
-  // Compose Files
-  files: ComposeFile[];
-  selectedFile: ComposeFileContent | null;
-  isLoadingFiles: boolean;
-  filesError: string | null;
-
-  // Compose Projects
-  projects: ComposeProject[];
-  selectedProject: ComposeProject | null;
-  isLoadingProjects: boolean;
-  projectsError: string | null;
-}
-
-const initialState: ComposeState = {
-  files: [],
-  selectedFile: null,
+// Svelte 5 pattern: export state object with properties
+export const compose = $state({
+  files: [] as ComposeFile[],
+  selectedFile: null as ComposeFileContent | null,
   isLoadingFiles: false,
-  filesError: null,
-  projects: [],
-  selectedProject: null,
+  filesError: null as string | null,
+  projects: [] as ComposeProject[],
+  selectedProject: null as ComposeProject | null,
   isLoadingProjects: false,
-  projectsError: null,
-};
+  projectsError: null as string | null
+});
 
-function createComposeStore() {
-  let state = $state<ComposeState>({ ...initialState });
-
-  return {
-    // Getters - Files
-    get files() { return state.files; },
-    get selectedFile() { return state.selectedFile; },
-    get isLoadingFiles() { return state.isLoadingFiles; },
-    get filesError() { return state.filesError; },
-
-    // Getters - Projects
-    get projects() { return state.projects; },
-    get selectedProject() { return state.selectedProject; },
-    get isLoadingProjects() { return state.isLoadingProjects; },
-    get projectsError() { return state.projectsError; },
-
-    // Actions - Files
-    setFiles(files: ComposeFile[]) {
-      state.files = files;
-    },
-
-    setSelectedFile(file: ComposeFileContent | null) {
-      state.selectedFile = file;
-    },
-
-    setIsLoadingFiles(isLoading: boolean) {
-      state.isLoadingFiles = isLoading;
-    },
-
-    setFilesError(error: string | null) {
-      state.filesError = error;
-    },
-
-    addFile(file: ComposeFile) {
-      state.files = [...state.files, file];
-    },
-
-    updateFile(id: number, updates: Partial<ComposeFile>) {
-      state.files = state.files.map((f) => (f.id === id ? { ...f, ...updates } : f));
-    },
-
-    removeFile(id: number) {
-      state.files = state.files.filter((f) => f.id !== id);
-      if (state.selectedFile?.id === id) {
-        state.selectedFile = null;
-      }
-    },
-
-    // Actions - Projects
-    setProjects(projects: ComposeProject[]) {
-      state.projects = projects;
-    },
-
-    setSelectedProject(project: ComposeProject | null) {
-      state.selectedProject = project;
-    },
-
-    setIsLoadingProjects(isLoading: boolean) {
-      state.isLoadingProjects = isLoading;
-    },
-
-    setProjectsError(error: string | null) {
-      state.projectsError = error;
-    },
-
-    updateProjectStatus(projectName: string, status: EntityState) {
-      state.projects = state.projects.map((p) =>
-        p.name === projectName ? { ...p, state: status } : p
-      );
-    },
-
-    // Reset
-    reset() {
-      state = { ...initialState };
-    },
-  };
+// Actions - Files
+export function setFiles(newFiles: ComposeFile[]) {
+  compose.files = newFiles;
 }
 
-export const composeStore = createComposeStore();
+export function setSelectedFile(file: ComposeFileContent | null) {
+  compose.selectedFile = file;
+}
+
+export function setIsLoadingFiles(isLoading: boolean) {
+  compose.isLoadingFiles = isLoading;
+}
+
+export function setFilesError(error: string | null) {
+  compose.filesError = error;
+}
+
+export function addFile(file: ComposeFile) {
+  compose.files = [...compose.files, file];
+}
+
+export function updateFile(id: number, updates: Partial<ComposeFile>) {
+  compose.files = compose.files.map((f) => (f.id === id ? { ...f, ...updates } : f));
+}
+
+export function removeFile(id: number) {
+  compose.files = compose.files.filter((f) => f.id !== id);
+  if (compose.selectedFile?.id === id) {
+    compose.selectedFile = null;
+  }
+}
+
+// Actions - Projects
+export function setProjects(newProjects: ComposeProject[]) {
+  compose.projects = newProjects;
+}
+
+export function setSelectedProject(project: ComposeProject | null) {
+  compose.selectedProject = project;
+}
+
+export function setIsLoadingProjects(isLoading: boolean) {
+  compose.isLoadingProjects = isLoading;
+}
+
+export function setProjectsError(error: string | null) {
+  compose.projectsError = error;
+}
+
+export function updateProjectStatus(projectName: string, status: EntityState) {
+  compose.projects = compose.projects.map((p) =>
+    p.name === projectName ? { ...p, state: status } : p
+  );
+}
+
+// Reset all state
+export function reset() {
+  compose.files = [];
+  compose.selectedFile = null;
+  compose.isLoadingFiles = false;
+  compose.filesError = null;
+  compose.projects = [];
+  compose.selectedProject = null;
+  compose.isLoadingProjects = false;
+  compose.projectsError = null;
+}

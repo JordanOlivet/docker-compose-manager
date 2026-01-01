@@ -18,7 +18,6 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // Configure Serilog with explicit assemblies (single-file publish safe)
 try
 {
-
     Serilog.Settings.Configuration.ConfigurationReaderOptions readerOptions = new(
         typeof(Serilog.Sinks.SystemConsole.Themes.ConsoleTheme).Assembly,
         typeof(Serilog.Sinks.File.FileSink).Assembly

@@ -526,14 +526,18 @@ public class ComposeService
                     {
                         string normalized = filePath.Replace('/', Path.DirectorySeparatorChar).Trim();
                         string? dir = Path.GetDirectoryName(normalized);
-                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir) && uniqueDirs.Add(dir))
+                        if (!string.IsNullOrWhiteSpace(dir) && uniqueDirs.Add(dir))
                         {
+                            // Add directory even if it doesn't exist locally (e.g., when running in container)
+                            // The directory exists on the Docker host, which is what matters for docker compose commands
                             projectDirectories.Add(dir);
+                            _logger.LogDebug("Discovered project directory from docker compose ls: {Directory} (exists locally: {Exists})", 
+                                dir, Directory.Exists(dir));
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogDebug(ex, "Error processing compose config file path {FilePath}", filePath);
+                        _logger.LogDebug(ex, "Error processing compose file path {FilePath}", filePath);
                     }
                 }
             }
