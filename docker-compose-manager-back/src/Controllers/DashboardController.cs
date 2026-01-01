@@ -52,8 +52,8 @@ public class DashboardController : BaseController
             List<ComposeProjectDto> projects = await _composeService.ListProjectsAsync();
             int activeProjects = projects.Count(p => p.State == EntityState.Running.ToStateString());
 
-            // Get compose files count
-            int composeFilesCount = await _context.ComposeFiles.CountAsync();
+            // Get compose files count (deprecated - always 0)
+            int composeFilesCount = 0; // ComposeFiles table no longer exists
 
             // Get users count
             int usersCount = await _context.Users.CountAsync();
@@ -154,20 +154,10 @@ public class DashboardController : BaseController
                 health.Docker = new ServiceHealthDto(false, $"Docker error: {ex.Message}");
             }
 
-            // Check compose paths
-            List<Models.ComposePath> paths = await _context.ComposePaths.Where(p => p.IsEnabled).ToListAsync();
-            int accessiblePaths = 0;
-            foreach (Models.ComposePath? path in paths)
-            {
-                if (Directory.Exists(path.Path))
-                {
-                    accessiblePaths++;
-                }
-            }
-
+            // Check compose paths (deprecated - ComposePaths no longer exist)
             health.ComposePaths = new ServiceHealthDto(
-                accessiblePaths == paths.Count,
-                $"{accessiblePaths}/{paths.Count} compose paths accessible"
+                true,
+                "ComposePaths deprecated - projects discovered via docker compose ls"
             );
 
             // Overall health

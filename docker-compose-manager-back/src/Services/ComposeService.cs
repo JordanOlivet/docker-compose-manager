@@ -1,3 +1,16 @@
+/// <summary>
+/// WARNING: This service is DEPRECATED and partially replaced.
+///
+/// Replaced by:
+/// - ComposeDiscoveryService: Project discovery via docker compose ls
+/// - ComposeOperationService: up/down/restart operations
+/// - DockerCommandExecutor: Command execution utility
+///
+/// This service is kept temporarily for legacy code compatibility.
+///
+/// TODO: Extract useful helper methods, then remove this service
+/// See: COMPOSE_DISCOVERY_REFACTOR.md
+/// </summary>
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.src.Utils;

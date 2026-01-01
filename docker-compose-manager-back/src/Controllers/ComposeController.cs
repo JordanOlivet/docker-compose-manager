@@ -4,8 +4,10 @@ using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.src.Utils;
 using docker_compose_manager_back.Utils;
+using docker_compose_manager_back.Hubs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using EntityState = docker_compose_manager_back.src.Utils.EntityState;
 
@@ -25,6 +27,11 @@ public class ComposeController : BaseController
     private readonly ILogger<ComposeController> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
+    // New services for refactored discovery
+    private readonly IComposeDiscoveryService _discoveryService;
+    private readonly IComposeOperationService _operationServiceNew;
+    private readonly IHubContext<OperationsHub> _hubContext;
+
     public ComposeController(
         AppDbContext context,
         FileService fileService,
@@ -33,7 +40,10 @@ public class ComposeController : BaseController
         IAuditService auditService,
         IPermissionService permissionService,
         ILogger<ComposeController> logger,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IComposeDiscoveryService discoveryService,
+        IComposeOperationService operationServiceNew,
+        IHubContext<OperationsHub> hubContext)
     {
         _context = context;
         _fileService = fileService;
@@ -43,6 +53,9 @@ public class ComposeController : BaseController
         _permissionService = permissionService;
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
+        _discoveryService = discoveryService;
+        _operationServiceNew = operationServiceNew;
+        _hubContext = hubContext;
     }
 
     // ============================================
@@ -50,613 +63,150 @@ public class ComposeController : BaseController
     // ============================================
 
     /// <summary>
-    /// Lists all compose files
+    /// Lists all compose files (DISABLED - see COMPOSE_DISCOVERY_REFACTOR.md)
     /// </summary>
     [HttpGet("files")]
-    public async Task<ActionResult<ApiResponse<List<ComposeFileDto>>>> ListFiles()
+    [Obsolete("File listing disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult ListFiles()
     {
-        try
+        return StatusCode(501, new
         {
-            // We sync all files before making any search
-            await _fileService.SyncDatabaseWithDiscoveredFilesAsync();
-
-            List<ComposeFile> files = await _context.ComposeFiles
-                .Include(cf => cf.ComposePath)
-                .OrderBy(cf => cf.FullPath)
-                .ToListAsync();
-
-            List<ComposeFileDto> fileDtos = new();
-
-            foreach (ComposeFile file in files)
-            {
-                (bool success, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(file.FullPath);
-                if (success && fileInfo != null)
-                {
-                    string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
-                    fileDtos.Add(new ComposeFileDto(
-                        file.Id,
-                        file.FileName,
-                        file.FullPath,
-                        directory,
-                        fileInfo.Length,
-                        file.LastModified,
-                        file.LastScanned,
-                        file.ComposePathId,
-                        file.IsDiscovered
-                    ));
-                }
-            }
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.FileList,
-                GetUserIpAddress(),
-                "Listed compose files"
-            );
-
-            return Ok(ApiResponse.Ok(fileDtos));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error listing compose files");
-            return StatusCode(500, ApiResponse.Fail<List<ComposeFileDto>>("Error listing files", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File management functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Use external editor.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Use 'docker compose up' on the host. Projects will appear automatically in /api/compose/projects/v2"
+        });
     }
 
     /// <summary>
-    /// Gets a compose file by ID with content
+    /// Gets a compose file by ID with content (DISABLED)
     /// </summary>
     [HttpGet("files/{id}")]
-    public async Task<ActionResult<ApiResponse<ComposeFileContentDto>>> GetFile(int id)
+    [Obsolete("File access disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult GetFile(int id)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
-            if (file == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposeFileContentDto>("File not found", "FILE_NOT_FOUND"));
-            }
-
-            (bool success, string content, string error) = await _fileService.ReadFileAsync(file.FullPath);
-            if (!success || content == null)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileContentDto>(error ?? "Error reading file", "READ_ERROR"));
-            }
-
-            string etag = _fileService.CalculateETag(content);
-
-            ComposeFileContentDto dto = new(
-                file.Id,
-                file.FileName,
-                file.FullPath,
-                content,
-                etag,
-                file.LastModified
-            );
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.FileRead,
-                GetUserIpAddress(),
-                resourceType: "compose_file",
-                resourceId: id.ToString()
-            );
-
-            return Ok(ApiResponse.Ok(dto));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting compose file: {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<ComposeFileContentDto>("Error getting file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File management functionality is temporarily disabled."
+        });
     }
 
     /// <summary>
-    /// Gets a compose file by path
+    /// Gets a compose file by path (DISABLED)
     /// </summary>
     [HttpGet("files/by-path")]
-    public async Task<ActionResult<ApiResponse<ComposeFileContentDto>>> GetFileByPath([FromQuery] string path)
+    [Obsolete("File access disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult GetFileByPath([FromQuery] string path)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? file = await _context.ComposeFiles
-                .FirstOrDefaultAsync(cf => cf.FullPath == path);
-
-            if (file == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposeFileContentDto>("File not found", "FILE_NOT_FOUND"));
-            }
-
-            return await GetFile(file.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting compose file by path: {Path}", path);
-            return StatusCode(500, ApiResponse.Fail<ComposeFileContentDto>("Error getting file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File management functionality is temporarily disabled."
+        });
     }
 
     /// <summary>
     /// Creates a new compose file
     /// </summary>
     [HttpPost("files")]
-    public async Task<ActionResult<ApiResponse<ComposeFileDto>>> CreateFile([FromBody] CreateComposeFileRequest request)
+    [Obsolete("File creation disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult CreateFile([FromBody] CreateComposeFileRequest request)
     {
-        try
+        return StatusCode(501, new
         {
-            // Validate YAML syntax
-            (bool isValid, string validationError) = _fileService.ValidateYamlSyntax(request.Content);
-            if (!isValid)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(validationError ?? "Invalid YAML", "INVALID_YAML"));
-            }
-
-            // Validate path is in a configured ComposePath
-            (bool pathValid, string pathError, ComposePath allowedPath) = await _fileService.ValidateFilePathAsync(request.FilePath);
-            if (!pathValid || allowedPath == null)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(pathError ?? "Invalid file path", "INVALID_PATH"));
-            }
-
-            // Check if file already exists in database
-            ComposeFile? existingFile = await _context.ComposeFiles
-                .FirstOrDefaultAsync(cf => cf.FullPath == request.FilePath);
-
-            if (existingFile != null)
-            {
-                return Conflict(ApiResponse.Fail<ComposeFileDto>("File already exists", "FILE_EXISTS"));
-            }
-
-            // Write file
-            (bool success, string error) = await _fileService.WriteFileAsync(request.FilePath, request.Content, createBackup: false);
-            if (!success)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(error ?? "Error writing file", "WRITE_ERROR"));
-            }
-
-            // Create database entry manually (not discovered, but manually created)
-            string fileName = Path.GetFileName(request.FilePath);
-            ComposeFile file = new()
-            {
-                ComposePathId = allowedPath.Id,
-                FileName = fileName,
-                FullPath = request.FilePath,
-                LastModified = DateTime.UtcNow,
-                LastScanned = DateTime.UtcNow,
-                IsDiscovered = false // Manually created, not discovered
-            };
-
-            _context.ComposeFiles.Add(file);
-            await _context.SaveChangesAsync();
-
-            (bool _, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(file.FullPath);
-
-            string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
-            ComposeFileDto dto = new(
-                file.Id,
-                file.FileName,
-                file.FullPath,
-                directory,
-                fileInfo?.Length ?? 0,
-                file.LastModified,
-                file.LastScanned,
-                file.ComposePathId,
-                file.IsDiscovered
-            );
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.FileCreate,
-                GetUserIpAddress(),
-                $"Created compose file: {file.FileName}",
-                resourceType: "compose_file",
-                resourceId: file.Id.ToString(),
-                after: request
-            );
-
-            return CreatedAtAction(nameof(GetFile), new { id = file.Id }, ApiResponse.Ok(dto, "File created successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating compose file: {FilePath}", request.FilePath);
-            return StatusCode(500, ApiResponse.Fail<ComposeFileDto>("Error creating file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File creation functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Use external editor.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Create docker-compose.yml on the host, then run 'docker compose up'. Projects appear automatically in /api/compose/projects/v2"
+        });
     }
 
     /// <summary>
     /// Updates a compose file
     /// </summary>
     [HttpPut("files/{id}")]
-    public async Task<ActionResult<ApiResponse<ComposeFileDto>>> UpdateFile(int id, [FromBody] UpdateComposeFileRequest request)
+    [Obsolete("File update disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult UpdateFile(int id, [FromBody] UpdateComposeFileRequest request)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
-            if (file == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposeFileDto>("File not found", "FILE_NOT_FOUND"));
-            }
-
-            // Read current content for ETag validation and audit
-            (bool readSuccess, string currentContent, string _) = await _fileService.ReadFileAsync(file.FullPath);
-            if (!readSuccess || currentContent == null)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>("Error reading current file", "READ_ERROR"));
-            }
-
-            string currentETag = _fileService.CalculateETag(currentContent);
-
-            // Validate ETag for optimistic locking
-            if (currentETag != request.ETag)
-            {
-                return Conflict(ApiResponse.Fail<ComposeFileDto>("File has been modified by another user", "ETAG_MISMATCH"));
-            }
-
-            // Validate YAML syntax
-            (bool isValid, string validationError) = _fileService.ValidateYamlSyntax(request.Content);
-            if (!isValid)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(validationError ?? "Invalid YAML", "INVALID_YAML"));
-            }
-
-            // Write file (with backup)
-            (bool success, string error) = await _fileService.WriteFileAsync(file.FullPath, request.Content, createBackup: true);
-            if (!success)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(error ?? "Error writing file", "WRITE_ERROR"));
-            }
-
-            // Update database record
-            file.LastModified = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            (bool _, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(file.FullPath);
-
-            string directory = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
-            ComposeFileDto dto = new(
-                file.Id,
-                file.FileName,
-                file.FullPath,
-                directory,
-                fileInfo?.Length ?? 0,
-                file.LastModified,
-                file.LastScanned,
-                file.ComposePathId,
-                file.IsDiscovered
-            );
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.FileUpdate,
-                GetUserIpAddress(),
-                $"Updated compose file: {file.FileName}",
-                resourceType: "compose_file",
-                resourceId: file.Id.ToString(),
-                before: new { content = currentContent },
-                after: new { content = request.Content }
-            );
-
-            return Ok(ApiResponse.Ok(dto, "File updated successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating compose file: {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<ComposeFileDto>("Error updating file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File update functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Use external editor.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Edit docker-compose.yml on the host, then run 'docker compose up'. Changes reflected automatically in /api/compose/projects/v2"
+        });
     }
 
     /// <summary>
     /// Deletes a compose file
     /// </summary>
     [HttpDelete("files/{id}")]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteFile(int id)
+    [Obsolete("File deletion disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult DeleteFile(int id)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
-            if (file == null)
-            {
-                return NotFound(ApiResponse.Fail<bool>("File not found", "FILE_NOT_FOUND"));
-            }
-
-            string filePath = file.FullPath;
-            string fileName = file.FileName;
-
-            // Delete file from filesystem
-            (bool success, string error) = await _fileService.DeleteFileAsync(filePath);
-            if (!success)
-            {
-                return BadRequest(ApiResponse.Fail<bool>(error ?? "Error deleting file", "DELETE_ERROR"));
-            }
-
-            // Remove from database
-            _context.ComposeFiles.Remove(file);
-            await _context.SaveChangesAsync();
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.FileDelete,
-                GetUserIpAddress(),
-                $"Deleted compose file: {fileName}",
-                resourceType: "compose_file",
-                resourceId: id.ToString()
-            );
-
-            return Ok(ApiResponse.Ok(true, "File deleted successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting compose file: {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<bool>("Error deleting file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File deletion functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Use external file manager.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Delete docker-compose.yml on the host. Project will disappear automatically from /api/compose/projects/v2"
+        });
     }
 
     /// <summary>
     /// Validate YAML syntax and docker-compose structure of a compose file
     /// </summary>
     [HttpPost("files/{id}/validate")]
-    public async Task<ActionResult<ApiResponse<ComposeValidationResult>>> ValidateFile(int id)
+    [Obsolete("File validation disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult ValidateFile(int id)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
-            if (file == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposeValidationResult>("File not found", "FILE_NOT_FOUND"));
-            }
-
-            // Read file content
-            (bool readSuccess, string content, string readError) = await _fileService.ReadFileAsync(file.FullPath);
-            if (!readSuccess || content == null)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeValidationResult>(
-                    readError ?? "Error reading file", "READ_ERROR"));
-            }
-
-            // Validate YAML syntax
-            (bool isValidYaml, string yamlError) = _fileService.ValidateYamlSyntax(content);
-
-            ComposeValidationResult validationResult = new()
-            {
-                IsValid = isValidYaml,
-                YamlValid = isValidYaml,
-                YamlError = yamlError,
-                Warnings = new List<string>(),
-                ServiceCount = 0
-            };
-
-            if (isValidYaml)
-            {
-                // Additional docker-compose specific validation
-                try
-                {
-                    // Check for required 'services' key
-                    if (!content.Contains("services:"))
-                    {
-                        validationResult.IsValid = false;
-                        validationResult.Warnings.Add("Missing 'services:' key - not a valid docker-compose file");
-                    }
-                    else
-                    {
-                        // Try to count services (basic parsing)
-                        string[] lines = content.Split('\n');
-                        int serviceCount = 0;
-                        bool inServices = false;
-
-                        foreach (string line in lines)
-                        {
-                            string trimmed = line.TrimStart();
-                            if (trimmed.StartsWith("services:"))
-                            {
-                                inServices = true;
-                                continue;
-                            }
-
-                            if (inServices && trimmed.Length > 0 && !trimmed.StartsWith("#"))
-                            {
-                                // Check if this is a service definition (not indented or less indented)
-                                if (line.StartsWith("  ") && !line.StartsWith("    "))
-                                {
-                                    serviceCount++;
-                                }
-                                // If we hit another top-level key, stop counting
-                                else if (!line.StartsWith(" ") && !trimmed.StartsWith("services:"))
-                                {
-                                    break;
-                                }
-                            }
-                        }
-
-                        validationResult.ServiceCount = serviceCount;
-
-                        if (serviceCount == 0)
-                        {
-                            validationResult.Warnings.Add("No services defined in compose file");
-                        }
-                    }
-
-                    // Check for common issues
-                    if (content.Contains("version:"))
-                    {
-                        validationResult.Warnings.Add("Version field is deprecated in docker-compose v2+");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    validationResult.Warnings.Add($"Could not perform full validation: {ex.Message}");
-                }
-            }
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                "compose.file_validate",
-                GetUserIpAddress(),
-                $"Validated compose file: {file.FileName} (valid: {validationResult.IsValid})",
-                resourceType: "compose_file",
-                resourceId: id.ToString()
-            );
-
-            return Ok(ApiResponse.Ok(validationResult, "File validation completed"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error validating compose file: {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<ComposeValidationResult>("Error validating file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File validation functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Validate on host using 'docker compose config'.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Run 'docker compose config' on host to validate compose files"
+        });
     }
 
     /// <summary>
     /// Duplicate/clone a compose file
     /// </summary>
     [HttpPost("files/{id}/duplicate")]
-    public async Task<ActionResult<ApiResponse<ComposeFileDto>>> DuplicateFile(
-        int id,
-        [FromBody] DuplicateFileRequest request)
+    [Obsolete("File duplication disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult DuplicateFile(int id, [FromBody] DuplicateFileRequest request)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? sourceFile = await _context.ComposeFiles
-                .Include(cf => cf.ComposePath)
-                .FirstOrDefaultAsync(cf => cf.Id == id);
-
-            if (sourceFile == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposeFileDto>("Source file not found", "FILE_NOT_FOUND"));
-            }
-
-            // Read source file content
-            (bool readSuccess, string content, string readError) = await _fileService.ReadFileAsync(sourceFile.FullPath);
-            if (!readSuccess || content == null)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(
-                    readError ?? "Error reading source file", "READ_ERROR"));
-            }
-
-            // Determine new file path
-            string newFileName = !string.IsNullOrWhiteSpace(request.NewFileName)
-                ? request.NewFileName
-                : $"{Path.GetFileNameWithoutExtension(sourceFile.FileName)}-copy{Path.GetExtension(sourceFile.FileName)}";
-
-            // Ensure .yml or .yaml extension
-            if (!newFileName.EndsWith(".yml") && !newFileName.EndsWith(".yaml"))
-            {
-                newFileName += ".yml";
-            }
-
-            string newFilePath = Path.Combine(sourceFile.ComposePath.Path, newFileName);
-
-            // Check if file already exists
-            if (System.IO.File.Exists(newFilePath))
-            {
-                return Conflict(ApiResponse.Fail<ComposeFileDto>(
-                    $"File '{newFileName}' already exists", "FILE_EXISTS"));
-            }
-
-            // Validate path
-            (bool isValid, string validationError, ComposePath allowedPath) = await _fileService.ValidateFilePathAsync(newFilePath);
-            if (!isValid)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(
-                    validationError ?? "Invalid file path", "INVALID_PATH"));
-            }
-
-            // Write new file
-            (bool writeSuccess, string writeError) = await _fileService.WriteFileAsync(newFilePath, content, createBackup: false);
-            if (!writeSuccess)
-            {
-                return BadRequest(ApiResponse.Fail<ComposeFileDto>(
-                    writeError ?? "Error writing file", "WRITE_ERROR"));
-            }
-
-            // Create database record
-            ComposeFile newFile = new()
-            {
-                ComposePathId = sourceFile.ComposePathId,
-                FileName = newFileName,
-                FullPath = newFilePath,
-                LastModified = DateTime.UtcNow,
-                LastScanned = DateTime.UtcNow
-            };
-
-            _context.ComposeFiles.Add(newFile);
-            await _context.SaveChangesAsync();
-
-            (bool _, FileInfo fileInfo, string _) = await _fileService.GetFileInfoAsync(newFilePath);
-
-            string directory = Path.GetDirectoryName(newFile.FullPath) ?? string.Empty;
-            ComposeFileDto dto = new(
-                newFile.Id,
-                newFile.FileName,
-                newFile.FullPath,
-                directory,
-                fileInfo?.Length ?? 0,
-                newFile.LastModified,
-                newFile.LastScanned,
-                newFile.ComposePathId,
-                newFile.IsDiscovered
-            );
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                AuditActions.FileCreate,
-                GetUserIpAddress(),
-                $"Duplicated compose file: {sourceFile.FileName} -> {newFileName}",
-                resourceType: "compose_file",
-                resourceId: newFile.Id.ToString(),
-                after: new { sourceId = id, newId = newFile.Id }
-            );
-
-            _logger.LogInformation("Compose file {SourceFile} duplicated to {NewFile}", sourceFile.FileName, newFileName);
-
-            return CreatedAtAction(nameof(GetFile), new { id = newFile.Id }, ApiResponse.Ok(dto, "File duplicated successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error duplicating compose file: {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<ComposeFileDto>("Error duplicating file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File duplication functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Copy files manually on host.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Copy docker-compose.yml manually on host filesystem"
+        });
     }
 
     /// <summary>
     /// Download a compose file
     /// </summary>
     [HttpGet("files/{id}/download")]
-    public async Task<IActionResult> DownloadFile(int id)
+    [Obsolete("File download disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult DownloadFile(int id)
     {
-        try
+        return StatusCode(501, new
         {
-            ComposeFile? file = await _context.ComposeFiles.FindAsync(id);
-            if (file == null)
-            {
-                return NotFound(ApiResponse.Fail<object>("File not found", "FILE_NOT_FOUND"));
-            }
-
-            // Read file content
-            (bool success, string content, string error) = await _fileService.ReadFileAsync(file.FullPath);
-            if (!success || content == null)
-            {
-                return BadRequest(ApiResponse.Fail<object>(
-                    error ?? "Error reading file", "READ_ERROR"));
-            }
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                "compose.file_download",
-                GetUserIpAddress(),
-                $"Downloaded compose file: {file.FileName}",
-                resourceType: "compose_file",
-                resourceId: id.ToString()
-            );
-
-            // Return file as attachment
-            byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(content);
-            return File(fileBytes, "application/x-yaml", file.FileName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error downloading compose file: {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<object>("Error downloading file", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "File download functionality is temporarily disabled.",
+            reason = "Cross-platform path issues. Access files directly on host.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Access docker-compose.yml files directly on host filesystem"
+        });
     }
 
     // ============================================
@@ -1005,161 +555,17 @@ public class ComposeController : BaseController
     /// Get available compose file templates
     /// </summary>
     [HttpGet("templates")]
-    public ActionResult<ApiResponse<List<ComposeTemplateDto>>> GetTemplates()
+    [Obsolete("Templates disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult GetTemplates()
     {
-        try
+        return StatusCode(501, new
         {
-            List<ComposeTemplateDto> templates = new()
-            {
-                new ComposeTemplateDto(
-                    "wordpress",
-                    "WordPress + MySQL",
-                    "Complete WordPress installation with MySQL database",
-                    @"version: '3.8'
-
-services:
-  wordpress:
-    image: wordpress:latest
-    ports:
-      - ""80:80""
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-    volumes:
-      - wordpress_data:/var/www/html
-    depends_on:
-      - db
-
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
-    volumes:
-      - db_data:/var/lib/mysql
-
-volumes:
-  wordpress_data:
-  db_data:"
-                ),
-                new ComposeTemplateDto(
-                    "nginx-php",
-                    "Nginx + PHP-FPM",
-                    "Web server with Nginx and PHP-FPM",
-                    @"version: '3.8'
-
-services:
-  nginx:
-    image: nginx:alpine
-    ports:
-      - ""80:80""
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./www:/var/www/html
-    depends_on:
-      - php
-
-  php:
-    image: php:8.2-fpm
-    volumes:
-      - ./www:/var/www/html"
-                ),
-                new ComposeTemplateDto(
-                    "postgres-redis",
-                    "PostgreSQL + Redis",
-                    "PostgreSQL database with Redis cache",
-                    @"version: '3.8'
-
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: mydb
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-    ports:
-      - ""5432:5432""
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - ""6379:6379""
-    volumes:
-      - redis_data:/data
-
-volumes:
-  postgres_data:
-  redis_data:"
-                ),
-                new ComposeTemplateDto(
-                    "traefik",
-                    "Traefik Reverse Proxy",
-                    "Traefik reverse proxy with Let's Encrypt",
-                    @"version: '3.8'
-
-services:
-  traefik:
-    image: traefik:v2.10
-    command:
-      - --api.dashboard=true
-      - --providers.docker=true
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-    ports:
-      - ""80:80""
-      - ""443:443""
-      - ""8080:8080""
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./acme.json:/acme.json
-    labels:
-      - traefik.enable=true"
-                ),
-                new ComposeTemplateDto(
-                    "monitoring",
-                    "Prometheus + Grafana",
-                    "Monitoring stack with Prometheus and Grafana",
-                    @"version: '3.8'
-
-services:
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - ""9090:9090""
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - ""3000:3000""
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
-
-volumes:
-  prometheus_data:
-  grafana_data:"
-                )
-            };
-
-            return Ok(ApiResponse.Ok(templates, "Templates retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting compose templates");
-            return StatusCode(500, ApiResponse.Fail<List<ComposeTemplateDto>>("Error getting templates", "SERVER_ERROR"));
-        }
+            success = false,
+            message = "Template functionality is temporarily disabled.",
+            reason = "Requires file creation which is disabled due to cross-platform issues.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md",
+            alternative = "Find templates online (Docker Hub, Awesome Compose) and create docker-compose.yml on host"
+        });
     }
 
     /// <summary>
@@ -1686,6 +1092,274 @@ volumes:
         {
             _logger.LogError(ex, "Error getting services for project: {ProjectName}", projectName);
             return StatusCode(500, ApiResponse.Fail<List<ComposeServiceStatusDto>>("Error getting services", "SERVER_ERROR"));
+        }
+    }
+
+    #endregion
+
+    #region Refactored Discovery-Based Endpoints
+
+    // ============================================
+    // REFACTORED: New Discovery-Based Endpoints
+    // ============================================
+
+    /// <summary>
+    /// Lists all compose projects (NEW: docker compose ls based)
+    /// </summary>
+    [HttpGet("projects/v2")]
+    public async Task<ActionResult<ApiResponse<List<ComposeProjectListDto>>>> ListProjectsV2([FromQuery] bool refresh = false)
+    {
+        try
+        {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<List<ComposeProjectListDto>>("User not authenticated"));
+            }
+
+            var projects = await _discoveryService.GetProjectsForUserAsync(userId.Value, bypassCache: refresh);
+
+            await _auditService.LogActionAsync(
+                userId.Value,
+                AuditActions.ComposeList,
+                GetUserIpAddress(),
+                "Listed compose projects (v2)"
+            );
+
+            return Ok(ApiResponse.Ok(projects));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing compose projects (v2)");
+            return StatusCode(500, ApiResponse.Fail<List<ComposeProjectListDto>>("Error listing projects", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Get project details by name (NEW: docker compose ls based)
+    /// </summary>
+    [HttpGet("projects/v2/{projectName}")]
+    public async Task<ActionResult<ApiResponse<ComposeProjectListDto>>> GetProjectDetailsV2(string projectName)
+    {
+        try
+        {
+            projectName = Uri.UnescapeDataString(projectName);
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeProjectListDto>("User not authenticated"));
+            }
+
+            var project = await _discoveryService.GetProjectByNameAsync(projectName, userId.Value);
+
+            if (project == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeProjectListDto>("Project not found or access denied", "PROJECT_NOT_FOUND"));
+            }
+
+            return Ok(ApiResponse.Ok(project, "Project details retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting project details (v2) for: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeProjectListDto>("Error getting project details", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Refresh compose projects cache
+    /// </summary>
+    [HttpPost("projects/v2/refresh")]
+    public IActionResult RefreshProjectsCache()
+    {
+        _discoveryService.InvalidateCache();
+        return Ok(ApiResponse.Ok(true, "Cache refreshed"));
+    }
+
+    /// <summary>
+    /// Start a compose project (NEW: uses -p flag)
+    /// </summary>
+    [HttpPost("projects/v2/{projectName}/up")]
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> UpProjectV2(
+        string projectName,
+        [FromBody] ComposeUpRequest? request)
+    {
+        projectName = Uri.UnescapeDataString(projectName);
+        request ??= new ComposeUpRequest();
+
+        return await ExecuteComposeOperationV2Async(
+            projectName,
+            OperationType.ComposeUp,
+            PermissionFlags.Update,
+            AuditActions.ComposeUp,
+            async () => await _operationServiceNew.UpAsync(projectName, request.Build)
+        );
+    }
+
+    /// <summary>
+    /// Stop a compose project (NEW: uses -p flag)
+    /// </summary>
+    [HttpPost("projects/v2/{projectName}/down")]
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> DownProjectV2(
+        string projectName,
+        [FromBody] ComposeDownRequest? request)
+    {
+        projectName = Uri.UnescapeDataString(projectName);
+        request ??= new ComposeDownRequest();
+
+        return await ExecuteComposeOperationV2Async(
+            projectName,
+            OperationType.ComposeDown,
+            PermissionFlags.Stop,
+            AuditActions.ComposeDown,
+            async () => await _operationServiceNew.DownAsync(projectName, request.RemoveVolumes)
+        );
+    }
+
+    /// <summary>
+    /// Restart a compose project (NEW: uses -p flag)
+    /// </summary>
+    [HttpPost("projects/v2/{projectName}/restart")]
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> RestartProjectV2(string projectName)
+    {
+        projectName = Uri.UnescapeDataString(projectName);
+
+        return await ExecuteComposeOperationV2Async(
+            projectName,
+            OperationType.ComposeRestart,
+            PermissionFlags.Restart,
+            AuditActions.ComposeRestart,
+            async () => await _operationServiceNew.RestartAsync(projectName)
+        );
+    }
+
+    /// <summary>
+    /// Start services in a compose project (NEW: uses -p flag)
+    /// </summary>
+    [HttpPost("projects/v2/{projectName}/start")]
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> StartProjectV2(string projectName)
+    {
+        projectName = Uri.UnescapeDataString(projectName);
+
+        return await ExecuteComposeOperationV2Async(
+            projectName,
+            OperationType.ComposeStart,
+            PermissionFlags.Start,
+            AuditActions.ComposeStart,
+            async () => await _operationServiceNew.StartAsync(projectName)
+        );
+    }
+
+    /// <summary>
+    /// Stop services in a compose project (NEW: uses -p flag)
+    /// </summary>
+    [HttpPost("projects/v2/{projectName}/stop")]
+    public async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> StopProjectV2(string projectName)
+    {
+        projectName = Uri.UnescapeDataString(projectName);
+
+        return await ExecuteComposeOperationV2Async(
+            projectName,
+            OperationType.ComposeStop,
+            PermissionFlags.Stop,
+            AuditActions.ComposeStop,
+            async () => await _operationServiceNew.StopAsync(projectName)
+        );
+    }
+
+    /// <summary>
+    /// Helper method for executing compose operations with the new service
+    /// </summary>
+    private async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> ExecuteComposeOperationV2Async(
+        string projectName,
+        string operationType,
+        PermissionFlags requiredPermission,
+        string auditAction,
+        Func<Task<OperationResult>> operationExecutor)
+    {
+        try
+        {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
+            }
+
+            // Check permission
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                requiredPermission);
+
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "You don't have permission to perform this action",
+                    "PERMISSION_DENIED"));
+            }
+
+            // Create operation tracking
+            Operation operation = await _operationService.CreateOperationAsync(
+                operationType,
+                userId.Value,
+                projectName,
+                projectName
+            );
+
+            // Execute in background
+            _ = Task.Run(async () =>
+            {
+                await _operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+                var result = await operationExecutor();
+
+                await _operationService.AppendLogsAsync(operation.OperationId, result.Output ?? "");
+                if (!string.IsNullOrEmpty(result.Error))
+                {
+                    await _operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {result.Error}");
+                }
+
+                await _operationService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+                    100,
+                    result.Success ? null : result.Error
+                );
+
+                // Invalidate cache
+                _discoveryService.InvalidateCache();
+
+                // Notify via SignalR
+                await _hubContext.Clients.All.SendAsync("ComposeProjectStateChanged", new
+                {
+                    projectName,
+                    action = operationType,
+                    timestamp = DateTime.UtcNow
+                });
+            });
+
+            await _auditService.LogActionAsync(
+                userId.Value,
+                auditAction,
+                GetUserIpAddress(),
+                $"Started {operationType} (v2): {projectName}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            var response = new ComposeOperationResponse(
+                operation.OperationId,
+                OperationStatus.Pending,
+                $"{operationType} started for project: {projectName}"
+            );
+
+            return Ok(ApiResponse.Ok(response));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing {OperationType} (v2) for project: {ProjectName}", operationType, projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>($"Error executing {operationType}", "SERVER_ERROR"));
         }
     }
 

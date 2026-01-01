@@ -1,4 +1,21 @@
+using docker_compose_manager_back.Models;
+
 namespace docker_compose_manager_back.DTOs;
+
+// ============================================
+// Compose Project Status Enum
+// ============================================
+
+/// <summary>
+/// Status of a compose project
+/// </summary>
+public enum ProjectStatus
+{
+    Running,    // Status contains "running"
+    Stopped,    // Status contains "exited" with count > 0
+    Removed,    // Status contains "exited(0)" - project down without containers
+    Unknown     // Status non-parsable
+}
 
 // ============================================
 // Compose File DTOs
@@ -52,8 +69,10 @@ public record UpdateComposeFileRequest(
 // ============================================
 
 /// <summary>
-/// Compose project information
+/// LEGACY: Old compose project information (DEPRECATED - use ComposeProjectListDto)
+/// Kept temporarily for backward compatibility during migration
 /// </summary>
+[Obsolete("Use ComposeProjectListDto instead")]
 public record ComposeProjectDto(
     string Name,
     string Path,
@@ -62,6 +81,47 @@ public record ComposeProjectDto(
     List<string> ComposeFiles,
     DateTime? LastUpdated
 );
+
+/// <summary>
+/// Compose project information (discovered from docker compose ls)
+/// NEW: Replaces old ComposeProjectDto
+/// </summary>
+public record ComposeProjectListDto
+{
+    public string Name { get; init; }
+    public string RawStatus { get; init; }
+    public string[] ConfigFiles { get; init; }
+    public ProjectStatus Status { get; init; }
+    public int ContainerCount { get; init; }
+    public PermissionFlags UserPermissions { get; set; }
+
+    // Computed properties for UI
+    public bool CanStart => Status is ProjectStatus.Stopped or ProjectStatus.Removed;
+    public bool CanStop => Status == ProjectStatus.Running;
+    public string StatusColor => Status switch
+    {
+        ProjectStatus.Running => "green",
+        ProjectStatus.Stopped => "orange",
+        ProjectStatus.Removed => "gray",
+        _ => "red"
+    };
+
+    public ComposeProjectListDto(
+        string name,
+        string rawStatus,
+        string[] configFiles,
+        ProjectStatus status,
+        int containerCount,
+        PermissionFlags userPermissions)
+    {
+        Name = name;
+        RawStatus = rawStatus;
+        ConfigFiles = configFiles;
+        Status = status;
+        ContainerCount = containerCount;
+        UserPermissions = userPermissions;
+    }
+}
 
 /// <summary>
 /// Service within a compose project (detailed view)
@@ -123,6 +183,17 @@ public record ComposeOperationResponse(
     string Status,
     string Message
 );
+
+/// <summary>
+/// Result of a compose operation execution
+/// </summary>
+public record OperationResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? Output { get; set; }
+    public string? Error { get; set; }
+}
 
 // ============================================
 // Compose Template DTOs
