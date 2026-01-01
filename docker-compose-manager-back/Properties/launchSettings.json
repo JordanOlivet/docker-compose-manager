@@ -27,11 +27,22 @@
       "launchBrowser": true,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
-        "ASPNETCORE_HTTP_PORTS": "8080"
+        "ASPNETCORE_HTTP_PORTS": "8080",
+        "Docker__Host": "unix:///var/run/docker.sock"
       },
       "publishAllPorts": true,
       "useSSL": false,
-      "containerRunArguments": "-p 5000:8080"
+      "containerRunArguments": "-p 5000:8080 -v /var/run/docker.sock:/var/run/docker.sock"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "launchBrowser": true,
+      "launchUrl": "http://localhost:5000/swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5000"
+      },
+      "distributionName": ""
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"

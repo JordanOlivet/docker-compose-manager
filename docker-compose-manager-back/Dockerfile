@@ -1,8 +1,9 @@
 # Consultez https://aka.ms/customizecontainer pour savoir comment personnaliser votre conteneur de débogage et comment Visual Studio utilise ce Dockerfile pour générer vos images afin d’accélérer le débogage.
 
-# Cet index est utilisé lors de l’exécution à partir de VS en mode rapide (par défaut pour la configuration de débogage)
+# Cet index est utilisé lors de l'exécution à partir de VS en mode rapide (par défaut pour la configuration de débogage)
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-USER $APP_UID
+# Note: Running as root is required for Docker socket access (/var/run/docker.sock)
+# This is standard practice for Docker management applications (Portainer, Yacht, etc.)
 WORKDIR /app
 EXPOSE 8080
 
