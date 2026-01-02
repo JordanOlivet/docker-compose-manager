@@ -114,8 +114,8 @@
   open={purgeDialog.open}
   title="Purge Old Audit Logs"
   description="This will permanently delete audit logs older than {purgeDialog.days} days. This action cannot be undone."
-  onconfirm={() => purgeMutation.mutate(purgeDialog.days)}
-  oncancel={() => purgeDialog.open = false}
+  onConfirm={() => purgeMutation.mutate(purgeDialog.days)}
+  onCancel={() => purgeDialog.open = false}
 >
   <div class="mt-4 space-y-2">
     <label for="purge-days" class="block text-sm font-medium text-gray-700 dark:text-gray-300">

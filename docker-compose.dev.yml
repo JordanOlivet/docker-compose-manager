@@ -25,11 +25,12 @@ services:
   frontend:
     # Override l'image par un build local
     build:
-      context: ./docker-compose-manager-front
+      context: ./docker-compose-manager-front-new
       dockerfile: Dockerfile
       args:
         # URL de l'API pour le développement
         VITE_API_URL: /api
+        VITE_APP_VERSION: dev
     image: docker-compose-manager-frontend:dev
     # Optionnel: exposer le port Vite dev server au lieu de Nginx
     ports:

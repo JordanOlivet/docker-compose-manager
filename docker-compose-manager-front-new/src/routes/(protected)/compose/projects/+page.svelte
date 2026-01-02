@@ -5,43 +5,68 @@
     Square,
     RotateCw,
     Trash2,
-    Zap,
     RefreshCw,
     Search,
-    ChevronRight
+    ChevronRight,
+    ChevronDown,
+    FileText,
+    Info,
+
+    Zap
+
   } from 'lucide-svelte';
   import { composeApi } from '$lib/api/compose';
-  import { containersApi } from '$lib/api/containers';
-  import type { ComposeProject, ComposeService, OperationUpdateEvent } from '$lib/types';
-  import { EntityState } from '$lib/types';
-  import StateBadge from '$lib/components/common/StateBadge.svelte';
+  import type { ComposeProjectDto, ComposeService, OperationUpdateEvent } from '$lib/types';
+  import { ProjectStatus, PermissionFlags, EntityState } from '$lib/types';
+  import {
+    hasPermission,
+    canStartProject,
+    canStopProject,
+    canRestartProject,
+    getStatusBadgeClasses,
+    // formatProjectStatus
+  } from '$lib/utils/compose';
+  import { FEATURES } from '$lib/config/features';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
-  import { createSignalRConnection, startConnection, stopConnection, type ComposeProjectStateChangedEvent, type ContainerStateChangedEvent } from '$lib/services/signalr';
+  import {
+    createSignalRConnection,
+    startConnection,
+    type ComposeProjectStateChangedEvent,
+    type ContainerStateChangedEvent
+  } from '$lib/services/signalr';
   import { onMount, onDestroy } from 'svelte';
+  import StateBadge from '$components/common/StateBadge.svelte';
+  import { containersApi } from '$api/containers';
 
   let searchQuery = $state('');
   let openProjects = $state<Record<string, boolean>>({});
-  let confirmDialog = $state<{ open: boolean; title: string; description: string; onConfirm: () => void }>({
+  let confirmDialog = $state<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
     open: false,
     title: '',
     description: '',
-    onConfirm: () => {},
+    onConfirm: () => {}
   });
 
   const queryClient = useQueryClient();
 
+  // Fetch projects using new Docker-only discovery
   const projectsQuery = createQuery(() => ({
     queryKey: ['compose', 'projects'],
-    queryFn: () => composeApi.listProjects(),
+    queryFn: () => composeApi.listProjects(false), // false = use cache
     refetchInterval: false, // SignalR handles real-time updates
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
-    staleTime: 60000, // Consider data fresh for 1 minute to avoid excessive refetches
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 60000 // Consider data fresh for 1 minute
   }));
 
   // Setup SignalR connection for real-time compose project updates
@@ -67,7 +92,6 @@
         const typeMatch = update.type && update.type.toLowerCase().includes('compose');
 
         if (statusMatch && typeMatch) {
-          // Debounced invalidation
           invalidateProjects();
         }
 
@@ -76,18 +100,15 @@
         }
       },
       onContainerStateChanged: (event: ContainerStateChangedEvent) => {
-        // Listen for any container state changes - this catches containers that might belong
-        // to compose projects even if the ComposeProjectStateChanged event isn't fired
+        // Listen for any container state changes
         console.log(`Container ${event.containerName} changed state: ${event.action}`);
-
-        // Debounced invalidation to refresh projects and their services
         invalidateProjects();
       },
       onComposeProjectStateChanged: (event: ComposeProjectStateChangedEvent) => {
-        // Listen for Docker events (external changes like Docker Desktop, Docker CLI)
-        console.log(`Compose project ${event.projectName} - service ${event.serviceName} changed state: ${event.action}`);
-
-        // Debounced invalidation
+        // Listen for Docker events (external changes)
+        console.log(
+          `Compose project ${event.projectName} - service ${event.serviceName} changed state: ${event.action}`
+        );
         invalidateProjects();
       },
       onConnected: () => {
@@ -120,22 +141,32 @@
 
   // Compose Project Mutations
   const upMutation = createMutation(() => ({
-    mutationFn: ({ projectName, forceRecreate }: { projectName: string; forceRecreate?: boolean }) =>
-      composeApi.upProject(projectName, { detach: true, forceRecreate }),
+    mutationFn: ({ projectName, build }: { projectName: string; build?: boolean }) =>
+      composeApi.upProject(projectName, { detach: true, build }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
       toast.success($t('compose.upSuccess'));
     },
-    onError: () => toast.error($t('compose.failedToLoad')),
+    onError: (error: any) => {
+      toast.error(error?.message || $t('compose.failedToLoad'));
+    }
   }));
 
   const downMutation = createMutation(() => ({
-    mutationFn: (projectName: string) => composeApi.downProject(projectName),
+    mutationFn: ({
+      projectName,
+      removeVolumes
+    }: {
+      projectName: string;
+      removeVolumes?: boolean;
+    }) => composeApi.downProject(projectName, { removeVolumes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
       toast.success($t('compose.downSuccess'));
     },
-    onError: () => toast.error($t('compose.failedToLoad')),
+    onError: (error: any) => {
+      toast.error(error?.message || $t('compose.failedToLoad'));
+    }
   }));
 
   const restartMutation = createMutation(() => ({
@@ -144,10 +175,12 @@
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
       toast.success($t('compose.restartSuccess'));
     },
-    onError: () => toast.error($t('compose.failedToLoad')),
+    onError: (error: any) => {
+      toast.error(error?.message || $t('compose.failedToLoad'));
+    }
   }));
 
-  const stopMutation = createMutation(() => ({
+   const stopMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.stopProject(projectName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
@@ -197,7 +230,7 @@
   function toggleProjectOpen(projectName: string) {
     openProjects = {
       ...openProjects,
-      [projectName]: !openProjects[projectName],
+      [projectName]: !openProjects[projectName]
     };
   }
 
@@ -205,7 +238,7 @@
     goto(`/compose/projects/${encodeURIComponent(projectName)}`);
   }
 
-  function handleRemoveProject(project: ComposeProject) {
+  function handleRemoveProject(project: ComposeProjectDto) {
     const isRunning = project.state === EntityState.Running;
     const message = isRunning
       ? `${$t('compose.title')} ${project.name} ${$t('containers.confirmRemoveRunning')}`
@@ -213,16 +246,16 @@
 
     confirmDialog = {
       open: true,
-     title: $t('common.delete'),
+      title: $t('common.delete'),
       description: message,
       onConfirm: () => {
-        downMutation.mutate(project.name);
+        downMutation.mutate({ projectName: project.name, removeVolumes: isRunning });
         confirmDialog.open = false;
-      },
+      }
     };
   }
 
-  function handleRemoveService(service: ComposeService) {
+    function handleRemoveService(service: ComposeService) {
     const isRunning = service.state === EntityState.Running;
     const message = isRunning
       ? `${$t('containers.title')} ${service.name} ${$t('containers.confirmRemoveRunning')}`
@@ -239,7 +272,15 @@
     };
   }
 
-  function getStateColor(state: string) {
+  function handleForceRefresh() {
+    // Force refresh by calling the API with refresh=true
+    composeApi.listProjects(true).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      toast.success('Projects cache refreshed');
+    });
+  }
+
+   function getStateColor(state: string) {
     switch (state) {
       case EntityState.Running:
       case EntityState.Restarting:
@@ -255,7 +296,7 @@
   }
 
   const filteredProjects = $derived(
-    (projectsQuery.data ?? []).filter((p: ComposeProject) =>
+    (projectsQuery.data ?? []).filter((p: ComposeProjectDto) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
@@ -273,31 +314,40 @@
           {$t('compose.subtitle')}
         </p>
       </div>
-      <button
-        onclick={() => projectsQuery.refetch()}
-        class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-      >
-        <RefreshCw class="w-3 h-3" />
-        {$t('common.refresh')}
-      </button>
+      <div class="flex gap-2">
+        <button
+          onclick={() => projectsQuery.refetch()}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <RefreshCw class="w-3 h-3" />
+          {$t('common.refresh')}
+        </button>
+        <button
+          onclick={handleForceRefresh}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+          title="Force refresh from Docker (bypass cache)"
+        >
+          <RefreshCw class="w-3 h-3" />
+          Force Refresh
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- Search Bar -->
   <div class="relative">
     <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-    <Input
-      type="text"
-      placeholder={$t('common.search')}
-      bind:value={searchQuery}
-      class="pl-10"
-    />
+    <Input type="text" placeholder={$t('common.search')} bind:value={searchQuery} class="pl-10" />
   </div>
 
   <!-- Project Count -->
   <div class="mb-2">
     <p class="text-xs text-gray-600 dark:text-gray-400">
-      {filteredProjects.length} {filteredProjects.length === 1 ? $t('settings.project').toLowerCase() : $t('compose.projects').toLowerCase()} {$t('common.search').toLowerCase()}
+      {filteredProjects.length}
+      {filteredProjects.length === 1
+        ? $t('settings.project').toLowerCase()
+        : $t('compose.projects').toLowerCase()}
+      {searchQuery ? 'found' : 'total'}
     </p>
   </div>
 
@@ -305,26 +355,38 @@
   {#if projectsQuery.isLoading}
     <LoadingState message={$t('common.loading')} />
   {:else if projectsQuery.error}
-    <div class="text-center py-8 text-red-500">
-      {$t('compose.failedToLoad')}
-    </div>
+    <div class="text-center py-8 text-red-500">{$t('compose.failedToLoad')}</div>
   {:else if filteredProjects.length === 0}
-    <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3">
+    <div
+      class="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg"
+    >
+      <div
+        class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-3"
+      >
         <Square class="w-8 h-8 text-gray-400" />
       </div>
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-        {$t('compose.noProjects')}
+        {searchQuery ? 'No projects found' : $t('compose.noProjects')}
       </h3>
       <p class="text-sm text-gray-600 dark:text-gray-400">
-        {$t('compose.noProjectsMessage')}
+        {searchQuery
+          ? 'Try a different search term'
+          : 'Create a docker-compose.yml file on your host and run "docker compose up" to get started'}
       </p>
     </div>
   {:else}
     <div class="space-y-2">
       {#each filteredProjects as project (project.name)}
         {@const isOpen = openProjects[project.name] ?? false}
-        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow hover:shadow-lg transition-all duration-300">
+        <!-- {@const statusBadge = getStatusBadgeClasses(project.state)}
+        {@const canStart = canStartProject(project)}
+        {@const canStop = canStopProject(project)}
+        {@const canRestart = canRestartProject(project)}
+        {@const canDelete = hasPermission(project, PermissionFlags.Delete)} -->
+
+        <div
+          class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow hover:shadow-lg transition-all duration-300"
+        >
           <!-- Project Header -->
           <div
             class="px-4 py-2 cursor-pointer group relative"
@@ -356,7 +418,7 @@
                 </span>
                 <h3 class="text-base font-semibold">
                   <button
-                    class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                     onclick={(e) => {
                       e.stopPropagation();
                       navigateToProject(project.name);
@@ -373,42 +435,47 @@
               </div>
               <div class="flex gap-1">
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created}
+
                   <button
                     onclick={() => upMutation.mutate({ projectName: project.name })}
-                    class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                    class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.up')}
                   >
                     <Play class="w-4 h-4" />
                   </button>
+
                   <button
-                    onclick={() => upMutation.mutate({ projectName: project.name, forceRecreate: true })}
-                    class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                    onclick={() => upMutation.mutate({ projectName: project.name, build: true })}
+                    class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.forceRecreate')}
                   >
                     <Zap class="w-3 h-3" />
                   </button>
                 {/if}
                 {#if project.state === EntityState.Running || project.state === EntityState.Degraded}
+
                   <button
                     onclick={() => restartMutation.mutate(project.name)}
-                    class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                    class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.restart')}
                   >
                     <RotateCw class="w-4 h-4" />
                   </button>
                   <button
                     onclick={() => stopMutation.mutate(project.name)}
-                    class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
+                    class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.stop')}
                   >
                     <Square class="w-4 h-4" />
                   </button>
                 {/if}
                 {#if project.state !== EntityState.Down}
+
                   <button
                     onclick={() => handleRemoveProject(project)}
-                    class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
                     title={$t('common.delete')}
+
                   >
                     <Trash2 class="w-4 h-4" />
                   </button>
@@ -416,8 +483,10 @@
               </div>
             </div>
             <div class="mt-1 text-xs text-gray-600 dark:text-gray-400">
-              {#if project.path}
-                <span>{$t('compose.directoryPath')}: {project.path}</span>
+              {#if project.configFiles && project.configFiles.length > 0}
+                {#each project.configFiles as  file, index (file)}
+                  <span>{$t('compose.directoryPath')}: {file}</span>
+                {/each}
               {/if}
             </div>
           </div>
@@ -527,10 +596,13 @@
   {/if}
 </div>
 
+<!-- Confirm Dialog -->
 <ConfirmDialog
-  open={confirmDialog.open}
+  bind:open={confirmDialog.open}
   title={confirmDialog.title}
   description={confirmDialog.description}
-  onconfirm={confirmDialog.onConfirm}
-  oncancel={() => confirmDialog.open = false}
+  onConfirm={confirmDialog.onConfirm}
+  onCancel={() => {
+    confirmDialog.open = false;
+  }}
 />

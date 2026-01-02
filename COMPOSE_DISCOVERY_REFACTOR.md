@@ -1004,17 +1004,25 @@ public class FileService { /* ... code conservé ... */ }
 ```
 
 ```typescript
-// Frontend - Feature flag
+// Frontend Svelte - Feature flag (fichier features.ts ou config.ts)
 export const FEATURES = {
   COMPOSE_FILE_EDITING: false,
 };
+```
 
-// Dans l'UI
-{!FEATURES.COMPOSE_FILE_EDITING && (
-  <Tooltip content="Fonctionnalité temporairement indisponible">
-    <Button disabled>Éditer</Button>
-  </Tooltip>
-)}
+```svelte
+<!-- Dans un composant Svelte -->
+<script lang="ts">
+  import { FEATURES } from '$lib/config/features';
+  import { Button } from '$lib/components/ui/button';
+  // Utiliser bits-ui pour les tooltips si nécessaire
+</script>
+
+{#if !FEATURES.COMPOSE_FILE_EDITING}
+  <Button disabled title="Fonctionnalité temporairement indisponible">
+    Éditer
+  </Button>
+{/if}
 ```
 
 #### 2. Templates de Projets Compose
@@ -1061,19 +1069,26 @@ public IActionResult CreateFromTemplate([FromBody] CreateFromTemplateRequest req
 public class TemplateService { /* ... code conservé ... */ }
 ```
 
-```typescript
-// Frontend - Masquer l'UI de création depuis template
-{!FEATURES.COMPOSE_FILE_EDITING && (
-  <Alert variant="info">
-    <AlertTitle>Création de projets depuis templates</AlertTitle>
-    <AlertDescription>
+```svelte
+<!-- Frontend Svelte - Masquer l'UI de création depuis template -->
+<!-- Composant Svelte -->
+<script lang="ts">
+  import { FEATURES } from '$lib/config/features';
+</script>
+
+{#if !FEATURES.COMPOSE_FILE_EDITING}
+  <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+    <h3 class="font-semibold text-blue-900">
+      Création de projets depuis templates
+    </h3>
+    <p class="mt-2 text-sm text-blue-800">
       Fonctionnalité temporairement indisponible.
       Créez vos fichiers docker-compose.yml manuellement sur l'hôte,
-      puis démarrez-les avec `docker compose up`.
+      puis démarrez-les avec <code class="rounded bg-blue-100 px-1 py-0.5">docker compose up</code>.
       Ils apparaîtront automatiquement dans l'interface.
-    </AlertDescription>
-  </Alert>
-)}
+    </p>
+  </div>
+{/if}
 ```
 
 ### Plan de Réactivation
@@ -1180,13 +1195,14 @@ await _hubContext.Clients.All.SendAsync("ComposeProjectStateChanged", new
 });
 ```
 
-**Frontend** (déjà connecté aux hubs) :
+**Frontend Svelte** (déjà connecté aux hubs) :
 
 ```typescript
-// Le frontend écoute déjà ces events
+// Le frontend Svelte écoute ces events (dans un fichier de service ou hook)
+// Utilisant @microsoft/signalr et @tanstack/svelte-query
 connection.on("ComposeProjectStateChanged", (data) => {
-  // Rafraîchir la liste des projets
-  queryClient.invalidateQueries(['compose-projects']);
+  // Rafraîchir la liste des projets avec TanStack Svelte Query
+  queryClient.invalidateQueries({ queryKey: ['compose-projects'] });
 });
 ```
 
@@ -1236,16 +1252,17 @@ Elle permet à l'utilisateur de **voir** où se trouvent les fichiers compose su
 
 #### Affichage dans l'UI
 
-```tsx
-{/* Affichage informatif des chemins de fichiers */}
-<div className="text-sm text-muted-foreground">
+```svelte
+<!-- Affichage informatif des chemins de fichiers -->
+<!-- Composant Svelte (.svelte) -->
+<div class="text-sm text-muted-foreground">
   <strong>Fichiers compose :</strong>
-  <ul className="mt-1">
-    {project.ConfigFiles.map(f => (
-      <li key={f} className="font-mono text-xs">{f}</li>
-    ))}
+  <ul class="mt-1">
+    {#each project.ConfigFiles as file (file)}
+      <li class="font-mono text-xs">{file}</li>
+    {/each}
   </ul>
-  <p className="mt-2 italic">
+  <p class="mt-2 italic">
     Note : Ces chemins sont ceux de l'hôte Docker.
     Le backend n'a pas besoin d'y accéder pour gérer le projet.
   </p>
@@ -1396,17 +1413,25 @@ public async Task<ActionResult> GetProject(string projectName)
 - [ ] Notifications SignalR après opérations
 - [ ] Enrichissement avec permissions utilisateur
 
-### Phase 6 : Frontend (2-3h)
+### Phase 6 : Frontend Svelte (2-3h)
 - [ ] Adapter les appels API (`/projects/{name}` au lieu de `/files/{id}`)
+  - Mettre à jour les services/API clients dans `src/lib/api/` ou équivalent
+  - Utiliser TanStack Svelte Query pour la gestion du cache et des requêtes
 - [ ] Afficher les chemins de fichiers compose de manière informative (propriété `ConfigFiles`)
+  - Créer/adapter les composants Svelte pour afficher les informations de projet
 - [ ] S'assurer que les listeners SignalR sont actifs
+  - Vérifier la connexion SignalR dans les stores ou services Svelte
+  - Intégrer avec TanStack Svelte Query pour l'invalidation du cache
 
 ### Phase 7 : Désactivation Fonctionnalités (1-2h)
 - [ ] Marquer endpoints d'édition comme `[Obsolete]` → retourner HTTP 501
 - [ ] Marquer endpoints de templates comme `[Obsolete]` → retourner HTTP 501
 - [ ] Ajouter commentaires dans `FileService.cs` et `TemplateService.cs`
-- [ ] Désactiver UI d'édition (feature flag frontend)
-- [ ] Désactiver UI de templates (feature flag frontend)
+- [ ] Désactiver UI d'édition (feature flag frontend Svelte)
+  - Créer/mettre à jour `src/lib/config/features.ts` avec `COMPOSE_FILE_EDITING: false`
+  - Adapter les composants Svelte pour masquer/désactiver les boutons d'édition
+- [ ] Désactiver UI de templates (feature flag frontend Svelte)
+  - Afficher un message informatif dans les composants concernés
 
 ### Phase 8 : Nettoyage (2-3h)
 - [ ] Marquer `ComposePaths` et `ComposeFiles` comme `[Obsolete]`

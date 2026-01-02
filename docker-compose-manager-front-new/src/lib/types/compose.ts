@@ -1,4 +1,63 @@
 import type { EntityState } from "./global";
+import type { PermissionFlags } from "./permissions";
+
+// ============================================================================
+// NEW ARCHITECTURE: Docker-Only Discovery (COMPOSE_DISCOVERY_REFACTOR.md)
+// ============================================================================
+
+/**
+ * Project status enum based on `docker compose ls --all` output
+ */
+export enum ProjectStatus {
+	/** Status contains "running" - project is active */
+	Running = 'Running',
+	/** Status contains "exited" with count > 0 - project is stopped but containers exist */
+	Stopped = 'Stopped',
+	/** Status contains "exited(0)" - project is down without containers */
+	Removed = 'Removed',
+	/** Status is not parsable */
+	Unknown = 'Unknown',
+  Down = "Down",
+  Degraded = "Degraded", 
+  Restarting = "Restarting",
+  Exited = "Exited",
+  Created = "Created",
+}
+
+/**
+ * Compose Project DTO from the new Docker-only discovery system
+ * Source of truth: `docker compose ls --all --format json`
+ * No database persistence - projects are discovered dynamically from Docker
+ */
+export interface ComposeProjectDto {
+	/** Identifiant du projet (nom Docker) */
+	name: string;
+
+	/** Informations découvertes depuis docker compose ls */
+	/** Ex: "running(3)", "exited(2)" */
+	rawStatus: string;
+	/** Chemins des fichiers compose (informatif uniquement - backend n'y accède pas) */
+	configFiles: string[];
+
+	// /** État parsé */
+	// status: ProjectStatus;
+	/** Nombre de containers */
+	containerCount: number;
+
+  state: EntityState;
+  services: ComposeService[];
+	/** Permissions de l'utilisateur actuel sur ce projet */
+	userPermissions: PermissionFlags;
+
+	// /** Propriétés calculées pour l'UI */
+	// canStart: boolean;
+	// canStop: boolean;
+	// statusColor: string;
+}
+
+// ============================================================================
+// LEGACY TYPES: May be deprecated in favor of ComposeProjectDto
+// ============================================================================
 
 // Compose File Types
 export interface ComposeFile {

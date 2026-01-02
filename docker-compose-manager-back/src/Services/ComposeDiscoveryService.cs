@@ -1,9 +1,9 @@
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services.Utils;
+using docker_compose_manager_back.src.Utils;
 using Microsoft.Extensions.Caching.Memory;
+using System.Text.Json;
 
 namespace docker_compose_manager_back.Services;
 
@@ -17,6 +17,7 @@ public interface IComposeDiscoveryService
 public class ComposeDiscoveryService : IComposeDiscoveryService
 {
     private readonly IMemoryCache _cache;
+    private readonly ComposeService _composeService;
     private readonly IPermissionService _permissionService;
     private readonly DockerCommandExecutor _dockerExecutor;
     private readonly ILogger<ComposeDiscoveryService> _logger;
@@ -26,11 +27,13 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
 
     public ComposeDiscoveryService(
         IMemoryCache cache,
+        ComposeService composeService,
         IPermissionService permissionService,
         DockerCommandExecutor dockerExecutor,
         ILogger<ComposeDiscoveryService> logger)
     {
         _cache = cache;
+        _composeService = composeService;
         _permissionService = permissionService;
         _dockerExecutor = dockerExecutor;
         _logger = logger;
@@ -38,29 +41,29 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
 
     public async Task<List<ComposeProjectListDto>> GetProjectsForUserAsync(int userId, bool bypassCache = false)
     {
-        var allProjects = await GetAllProjectsAsync(bypassCache);
+        List<ComposeProjectListDto> allProjects = await GetAllProjectsAsync(bypassCache);
 
         bool isAdmin = await _permissionService.IsAdminAsync(userId);
         if (isAdmin)
         {
-            foreach (var project in allProjects)
+            foreach (ComposeProjectListDto project in allProjects)
             {
                 project.UserPermissions = PermissionFlags.Full;
             }
             return allProjects;
         }
 
-        var projectNames = allProjects.Select(p => p.Name).ToList();
-        var authorizedNames = await _permissionService.FilterAuthorizedResourcesAsync(
+        List<string> projectNames = allProjects.Select(p => p.Name).ToList();
+        List<string> authorizedNames = await _permissionService.FilterAuthorizedResourcesAsync(
             userId,
             ResourceType.ComposeProject,
             projectNames
         );
 
-        var authorizedNamesSet = authorizedNames.ToHashSet();
-        var authorizedProjects = allProjects.Where(p => authorizedNamesSet.Contains(p.Name)).ToList();
+        HashSet<string> authorizedNamesSet = authorizedNames.ToHashSet();
+        List<ComposeProjectListDto> authorizedProjects = allProjects.Where(p => authorizedNamesSet.Contains(p.Name)).ToList();
 
-        foreach (var project in authorizedProjects)
+        foreach (ComposeProjectListDto? project in authorizedProjects)
         {
             project.UserPermissions = await _permissionService.GetUserPermissionsAsync(
                 userId,
@@ -74,7 +77,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
 
     public async Task<ComposeProjectListDto?> GetProjectByNameAsync(string projectName, int userId)
     {
-        var projects = await GetProjectsForUserAsync(userId);
+        List<ComposeProjectListDto> projects = await GetProjectsForUserAsync(userId);
         return projects.FirstOrDefault(p => p.Name == projectName);
     }
 
@@ -101,11 +104,11 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
 
     private async Task<List<ComposeProjectListDto>> FetchProjectsFromDockerAsync()
     {
-        var projects = new List<ComposeProjectListDto>();
+        List<ComposeProjectListDto> projects = new List<ComposeProjectListDto>();
 
         try
         {
-            var (exitCode, output, error) = await _dockerExecutor.ExecuteComposeCommandAsync(
+            (int exitCode, string? output, string? error) = await _dockerExecutor.ExecuteComposeCommandAsync(
                 "ls --all --format json"
             );
 
@@ -143,15 +146,18 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
                         .Select(f => f.Trim())
                         .ToArray();
 
-                    (ProjectStatus status, int containerCount) = ParseStatus(rawStatus);
+                    List<ComposeServiceDto> services = await GetServicesFromProjectName(name);
+
+                    EntityState state = StateHelper.DetermineStateFromServices(services);
 
                     projects.Add(new ComposeProjectListDto(
                         name: name,
                         rawStatus: rawStatus,
                         configFiles: configFiles,
-                        status: status,
-                        containerCount: containerCount,
-                        userPermissions: PermissionFlags.None
+                        state: state.ToStateString(),
+                        containerCount: services.Count,
+                        userPermissions: PermissionFlags.None,
+                        services: services
                     ));
                 }
                 catch (Exception ex)
@@ -170,30 +176,104 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
         return projects;
     }
 
-    private (ProjectStatus Status, int ContainerCount) ParseStatus(string rawStatus)
+    private async Task<List<ComposeServiceDto>> GetServicesFromProjectName(string projectName)
     {
-        try
-        {
-            var match = Regex.Match(rawStatus, @"^(\w+)\((\d+)\)$");
-            if (match.Success)
-            {
-                string state = match.Groups[1].Value.ToLowerInvariant();
-                int count = int.Parse(match.Groups[2].Value);
+        (bool success, string output, string error) = await _composeService.ListServicesAsync(projectName);
 
-                return state switch
+        if (!success)
+        {
+            _logger.LogWarning("Failed to get services for project {ProjectName}. Error : {error}", projectName, error);
+            return new();
+        }
+
+        List<ComposeServiceDto> services = new();
+
+        if (success && !string.IsNullOrWhiteSpace(output))
+        {
+            try
+            {
+                // Parse NDJSON output from docker compose ps (each line is a separate JSON object)
+                string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string line in lines)
                 {
-                    "running" => (ProjectStatus.Running, count),
-                    "exited" when count > 0 => (ProjectStatus.Stopped, count),
-                    "exited" when count == 0 => (ProjectStatus.Removed, count),
-                    _ => (ProjectStatus.Unknown, count)
-                };
+                    if (string.IsNullOrWhiteSpace(line)) { continue; }
+
+                    try
+                    {
+                        System.Text.Json.JsonElement svc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(line);
+
+                        // Extract service information from JSON
+                        string serviceId = svc.TryGetProperty("ID", out System.Text.Json.JsonElement svcId)
+                            ? svcId.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceName = svc.TryGetProperty("Service", out System.Text.Json.JsonElement svcName)
+                            ? svcName.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement svcState)
+                            ? svcState.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceStatus = svc.TryGetProperty("Status", out System.Text.Json.JsonElement svcStatus)
+                            ? svcStatus.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement svcImg)
+                            ? svcImg.GetString() ?? "unknown"
+                            : "unknown";
+
+                        string? serviceHealth = svc.TryGetProperty("Health", out System.Text.Json.JsonElement svcHealth)
+                            ? svcHealth.GetString()
+                            : null;
+
+                        // Parse ports
+                        List<string> ports = new();
+                        if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers)
+                            && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (System.Text.Json.JsonElement publisher in publishers.EnumerateArray())
+                            {
+                                if (publisher.TryGetProperty("URL", out System.Text.Json.JsonElement url) &&
+                                    publisher.TryGetProperty("PublishedPort", out System.Text.Json.JsonElement publishedPort) &&
+                                    publisher.TryGetProperty("TargetPort", out System.Text.Json.JsonElement targetPort))
+                                {
+                                    string portMapping = $"{url.GetString()}:{publishedPort.GetInt32()}->{targetPort.GetInt32()}";
+                                    ports.Add(portMapping);
+                                }
+                            }
+                        }
+
+                        services.Add(new ComposeServiceDto(
+                            Id: serviceId,
+                            Name: serviceName,
+                            Image: serviceImage,
+                            State: serviceState.ToEntityState().ToStateString(),
+                            Status: serviceStatus,
+                            Ports: ports,
+                            Health: serviceHealth
+                        ));
+                    }
+                    catch (System.Text.Json.JsonException lineEx)
+                    {
+                        _logger.LogWarning(lineEx, "Failed to parse JSON line for project {ProjectName}: {Line}", projectName, line);
+                        services = new();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse docker compose ps output for project: {ProjectName}", projectName);
+                services = new();
             }
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogWarning(ex, "Could not parse status: {Status}", rawStatus);
+            // Command failed or no output - project is likely down
+            services = new();
         }
 
-        return (ProjectStatus.Unknown, 0);
+        return services;
     }
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { createMutation } from '@tanstack/svelte-query';
-  import { ArrowLeft, Save } from 'lucide-svelte';
+  import { ArrowLeft, Save, AlertTriangle } from 'lucide-svelte';
   import { composeApi } from '$lib/api';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
@@ -9,6 +9,16 @@
   import MonacoEditor from '$lib/components/MonacoEditor.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
+  import { FEATURES } from '$lib/config/features';
+  import { onMount } from 'svelte';
+
+  // Check if feature is enabled on mount
+  onMount(() => {
+    if (!FEATURES.COMPOSE_FILE_EDITING) {
+      toast.error('File editing is temporarily disabled');
+      goto('/compose/files');
+    }
+  });
 
   let filePath = $state('');
   let content = $state(`version: '3.8'

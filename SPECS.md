@@ -5,7 +5,7 @@
 1. [Overview](#1-overview)
 2. [Application Specifications](#2-application-specifications)
    - [Backend (docker-compose-manager-back)](#21-backend-docker-compose-manager-back)
-   - [Frontend (docker-compose-manager-front)](#22-frontend-docker-compose-manager-front)
+   - [Frontend (docker-compose-manager-front-new)](#22-frontend-docker-compose-manager-front-new)
 3. [Technical Stack](#3-technical-stack)
 4. [Architecture & Deployment](#4-architecture--deployment)
 5. [Development Setup](#5-development-setup)
@@ -18,7 +18,7 @@
 
 ## 1. Overview
 
-This repository hosts two applications: **docker-compose-manager-back** and **docker-compose-manager-front**.
+This repository hosts two applications: **docker-compose-manager-back** and **docker-compose-manager-front-new**.
 
 These applications work together to provide Docker and Docker Compose management capabilities through a modern web interface. The stack is primarily designed to run in Docker containers, with both applications built into Docker images and orchestrated via a docker-compose.yml file.
 
@@ -198,9 +198,11 @@ The backend uses **SQLite** as the primary database for storing application data
 
 ---
 
-### 2.2. Frontend (docker-compose-manager-front)
+### 2.2. Frontend (docker-compose-manager-front-new)
 
-**Technology**: React web application
+**Technology**: SvelteKit web application
+
+**Note**: The old React frontend has been removed. This is the new Svelte-based frontend.
 
 **Purpose**: Provide a modern, user-friendly interface for managing Docker containers and compose files.
 
@@ -299,25 +301,25 @@ The backend uses **SQLite** as the primary database for storing application data
 | **YAML Processing** | YamlDotNet |
 | **Testing** | xUnit, Moq, TestContainers |
 
-### 3.2. Frontend (docker-compose-manager-front)
+### 3.2. Frontend (docker-compose-manager-front-new)
 
 | Component | Technology |
 |-----------|------------|
-| **Framework** | React 18 |
+| **Framework** | SvelteKit + Svelte 5 |
 | **Language** | TypeScript 5 |
 | **Build Tool** | Vite |
-| **Routing** | React Router v6 |
-| **State Management** | Zustand |
-| **UI Library** | shadcn/ui + Tailwind CSS |
-| **Components** | Radix UI primitives<br>Lucide React (icons) |
-| **Forms** | React Hook Form + Zod validation |
-| **API Client** | Axios + TanStack Query (React Query) |
-| **WebSocket** | Socket.IO Client |
-| **Code Editor** | Monaco Editor (VS Code editor) |
+| **Routing** | SvelteKit file-based routing |
+| **State Management** | Svelte 5 runes ($state, $derived, $effect) + Svelte stores |
+| **UI Library** | bits-ui + Tailwind CSS |
+| **Components** | bits-ui (Radix-like for Svelte)<br>lucide-svelte (icons) |
+| **Forms** | sveltekit-superforms + Zod validation |
+| **API Client** | Axios + TanStack Svelte Query |
+| **WebSocket** | @microsoft/signalr |
+| **Code Editor** | Monaco Editor (disabled via feature flags) |
 | **YAML Processing** | js-yaml |
-| **Date/Time** | date-fns |
-| **Notifications** | React Hot Toast |
-| **Testing** | Vitest, React Testing Library, Playwright |
+| **Date/Time** | Native JavaScript Date API |
+| **Notifications** | svelte-sonner (Toast) |
+| **Testing** | Vitest, Svelte Testing Library, Playwright |
 
 ### 3.3. DevOps & Deployment
 
@@ -354,7 +356,7 @@ docker-compose-manager/
 │   ├── Dockerfile
 │   ├── .dockerignore
 │   └── docker-compose-manager-back.csproj
-├── docker-compose-manager-front/
+├── docker-compose-manager-front-new/   # SvelteKit frontend
 │   ├── src/
 │   │   ├── components/
 │   │   ├── pages/
@@ -503,7 +505,7 @@ services:
 
   frontend:
     build:
-      context: ./docker-compose-manager-front
+      context: ./docker-compose-manager-front-new
       dockerfile: Dockerfile
     container_name: docker-manager-frontend
     ports:
@@ -654,7 +656,7 @@ This setup allows you to run both applications directly on your development mach
 
 1. **Navigate to frontend directory:**
    ```bash
-   cd docker-compose-manager-front
+   cd docker-compose-manager-front-new-new
    ```
 
 2. **Install dependencies:**
@@ -729,7 +731,7 @@ dotnet test
 
 #### Frontend Tests
 ```bash
-cd docker-compose-manager-front
+cd docker-compose-manager-front-new
 
 # Unit tests
 npm run test
