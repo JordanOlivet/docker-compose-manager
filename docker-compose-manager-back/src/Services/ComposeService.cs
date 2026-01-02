@@ -59,6 +59,7 @@ public class ComposeService
             {
                 FileName = "docker",
                 Arguments = "compose version",
+                WorkingDirectory = "/",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

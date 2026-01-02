@@ -25,6 +25,7 @@ public class DockerCommandExecutor
             {
                 FileName = "docker",
                 Arguments = "compose version",
+                WorkingDirectory = "/",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -81,7 +82,7 @@ public class DockerCommandExecutor
         {
             FileName = isV2 ? "docker" : "docker-compose",
             Arguments = isV2 ? $"compose {projectArg}{arguments}" : $"{projectArg}{arguments}",
-            WorkingDirectory = "/tmp",
+            WorkingDirectory = "/",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
