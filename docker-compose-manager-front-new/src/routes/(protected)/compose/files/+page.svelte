@@ -1,12 +1,13 @@
 <script lang="ts">
   import { createQuery } from '@tanstack/svelte-query';
-  import { FileText, Plus, Edit, Search } from 'lucide-svelte';
+  import { FileText, Plus, Edit, Search, AlertTriangle } from 'lucide-svelte';
   import { composeApi } from '$lib/api';
   import type { ComposeFile } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
+  import { FEATURES } from '$lib/config/features';
 
   let searchQuery = $state('');
 
@@ -48,13 +49,44 @@
       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('compose.files')}</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('compose.subtitle')}</p>
     </div>
-    <a href="/compose/files/create">
-      <Button>
+    {#if FEATURES.COMPOSE_FILE_EDITING}
+      <a href="/compose/files/create">
+        <Button>
+          <Plus class="w-4 h-4 mr-2" />
+          {$t('compose.createFile')}
+        </Button>
+      </a>
+    {:else}
+      <Button disabled title="File editing is temporarily disabled">
         <Plus class="w-4 h-4 mr-2" />
         {$t('compose.createFile')}
       </Button>
-    </a>
+    {/if}
   </div>
+
+  <!-- Warning Banner when editing is disabled -->
+  {#if !FEATURES.COMPOSE_FILE_EDITING}
+    <div
+      class="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 p-4"
+    >
+      <div class="flex gap-3">
+        <AlertTriangle class="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+        <div class="flex-1">
+          <h3 class="font-semibold text-orange-900 dark:text-orange-100 mb-1">
+            File Editing Temporarily Disabled
+          </h3>
+          <p class="text-sm text-orange-800 dark:text-orange-200">
+            The compose file editing feature is currently disabled due to cross-platform path mapping
+            issues. This page shows discovered files for reference only. To manage compose projects,
+            use the <a
+              href="/compose/projects"
+              class="font-medium underline hover:no-underline">Projects</a
+            > page which uses Docker-only discovery and doesn't require file access.
+          </p>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Search -->
   <div class="relative">
@@ -120,13 +152,24 @@
                 {formatDate(file.lastModified)}
               </td>
               <td class="px-6 py-4 text-right">
-                <a
-                  href="/compose/files/{file.id}/edit"
-                  class="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Edit class="w-4 h-4" />
-                  {$t('common.edit')}
-                </a>
+                {#if FEATURES.COMPOSE_FILE_EDITING}
+                  <a
+                    href="/compose/files/{file.id}/edit"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Edit class="w-4 h-4" />
+                    {$t('common.edit')}
+                  </a>
+                {:else}
+                  <button
+                    disabled
+                    title="File editing is temporarily disabled"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 cursor-not-allowed opacity-50"
+                  >
+                    <Edit class="w-4 h-4" />
+                    {$t('common.edit')}
+                  </button>
+                {/if}
               </td>
             </tr>
           {/each}

@@ -45,22 +45,12 @@
   // Path normalization for comparison (Windows + trailing slash removal)
   const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().replace(/\/$/, '');
 
-  // Extract external projects (name + path) detected outside configured paths
+  // DEPRECATED: External projects detection disabled
+  // With Docker-only discovery, projects don't have file paths anymore
+  // Projects are discovered via `docker compose ls` regardless of file location
   let externalProjects = $derived.by(() => {
-    if (!projectsQuery.data || !pathsQuery.data) return [];
-    const configured = pathsQuery.data.map(p => normalizePath(p.path));
-    const map = new Map<string, { path: string; name: string }>();
-
-    for (const proj of projectsQuery.data) {
-      if (!proj.path) continue;
-      const projNorm = normalizePath(proj.path);
-      const isInside = configured.some(cfg => projNorm.startsWith(cfg) && (projNorm.length === cfg.length || projNorm[cfg.length] === '/'));
-      if (!isInside) {
-        // Use the project name returned by the API, otherwise fallback
-        map.set(proj.path, { path: proj.path, name: proj.name || 'Projet sans nom' });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path));
+    // This feature is no longer relevant with Docker-only architecture
+    return [];
   });
 
   const addMutation = createMutation(() => ({
@@ -186,7 +176,9 @@
         </div>
       {/if}
 
-      <!-- Warning banner for external projects detected -->
+      <!-- DEPRECATED: External projects detection disabled with Docker-only architecture -->
+      <!-- Projects are now discovered via `docker compose ls` regardless of file location -->
+      <!--
       {#if externalProjects.length > 0}
         <div class="mt-6 space-y-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -217,6 +209,7 @@
           {/each}
         </div>
       {/if}
+      -->
     </CardContent>
   </Card>
 </div>
@@ -225,8 +218,8 @@
   open={confirmDialog.open}
   title={confirmDialog.title}
   description={confirmDialog.description}
-  onconfirm={confirmDialog.onConfirm}
-  oncancel={() => confirmDialog.open = false}
+  onConfirm={confirmDialog.onConfirm}
+  onCancel={() => confirmDialog.open = false}
 />
 
 {#if showFolderPicker}

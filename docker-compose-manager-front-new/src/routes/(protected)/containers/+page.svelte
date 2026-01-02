@@ -392,7 +392,7 @@
     description={confirmDialog.isRunning
       ? $t('containers.confirmRemoveRunningWithName', { name: confirmDialog.containerName })
       : $t('containers.confirmRemoveWithName', { name: confirmDialog.containerName })}
-    onconfirm={handleRemove}
-    oncancel={() => confirmDialog.open = false}
+    onConfirm={handleRemove}
+    onCancel={() => confirmDialog.open = false}
   />
 </div>

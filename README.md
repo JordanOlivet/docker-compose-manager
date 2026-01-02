@@ -12,12 +12,13 @@ A full-stack application for managing Docker containers and Docker Compose files
 - Serilog
 
 ### Frontend
-- React 18 + TypeScript
+- SvelteKit + Svelte 5 + TypeScript
 - Vite
-- React Router
-- Zustand (state management)
-- Axios + TanStack Query
-- Tailwind CSS
+- File-based routing (SvelteKit)
+- Svelte stores + runes (state management)
+- Axios + TanStack Svelte Query
+- bits-ui + Tailwind CSS
+- SignalR for real-time updates
 
 ## Quick Start
 
@@ -124,12 +125,14 @@ Swagger UI at `http://localhost:5000/swagger`
 
 **Frontend:**
 ```bash
-cd docker-compose-manager-front
+cd docker-compose-manager-front-new
 npm install
 npm run dev
 ```
 
 Frontend will be available at `http://localhost:5173`
+
+**Note:** The old React frontend (`docker-compose-manager-front`) has been removed. Only the Svelte frontend (`docker-compose-manager-front-new`) is maintained.
 
 ## Features Implemented
 
@@ -137,13 +140,24 @@ Frontend will be available at `http://localhost:5173`
 - JWT-based authentication with refresh tokens
 - Secure password hashing with BCrypt
 - Session management
-- Protected routes
+- Role-based access control
+- Resource-level permissions
 
 ### ✅ Docker Container Management
 - List all containers
 - View container details
 - Start/Stop/Restart containers
 - Remove containers
+- Real-time updates via SignalR
+
+### ✅ Docker Compose Project Management (NEW)
+- **Docker-only discovery** - No database sync required
+- Projects discovered from `docker compose ls --all`
+- All operations use `-p projectName` (no file access needed)
+- View project status and container count
+- Start/Stop/Restart projects
+- Real-time project updates
+- User permissions by project name
 
 ### ✅ API Documentation
 - Swagger/OpenAPI integration
@@ -151,35 +165,46 @@ Frontend will be available at `http://localhost:5173`
 
 ### ✅ Security
 - CORS configuration
-- Input validation
-- Rate limiting ready
-- Audit logging infrastructure
+- Input validation with FluentValidation
+- Rate limiting
+- Audit logging
+
+### ⚠️ Temporarily Disabled Features
+- **Compose file editing** - Disabled via feature flags (cross-platform path issues)
+- **Project templates** - Depends on file editing feature
+
+See `COMPOSE_DISCOVERY_REFACTOR.md` for technical details on the new architecture.
 
 ## Project Structure
 
 ```
 docker-compose-manager/
-├── docker-compose-manager-back/    # .NET 9 Backend
+├── docker-compose-manager-back/        # .NET 9 Backend
 │   ├── src/
-│   │   ├── Controllers/            # API endpoints
-│   │   ├── Services/               # Business logic
-│   │   ├── Models/                 # Database entities
-│   │   ├── DTOs/                   # Data transfer objects
-│   │   └── Data/                   # EF Core context & migrations
+│   │   ├── Controllers/                # API endpoints
+│   │   ├── Services/                   # Business logic
+│   │   ├── Models/                     # Database entities
+│   │   ├── DTOs/                       # Data transfer objects
+│   │   └── Data/                       # EF Core context & migrations
 │   ├── Dockerfile
 │   └── docker-compose-manager-back.csproj
-├── docker-compose-manager-front/   # React Frontend
+├── docker-compose-manager-front-new/   # SvelteKit Frontend
 │   ├── src/
-│   │   ├── api/                    # API client functions
-│   │   ├── components/             # React components
-│   │   ├── pages/                  # Page components
-│   │   ├── stores/                 # Zustand stores
-│   │   └── types/                  # TypeScript types
+│   │   ├── lib/
+│   │   │   ├── api/                    # API client modules
+│   │   │   ├── components/             # Svelte components
+│   │   │   ├── config/                 # Feature flags & config
+│   │   │   ├── services/               # SignalR & services
+│   │   │   ├── stores/                 # Svelte stores
+│   │   │   ├── types/                  # TypeScript types
+│   │   │   └── utils/                  # Helper functions
+│   │   └── routes/                     # SvelteKit file-based routes
 │   ├── Dockerfile
-│   ├── nginx.conf
 │   └── package.json
 ├── docker-compose.yml
 ├── .env.example
+├── CLAUDE.md                           # Development guide for AI assistants
+├── COMPOSE_DISCOVERY_REFACTOR.md       # Docker-only discovery architecture
 └── README.md
 ```
 

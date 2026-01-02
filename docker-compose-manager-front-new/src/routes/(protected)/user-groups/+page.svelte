@@ -143,8 +143,8 @@
   open={confirmDialog.open}
   title={confirmDialog.title}
   description={confirmDialog.description}
-  onconfirm={confirmDialog.onConfirm}
-  oncancel={() => confirmDialog.open = false}
+  onConfirm={confirmDialog.onConfirm}
+  onCancel={() => confirmDialog.open = false}
 />
 
 <UserGroupFormDialog

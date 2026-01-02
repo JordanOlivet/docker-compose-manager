@@ -9,6 +9,16 @@
   import MonacoEditor from '$lib/components/MonacoEditor.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
+  import { FEATURES } from '$lib/config/features';
+  import { onMount } from 'svelte';
+
+  // Check if feature is enabled on mount
+  onMount(() => {
+    if (!FEATURES.COMPOSE_FILE_EDITING) {
+      toast.error('File editing is temporarily disabled');
+      goto('/compose/files');
+    }
+  });
 
   const fileId = $derived(parseInt($page.params.id ?? '0'));
 

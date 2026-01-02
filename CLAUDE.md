@@ -7,9 +7,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repository contains a Docker Compose management system with two main applications:
 
 - **docker-compose-manager-back**: .NET 9 Web API backend that interfaces with Docker Engine
-- **docker-compose-manager-front**: React 18 + TypeScript frontend with shadcn/ui
+- **docker-compose-manager-front-new**: SvelteKit + TypeScript frontend with bits-ui and Tailwind CSS
 
-The system provides a web-based interface for managing Docker containers and compose files, with features including user authentication, role-based access control, real-time updates via WebSockets, and a compose file editor.
+The system provides a web-based interface for managing Docker containers and compose projects, with features including user authentication, role-based access control, real-time updates via SignalR, and **Docker-only project discovery** (no file system access required).
+
+**Note**: The old React frontend has been removed. Only the Svelte frontend is now maintained.
+
+## Recent Architecture Changes (2026-01)
+
+### Migration to Docker-Only Discovery
+
+The system has undergone a major architectural refactor:
+
+**What Changed:**
+- ❌ Removed database persistence for compose projects (ComposePaths, ComposeFiles tables deprecated)
+- ✅ Projects now discovered directly from `docker compose ls --all`
+- ✅ No file system access required for operations
+- ✅ All operations use `-p projectName` flag
+- ✅ Memory cache (10s) replaces database sync
+
+**What Was Removed:**
+- React frontend (replaced with Svelte)
+- File editing feature (temporarily disabled via feature flags)
+- Template creation (temporarily disabled)
+- Background file discovery service
+- ComposeFiles and ComposePaths management UI
+
+**What Still Works:**
+- All Docker operations (up, down, restart, logs, etc.)
+- Project discovery and management
+- User permissions (by project name)
+- Real-time updates via SignalR
+- Container management
+
+**Migration Path:**
+- Frontend: Fully migrated to Svelte ✅
+- Backend: Implementation pending (see COMPOSE_DISCOVERY_REFACTOR.md)
+- Database: ComposePaths/ComposeFiles tables will be removed in future migration
+
+**Documentation:**
+- See `COMPOSE_DISCOVERY_REFACTOR.md` for complete technical details
+- See frontend `src/lib/config/features.ts` for feature flags
 
 ## Development Commands
 
@@ -45,9 +83,9 @@ dotnet ef migrations remove
 
 Backend runs at `http://localhost:5000` with Swagger UI at `http://localhost:5000/swagger`
 
-### Frontend (docker-compose-manager-front)
+### Frontend (docker-compose-manager-front-new)
 
-Located in `./docker-compose-manager-front/`
+Located in `./docker-compose-manager-front-new/`
 
 ```bash
 # Install dependencies
@@ -62,20 +100,14 @@ npm run build
 # Preview production build
 npm run preview
 
-# Run unit tests
-npm run test
+# Type-check without running
+npm run check
 
-# Run E2E tests
-npm run test:e2e
-
-# Run tests with coverage
-npm run test:coverage
-
-# Lint code
-npm run lint
+# Type-check in watch mode
+npm run check:watch
 ```
 
-Frontend runs at `http://localhost:5173` (Vite default)
+Frontend runs at `http://localhost:5173` (Vite default with SvelteKit)
 
 ### Docker Deployment
 
@@ -140,7 +172,8 @@ Data/ → Entity Framework Core context and migrations
 
 **Database (SQLite):**
 
-- Schema includes: Users, Roles, ComposePaths, ComposeFiles, AppSettings, AuditLogs, Sessions
+- Schema includes: Users, Roles, ResourcePermissions, AppSettings, AuditLogs, Sessions
+- **Deprecated tables**: ComposePaths, ComposeFiles (replaced by Docker-only discovery)
 - Migrations managed via Entity Framework Core
 - Default location: `Data/app.db` (development) or `/app/data/app.db` (Docker)
 - Architecture supports future migration to PostgreSQL if needed
@@ -153,53 +186,96 @@ Data/ → Entity Framework Core context and migrations
 
 ### Frontend Architecture
 
-React application using functional components and hooks:
+SvelteKit application using Svelte 5 with runes:
 
 ```
-components/ → Reusable UI components (shadcn/ui + custom)
-pages/ → Page-level components (Dashboard, Containers, Compose, Users, etc.)
-hooks/ → Custom React hooks
-services/ → API client functions (Axios)
-store/ → State management (Zustand stores)
-types/ → TypeScript type definitions
-utils/ → Helper functions
+src/
+  lib/
+    api/ → API client modules (Axios-based)
+    components/ → Reusable UI components (bits-ui + custom)
+    config/ → Feature flags and configuration
+    services/ → SignalR and other services
+    stores/ → Svelte stores for state management
+    types/ → TypeScript type definitions
+    utils/ → Helper functions
+  routes/ → File-based routing (SvelteKit)
+    (protected)/ → Authenticated routes
+      compose/ → Compose projects and files
+      containers/ → Container management
+      dashboard/ → Dashboard
+      users/ → User management
 ```
 
 **Key Technologies:**
 
-- **State Management**: Zustand for global state
-- **API Layer**: Axios + TanStack Query (React Query) for data fetching/caching
-- **Forms**: React Hook Form + Zod validation
-- **UI Components**: shadcn/ui (Radix UI primitives) + Tailwind CSS
-- **Code Editor**: Monaco Editor for compose file editing
-- **WebSockets**: Socket.IO Client for real-time updates
-- **Routing**: React Router v6
+- **Framework**: SvelteKit (file-based routing, SSR/SPA)
+- **State Management**: Svelte 5 runes ($state, $derived, $effect) + Svelte stores
+- **API Layer**: Axios + TanStack Svelte Query for data fetching/caching
+- **Forms**: sveltekit-superforms + Zod validation
+- **UI Components**: bits-ui (Radix-like primitives for Svelte) + Tailwind CSS
+- **Code Editor**: Monaco Editor (currently disabled via feature flags)
+- **Real-time**: @microsoft/signalr for WebSocket updates
+- **Routing**: SvelteKit file-based routing
+- **Icons**: lucide-svelte
+- **Notifications**: svelte-sonner (Toast)
+- **Charts**: d3-scale + LayerCake
 
 **API Communication:**
 
-- All API calls proxied through Nginx in production (`/api/*` → `backend:5000`)
-- WebSocket connections proxied at `/ws/*`
-- JWT token included in Authorization header: `Bearer {token}`
-- TanStack Query handles caching, refetching, and optimistic updates
+- All API calls use Axios client with interceptors
+- JWT token auto-injected in Authorization header: `Bearer {token}`
+- Refresh token handling via interceptors
+- TanStack Svelte Query handles caching, refetching, and optimistic updates
+- SignalR for real-time events (operations, container state, compose projects)
 
-### File Path Handling Strategy
+**Feature Flags:**
 
-**Problem**: Compose file paths contain slashes that conflict with URL routing.
+Located in `src/lib/config/features.ts`:
+- `COMPOSE_FILE_EDITING: false` - File editing temporarily disabled (cross-platform issues)
+- `COMPOSE_TEMPLATES: false` - Template creation disabled (depends on file editing)
 
-**Solution**: Use numeric IDs for API operations:
+### Docker-Only Project Discovery (NEW ARCHITECTURE)
 
-- `ComposeFiles` table maps file paths to IDs
-- APIs use `/api/compose/files/{id}` for operations
-- Alternative query param endpoint: `/api/compose/files/by-path?path={encodedPath}`
-- File discovery runs on startup and periodically (default: 5 min intervals)
-- WebSocket notifications when files change
+**Philosophy**: Docker is the single source of truth. No database persistence for projects.
 
-### Compose Projects vs Files
+**How it works:**
 
-- **Compose File**: Single YAML file stored in filesystem
-- **Compose Project**: Logical grouping of services, can include multiple files (base + overrides)
-- Project identified by name (directory name or `-p` flag)
-- API automatically detects related files (same directory, naming convention like `docker-compose.override.yml`)
+1. **Discovery**: Backend calls `docker compose ls --all --format json` to get all projects
+2. **Caching**: Results cached in memory for 10 seconds (IMemoryCache)
+3. **Permissions**: Project list filtered by user permissions (ResourcePermission table uses project name)
+4. **Operations**: All operations use `-p projectName` flag - no file access required
+5. **Real-time**: SignalR events invalidate cache when projects change
+
+**Benefits:**
+
+- ✅ No database sync required
+- ✅ No cross-platform path mapping issues
+- ✅ Projects auto-discovered (even those created outside the app)
+- ✅ Projects with `docker compose down` still visible (status: "exited(0)")
+- ✅ Stateless architecture (easy horizontal scaling)
+
+**Project DTO Structure:**
+
+```typescript
+interface ComposeProjectDto {
+  name: string;              // Docker project name
+  rawStatus: string;         // e.g., "running(3)", "exited(2)"
+  configFiles: string[];     // Informational only (host paths)
+  status: ProjectStatus;     // Running | Stopped | Removed | Unknown
+  containerCount: number;
+  userPermissions: PermissionFlags;
+  canStart: boolean;
+  canStop: boolean;
+  statusColor: string;
+}
+```
+
+**Compose File Editing:**
+
+- ⚠️ **Currently disabled** via feature flags (cross-platform issues)
+- File paths shown are informational only (from Docker metadata)
+- Operations don't require file access - use project name instead
+- To add projects: Create `docker-compose.yml` on host → run `docker compose up` → auto-discovered
 
 ### Security Architecture
 
@@ -207,7 +283,7 @@ utils/ → Helper functions
 
 1. **Docker Socket Access**: Backend container has root-level access to host via Docker socket mounting. This is required but dangerous. In production, consider Docker API over TCP with TLS instead.
 
-2. **Path Traversal Prevention**: All file paths validated against whitelist (configured ComposePaths). Never trust user input for file paths.
+2. **Path Traversal Prevention**: ~~All file paths validated against whitelist (configured ComposePaths)~~ **(DEPRECATED)** - File editing disabled. Docker operations use project names only.
 
 3. **Input Validation**: FluentValidation on all endpoints, sanitize all input before passing to Docker API.
 
@@ -238,8 +314,9 @@ utils/ → Helper functions
    - Run `dotnet watch run` for hot-reload
    - Access Swagger UI at `http://localhost:5000/swagger`
 
-2. **Frontend**:
-   - Create `.env.development` with `VITE_API_URL=http://localhost:5000` and `VITE_WS_URL=ws://localhost:5000`
+2. **Frontend** (SvelteKit):
+   - Navigate to `./docker-compose-manager-front-new/`
+   - Create `.env` if needed (optional - defaults to localhost:5000)
    - Run `npm install` then `npm run dev`
    - Access at `http://localhost:5173`
 
@@ -270,29 +347,47 @@ GET /api/operations/op-abc123
 → { "status": "running", "progress": 45, "logs": "..." }
 ```
 
-Frontend subscribes to WebSocket `operation:update` events for real-time progress.
+Frontend subscribes to SignalR hub events for real-time progress.
 
-### Real-Time Updates
+### Real-Time Updates (SignalR)
 
-- WebSocket endpoint `/ws` for container status updates
-- WebSocket endpoint `/ws/logs` for log streaming
-- Server-Sent Events (SSE) as fallback
-- SignalR library on backend, Socket.IO on frontend
+**Hubs:**
+- `/hubs/operations` - Operation updates, container state changes, compose project changes
+- `/hubs/logs` - Real-time log streaming
+
+**Frontend Integration:**
+- Uses `@microsoft/signalr` package
+- Service located in `src/lib/services/signalr.ts`
+- Automatic reconnection with exponential backoff
+- Events trigger TanStack Query cache invalidation
+
+**Key Events:**
+- `OperationUpdate` - Progress updates for long-running operations
+- `ContainerStateChanged` - Container lifecycle events
+- `ComposeProjectStateChanged` - Project state changes (from Docker events)
 
 ### Compose File Templates
+
+⚠️ **Currently disabled** via feature flags (depends on file editing feature).
 
 Pre-defined templates stored in `backend/Resources/Templates/`:
 - LAMP Stack, MEAN Stack, PostgreSQL + Redis, Nginx + PHP-FPM
 - WordPress, Nextcloud, GitLab CE, Traefik, Prometheus + Grafana, ELK Stack
 
-Accessed via `GET /api/compose/templates`, used when creating new compose files.
+Templates are preserved for future reactivation once file editing is re-enabled.
 
 ### Caching Strategy
 
-- Container list: cached 5 seconds
-- Compose file list: cached 30 seconds
-- ETags for compose file content
-- Cache invalidation on mutations
+**Backend:**
+- Compose projects: 10 seconds (IMemoryCache)
+- Container list: 5 seconds
+- Manual invalidation after operations (up, down, restart)
+
+**Frontend (TanStack Query):**
+- Stale time: 60 seconds
+- Automatic refetch disabled (SignalR handles updates)
+- Cache invalidated on SignalR events (debounced 500ms)
+- Force refresh available via API (`?refresh=true`)
 
 ### Logging
 

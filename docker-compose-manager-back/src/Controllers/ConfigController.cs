@@ -30,145 +30,64 @@ public class ConfigController : BaseController
     /// Get all configured compose file paths
     /// </summary>
     [HttpGet("paths")]
-    [ProducesResponseType(typeof(ApiResponse<List<ComposePath>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<List<ComposePath>>>> GetComposePaths()
+    [Obsolete("ComposePath management disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult GetComposePaths()
     {
-        try
+        return StatusCode(501, new
         {
-            var paths = await _context.ComposePaths
-                .OrderBy(p => p.Path)
-                .ToListAsync();
-
-            return Ok(ApiResponse.Ok(paths, "Compose paths retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving compose paths");
-            return StatusCode(500, ApiResponse.Fail<List<ComposePath>>("Failed to retrieve compose paths"));
-        }
+            success = false,
+            message = "ComposePath management is disabled.",
+            reason = "Projects discovered automatically via 'docker compose ls'. No path configuration needed.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md"
+        });
     }
 
     /// <summary>
     /// Add new compose file path
     /// </summary>
     [HttpPost("paths")]
-    [ProducesResponseType(typeof(ApiResponse<ComposePath>), StatusCodes.Status201Created)]
-    public async Task<ActionResult<ApiResponse<ComposePath>>> AddComposePath([FromBody] AddComposePathRequest request)
+    [Obsolete("ComposePath management disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult AddComposePath([FromBody] AddComposePathRequest request)
     {
-        try
+        return StatusCode(501, new
         {
-            // Validate path exists
-            if (!Directory.Exists(request.Path))
-            {
-                return BadRequest(ApiResponse.Fail<ComposePath>($"Directory '{request.Path}' does not exist"));
-            }
-
-            // Check if path already exists
-            var existing = await _context.ComposePaths
-                .FirstOrDefaultAsync(p => p.Path == request.Path);
-
-            if (existing != null)
-            {
-                return Conflict(ApiResponse.Fail<ComposePath>($"Path '{request.Path}' is already configured"));
-            }
-
-            var composePath = new ComposePath
-            {
-                Path = request.Path,
-                IsReadOnly = request.IsReadOnly,
-                IsEnabled = true
-            };
-
-            _context.ComposePaths.Add(composePath);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Compose path added: {Path} (ReadOnly: {IsReadOnly})", composePath.Path, composePath.IsReadOnly);
-
-            return CreatedAtAction(
-                nameof(GetComposePaths),
-                new { },
-                ApiResponse.Ok(composePath, "Compose path added successfully")
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error adding compose path");
-            return StatusCode(500, ApiResponse.Fail<ComposePath>("Failed to add compose path"));
-        }
+            success = false,
+            message = "ComposePath management is disabled.",
+            reason = "Projects discovered automatically via 'docker compose ls'. No path configuration needed.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md"
+        });
     }
 
     /// <summary>
     /// Update compose path settings
     /// </summary>
     [HttpPut("paths/{id}")]
-    [ProducesResponseType(typeof(ApiResponse<ComposePath>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<ComposePath>>> UpdateComposePath(int id, [FromBody] UpdateComposePathRequest request)
+    [Obsolete("ComposePath management disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult UpdateComposePath(int id, [FromBody] UpdateComposePathRequest request)
     {
-        try
+        return StatusCode(501, new
         {
-            var composePath = await _context.ComposePaths.FindAsync(id);
-            if (composePath == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposePath>($"Compose path with ID {id} not found"));
-            }
-
-            if (request.IsReadOnly.HasValue)
-            {
-                composePath.IsReadOnly = request.IsReadOnly.Value;
-            }
-
-            if (request.IsEnabled.HasValue)
-            {
-                composePath.IsEnabled = request.IsEnabled.Value;
-            }
-
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Compose path updated: {Path}", composePath.Path);
-
-            return Ok(ApiResponse.Ok(composePath, "Compose path updated successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating compose path {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<ComposePath>("Failed to update compose path"));
-        }
+            success = false,
+            message = "ComposePath management is disabled.",
+            reason = "Projects discovered automatically via 'docker compose ls'. No path configuration needed.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md"
+        });
     }
 
     /// <summary>
     /// Delete compose path
     /// </summary>
     [HttpDelete("paths/{id}")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<object>>> DeleteComposePath(int id)
+    [Obsolete("ComposePath management disabled - see COMPOSE_DISCOVERY_REFACTOR.md")]
+    public IActionResult DeleteComposePath(int id)
     {
-        try
+        return StatusCode(501, new
         {
-            var composePath = await _context.ComposePaths.FindAsync(id);
-            if (composePath == null)
-            {
-                return NotFound(ApiResponse.Fail<object>($"Compose path with ID {id} not found"));
-            }
-
-            // Delete associated compose files first
-            var files = await _context.ComposeFiles
-                .Where(f => f.ComposePathId == id)
-                .ToListAsync();
-
-            _context.ComposeFiles.RemoveRange(files);
-            _context.ComposePaths.Remove(composePath);
-
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Compose path deleted: {Path} (with {FileCount} associated files)", composePath.Path, files.Count);
-
-            return Ok(ApiResponse.Ok<object>(null, "Compose path deleted successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting compose path {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<object>("Failed to delete compose path"));
-        }
+            success = false,
+            message = "ComposePath management is disabled.",
+            reason = "Projects discovered automatically via 'docker compose ls'. No path configuration needed.",
+            documentation = "See COMPOSE_DISCOVERY_REFACTOR.md"
+        });
     }
 
     #endregion

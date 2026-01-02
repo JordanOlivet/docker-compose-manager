@@ -3,6 +3,7 @@ using docker_compose_manager_back.Filters;
 using docker_compose_manager_back.Hubs;
 using docker_compose_manager_back.Middleware;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.Services.Utils;
 using docker_compose_manager_back.Validators;
 using DockerComposeManager.Services.Security;
 using FluentValidation;
@@ -142,6 +143,16 @@ builder.Services.Configure<PasswordHashingOptions>(
     builder.Configuration.GetSection(PasswordHashingOptions.SectionName));
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
+// Memory cache for compose project discovery
+builder.Services.AddMemoryCache();
+
+// Docker command executor (singleton - caches v1/v2 detection)
+builder.Services.AddSingleton<DockerCommandExecutor>();
+
+// New compose services (refactored discovery system)
+builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
+builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -154,7 +165,7 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddSingleton<DockerService>();
 
 // Register background services
-builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
+// ComposeFileDiscoveryService removed - discovery now via docker compose ls
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 
 // Add FluentValidation

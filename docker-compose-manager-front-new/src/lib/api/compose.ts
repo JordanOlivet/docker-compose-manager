@@ -6,6 +6,8 @@ import type {
   CreateComposeFileRequest,
   UpdateComposeFileRequest,
   ComposeProject,
+  ComposeProjectDto,
+  ComposeService,
   ComposeUpRequest,
   ComposeDownRequest,
   ComposeOperationResponse,
@@ -73,15 +75,66 @@ export const composeApi = {
     await apiClient.delete<ApiResponseWrapper<void>>(`/compose/files/${id}`);
   },
 
-  // Compose Projects API
+  // Compose Projects API (NEW ARCHITECTURE - Docker-only discovery)
 
-  // List all compose projects
-  listProjects: async (): Promise<ComposeProject[]> => {
-    const response = await apiClient.get<ApiResponseWrapper<ComposeProject[]>>('/compose/projects');
+  /**
+   * List all compose projects using Docker-only discovery
+   * Source: `docker compose ls --all --format json`
+   * @param refresh - Force cache refresh (bypass 10s cache)
+   * @returns Array of ComposeProjectDto with permissions and status
+   */
+  listProjects: async (refresh = false): Promise<ComposeProjectDto[]> => {
+    const response = await apiClient.get<ApiResponseWrapper<ComposeProjectDto[]>>(
+      '/compose/projects',
+      { params: { refresh } }
+    );
     return response.data.data || [];
   },
 
-  // Start compose project (docker-compose up)
+  /**
+   * Get a specific project by name
+   * @param projectName - Docker project name
+   * @returns Project details with permissions
+   */
+  getProject: async (projectName: string): Promise<ComposeProjectDto> => {
+    const response = await apiClient.get<ApiResponseWrapper<ComposeProjectDto>>(
+      `/compose/projects/${encodeURIComponent(projectName)}`
+    );
+    if (!response.data.data) {
+      throw new Error(`Project '${projectName}' not found or access denied`);
+    }
+    return response.data.data;
+  },
+
+  /**
+   * Get services for a specific project (via docker compose ps)
+   * Real-time data, no cache
+   * @param projectName - Docker project name
+   * @returns Array of services with their status
+   */
+  getProjectServices: async (projectName: string): Promise<ComposeService[]> => {
+    const response = await apiClient.get<ApiResponseWrapper<ComposeService[]>>(
+      `/compose/projects/${encodeURIComponent(projectName)}/services`
+    );
+    return response.data.data || [];
+  },
+
+  /**
+   * Force refresh the projects cache
+   * Invalidates the 10s memory cache on the backend
+   */
+  refreshCache: async (): Promise<void> => {
+    await apiClient.post<ApiResponseWrapper<{ message: string }>>(
+      '/compose/projects/refresh'
+    );
+  },
+
+  /**
+   * Start compose project (docker compose up)
+   * Uses -p projectName flag, no file access required
+   * @param projectName - Docker project name
+   * @param request - Optional parameters (build, detach, etc.)
+   */
   upProject: async (projectName: string, request?: ComposeUpRequest): Promise<ComposeOperationResponse> => {
     const response = await apiClient.post<ApiResponseWrapper<ComposeOperationResponse>>(
       `/compose/projects/${encodeURIComponent(projectName)}/up`,
@@ -93,7 +146,12 @@ export const composeApi = {
     return response.data.data;
   },
 
-  // Stop compose project (docker-compose down)
+  /**
+   * Stop compose project (docker compose down)
+   * Uses -p projectName flag, no file access required
+   * @param projectName - Docker project name
+   * @param request - Optional parameters (removeVolumes, etc.)
+   */
   downProject: async (projectName: string, request?: ComposeDownRequest): Promise<ComposeOperationResponse> => {
     const response = await apiClient.post<ApiResponseWrapper<ComposeOperationResponse>>(
       `/compose/projects/${encodeURIComponent(projectName)}/down`,
@@ -105,7 +163,12 @@ export const composeApi = {
     return response.data.data;
   },
 
-  // Restart compose project
+  /**
+   * Restart compose project
+   * Uses -p projectName flag, no file access required
+   * @param projectName - Docker project name
+   * @param timeout - Optional timeout in seconds
+   */
   restartProject: async (projectName: string, timeout?: number): Promise<ComposeOperationResponse> => {
     const response = await apiClient.post<ApiResponseWrapper<ComposeOperationResponse>>(
       `/compose/projects/${encodeURIComponent(projectName)}/restart`,

@@ -5,38 +5,38 @@
   import type { Snippet } from 'svelte';
 
   interface Props {
-    open: boolean;
+    open?: boolean;
     title: string;
     description: string;
     confirmText?: string;
     cancelText?: string;
     confirmVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-    onconfirm: () => void;
-    oncancel: () => void;
+    onConfirm: () => void;
+    onCancel: () => void;
     children?: Snippet;
   }
 
   let {
-    open,
+    open = $bindable(false),
     title,
     description,
     confirmText = $t('common.confirm'),
     cancelText = $t('common.cancel'),
     confirmVariant = 'destructive',
-    onconfirm,
-    oncancel,
+    onConfirm,
+    onCancel,
     children
   }: Props = $props();
 
   function handleBackdropClick(e: MouseEvent) {
     if (e.target === e.currentTarget) {
-      oncancel();
+      onCancel();
     }
   }
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      oncancel();
+      onCancel();
     }
   }
 </script>
@@ -76,10 +76,10 @@
       </div>
 
       <div class="mt-6 flex justify-end gap-3">
-        <Button variant="outline" onclick={oncancel}>
+        <Button variant="outline" onclick={onCancel}>
           {cancelText}
         </Button>
-        <Button variant={confirmVariant} onclick={onconfirm}>
+        <Button variant={confirmVariant} onclick={onConfirm}>
           {confirmText}
         </Button>
       </div>

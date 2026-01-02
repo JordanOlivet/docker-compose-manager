@@ -12,8 +12,6 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
-    public DbSet<ComposePath> ComposePaths { get; set; } = null!;
-    public DbSet<ComposeFile> ComposeFiles { get; set; } = null!;
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
     public DbSet<Operation> Operations { get; set; } = null!;
@@ -57,27 +55,6 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.User)
                 .WithMany(u => u.Sessions)
                 .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ComposePath configuration
-        modelBuilder.Entity<ComposePath>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Path).IsUnique();
-            entity.Property(e => e.Path).IsRequired();
-        });
-
-        // ComposeFile configuration
-        modelBuilder.Entity<ComposeFile>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.FullPath).IsUnique();
-            entity.Property(e => e.FileName).IsRequired();
-            entity.Property(e => e.FullPath).IsRequired();
-            entity.HasOne(e => e.ComposePath)
-                .WithMany(cp => cp.ComposeFiles)
-                .HasForeignKey(e => e.ComposePathId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -207,18 +184,6 @@ public class AppDbContext : DbContext
                 RoleId = 1, // admin role
                 IsEnabled = true,
                 MustChangePassword = true,
-                CreatedAt = seedDate
-            }
-        );
-
-        // Seed default compose path
-        modelBuilder.Entity<ComposePath>().HasData(
-            new ComposePath
-            {
-                Id = 1,
-                Path = "/compose-files",
-                IsReadOnly = false,
-                IsEnabled = true,
                 CreatedAt = seedDate
             }
         );

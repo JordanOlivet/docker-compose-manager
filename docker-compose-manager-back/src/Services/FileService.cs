@@ -1,3 +1,16 @@
+/// <summary>
+/// WARNING: File management service is DEPRECATED and partially disabled.
+///
+/// Current status:
+/// - ReadFileAsync/WriteFileAsync: Kept for backward compatibility
+/// - ValidateFilePathAsync: DEPRECATED (no more ComposePaths validation - always returns false)
+/// - File editing endpoints: DISABLED (return HTTP 501)
+///
+/// Reason: Cross-platform path mapping issues (Windows host + Linux container)
+/// Future: May be removed entirely or redesigned with proper volume mapping
+///
+/// See: COMPOSE_DISCOVERY_REFACTOR.md
+/// </summary>
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -21,45 +34,15 @@ public class FileService
     }
 
     /// <summary>
-    /// Validates that a file path is within an allowed ComposePath and prevents directory traversal
+    /// DEPRECATED: Path validation disabled (ComposePaths no longer exist)
+    /// This method is kept for backward compatibility but always returns invalid.
+    /// File operations should be done directly on the host filesystem.
     /// </summary>
-    public async Task<(bool IsValid, string? Error, ComposePath? AllowedPath)> ValidateFilePathAsync(string filePath)
+    [Obsolete("Path validation disabled - ComposePaths removed. See COMPOSE_DISCOVERY_REFACTOR.md")]
+    public Task<(bool IsValid, string? Error, object? AllowedPath)> ValidateFilePathAsync(string filePath)
     {
-        try
-        {
-            // Normalize the path
-            string normalizedPath = Path.GetFullPath(filePath);
-
-            // Get all enabled compose paths
-            List<ComposePath> composePaths = await _context.ComposePaths
-                .Where(cp => cp.IsEnabled)
-                .ToListAsync();
-
-            if (composePaths.Count == 0)
-            {
-                return (false, "No compose paths are configured", null);
-            }
-
-            // Check if the file path is within any allowed compose path
-            foreach (ComposePath composePath in composePaths)
-            {
-                string normalizedComposePath = Path.GetFullPath(composePath.Path);
-
-                // Check if the file is within this compose path
-                if (normalizedPath.StartsWith(normalizedComposePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogDebug("File path {FilePath} is valid within {ComposePath}", filePath, composePath.Path);
-                    return (true, null, composePath);
-                }
-            }
-
-            return (false, "File path is not within any allowed compose path", null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error validating file path: {FilePath}", filePath);
-            return (false, "Invalid file path", null);
-        }
+        _logger.LogWarning("ValidateFilePathAsync called but functionality is disabled. Path: {FilePath}", filePath);
+        return Task.FromResult<(bool, string?, object?)>((false, "File path validation is disabled. ComposePaths no longer exist. See COMPOSE_DISCOVERY_REFACTOR.md", null));
     }
 
     /// <summary>
@@ -124,16 +107,13 @@ public class FileService
     /// </summary>
     public async Task<(bool Success, string? Error)> WriteFileAsync(string filePath, string content, bool createBackup = true)
     {
-        var (isValid, error, composePath) = await ValidateFilePathAsync(filePath);
+        var (isValid, error, _) = await ValidateFilePathAsync(filePath);
         if (!isValid)
         {
             return (false, error);
         }
 
-        if (composePath?.IsReadOnly == true)
-        {
-            return (false, "Cannot write to read-only compose path");
-        }
+        // IsReadOnly check removed - ComposePaths deprecated
 
         try
         {
@@ -169,16 +149,13 @@ public class FileService
     /// </summary>
     public async Task<(bool Success, string? Error)> DeleteFileAsync(string filePath)
     {
-        var (isValid, error, composePath) = await ValidateFilePathAsync(filePath);
+        var (isValid, error, _) = await ValidateFilePathAsync(filePath);
         if (!isValid)
         {
             return (false, error);
         }
 
-        if (composePath?.IsReadOnly == true)
-        {
-            return (false, "Cannot delete from read-only compose path");
-        }
+        // IsReadOnly check removed - ComposePaths deprecated
 
         try
         {
@@ -269,64 +246,15 @@ public class FileService
     /// <summary>
     /// Discovers all compose files in configured paths
     /// </summary>
-    public async Task<List<string>> DiscoverComposeFilesAsync()
+    /// <summary>
+    /// DEPRECATED: File discovery disabled (ComposePaths no longer exist)
+    /// Returns empty list. Use docker compose ls for project discovery instead.
+    /// </summary>
+    [Obsolete("File discovery disabled - use docker compose ls. See COMPOSE_DISCOVERY_REFACTOR.md")]
+    public Task<List<string>> DiscoverComposeFilesAsync()
     {
-        List<string> discoveredFiles = new();
-
-        List<ComposePath> composePaths = await _context.ComposePaths
-            .Where(cp => cp.IsEnabled)
-            .ToListAsync();
-
-        foreach (ComposePath composePath in composePaths)
-        {
-            try
-            {
-                if (!Directory.Exists(composePath.Path))
-                {
-                    _logger.LogWarning("Compose path does not exist: {Path}", composePath.Path);
-                    continue;
-                }
-
-                // Search for all YAML files (*.yml and *.yaml)
-                string[] ymlFiles = Directory.GetFiles(
-                    composePath.Path,
-                    "*.yml",
-                    SearchOption.AllDirectories
-                );
-
-                string[] yamlFiles = Directory.GetFiles(
-                    composePath.Path,
-                    "*.yaml",
-                    SearchOption.AllDirectories
-                );
-
-                // Combine all YAML files
-                var allYamlFiles = ymlFiles.Concat(yamlFiles).Distinct();
-
-                _logger.LogDebug("Found {Count} YAML files in {Path}", allYamlFiles.Count(), composePath.Path);
-
-                // Filter only files with valid Docker Compose structure
-                foreach (string file in allYamlFiles)
-                {
-                    if (IsValidDockerComposeFile(file))
-                    {
-                        discoveredFiles.Add(file);
-                    }
-                }
-
-                _logger.LogInformation(
-                    "Discovered {Count} valid compose files in {Path}",
-                    discoveredFiles.Count,
-                    composePath.Path
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error discovering files in path: {Path}", composePath.Path);
-            }
-        }
-
-        return discoveredFiles.Distinct().ToList();
+        _logger.LogWarning("DiscoverComposeFilesAsync called but functionality is disabled. Use docker compose ls instead.");
+        return Task.FromResult(new List<string>());
     }
 
     /// <summary>
@@ -357,62 +285,13 @@ public class FileService
     }
 
     /// <summary>
-    /// Updates the ComposeFile table with discovered files
+    /// DEPRECATED: Database sync disabled (ComposeFile table no longer exists)
+    /// Returns 0. Projects discovered via docker compose ls instead.
     /// </summary>
-    public async Task<int> SyncDatabaseWithDiscoveredFilesAsync()
+    [Obsolete("Database sync disabled - ComposeFile table removed. See COMPOSE_DISCOVERY_REFACTOR.md")]
+    public Task<int> SyncDatabaseWithDiscoveredFilesAsync()
     {
-        List<string> discoveredFiles = await DiscoverComposeFilesAsync();
-        int syncedCount = 0;
-
-        foreach (string filePath in discoveredFiles)
-        {
-            try
-            {
-                var (isValid, _, composePath) = await ValidateFilePathAsync(filePath);
-                if (!isValid || composePath == null)
-                {
-                    continue;
-                }
-
-                string fileName = Path.GetFileName(filePath);
-                FileInfo fileInfo = new FileInfo(filePath);
-
-                // Check if file already exists in database
-                ComposeFile? existingFile = await _context.ComposeFiles
-                    .FirstOrDefaultAsync(cf => cf.FullPath == filePath);
-
-                if (existingFile != null)
-                {
-                    // Update existing record
-                    existingFile.LastModified = fileInfo.LastWriteTimeUtc;
-                    existingFile.LastScanned = DateTime.UtcNow;
-                }
-                else
-                {
-                    // Create new record (discovered file)
-                    ComposeFile newFile = new ComposeFile
-                    {
-                        ComposePathId = composePath.Id,
-                        FileName = fileName,
-                        FullPath = filePath,
-                        LastModified = fileInfo.LastWriteTimeUtc,
-                        LastScanned = DateTime.UtcNow,
-                        IsDiscovered = true // File was discovered by scanner
-                    };
-
-                    _context.ComposeFiles.Add(newFile);
-                }
-
-                syncedCount++;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing file to database: {FilePath}", filePath);
-            }
-        }
-
-        await _context.SaveChangesAsync();
-        _logger.LogInformation("Synced {Count} compose files to database", syncedCount);
-        return syncedCount;
+        _logger.LogWarning("SyncDatabaseWithDiscoveredFilesAsync called but functionality is disabled.");
+        return Task.FromResult(0);
     }
 }
