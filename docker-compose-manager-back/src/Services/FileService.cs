@@ -267,66 +267,15 @@ public class FileService
     }
 
     /// <summary>
-    /// Discovers all compose files in configured paths
+    /// DEPRECATED: Discovers all compose files in configured paths
+    /// This method is deprecated - projects are now discovered from Docker directly
     /// </summary>
     public async Task<List<string>> DiscoverComposeFilesAsync()
     {
-        List<string> discoveredFiles = new();
-
-        List<ComposePath> composePaths = await _context.ComposePaths
-            .Where(cp => cp.IsEnabled)
-            .ToListAsync();
-
-        foreach (ComposePath composePath in composePaths)
-        {
-            try
-            {
-                if (!Directory.Exists(composePath.Path))
-                {
-                    _logger.LogWarning("Compose path does not exist: {Path}", composePath.Path);
-                    continue;
-                }
-
-                // Search for all YAML files (*.yml and *.yaml)
-                string[] ymlFiles = Directory.GetFiles(
-                    composePath.Path,
-                    "*.yml",
-                    SearchOption.AllDirectories
-                );
-
-                string[] yamlFiles = Directory.GetFiles(
-                    composePath.Path,
-                    "*.yaml",
-                    SearchOption.AllDirectories
-                );
-
-                // Combine all YAML files
-                var allYamlFiles = ymlFiles.Concat(yamlFiles).Distinct();
-
-                _logger.LogDebug("Found {Count} YAML files in {Path}", allYamlFiles.Count(), composePath.Path);
-
-                // Filter only files with valid Docker Compose structure
-                foreach (string file in allYamlFiles)
-                {
-                    if (IsValidDockerComposeFile(file))
-                    {
-                        discoveredFiles.Add(file);
-                    }
-                }
-
-                _logger.LogInformation(
-                    "Discovered {Count} valid compose files in {Path}",
-                    discoveredFiles.Count,
-                    composePath.Path
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error discovering files in path: {Path}", composePath.Path);
-            }
-        }
-
-        return discoveredFiles.Distinct().ToList();
+        // DEPRECATED: ComposePaths table removed - return empty list
+        // Projects are now discovered from Docker using ComposeDiscoveryService
+        _logger.LogDebug("DiscoverComposeFilesAsync is deprecated - returning empty list");
+        return await Task.FromResult(new List<string>());
     }
 
     /// <summary>
@@ -357,62 +306,14 @@ public class FileService
     }
 
     /// <summary>
-    /// Updates the ComposeFile table with discovered files
+    /// DEPRECATED: Updates the ComposeFile table with discovered files
+    /// This method is deprecated - database sync is no longer needed
     /// </summary>
     public async Task<int> SyncDatabaseWithDiscoveredFilesAsync()
     {
-        List<string> discoveredFiles = await DiscoverComposeFilesAsync();
-        int syncedCount = 0;
-
-        foreach (string filePath in discoveredFiles)
-        {
-            try
-            {
-                var (isValid, _, composePath) = await ValidateFilePathAsync(filePath);
-                if (!isValid || composePath == null)
-                {
-                    continue;
-                }
-
-                string fileName = Path.GetFileName(filePath);
-                FileInfo fileInfo = new FileInfo(filePath);
-
-                // Check if file already exists in database
-                ComposeFile? existingFile = await _context.ComposeFiles
-                    .FirstOrDefaultAsync(cf => cf.FullPath == filePath);
-
-                if (existingFile != null)
-                {
-                    // Update existing record
-                    existingFile.LastModified = fileInfo.LastWriteTimeUtc;
-                    existingFile.LastScanned = DateTime.UtcNow;
-                }
-                else
-                {
-                    // Create new record (discovered file)
-                    ComposeFile newFile = new ComposeFile
-                    {
-                        ComposePathId = composePath.Id,
-                        FileName = fileName,
-                        FullPath = filePath,
-                        LastModified = fileInfo.LastWriteTimeUtc,
-                        LastScanned = DateTime.UtcNow,
-                        IsDiscovered = true // File was discovered by scanner
-                    };
-
-                    _context.ComposeFiles.Add(newFile);
-                }
-
-                syncedCount++;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing file to database: {FilePath}", filePath);
-            }
-        }
-
-        await _context.SaveChangesAsync();
-        _logger.LogInformation("Synced {Count} compose files to database", syncedCount);
-        return syncedCount;
+        // DEPRECATED: ComposeFiles table removed - return 0
+        // File discovery and sync is no longer needed with Docker-only discovery
+        _logger.LogDebug("SyncDatabaseWithDiscoveredFilesAsync is deprecated - returning 0");
+        return await Task.FromResult(0);
     }
 }

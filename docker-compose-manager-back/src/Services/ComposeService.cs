@@ -1,13 +1,7 @@
 using docker_compose_manager_back.Data;
-using docker_compose_manager_back.Models;
-using docker_compose_manager_back.src.Utils;
-using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using EntityState = docker_compose_manager_back.src.Utils.EntityState;
 
 namespace docker_compose_manager_back.Services;
 
@@ -29,318 +23,319 @@ public class ComposeService
             .Build();
     }
 
-    /// <summary>
-    /// Detects if docker compose v2 (docker compose) or v1 (docker-compose) is available
-    /// </summary>
-    public async Task<bool> IsComposeV2Available()
-    {
-        if (_isComposeV2.HasValue)
-        {
-            return _isComposeV2.Value;
-        }
+    ///// <summary>
+    ///// Detects if docker compose v2 (docker compose) or v1 (docker-compose) is available
+    ///// </summary>
+    //public async Task<bool> IsComposeV2Available()
+    //{
+    //    if (_isComposeV2.HasValue)
+    //    {
+    //        return _isComposeV2.Value;
+    //    }
 
-        try
-        {
-            // Try docker compose version (v2)
-            ProcessStartInfo psi = new()
-            {
-                FileName = "docker",
-                Arguments = "compose version",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+    //    try
+    //    {
+    //        // Try docker compose version (v2)
+    //        ProcessStartInfo psi = new()
+    //        {
+    //            FileName = "docker",
+    //            Arguments = "compose version",
+    //            RedirectStandardOutput = true,
+    //            RedirectStandardError = true,
+    //            UseShellExecute = false,
+    //            CreateNoWindow = true,
+    //            WorkingDirectory = "/"
+    //        };
 
-            using Process? process = Process.Start(psi);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                if (process.ExitCode == 0)
-                {
-                    _isComposeV2 = true;
-                    _logger.LogInformation("Docker Compose v2 detected");
-                    return true;
-                }
-            }
+    //        using Process? process = Process.Start(psi);
+    //        if (process != null)
+    //        {
+    //            await process.WaitForExitAsync();
+    //            if (process.ExitCode == 0)
+    //            {
+    //                _isComposeV2 = true;
+    //                _logger.LogInformation("Docker Compose v2 detected");
+    //                return true;
+    //            }
+    //        }
 
-            // Fall back to docker-compose (v1)
-            psi.FileName = "docker-compose";
-            psi.Arguments = "version";
+    //        // Fall back to docker-compose (v1)
+    //        psi.FileName = "docker-compose";
+    //        psi.Arguments = "version";
 
-            using Process? processV1 = Process.Start(psi);
-            if (processV1 != null)
-            {
-                await processV1.WaitForExitAsync();
-                if (processV1.ExitCode == 0)
-                {
-                    _isComposeV2 = false;
-                    _logger.LogInformation("Docker Compose v1 detected");
-                    return false;
-                }
-            }
+    //        using Process? processV1 = Process.Start(psi);
+    //        if (processV1 != null)
+    //        {
+    //            await processV1.WaitForExitAsync();
+    //            if (processV1.ExitCode == 0)
+    //            {
+    //                _isComposeV2 = false;
+    //                _logger.LogInformation("Docker Compose v1 detected");
+    //                return false;
+    //            }
+    //        }
 
-            throw new InvalidOperationException("Docker Compose not found");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error detecting docker compose version");
-            throw;
-        }
-    }
+    //        throw new InvalidOperationException("Docker Compose not found");
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error detecting docker compose version");
+    //        throw;
+    //    }
+    //}
 
-    /// <summary>
-    /// Executes a docker compose command
-    /// </summary>
-    public async Task<(int ExitCode, string Output, string Error)> ExecuteComposeCommandAsync(
-        string workingDirectory,
-        string arguments,
-        string? composeFile = null,
-        CancellationToken cancellationToken = default)
-    {
-        bool isV2 = await IsComposeV2Available();
+    ///// <summary>
+    ///// Executes a docker compose command
+    ///// </summary>
+    //public async Task<(int ExitCode, string Output, string Error)> ExecuteComposeCommandAsync(
+    //    string workingDirectory,
+    //    string arguments,
+    //    string? composeFile = null,
+    //    CancellationToken cancellationToken = default)
+    //{
+    //    bool isV2 = await IsComposeV2Available();
 
-        // Add -f option if compose file is specified
-        string fileArg = "";
-        if (!string.IsNullOrEmpty(composeFile))
-        {
-            fileArg = $"-f \"{Path.GetFileName(composeFile)}\" ";
-        }
+    //    // Add -f option if compose file is specified
+    //    string fileArg = "";
+    //    if (!string.IsNullOrEmpty(composeFile))
+    //    {
+    //        fileArg = $"-f \"{Path.GetFileName(composeFile)}\" ";
+    //    }
 
-        ProcessStartInfo psi = new()
-        {
-            FileName = isV2 ? "docker" : "docker-compose",
-            Arguments = isV2 ? $"compose {fileArg}{arguments}" : $"{fileArg}{arguments}",
-            WorkingDirectory = workingDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+    //    ProcessStartInfo psi = new()
+    //    {
+    //        FileName = isV2 ? "docker" : "docker-compose",
+    //        Arguments = isV2 ? $"compose {fileArg}{arguments}" : $"{fileArg}{arguments}",
+    //        WorkingDirectory = workingDirectory,
+    //        RedirectStandardOutput = true,
+    //        RedirectStandardError = true,
+    //        UseShellExecute = false,
+    //        CreateNoWindow = true
+    //    };
 
-        StringBuilder output = new();
-        StringBuilder error = new();
+    //    StringBuilder output = new();
+    //    StringBuilder error = new();
 
-        using Process? process = Process.Start(psi);
-        if (process == null)
-        {
-            return (-1, "", "Failed to start process");
-        }
+    //    using Process? process = Process.Start(psi);
+    //    if (process == null)
+    //    {
+    //        return (-1, "", "Failed to start process");
+    //    }
 
-        process.OutputDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-            }
-        };
+    //    process.OutputDataReceived += (sender, e) =>
+    //    {
+    //        if (e.Data != null)
+    //        {
+    //            output.AppendLine(e.Data);
+    //        }
+    //    };
 
-        process.ErrorDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-            }
-        };
+    //    process.ErrorDataReceived += (sender, e) =>
+    //    {
+    //        if (e.Data != null)
+    //        {
+    //            error.AppendLine(e.Data);
+    //        }
+    //    };
 
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+    //    process.BeginOutputReadLine();
+    //    process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync(cancellationToken);
+    //    await process.WaitForExitAsync(cancellationToken);
 
-        string outputStr = output.ToString();
-        string errorStr = error.ToString();
+    //    string outputStr = output.ToString();
+    //    string errorStr = error.ToString();
 
-        _logger.LogDebug(
-            "Compose command executed: {Command}, Exit Code: {ExitCode}, Output: {Output}, Error: {Error}",
-            arguments,
-            process.ExitCode,
-            outputStr,
-            errorStr
-        );
+    //    _logger.LogDebug(
+    //        "Compose command executed: {Command}, Exit Code: {ExitCode}, Output: {Output}, Error: {Error}",
+    //        arguments,
+    //        process.ExitCode,
+    //        outputStr,
+    //        errorStr
+    //    );
 
-        return (process.ExitCode, outputStr, errorStr);
-    }
+    //    return (process.ExitCode, outputStr, errorStr);
+    //}
 
-    /// <summary>
-    /// Starts a compose project (docker compose up)
-    /// </summary>
-    public async Task<(bool Success, string Output, string Error)> UpProjectAsync(
-        string projectPath,
-        bool build = false,
-        bool detach = true,
-        bool forceRecreate = false,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Validate project path
-            if (!Directory.Exists(projectPath))
-            {
-                return (false, "", "Project directory not found");
-            }
+    ///// <summary>
+    ///// Starts a compose project (docker compose up)
+    ///// </summary>
+    //public async Task<(bool Success, string Output, string Error)> UpProjectAsync(
+    //    string projectPath,
+    //    bool build = false,
+    //    bool detach = true,
+    //    bool forceRecreate = false,
+    //    CancellationToken cancellationToken = default)
+    //{
+    //    try
+    //    {
+    //        // Validate project path
+    //        if (!Directory.Exists(projectPath))
+    //        {
+    //            return (false, "", "Project directory not found");
+    //        }
 
-            // Find the compose file
-            string? composeFile = GetPrimaryComposeFile(projectPath);
-            if (composeFile == null)
-            {
-                return (false, "", "No compose file found in project directory");
-            }
+    //        // Find the compose file
+    //        string? composeFile = GetPrimaryComposeFile(projectPath);
+    //        if (composeFile == null)
+    //        {
+    //            return (false, "", "No compose file found in project directory");
+    //        }
 
-            // Build arguments
-            List<string> args = new() { "up" };
-            if (detach) args.Add("-d");
-            if (build) args.Add("--build");
-            if (forceRecreate) args.Add("--force-recreate");
+    //        // Build arguments
+    //        List<string> args = new() { "up" };
+    //        if (detach) args.Add("-d");
+    //        if (build) args.Add("--build");
+    //        if (forceRecreate) args.Add("--force-recreate");
 
-            string arguments = string.Join(" ", args);
+    //        string arguments = string.Join(" ", args);
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
+    //        (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
 
-            bool success = exitCode == 0;
-            _logger.LogInformation(
-                "Compose up {Result} for project: {ProjectPath}",
-                success ? "succeeded" : "failed",
-                projectPath
-            );
+    //        bool success = exitCode == 0;
+    //        _logger.LogInformation(
+    //            "Compose up {Result} for project: {ProjectPath}",
+    //            success ? "succeeded" : "failed",
+    //            projectPath
+    //        );
 
-            return (success, output, error);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error executing compose up for project: {ProjectPath}", projectPath);
-            return (false, "", ex.Message);
-        }
-    }
+    //        return (success, output, error);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error executing compose up for project: {ProjectPath}", projectPath);
+    //        return (false, "", ex.Message);
+    //    }
+    //}
 
-    /// <summary>
-    /// Stops a compose project (docker compose down)
-    /// </summary>
-    public async Task<(bool Success, string Output, string Error)> DownProjectAsync(
-        string projectPath,
-        bool removeVolumes = false,
-        string? removeImages = null,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Validate project path
-            if (!Directory.Exists(projectPath))
-            {
-                return (false, "", "Project directory not found");
-            }
+    ///// <summary>
+    ///// Stops a compose project (docker compose down)
+    ///// </summary>
+    //public async Task<(bool Success, string Output, string Error)> DownProjectAsync(
+    //    string projectPath,
+    //    bool removeVolumes = false,
+    //    string? removeImages = null,
+    //    CancellationToken cancellationToken = default)
+    //{
+    //    try
+    //    {
+    //        // Validate project path
+    //        if (!Directory.Exists(projectPath))
+    //        {
+    //            return (false, "", "Project directory not found");
+    //        }
 
-            // Find the compose file
-            string? composeFile = GetPrimaryComposeFile(projectPath);
-            if (composeFile == null)
-            {
-                return (false, "", "No compose file found in project directory");
-            }
+    //        // Find the compose file
+    //        string? composeFile = GetPrimaryComposeFile(projectPath);
+    //        if (composeFile == null)
+    //        {
+    //            return (false, "", "No compose file found in project directory");
+    //        }
 
-            // Build arguments
-            List<string> args = new() { "down" };
-            if (removeVolumes) args.Add("--volumes");
-            if (!string.IsNullOrEmpty(removeImages)) args.Add($"--rmi {removeImages}");
+    //        // Build arguments
+    //        List<string> args = new() { "down" };
+    //        if (removeVolumes) args.Add("--volumes");
+    //        if (!string.IsNullOrEmpty(removeImages)) args.Add($"--rmi {removeImages}");
 
-            string arguments = string.Join(" ", args);
+    //        string arguments = string.Join(" ", args);
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
+    //        (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
 
-            bool success = exitCode == 0;
-            _logger.LogInformation(
-                "Compose down {Result} for project: {ProjectPath}",
-                success ? "succeeded" : "failed",
-                projectPath
-            );
+    //        bool success = exitCode == 0;
+    //        _logger.LogInformation(
+    //            "Compose down {Result} for project: {ProjectPath}",
+    //            success ? "succeeded" : "failed",
+    //            projectPath
+    //        );
 
-            return (success, output, error);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error executing compose down for project: {ProjectPath}", projectPath);
-            return (false, "", ex.Message);
-        }
-    }
+    //        return (success, output, error);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error executing compose down for project: {ProjectPath}", projectPath);
+    //        return (false, "", ex.Message);
+    //    }
+    //}
 
-    /// <summary>
-    /// Lists services in a compose project (docker compose ps)
-    /// </summary>
-    public async Task<(bool Success, string Output, string Error)> ListServicesAsync(
-        string projectPath,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            if (!Directory.Exists(projectPath))
-            {
-                return (false, "", "Project directory not found");
-            }
+    ///// <summary>
+    ///// Lists services in a compose project (docker compose ps)
+    ///// </summary>
+    //public async Task<(bool Success, string Output, string Error)> ListServicesAsync(
+    //    string projectPath,
+    //    CancellationToken cancellationToken = default)
+    //{
+    //    try
+    //    {
+    //        if (!Directory.Exists(projectPath))
+    //        {
+    //            return (false, "", "Project directory not found");
+    //        }
 
-            // Find the compose file
-            string? composeFile = GetPrimaryComposeFile(projectPath);
-            if (composeFile == null)
-            {
-                return (false, "", "No compose file found in project directory");
-            }
+    //        // Find the compose file
+    //        string? composeFile = GetPrimaryComposeFile(projectPath);
+    //        if (composeFile == null)
+    //        {
+    //            return (false, "", "No compose file found in project directory");
+    //        }
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
-                projectPath,
-                $"-p {Path.GetFileName(projectPath).ToLower()} ps -a --format json --no-trunc",
-                composeFile,
-                cancellationToken
-            );
+    //        (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(
+    //            projectPath,
+    //            $"-p {Path.GetFileName(projectPath).ToLower()} ps -a --format json --no-trunc",
+    //            composeFile,
+    //            cancellationToken
+    //        );
 
-            return (exitCode == 0, output, error);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error listing services for project: {ProjectPath}", projectPath);
-            return (false, "", ex.Message);
-        }
-    }
+    //        return (exitCode == 0, output, error);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error listing services for project: {ProjectPath}", projectPath);
+    //        return (false, "", ex.Message);
+    //    }
+    //}
 
-    /// <summary>
-    /// Gets logs from a compose project
-    /// </summary>
-    public async Task<(bool Success, string Output, string Error)> GetLogsAsync(
-        string projectPath,
-        string? serviceName = null,
-        int? tail = null,
-        bool follow = false,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            if (!Directory.Exists(projectPath))
-            {
-                return (false, "", "Project directory not found");
-            }
+    ///// <summary>
+    ///// Gets logs from a compose project
+    ///// </summary>
+    //public async Task<(bool Success, string Output, string Error)> GetLogsAsync(
+    //    string projectPath,
+    //    string? serviceName = null,
+    //    int? tail = null,
+    //    bool follow = false,
+    //    CancellationToken cancellationToken = default)
+    //{
+    //    try
+    //    {
+    //        if (!Directory.Exists(projectPath))
+    //        {
+    //            return (false, "", "Project directory not found");
+    //        }
 
-            // Find the compose file
-            string? composeFile = GetPrimaryComposeFile(projectPath);
-            if (composeFile == null)
-            {
-                return (false, "", "No compose file found in project directory");
-            }
+    //        // Find the compose file
+    //        string? composeFile = GetPrimaryComposeFile(projectPath);
+    //        if (composeFile == null)
+    //        {
+    //            return (false, "", "No compose file found in project directory");
+    //        }
 
-            List<string> args = new() { "logs" };
-            args.Add("--timestamps"); // Always include timestamps for better log parsing
-            if (follow) args.Add("--follow");
-            if (tail.HasValue) args.Add($"--tail={tail.Value}");
-            if (!string.IsNullOrEmpty(serviceName)) args.Add(serviceName);
+    //        List<string> args = new() { "logs" };
+    //        args.Add("--timestamps"); // Always include timestamps for better log parsing
+    //        if (follow) args.Add("--follow");
+    //        if (tail.HasValue) args.Add($"--tail={tail.Value}");
+    //        if (!string.IsNullOrEmpty(serviceName)) args.Add(serviceName);
 
-            string arguments = string.Join(" ", args);
+    //        string arguments = string.Join(" ", args);
 
-            (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
+    //        (int exitCode, string output, string error) = await ExecuteComposeCommandAsync(projectPath, arguments, composeFile, cancellationToken);
 
-            return (exitCode == 0, output, error);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting logs for project: {ProjectPath}", projectPath);
-            return (false, "", ex.Message);
-        }
-    }
+    //        return (exitCode == 0, output, error);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error getting logs for project: {ProjectPath}", projectPath);
+    //        return (false, "", ex.Message);
+    //    }
+    //}
 
     /// <summary>
     /// Parses a docker-compose.yml file
@@ -410,7 +405,7 @@ public class ComposeService
     {
         // Try common field names for project name
         string[] possibleNameFields = { "Name", "name", "Project", "project" };
-        
+
         foreach (string fieldName in possibleNameFields)
         {
             if (element.TryGetProperty(fieldName, out JsonElement nameElement))
@@ -428,376 +423,376 @@ public class ComposeService
         _logger.LogDebug("Could not find project name field in JSON element: {Element}", element.GetRawText());
     }
 
-    /// <summary>
-    /// Discovers compose project directories by reading ConfigFiles from `docker compose ls -a --format json`.
-    /// We now rely solely on the paths returned by the command (no recursive search or name matching).
-    /// </summary>
-    private async Task<List<string>> DiscoverProjectsFromDockerComposeLsAsync()
-    {
-        List<string> projectDirectories = new();
-        HashSet<string> uniqueDirs = new(StringComparer.OrdinalIgnoreCase);
+    ///// <summary>
+    ///// Discovers compose project directories by reading ConfigFiles from `docker compose ls -a --format json`.
+    ///// We now rely solely on the paths returned by the command (no recursive search or name matching).
+    ///// </summary>
+    //private async Task<List<string>> DiscoverProjectsFromDockerComposeLsAsync()
+    //{
+    //    List<string> projectDirectories = new();
+    //    HashSet<string> uniqueDirs = new(StringComparer.OrdinalIgnoreCase);
 
-        try
-        {
-            bool isV2 = await IsComposeV2Available();
-            if (!isV2)
-            {
-                _logger.LogDebug("Docker Compose v1 detected, skipping docker compose ls discovery");
-                return projectDirectories;
-            }
+    //    try
+    //    {
+    //        bool isV2 = await IsComposeV2Available();
+    //        if (!isV2)
+    //        {
+    //            _logger.LogDebug("Docker Compose v1 detected, skipping docker compose ls discovery");
+    //            return projectDirectories;
+    //        }
 
-            ProcessStartInfo psi = new()
-            {
-                FileName = "docker",
-                Arguments = "compose ls -a --format json",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = Environment.CurrentDirectory
-            };
+    //        ProcessStartInfo psi = new()
+    //        {
+    //            FileName = "docker",
+    //            Arguments = "compose ls -a --format json",
+    //            RedirectStandardOutput = true,
+    //            RedirectStandardError = true,
+    //            UseShellExecute = false,
+    //            CreateNoWindow = true,
+    //            WorkingDirectory = Environment.CurrentDirectory
+    //        };
 
-            StringBuilder output = new();
-            StringBuilder error = new();
+    //        StringBuilder output = new();
+    //        StringBuilder error = new();
 
-            using Process? process = Process.Start(psi);
-            if (process == null)
-            {
-                _logger.LogWarning("Failed to start docker compose ls process");
-                return projectDirectories;
-            }
+    //        using Process? process = Process.Start(psi);
+    //        if (process == null)
+    //        {
+    //            _logger.LogWarning("Failed to start docker compose ls process");
+    //            return projectDirectories;
+    //        }
 
-            process.OutputDataReceived += (sender, e) => { if (e.Data != null) output.AppendLine(e.Data); };
-            process.ErrorDataReceived += (sender, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+    //        process.OutputDataReceived += (sender, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+    //        process.ErrorDataReceived += (sender, e) => { if (e.Data != null) error.AppendLine(e.Data); };
 
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            await process.WaitForExitAsync();
+    //        process.BeginOutputReadLine();
+    //        process.BeginErrorReadLine();
+    //        await process.WaitForExitAsync();
 
-            if (process.ExitCode != 0)
-            {
-                _logger.LogWarning("docker compose ls failed with exit code {ExitCode}: {Error}", process.ExitCode, error.ToString());
-                return projectDirectories;
-            }
+    //        if (process.ExitCode != 0)
+    //        {
+    //            _logger.LogWarning("docker compose ls failed with exit code {ExitCode}: {Error}", process.ExitCode, error.ToString());
+    //            return projectDirectories;
+    //        }
 
-            string outputStr = output.ToString().Trim();
-            if (string.IsNullOrWhiteSpace(outputStr))
-            {
-                _logger.LogDebug("docker compose ls returned no projects");
-                return projectDirectories;
-            }
+    //        string outputStr = output.ToString().Trim();
+    //        if (string.IsNullOrWhiteSpace(outputStr))
+    //        {
+    //            _logger.LogDebug("docker compose ls returned no projects");
+    //            return projectDirectories;
+    //        }
 
-            void TryExtractDirectories(JsonElement element)
-            {
-                if (element.ValueKind != JsonValueKind.Object) return;
-                if (!element.TryGetProperty("ConfigFiles", out JsonElement cfg)) return;
+    //        void TryExtractDirectories(JsonElement element)
+    //        {
+    //            if (element.ValueKind != JsonValueKind.Object) return;
+    //            if (!element.TryGetProperty("ConfigFiles", out JsonElement cfg)) return;
 
-                // ConfigFiles can be a string (possibly with ; or , separators) or an array
-                List<string> configFiles = new();
-                if (cfg.ValueKind == JsonValueKind.String)
-                {
-                    string? raw = cfg.GetString();
-                    if (!string.IsNullOrWhiteSpace(raw))
-                    {
-                        // Split on common separators ; , |
-                        string[] parts = raw.Split(new[] { ';', ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (string part in parts)
-                        {
-                            configFiles.Add(part.Trim());
-                        }
-                    }
-                }
-                else if (cfg.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (JsonElement item in cfg.EnumerateArray())
-                    {
-                        if (item.ValueKind == JsonValueKind.String)
-                        {
-                            string? path = item.GetString();
-                            if (!string.IsNullOrWhiteSpace(path))
-                                configFiles.Add(path.Trim());
-                        }
-                    }
-                }
+    //            // ConfigFiles can be a string (possibly with ; or , separators) or an array
+    //            List<string> configFiles = new();
+    //            if (cfg.ValueKind == JsonValueKind.String)
+    //            {
+    //                string? raw = cfg.GetString();
+    //                if (!string.IsNullOrWhiteSpace(raw))
+    //                {
+    //                    // Split on common separators ; , |
+    //                    string[] parts = raw.Split(new[] { ';', ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
+    //                    foreach (string part in parts)
+    //                    {
+    //                        configFiles.Add(part.Trim());
+    //                    }
+    //                }
+    //            }
+    //            else if (cfg.ValueKind == JsonValueKind.Array)
+    //            {
+    //                foreach (JsonElement item in cfg.EnumerateArray())
+    //                {
+    //                    if (item.ValueKind == JsonValueKind.String)
+    //                    {
+    //                        string? path = item.GetString();
+    //                        if (!string.IsNullOrWhiteSpace(path))
+    //                            configFiles.Add(path.Trim());
+    //                    }
+    //                }
+    //            }
 
-                foreach (string filePath in configFiles)
-                {
-                    try
-                    {
-                        string normalized = filePath.Replace('/', Path.DirectorySeparatorChar).Trim();
-                        string? dir = Path.GetDirectoryName(normalized);
-                        if (!string.IsNullOrWhiteSpace(dir) && uniqueDirs.Add(dir))
-                        {
-                            // Add directory even if it doesn't exist locally (e.g., when running in container)
-                            // The directory exists on the Docker host, which is what matters for docker compose commands
-                            projectDirectories.Add(dir);
-                            _logger.LogDebug("Discovered project directory from docker compose ls: {Directory} (exists locally: {Exists})", 
-                                dir, Directory.Exists(dir));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "Error processing compose file path {FilePath}", filePath);
-                    }
-                }
-            }
+    //            foreach (string filePath in configFiles)
+    //            {
+    //                try
+    //                {
+    //                    string normalized = filePath.Replace('/', Path.DirectorySeparatorChar).Trim();
+    //                    string? dir = Path.GetDirectoryName(normalized);
+    //                    if (!string.IsNullOrWhiteSpace(dir) && uniqueDirs.Add(dir))
+    //                    {
+    //                        // Add directory even if it doesn't exist locally (e.g., when running in container)
+    //                        // The directory exists on the Docker host, which is what matters for docker compose commands
+    //                        projectDirectories.Add(dir);
+    //                        _logger.LogDebug("Discovered project directory from docker compose ls: {Directory} (exists locally: {Exists})",
+    //                            dir, Directory.Exists(dir));
+    //                    }
+    //                }
+    //                catch (Exception ex)
+    //                {
+    //                    _logger.LogDebug(ex, "Error processing compose file path {FilePath}", filePath);
+    //                }
+    //            }
+    //        }
 
-            try
-            {
-                using JsonDocument doc = JsonDocument.Parse(outputStr);
-                JsonElement root = doc.RootElement;
+    //        try
+    //        {
+    //            using JsonDocument doc = JsonDocument.Parse(outputStr);
+    //            JsonElement root = doc.RootElement;
 
-                if (root.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (JsonElement item in root.EnumerateArray())
-                    {
-                        TryExtractDirectories(item);
-                    }
-                }
-                else if (root.ValueKind == JsonValueKind.Object)
-                {
-                    TryExtractDirectories(root);
-                }
-                else
-                {
-                    _logger.LogDebug("Unexpected JSON root kind for docker compose ls output: {Kind}", root.ValueKind);
-                }
-            }
-            catch (JsonException)
-            {
-                // Fallback NDJSON parsing (one object per line)
-                string[] lines = outputStr.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string line in lines)
-                {
-                    try
-                    {
-                        using JsonDocument doc = JsonDocument.Parse(line);
-                        TryExtractDirectories(doc.RootElement);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "Failed to parse NDJSON line for docker compose ls: {Line}", line);
-                    }
-                }
-            }
+    //            if (root.ValueKind == JsonValueKind.Array)
+    //            {
+    //                foreach (JsonElement item in root.EnumerateArray())
+    //                {
+    //                    TryExtractDirectories(item);
+    //                }
+    //            }
+    //            else if (root.ValueKind == JsonValueKind.Object)
+    //            {
+    //                TryExtractDirectories(root);
+    //            }
+    //            else
+    //            {
+    //                _logger.LogDebug("Unexpected JSON root kind for docker compose ls output: {Kind}", root.ValueKind);
+    //            }
+    //        }
+    //        catch (JsonException)
+    //        {
+    //            // Fallback NDJSON parsing (one object per line)
+    //            string[] lines = outputStr.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+    //            foreach (string line in lines)
+    //            {
+    //                try
+    //                {
+    //                    using JsonDocument doc = JsonDocument.Parse(line);
+    //                    TryExtractDirectories(doc.RootElement);
+    //                }
+    //                catch (Exception ex)
+    //                {
+    //                    _logger.LogDebug(ex, "Failed to parse NDJSON line for docker compose ls: {Line}", line);
+    //                }
+    //            }
+    //        }
 
-            _logger.LogInformation("Discovered {Count} project directories from docker compose ls", projectDirectories.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error discovering projects from docker compose ls (non-fatal)");
-        }
+    //        _logger.LogInformation("Discovered {Count} project directories from docker compose ls", projectDirectories.Count);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogWarning(ex, "Error discovering projects from docker compose ls (non-fatal)");
+    //    }
 
-        return projectDirectories;
-    }
+    //    return projectDirectories;
+    //}
 
-    /// <summary>
-    /// Discovers compose projects from configured paths
-    /// </summary>
-    public async Task<List<string>> DiscoverComposeProjectsAsync()
-    {
-        List<string> projects = new();
+    ///// <summary>
+    ///// Discovers compose projects from configured paths
+    ///// </summary>
+    //public async Task<List<string>> DiscoverComposeProjectsAsync()
+    //{
+    //    List<string> projects = new();
 
-        try
-        {
-            // 1. Get projects from configured paths (prioritaires)
-            List<string> composeFiles = await _fileService.DiscoverComposeFilesAsync();
-            List<string?> projectPaths = composeFiles
-                .Select(f => Path.GetDirectoryName(f))
-                .Where(d => !string.IsNullOrEmpty(d))
-                .Distinct()
-                .ToList();
+    //    try
+    //    {
+    //        // 1. Get projects from configured paths (prioritaires)
+    //        List<string> composeFiles = await _fileService.DiscoverComposeFilesAsync();
+    //        List<string?> projectPaths = composeFiles
+    //            .Select(f => Path.GetDirectoryName(f))
+    //            .Where(d => !string.IsNullOrEmpty(d))
+    //            .Distinct()
+    //            .ToList();
 
-            // Use a HashSet to avoid duplicates and prioritize configured paths
-            HashSet<string> existing = new(projectPaths!, StringComparer.OrdinalIgnoreCase);
-            projects.AddRange(projectPaths!);
+    //        // Use a HashSet to avoid duplicates and prioritize configured paths
+    //        HashSet<string> existing = new(projectPaths!, StringComparer.OrdinalIgnoreCase);
+    //        projects.AddRange(projectPaths!);
 
-            // 2. Get project directories from docker compose ls -a (ConfigFiles field)
-            List<string> dockerComposeLsProjectDirs = await DiscoverProjectsFromDockerComposeLsAsync();
+    //        // 2. Get project directories from docker compose ls -a (ConfigFiles field)
+    //        List<string> dockerComposeLsProjectDirs = await DiscoverProjectsFromDockerComposeLsAsync();
 
-            foreach (string dir in dockerComposeLsProjectDirs)
-            {
-                if (!existing.Contains(dir))
-                {
-                    projects.Add(dir);
-                    existing.Add(dir);
-                }
-                // If already present, do nothing (priority to configured path, log removed)
-            }
+    //        foreach (string dir in dockerComposeLsProjectDirs)
+    //        {
+    //            if (!existing.Contains(dir))
+    //            {
+    //                projects.Add(dir);
+    //                existing.Add(dir);
+    //            }
+    //            // If already present, do nothing (priority to configured path, log removed)
+    //        }
 
-            _logger.LogInformation("Discovered {Count} compose projects (from configured paths: {PathCount}, from docker compose ls directories: {DockerDirCount})", 
-                projects.Count, projectPaths.Count, dockerComposeLsProjectDirs.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error discovering compose projects");
-        }
+    //        _logger.LogInformation("Discovered {Count} compose projects (from configured paths: {PathCount}, from docker compose ls directories: {DockerDirCount})",
+    //            projects.Count, projectPaths.Count, dockerComposeLsProjectDirs.Count);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error discovering compose projects");
+    //    }
 
-        return projects;
-    }
+    //    return projects;
+    //}
 
-    /// <summary>
-    /// Lists all compose projects with their status (optimized with parallel processing)
-    /// </summary>
-    public async Task<List<DTOs.ComposeProjectDto>> ListProjectsAsync()
-    {
-        List<DTOs.ComposeProjectDto> projectDtos = new();
+    ///// <summary>
+    ///// Lists all compose projects with their status (optimized with parallel processing)
+    ///// </summary>
+    //public async Task<List<DTOs.ComposeProjectDto>> ListProjectsAsync()
+    //{
+    //    List<DTOs.ComposeProjectDto> projectDtos = new();
 
-        try
-        {
-            // Discover all project directories
-            List<string> projectPaths = await DiscoverComposeProjectsAsync();
+    //    try
+    //    {
+    //        // Discover all project directories
+    //        List<string> projectPaths = await DiscoverComposeProjectsAsync();
 
-            // Process all projects in parallel for better performance
-            var projectTasks = projectPaths.Select(async projectPath =>
-            {
-                try
-                {
-                    string projectName = GetProjectName(projectPath);
-                    List<string> composeFiles = GetComposeFiles(projectPath);
+    //        // Process all projects in parallel for better performance
+    //        List<Task<ComposeProjectDto?>> projectTasks = projectPaths.Select(async projectPath =>
+    //        {
+    //            try
+    //            {
+    //                string projectName = GetProjectName(projectPath);
+    //                List<string> composeFiles = GetComposeFiles(projectPath);
 
-                    // Get services status for this project with timeout (5 seconds max)
-                    var servicesTask = GetProjectServicesAsync(projectPath);
-                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
-                    var completedTask = await Task.WhenAny(servicesTask, timeoutTask);
+    //                // Get services status for this project with timeout (5 seconds max)
+    //                var servicesTask = GetProjectServicesAsync(projectPath);
+    //                Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+    //                var completedTask = await Task.WhenAny(servicesTask, timeoutTask);
 
-                    List<DTOs.ComposeServiceDto> services;
-                    if (completedTask == timeoutTask)
-                    {
-                        _logger.LogWarning("Timeout (5s) getting services for project {ProjectName} at {ProjectPath}", projectName, projectPath);
-                        services = new List<DTOs.ComposeServiceDto>();
-                    }
-                    else
-                    {
-                        services = await servicesTask;
-                    }
+    //                List<DTOs.ComposeServiceDto> services;
+    //                if (completedTask == timeoutTask)
+    //                {
+    //                    _logger.LogWarning("Timeout (5s) getting services for project {ProjectName} at {ProjectPath}", projectName, projectPath);
+    //                    services = new List<DTOs.ComposeServiceDto>();
+    //                }
+    //                else
+    //                {
+    //                    services = await servicesTask;
+    //                }
 
-                    // Determine overall project status
-                    EntityState state = StateHelper.DetermineStateFromServices(services);
+    //                // Determine overall project status
+    //                EntityState state = StateHelper.DetermineStateFromServices(services);
 
-                    return new DTOs.ComposeProjectDto(
-                        Name: projectName,
-                        Path: projectPath,
-                        State: state.ToStateString(),
-                        Services: services,
-                        ComposeFiles: composeFiles,
-                        LastUpdated: DateTime.UtcNow
-                    );
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error getting status for project at {ProjectPath}", projectPath);
-                    return null;
-                }
-            }).ToList();
+    //                return new DTOs.ComposeProjectDto(
+    //                    Name: projectName,
+    //                    Path: projectPath,
+    //                    State: state.ToStateString(),
+    //                    Services: services,
+    //                    ComposeFiles: composeFiles,
+    //                    LastUpdated: DateTime.UtcNow
+    //                );
+    //            }
+    //            catch (Exception ex)
+    //            {
+    //                _logger.LogWarning(ex, "Error getting status for project at {ProjectPath}", projectPath);
+    //                return null;
+    //            }
+    //        }).ToList();
 
-            // Wait for all projects to complete (with parallel execution)
-            var results = await Task.WhenAll(projectTasks);
-            projectDtos = results.Where(p => p != null).ToList()!;
+    //        // Wait for all projects to complete (with parallel execution)
+    //        var results = await Task.WhenAll(projectTasks);
+    //        projectDtos = results.Where(p => p != null).ToList()!;
 
-            _logger.LogInformation("Listed {Count} compose projects", projectDtos.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error listing compose projects");
-        }
+    //        _logger.LogInformation("Listed {Count} compose projects", projectDtos.Count);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error listing compose projects");
+    //    }
 
-        return projectDtos;
-    }
+    //    return projectDtos;
+    //}
 
-    /// <summary>
-    /// Gets services for a specific project
-    /// </summary>
-    private async Task<List<DTOs.ComposeServiceDto>> GetProjectServicesAsync(string projectPath)
-    {
-        List<DTOs.ComposeServiceDto> services = new();
+    ///// <summary>
+    ///// Gets services for a specific project
+    ///// </summary>
+    //private async Task<List<DTOs.ComposeServiceDto>> GetProjectServicesAsync(string projectPath)
+    //{
+    //    List<DTOs.ComposeServiceDto> services = new();
 
-        try
-        {
-            bool isV2 = await IsComposeV2Available();
-            string command = isV2 ? "docker" : "docker-compose";
-            string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps -a --format json" : $"-f {GetMainComposeFile(projectPath)} ps -a";
+    //    try
+    //    {
+    //        bool isV2 = await IsComposeV2Available();
+    //        string command = isV2 ? "docker" : "docker-compose";
+    //        string args = isV2 ? $"compose -f {GetMainComposeFile(projectPath)} ps -a --format json" : $"-f {GetMainComposeFile(projectPath)} ps -a";
 
-            ProcessStartInfo psi = new()
-            {
-                FileName = command,
-                Arguments = args,
-                WorkingDirectory = projectPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+    //        ProcessStartInfo psi = new()
+    //        {
+    //            FileName = command,
+    //            Arguments = args,
+    //            WorkingDirectory = projectPath,
+    //            RedirectStandardOutput = true,
+    //            RedirectStandardError = true,
+    //            UseShellExecute = false,
+    //            CreateNoWindow = true
+    //        };
 
-            using Process? process = Process.Start(psi);
-            if (process != null)
-            {
-                string output = await process.StandardOutput.ReadToEndAsync();
-                await process.WaitForExitAsync();
+    //        using Process? process = Process.Start(psi);
+    //        if (process != null)
+    //        {
+    //            string output = await process.StandardOutput.ReadToEndAsync();
+    //            await process.WaitForExitAsync();
 
-                if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
-                {
-                    if (isV2 && output.TrimStart().StartsWith("["))
-                    {
-                        // V2: output is JSON array
-                        try
-                        {
-                            var json = System.Text.Json.JsonDocument.Parse(output);
-                            foreach (var element in json.RootElement.EnumerateArray())
-                            {
-                                string id = element.TryGetProperty("ID", out var idProp) ? idProp.GetString() ?? "" : "";
-                                string name = element.TryGetProperty("Service", out var svcProp) ? svcProp.GetString() ?? id : id;
-                                string? image = element.TryGetProperty("Image", out var imgProp) ? imgProp.GetString() : null;
-                                string state = element.TryGetProperty("State", out var stateProp) ? stateProp.GetString() ?? "unknown" : "unknown";
-                                string status = element.TryGetProperty("Status", out var statusProp) ? statusProp.GetString() ?? state : state;
-                                // Ports and Health can be added if needed
-                                services.Add(new DTOs.ComposeServiceDto(
-                                    Id: id,
-                                    Name: name,
-                                    Image: image,
-                                    Status: status,
-                                    State: state,
-                                    Ports: new List<string>(),
-                                    Health: null
-                                ));
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to parse docker compose ps JSON output for project at {ProjectPath}", projectPath);
-                        }
-                    }
-                    else
-                    {
-                        // Fallback: parse text output (v1 or unknown)
-                        string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                        foreach (string? line in lines.Skip(1)) // Skip header line
-                        {
-                            string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                            if (parts.Length >= 3)
-                            {
-                                services.Add(new DTOs.ComposeServiceDto(
-                                    Id: parts[0],
-                                    Name: parts[0],
-                                    Image: parts.Length > 1 ? parts[1] : null,
-                                    Status: parts.Length > 2 ? parts[2] : "unknown",
-                                    State: parts.Length > 2 ? parts[2] : "unknown",
-                                    Ports: new List<string>(),
-                                    Health: null
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error getting services for project at {ProjectPath}", projectPath);
-        }
+    //            if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+    //            {
+    //                if (isV2 && output.TrimStart().StartsWith("["))
+    //                {
+    //                    // V2: output is JSON array
+    //                    try
+    //                    {
+    //                        JsonDocument json = System.Text.Json.JsonDocument.Parse(output);
+    //                        foreach (var element in json.RootElement.EnumerateArray())
+    //                        {
+    //                            string id = element.TryGetProperty("ID", out var idProp) ? idProp.GetString() ?? "" : "";
+    //                            string name = element.TryGetProperty("Service", out var svcProp) ? svcProp.GetString() ?? id : id;
+    //                            string? image = element.TryGetProperty("Image", out var imgProp) ? imgProp.GetString() : null;
+    //                            string state = element.TryGetProperty("State", out var stateProp) ? stateProp.GetString() ?? "unknown" : "unknown";
+    //                            string status = element.TryGetProperty("Status", out var statusProp) ? statusProp.GetString() ?? state : state;
+    //                            // Ports and Health can be added if needed
+    //                            services.Add(new DTOs.ComposeServiceDto(
+    //                                Id: id,
+    //                                Name: name,
+    //                                Image: image,
+    //                                Status: status,
+    //                                State: state,
+    //                                Ports: new List<string>(),
+    //                                Health: null
+    //                            ));
+    //                        }
+    //                    }
+    //                    catch (Exception ex)
+    //                    {
+    //                        _logger.LogWarning(ex, "Failed to parse docker compose ps JSON output for project at {ProjectPath}", projectPath);
+    //                    }
+    //                }
+    //                else
+    //                {
+    //                    // Fallback: parse text output (v1 or unknown)
+    //                    string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+    //                    foreach (string? line in lines.Skip(1)) // Skip header line
+    //                    {
+    //                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+    //                        if (parts.Length >= 3)
+    //                        {
+    //                            services.Add(new DTOs.ComposeServiceDto(
+    //                                Id: parts[0],
+    //                                Name: parts[0],
+    //                                Image: parts.Length > 1 ? parts[1] : null,
+    //                                Status: parts.Length > 2 ? parts[2] : "unknown",
+    //                                State: parts.Length > 2 ? parts[2] : "unknown",
+    //                                Ports: new List<string>(),
+    //                                Health: null
+    //                            ));
+    //                        }
+    //                    }
+    //                }
+    //            }
+    //        }
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogWarning(ex, "Error getting services for project at {ProjectPath}", projectPath);
+    //    }
 
-        return services;
-    }
+    //    return services;
+    //}
 
     /// <summary>
     /// Gets the main compose file for a project

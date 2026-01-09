@@ -12,8 +12,11 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
+    // DEPRECATED: Tables will be removed by migration - temporarily re-enabled for compilation
+    #pragma warning disable CS0618 // Type or member is obsolete
     public DbSet<ComposePath> ComposePaths { get; set; } = null!;
     public DbSet<ComposeFile> ComposeFiles { get; set; } = null!;
+    #pragma warning restore CS0618 // Type or member is obsolete
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
     public DbSet<Operation> Operations { get; set; } = null!;
@@ -60,6 +63,8 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // DEPRECATED: ComposePath and ComposeFile configurations - will be removed by migration
+        #pragma warning disable CS0618 // Type or member is obsolete
         // ComposePath configuration
         modelBuilder.Entity<ComposePath>(entity =>
         {
@@ -80,6 +85,7 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.ComposePathId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+        #pragma warning restore CS0618 // Type or member is obsolete
 
         // AppSetting configuration
         modelBuilder.Entity<AppSetting>(entity =>
@@ -211,6 +217,8 @@ public class AppDbContext : DbContext
             }
         );
 
+        // DEPRECATED: Seed default compose path - will be removed by migration
+        #pragma warning disable CS0618 // Type or member is obsolete
         // Seed default compose path
         modelBuilder.Entity<ComposePath>().HasData(
             new ComposePath
@@ -222,5 +230,6 @@ public class AppDbContext : DbContext
                 CreatedAt = seedDate
             }
         );
+        #pragma warning restore CS0618 // Type or member is obsolete
     }
 }

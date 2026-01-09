@@ -142,6 +142,9 @@ builder.Services.Configure<PasswordHashingOptions>(
     builder.Configuration.GetSection(PasswordHashingOptions.SectionName));
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
+// Add Memory Cache (required for ComposeDiscoveryService)
+builder.Services.AddMemoryCache();
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -153,8 +156,14 @@ builder.Services.AddScoped<OperationService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddSingleton<DockerService>();
 
+// Register Docker Compose services (new architecture)
+builder.Services.AddSingleton<DockerCommandExecutor>();
+builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
+builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
+
 // Register background services
-builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
+// DEPRECATED: File discovery service replaced by Docker-only discovery
+// builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 
 // Add FluentValidation

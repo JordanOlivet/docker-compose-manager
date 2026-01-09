@@ -356,7 +356,7 @@
                 </span>
                 <h3 class="text-base font-semibold">
                   <button
-                    class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                     onclick={(e) => {
                       e.stopPropagation();
                       navigateToProject(project.name);
@@ -375,14 +375,14 @@
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created}
                   <button
                     onclick={() => upMutation.mutate({ projectName: project.name })}
-                    class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                    class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.up')}
                   >
                     <Play class="w-4 h-4" />
                   </button>
                   <button
                     onclick={() => upMutation.mutate({ projectName: project.name, forceRecreate: true })}
-                    class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                    class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.forceRecreate')}
                   >
                     <Zap class="w-3 h-3" />
@@ -391,14 +391,14 @@
                 {#if project.state === EntityState.Running || project.state === EntityState.Degraded}
                   <button
                     onclick={() => restartMutation.mutate(project.name)}
-                    class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                    class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.restart')}
                   >
                     <RotateCw class="w-4 h-4" />
                   </button>
                   <button
                     onclick={() => stopMutation.mutate(project.name)}
-                    class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
+                    class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
                     title={$t('compose.stop')}
                   >
                     <Square class="w-4 h-4" />
@@ -407,7 +407,7 @@
                 {#if project.state !== EntityState.Down}
                   <button
                     onclick={() => handleRemoveProject(project)}
-                    class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
                     title={$t('common.delete')}
                   >
                     <Trash2 class="w-4 h-4" />
@@ -483,14 +483,14 @@
                               {#if service.state === EntityState.Running}
                                 <button
                                   onclick={() => restartContainerMutation.mutate(service.id)}
-                                  class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                                  class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
                                   title={$t('containers.restart')}
                                 >
                                   <RotateCw class="w-3 h-3" />
                                 </button>
                                 <button
                                   onclick={() => stopContainerMutation.mutate(service.id)}
-                                  class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors"
+                                  class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
                                   title={$t('containers.stop')}
                                 >
                                   <Square class="w-3 h-3" />
@@ -498,7 +498,7 @@
                               {:else}
                                 <button
                                   onclick={() => startContainerMutation.mutate(service.id)}
-                                  class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                                  class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
                                   title={$t('containers.start')}
                                 >
                                   <Play class="w-3 h-3" />
@@ -506,7 +506,7 @@
                               {/if}
                               <button
                                 onclick={() => handleRemoveService(service)}
-                                class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
                                 title={$t('containers.remove')}
                               >
                                 <Trash2 class="w-3 h-3" />

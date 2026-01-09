@@ -269,3 +269,18 @@ public record VolumeDetailsDto(
     Dictionary<string, object>? DriverOpts,
     Dictionary<string, string>? Labels
 );
+
+// ============================================
+// Operation Result DTOs
+// ============================================
+
+/// <summary>
+/// Result of a compose operation (for internal use)
+/// </summary>
+public record OperationResult
+{
+    public bool Success { get; init; }
+    public string Message { get; init; }
+    public string? Output { get; init; }
+    public string? Error { get; init; }
+}
