@@ -9,6 +9,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
@@ -165,10 +166,19 @@ builder.Services.AddSingleton<DockerCommandExecutor>();
 builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
 builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
 
+// Register Compose Discovery services
+builder.Services.AddScoped<IComposeFileScanner, ComposeFileScanner>();
+builder.Services.AddScoped<IPathValidator, PathValidator>();
+builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
+builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
+builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
+// Note: ComposeCommandClassifier is static, no DI registration needed
+
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery
 // builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
 builder.Services.AddHostedService<DockerEventsMonitorService>();
+builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -218,6 +228,29 @@ using (IServiceScope scope = app.Services.CreateScope())
     {
         Log.Error(ex, "Error applying database migrations");
     }
+}
+
+// Ensure compose files directory exists
+var composeOptions = app.Services.GetRequiredService<IOptions<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>>();
+string rootPath = composeOptions.Value.RootPath;
+
+if (!Directory.Exists(rootPath))
+{
+    try
+    {
+        Directory.CreateDirectory(rootPath);
+        Log.Information("Created compose files directory: {Path}", rootPath);
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex,
+            "Could not create compose files directory: {Path}. " +
+            "Application will run in degraded mode.", rootPath);
+    }
+}
+else
+{
+    Log.Information("Compose files directory exists: {Path}", rootPath);
 }
 
 // Configure middleware pipeline
