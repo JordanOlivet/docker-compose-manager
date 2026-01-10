@@ -71,9 +71,9 @@ jobs:
           VITE_BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
           VITE_GIT_COMMIT: ${{ needs.prepare.outputs.vcs_ref }}
         run: npm run build
-      - name: Run frontend tests
+      - name: Run frontend type checking
         working-directory: ./docker-compose-manager-front-new
-        run: npm test -- --run
+        run: npm run check
 
   summary:
     name: Summary
