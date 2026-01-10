@@ -1,9 +1,11 @@
+using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -22,6 +24,8 @@ public class ComposeController : BaseController
     private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeController> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IOptions<ComposeDiscoveryOptions> _composeOptions;
+    private readonly DockerService _dockerService;
 
     public ComposeController(
         AppDbContext context,
@@ -33,7 +37,9 @@ public class ComposeController : BaseController
         IAuditService auditService,
         IPermissionService permissionService,
         ILogger<ComposeController> logger,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IOptions<ComposeDiscoveryOptions> composeOptions,
+        DockerService dockerService)
     {
         _context = context;
         _fileService = fileService;
@@ -45,6 +51,8 @@ public class ComposeController : BaseController
         _permissionService = permissionService;
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
+        _composeOptions = composeOptions;
+        _dockerService = dockerService;
     }
 
     // ============================================
@@ -162,6 +170,97 @@ public class ComposeController : BaseController
             "File editing is temporarily disabled due to cross-platform path mapping issues.",
             "FEATURE_DISABLED"
         ));
+    }
+
+    // ============================================
+    // Health Check Endpoint
+    // ============================================
+
+    /// <summary>
+    /// Gets health status of compose discovery system and Docker daemon
+    /// </summary>
+    /// <returns>Health status information including compose discovery and Docker daemon status</returns>
+    /// <remarks>
+    /// This diagnostic endpoint provides information about:
+    /// - Compose files directory accessibility
+    /// - Docker daemon connection status
+    /// - Overall system health (healthy, degraded, or critical)
+    ///
+    /// The endpoint returns different statuses:
+    /// - "healthy": All systems operational
+    /// - "degraded": Compose discovery unavailable but Docker accessible (can still manage existing projects)
+    /// - "critical": Docker daemon inaccessible (system non-functional)
+    ///
+    /// No authentication required - this is a diagnostic endpoint.
+    /// </remarks>
+    [HttpGet("health")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<ComposeHealthDto>>> GetHealth()
+    {
+        // Check compose discovery directory
+        var rootPath = _composeOptions.Value.RootPath;
+        bool dirExists = Directory.Exists(rootPath);
+        bool dirAccessible = false;
+
+        if (dirExists)
+        {
+            try
+            {
+                Directory.GetFiles(rootPath);
+                dirAccessible = true;
+            }
+            catch
+            {
+                // Directory exists but not accessible
+            }
+        }
+
+        // Check Docker daemon
+        bool dockerConnected = false;
+        string? dockerVersion = null;
+        string? dockerApiVersion = null;
+        string? dockerError = null;
+
+        try
+        {
+            (dockerVersion, dockerApiVersion) = await _dockerService.GetVersionAsync();
+            dockerConnected = true;
+        }
+        catch (Exception ex)
+        {
+            dockerError = ex.Message;
+        }
+
+        // Determine overall status
+        string overallStatus;
+        if (!dockerConnected)
+            overallStatus = "critical"; // Docker inaccessible
+        else if (!dirAccessible)
+            overallStatus = "degraded"; // Directory inaccessible
+        else
+            overallStatus = "healthy";
+
+        var healthDto = new ComposeHealthDto(
+            Status: overallStatus,
+            ComposeDiscovery: new ComposeHealthStatusDto(
+                Status: dirAccessible ? "healthy" : "degraded",
+                RootPath: rootPath,
+                Exists: dirExists,
+                Accessible: dirAccessible,
+                DegradedMode: !dirAccessible,
+                Message: dirAccessible ? null : "Compose files directory is not accessible",
+                Impact: dirAccessible ? null : "Only existing Docker projects can be managed. Compose file discovery is disabled."
+            ),
+            DockerDaemon: new DockerDaemonStatusDto(
+                Status: dockerConnected ? "healthy" : "unhealthy",
+                Connected: dockerConnected,
+                Version: dockerVersion,
+                ApiVersion: dockerApiVersion,
+                Error: dockerError
+            )
+        );
+
+        return Ok(ApiResponse.Ok(healthDto));
     }
 
     // ============================================

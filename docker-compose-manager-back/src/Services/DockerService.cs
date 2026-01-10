@@ -296,6 +296,23 @@ public class DockerService
         }
     }
     /// <summary>
+    /// Gets Docker daemon version information
+    /// </summary>
+    public async Task<(string? version, string? apiVersion)> GetVersionAsync()
+    {
+        try
+        {
+            var versionResponse = await _dockerClient.System.GetVersionAsync();
+            return (versionResponse.Version, versionResponse.APIVersion);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting Docker version");
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Normalizes a docker container name by removing the leading '/' that the Docker API returns.
     /// Returns "unknown" if the provided name is null or whitespace.
     /// </summary>
