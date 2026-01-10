@@ -145,6 +145,10 @@ builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 // Add Memory Cache (required for ComposeDiscoveryService)
 builder.Services.AddMemoryCache();
 
+// Configure Compose Discovery Options
+builder.Services.Configure<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>(
+    builder.Configuration.GetSection("ComposeDiscovery"));
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
