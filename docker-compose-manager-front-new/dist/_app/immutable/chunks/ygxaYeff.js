@@ -1,0 +1,1 @@
+import{i as c}from"./DgbRr3Sw.js";import{F as f,u as o,o as l}from"./BGIsFGxD.js";function C(e){return c()}function p(e,r){switch(e){case"post":o(r);break;case"pre":f(r);break}}const A=(e,r,u)=>{let n=!1,t=Array.isArray(e)?[]:void 0;p(r,()=>{const a=Array.isArray(e)?e.map(i=>i()):e();if(!n){n=!0,t=a;return}const s=l(()=>u(a,t));return t=a,s})};export{C as u,A as w};

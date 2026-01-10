@@ -1,0 +1,1 @@
+import{a as t}from"./DNE0aubT.js";const o=async a=>(await t.post("/auth/login",a)).data.data,n=async a=>{await t.post("/auth/logout",{refreshToken:a})},e=async()=>(await t.get("/auth/me")).data.data,r=async(a,s)=>{await t.put("/auth/change-password",{currentPassword:a,newPassword:s})},p={login:o,logout:n,getCurrentUser:e,changePassword:r};export{p as a};
