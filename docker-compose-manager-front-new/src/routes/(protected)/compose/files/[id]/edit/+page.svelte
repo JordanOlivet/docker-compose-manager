@@ -11,8 +11,6 @@
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
 
-  export const prerender = false;
-
   const fileId = $derived(parseInt($page.params.id ?? '0'));
 
   let content = $state('');

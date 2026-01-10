@@ -11,8 +11,6 @@
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
 
-  export const prerender = false;
-
   let filePath = $state('');
   let content = $state(`version: '3.8'
 

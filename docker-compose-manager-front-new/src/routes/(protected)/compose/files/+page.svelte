@@ -9,8 +9,6 @@
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
 
-  export const prerender = false;
-
   let searchQuery = $state('');
 
   const filesQuery = createQuery(() => ({
