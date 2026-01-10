@@ -47,7 +47,10 @@
       "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" show --stat d1a148d)",
       "Bash(npx svelte-kit sync)",
       "Bash(Select-String \"error|warning CS\")",
-      "Bash(Select-Object -Last 20)"
+      "Bash(Select-Object -Last 20)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
