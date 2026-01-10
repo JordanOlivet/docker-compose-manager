@@ -22,6 +22,10 @@ public class ComposeController : BaseController
     private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeController> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IProjectMatchingService _projectMatchingService;
+    private readonly IComposeFileCacheService _cacheService;
+    private readonly IConflictResolutionService _conflictService;
+    private readonly IPathValidator _pathValidator;
 
     public ComposeController(
         AppDbContext context,
@@ -33,7 +37,11 @@ public class ComposeController : BaseController
         IAuditService auditService,
         IPermissionService permissionService,
         ILogger<ComposeController> logger,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IProjectMatchingService projectMatchingService,
+        IComposeFileCacheService cacheService,
+        IConflictResolutionService conflictService,
+        IPathValidator pathValidator)
     {
         _context = context;
         _fileService = fileService;
@@ -45,31 +53,86 @@ public class ComposeController : BaseController
         _permissionService = permissionService;
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
+        _projectMatchingService = projectMatchingService;
+        _cacheService = cacheService;
+        _conflictService = conflictService;
+        _pathValidator = pathValidator;
     }
 
     // ============================================
-    // Compose Files Endpoints (DEPRECATED)
+    // Compose Files Discovery Endpoints
+    // ============================================
+
+    /// <summary>
+    /// Lists all discovered compose files from the configured root directory
+    /// </summary>
+    /// <remarks>
+    /// Returns all compose files found during automatic discovery, including:
+    /// - File paths and project names
+    /// - Validity status (YAML parsing)
+    /// - Disabled status (x-disabled flag)
+    /// - Service lists extracted from each file
+    /// </remarks>
+    [HttpGet("files")]
+    public async Task<ActionResult<ApiResponse<List<DiscoveredComposeFileDto>>>> GetDiscoveredFiles()
+    {
+        try
+        {
+            var files = await _cacheService.GetOrScanAsync();
+            var dtos = files.Select(f => new DiscoveredComposeFileDto(
+                FilePath: f.FilePath,
+                ProjectName: f.ProjectName,
+                DirectoryPath: f.DirectoryPath,
+                LastModified: f.LastModified,
+                IsValid: f.IsValid,
+                IsDisabled: f.IsDisabled,
+                Services: f.Services
+            )).ToList();
+
+            return Ok(ApiResponse.Ok(dtos));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting discovered compose files");
+            return StatusCode(500, ApiResponse.Fail<List<DiscoveredComposeFileDto>>("Error retrieving compose files", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Returns detected conflicts between compose files with the same project name
+    /// </summary>
+    /// <remarks>
+    /// Conflicts occur when multiple compose files have the same project name.
+    /// To resolve, add 'x-disabled: true' to unwanted files.
+    /// </remarks>
+    [HttpGet("conflicts")]
+    public ActionResult<ApiResponse<ConflictsResponse>> GetConflicts()
+    {
+        try
+        {
+            var conflicts = _conflictService.GetConflictErrors();
+            var response = new ConflictsResponse(conflicts, conflicts.Any());
+            return Ok(ApiResponse.Ok(response));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting compose conflicts");
+            return StatusCode(500, ApiResponse.Fail<ConflictsResponse>("Error retrieving conflicts", "SERVER_ERROR"));
+        }
+    }
+
+    // ============================================
+    // File Editing Endpoints (DEPRECATED)
     // ============================================
     // File editing is temporarily disabled due to cross-platform path mapping issues.
     // All file-related endpoints return HTTP 501 (Not Implemented).
     //=============================================
 
     /// <summary>
-    /// Lists all compose files (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpGet("files")]
-    public ActionResult<ApiResponse<List<ComposeFileDto>>> ListFiles()
-    {
-        return StatusCode(501, ApiResponse.Fail<List<ComposeFileDto>>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
     /// Gets a compose file by ID with content (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpGet("files/{id}")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<ComposeFileContentDto>> GetFile(int id)
     {
         return StatusCode(501, ApiResponse.Fail<ComposeFileContentDto>(
@@ -82,6 +145,7 @@ public class ComposeController : BaseController
     /// Gets a compose file by path (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpGet("files/by-path")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<ComposeFileContentDto>> GetFileByPath([FromQuery] string path)
     {
         return StatusCode(501, ApiResponse.Fail<ComposeFileContentDto>(
@@ -94,6 +158,7 @@ public class ComposeController : BaseController
     /// Creates a new compose file (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpPost("files")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<ComposeFileDto>> CreateFile([FromBody] CreateComposeFileRequest request)
     {
         return StatusCode(501, ApiResponse.Fail<ComposeFileDto>(
@@ -106,6 +171,7 @@ public class ComposeController : BaseController
     /// Updates a compose file (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpPut("files/{id}")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<ComposeFileDto>> UpdateFile(int id, [FromBody] UpdateComposeFileRequest request)
     {
         return StatusCode(501, ApiResponse.Fail<ComposeFileDto>(
@@ -118,6 +184,7 @@ public class ComposeController : BaseController
     /// Deletes a compose file (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpDelete("files/{id}")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<bool>> DeleteFile(int id)
     {
         return StatusCode(501, ApiResponse.Fail<bool>(
@@ -130,6 +197,7 @@ public class ComposeController : BaseController
     /// Validate YAML syntax and docker-compose structure of a compose file (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpPost("files/{id}/validate")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<ComposeValidationResult>> ValidateFile(int id)
     {
         return StatusCode(501, ApiResponse.Fail<ComposeValidationResult>(
@@ -142,6 +210,7 @@ public class ComposeController : BaseController
     /// Duplicate/clone a compose file (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpPost("files/{id}/duplicate")]
+    [Obsolete("File editing is temporarily disabled")]
     public ActionResult<ApiResponse<ComposeFileDto>> DuplicateFile(
         int id,
         [FromBody] DuplicateFileRequest request)
@@ -156,6 +225,7 @@ public class ComposeController : BaseController
     /// Download a compose file (DEPRECATED - Returns HTTP 501)
     /// </summary>
     [HttpGet("files/{id}/download")]
+    [Obsolete("File editing is temporarily disabled")]
     public IActionResult DownloadFile(int id)
     {
         return StatusCode(501, ApiResponse.Fail<object>(
@@ -169,8 +239,14 @@ public class ComposeController : BaseController
     // ============================================
 
     /// <summary>
-    /// Lists all compose projects (discovered from Docker)
+    /// Lists all compose projects (unified view of Docker projects and discovered compose files)
     /// </summary>
+    /// <remarks>
+    /// Returns a unified list that includes:
+    /// - Running Docker projects (with or without compose files)
+    /// - Not-started projects (compose files without Docker containers)
+    /// - Enriched with file paths, available actions, and warnings
+    /// </remarks>
     [HttpGet("projects")]
     public async Task<ActionResult<ApiResponse<List<ComposeProjectDto>>>> ListProjects([FromQuery] bool refresh = false)
     {
@@ -183,21 +259,15 @@ public class ComposeController : BaseController
                 return Unauthorized(ApiResponse.Fail<List<ComposeProjectDto>>("User not authenticated"));
             }
 
-            // Get projects from discovery service (includes permission filtering and caching)
-            List<ComposeProjectDto> projects = await _discoveryService.GetProjectsForUserAsync(userId.Value, bypassCache: refresh);
-
-            // Enrich with user permissions
-            foreach (ComposeProjectDto project in projects)
+            // Invalidate cache if refresh requested
+            if (refresh)
             {
-                PermissionFlags userPermissions = await _permissionService.GetUserPermissionsAsync(
-                    userId.Value,
-                    ResourceType.ComposeProject,
-                    project.Name
-                );
-
-                // Note: Cannot modify record directly, but permissions can be added via separate mechanism if needed
-                // For now, the frontend can make a separate call to get permissions
+                _cacheService.Invalidate();
+                _discoveryService.InvalidateCache();
             }
+
+            // Get unified project list from matching service (includes permission filtering)
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -397,6 +467,28 @@ public class ComposeController : BaseController
                 ));
             }
 
+            // Check if command requires compose file
+            if (ComposeCommandClassifier.RequiresComposeFile("up"))
+            {
+                // Get project info to check if compose file exists
+                var projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+                var project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+
+                if (project == null)
+                {
+                    return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found"));
+                }
+
+                if (!project.HasComposeFile)
+                {
+                    return BadRequest(ApiResponse.Fail<ComposeOperationResponse>(
+                        $"Cannot execute 'up' command: No compose file found for project '{projectName}'. " +
+                        "This command requires a compose file to function.",
+                        "COMPOSE_FILE_REQUIRED"
+                    ));
+                }
+            }
+
             // Execute operation using new service
             OperationResult result = await _operationService.UpAsync(
                 projectName,
@@ -405,6 +497,7 @@ public class ComposeController : BaseController
 
             // Invalidate cache
             _discoveryService.InvalidateCache();
+            _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -483,6 +576,7 @@ public class ComposeController : BaseController
 
             // Invalidate cache
             _discoveryService.InvalidateCache();
+            _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1107,6 +1201,7 @@ volumes:
 
             OperationResult result = await _operationService.StartAsync(projectName);
             _discoveryService.InvalidateCache();
+            _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1167,6 +1262,7 @@ volumes:
 
             OperationResult result = await _operationService.StopAsync(projectName);
             _discoveryService.InvalidateCache();
+            _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1227,6 +1323,7 @@ volumes:
 
             OperationResult result = await _operationService.RestartAsync(projectName);
             _discoveryService.InvalidateCache();
+            _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,

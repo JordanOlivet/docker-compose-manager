@@ -50,7 +50,8 @@
       "Bash(Select-Object -Last 20)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
