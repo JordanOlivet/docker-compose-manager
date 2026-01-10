@@ -214,8 +214,11 @@ private async Task<List<DiscoveredComposeFile>> ScanComposeFilesRecursive(string
     try
     {
         // Scanner TOUS les fichiers .yml et .yaml au niveau actuel
+        // Note : Sur Linux, les extensions sont case-sensitive (.yml != .YML)
         var ymlFiles = Directory.GetFiles(rootPath, "*.yml")
-            .Concat(Directory.GetFiles(rootPath, "*.yaml"));
+            .Concat(Directory.GetFiles(rootPath, "*.yaml"))
+            .Concat(Directory.GetFiles(rootPath, "*.YML"))
+            .Concat(Directory.GetFiles(rootPath, "*.YAML"));
 
         foreach (var filePath in ymlFiles)
         {
@@ -273,6 +276,8 @@ private async Task<DiscoveredComposeFile?> ValidateAndParseComposeFile(string fi
             .WithMaximumRecursion(10)
             .Build();
 
+        // Note : Le parsing accepte les variables d'environnement non résolues (ex: ${VERSION})
+        // Ces variables seront résolues par Docker Compose lors de l'exécution
         var composeContent = deserializer.Deserialize<Dictionary<string, object>>(yamlContent);
 
         // 3. Valider la structure : doit contenir 'services'
@@ -309,6 +314,11 @@ private async Task<DiscoveredComposeFile?> ValidateAndParseComposeFile(string fi
     catch (YamlException ex)
     {
         _logger.LogDebug("File {Path} is not valid YAML: {Error}", filePath, ex.Message);
+        return null;
+    }
+    catch (OutOfMemoryException ex)
+    {
+        _logger.LogError(ex, "Out of memory while parsing {Path}. File may be corrupted or malicious.", filePath);
         return null;
     }
     catch (Exception ex)
@@ -520,23 +530,43 @@ Pour éviter les ralentissements et le spam sur le système de fichiers :
 - Manuelle via endpoint `/api/compose/refresh` (admin uniquement)
 - Sur modification détectée via FileSystemWatcher (optionnel, amélioration future)
 
-**Implémentation :**
+**Implémentation avec Thread-Safety :**
 
 ```csharp
+// Champ de classe pour gérer la concurrence
+private readonly SemaphoreSlim _scanLock = new SemaphoreSlim(1, 1);
+
 private async Task<List<DiscoveredComposeFile>> GetDiscoveredComposeFiles()
 {
     var cacheKey = "compose_file_discovery";
 
+    // Premier check sans lock pour performance
     if (_cache.TryGetValue(cacheKey, out List<DiscoveredComposeFile> cached))
     {
         return cached;
     }
 
-    var discovered = await ScanComposeFiles();
+    // Éviter les scans concurrents - un seul thread scanne à la fois
+    await _scanLock.WaitAsync();
+    try
+    {
+        // Double-check après acquisition du lock
+        // (un autre thread a peut-être rempli le cache entre-temps)
+        if (_cache.TryGetValue(cacheKey, out cached))
+        {
+            return cached;
+        }
 
-    _cache.Set(cacheKey, discovered, TimeSpan.FromSeconds(10));
+        var discovered = await ScanComposeFiles();
 
-    return discovered;
+        _cache.Set(cacheKey, discovered, TimeSpan.FromSeconds(10));
+
+        return discovered;
+    }
+    finally
+    {
+        _scanLock.Release();
+    }
 }
 ```
 
@@ -636,6 +666,96 @@ public class ComposeProjectInfo
 - Temps de réponse de l'API `/api/compose/projects`
 
 **Objectif de performance :** < 100ms pour le scan avec cache, < 2s sans cache (avec ~50 fichiers)
+
+### Observabilité et Logs Structurés
+
+**Logs de scan avec métriques :**
+
+```csharp
+private async Task<List<DiscoveredComposeFile>> ScanComposeFiles()
+{
+    var stopwatch = Stopwatch.StartNew();
+    int totalFiles = 0;
+    int validFiles = 0;
+    int invalidFiles = 0;
+    int conflicts = 0;
+
+    try
+    {
+        var allFiles = await ScanComposeFilesRecursive(_options.RootPath);
+        totalFiles = allFiles.Count;
+
+        var resolved = ResolveProjectNameConflicts(allFiles);
+        validFiles = resolved.Count;
+        invalidFiles = totalFiles - validFiles;
+        conflicts = _conflictErrors.Count;
+
+        stopwatch.Stop();
+
+        // Log structuré avec toutes les métriques
+        _logger.LogInformation(
+            "Compose file scan completed in {Duration}ms. " +
+            "Found {Total} files, {Valid} valid, {Invalid} invalid, {Conflicts} conflicts, " +
+            "Scanned depth: {MaxDepth} levels",
+            stopwatch.ElapsedMilliseconds,
+            totalFiles,
+            validFiles,
+            invalidFiles,
+            conflicts,
+            _options.ScanDepthLimit);
+
+        return resolved;
+    }
+    catch (Exception ex)
+    {
+        stopwatch.Stop();
+
+        _logger.LogError(ex,
+            "Compose file scan failed after {Duration}ms. " +
+            "Partial results: {Total} files found before error",
+            stopwatch.ElapsedMilliseconds,
+            totalFiles);
+
+        throw;
+    }
+}
+```
+
+**Métriques de cache :**
+
+```csharp
+private async Task<List<DiscoveredComposeFile>> GetDiscoveredComposeFiles()
+{
+    var cacheKey = "compose_file_discovery";
+
+    if (_cache.TryGetValue(cacheKey, out List<DiscoveredComposeFile> cached))
+    {
+        _logger.LogDebug("Cache HIT for compose file discovery");
+        return cached;
+    }
+
+    _logger.LogDebug("Cache MISS for compose file discovery - starting scan");
+
+    await _scanLock.WaitAsync();
+    try
+    {
+        if (_cache.TryGetValue(cacheKey, out cached))
+        {
+            _logger.LogDebug("Cache HIT after lock acquisition (another thread filled cache)");
+            return cached;
+        }
+
+        var discovered = await ScanComposeFiles();
+        _cache.Set(cacheKey, discovered, TimeSpan.FromSeconds(10));
+
+        return discovered;
+    }
+    finally
+    {
+        _scanLock.Release();
+    }
+}
+```
 
 ## Gestion des Cas Limites
 
@@ -780,8 +900,9 @@ private List<DiscoveredComposeFile> ResolveProjectNameConflicts(List<DiscoveredC
         }
 
         // Conflit détecté : plusieurs fichiers pour le même projet
-        var activeFiles = files.Where(f => !f.IsDisabled).ToList();
-        var disabledFiles = files.Where(f => f.IsDisabled).ToList();
+        // Ordre déterministe (alphabétique) pour cohérence entre les scans
+        var activeFiles = files.Where(f => !f.IsDisabled).OrderBy(f => f.FilePath).ToList();
+        var disabledFiles = files.Where(f => f.IsDisabled).OrderBy(f => f.FilePath).ToList();
 
         if (activeFiles.Count == 1)
         {
@@ -1307,8 +1428,9 @@ private async Task<List<DiscoveredComposeFile>> ScanComposeFiles()
 ```csharp
 // GET /api/compose/health
 [HttpGet("health")]
-public IActionResult GetComposeDiscoveryHealth()
+public async Task<IActionResult> GetComposeDiscoveryHealth()
 {
+    // Vérifier le dossier compose
     var rootPath = _options.RootPath;
     var exists = Directory.Exists(rootPath);
     var accessible = false;
@@ -1323,13 +1445,54 @@ public IActionResult GetComposeDiscoveryHealth()
         catch { }
     }
 
+    // Vérifier Docker daemon
+    bool dockerConnected = false;
+    string dockerVersion = null;
+    string dockerApiVersion = null;
+    string dockerError = null;
+
+    try
+    {
+        var version = await _dockerClient.System.GetVersionAsync();
+        dockerConnected = true;
+        dockerVersion = version.Version;
+        dockerApiVersion = version.ApiVersion;
+    }
+    catch (Exception ex)
+    {
+        dockerError = ex.Message;
+    }
+
+    // Déterminer le statut global
+    string overallStatus;
+    if (!dockerConnected)
+        overallStatus = "critical"; // Docker inaccessible = critique
+    else if (!accessible)
+        overallStatus = "degraded"; // Dossier inaccessible = dégradé
+    else
+        overallStatus = "healthy";  // Tout fonctionne
+
     return Ok(new
     {
-        status = accessible ? "healthy" : "degraded",
-        rootPath = rootPath,
-        exists = exists,
-        accessible = accessible,
-        degradedMode = _isDegraded
+        status = overallStatus,
+        composeDiscovery = new
+        {
+            status = accessible ? "healthy" : "degraded",
+            rootPath = rootPath,
+            exists = exists,
+            accessible = accessible,
+            degradedMode = _isDegraded,
+            message = accessible ? null : "Compose files directory is not accessible",
+            impact = accessible ? null : "Only existing Docker projects can be managed"
+        },
+        dockerDaemon = new
+        {
+            status = dockerConnected ? "healthy" : "unhealthy",
+            connected = dockerConnected,
+            version = dockerVersion,
+            apiVersion = dockerApiVersion,
+            error = dockerError
+        }
     });
 }
 ```
@@ -1746,7 +1909,7 @@ Aucune question ouverte restante - Toutes les décisions ont été prises pour l
 - [ ] Créer endpoint `GET /api/compose/files` (liste fichiers découverts)
 - [ ] Créer endpoint `POST /api/compose/refresh` (admin uniquement)
 - [ ] Créer endpoint `GET /api/compose/conflicts` (liste erreurs de conflit - optionnel)
-- [ ] Créer endpoint `GET /api/compose/health` (diagnostic du dossier racine)
+- [ ] Créer endpoint `GET /api/compose/health` (diagnostic du dossier racine + statut Docker daemon)
 - [ ] **Endpoints de gestion de fichiers (si existants ou à créer)** :
   - [ ] `GET /api/compose/files/{*filePath}` - Lire un fichier
   - [ ] `PUT /api/compose/files/{*filePath}` - Modifier un fichier
@@ -1754,6 +1917,23 @@ Aucune question ouverte restante - Toutes les décisions ont été prises pour l
   - [ ] ⚠️ **VALIDATION PATH TRAVERSAL OBLIGATOIRE** sur tous ces endpoints
 - [ ] Créer service `PathValidator` avec méthode `IsValidComposeFilePath()`
 - [ ] Mettre à jour DTOs : `ComposeProjectDto`, `DiscoveredComposeFileDto`, `ConflictError`
+- [ ] **Implémentation de l'endpoint refresh :**
+  ```csharp
+  [HttpPost("refresh")]
+  [Authorize(Roles = "Admin")]
+  public async Task<IActionResult> RefreshComposeFiles()
+  {
+      _cache.Remove("compose_file_discovery");
+      var files = await _scanner.ScanComposeFiles();
+
+      return Ok(new {
+          success = true,
+          message = $"Cache refreshed. Found {files.Count} compose files.",
+          filesDiscovered = files.Count,
+          timestamp = DateTime.UtcNow
+      });
+  }
+  ```
 
 **8. Exécution Commandes**
 - [ ] Créer classe `ComposeCommandType` avec listes de commandes
@@ -1797,6 +1977,12 @@ Aucune question ouverte restante - Toutes les décisions ont été prises pour l
 - [ ] Ajouter guide de migration dans README
 - [ ] Ajouter section sur `x-disabled` dans README (voir annexe)
 - [ ] Mettre à jour CHANGELOG.md
+- [ ] **Documentation Swagger/OpenAPI** :
+  - [ ] Mettre à jour annotations Swagger pour nouveaux endpoints
+  - [ ] Ajouter exemples de réponses dans Swagger (response examples)
+  - [ ] Marquer anciens endpoints ComposePaths comme `[Obsolete]` avec message
+  - [ ] Documenter nouveaux DTOs avec XML comments
+  - [ ] Ajouter schéma pour `ComposeProjectInfo`, `DiscoveredComposeFile`, `ConflictError`
 
 ### Phase 2 : Améliorations (Futures)
 
@@ -2212,24 +2398,62 @@ services:
   "success": true,
   "data": {
     "status": "healthy",
-    "rootPath": "/app/compose-files",
-    "exists": true,
-    "accessible": true,
-    "degradedMode": false
+    "composeDiscovery": {
+      "status": "healthy",
+      "rootPath": "/app/compose-files",
+      "exists": true,
+      "accessible": true,
+      "degradedMode": false
+    },
+    "dockerDaemon": {
+      "status": "healthy",
+      "connected": true,
+      "version": "24.0.7",
+      "apiVersion": "1.43"
+    }
   }
 }
 
-// Mode dégradé
+// Mode dégradé (dossier inaccessible)
 {
   "success": true,
   "data": {
     "status": "degraded",
-    "rootPath": "/app/compose-files",
-    "exists": false,
-    "accessible": false,
-    "degradedMode": true,
-    "message": "Compose files directory is not accessible. Application is running in degraded mode.",
-    "impact": "Only existing Docker projects can be managed. Compose file discovery is disabled."
+    "composeDiscovery": {
+      "status": "degraded",
+      "rootPath": "/app/compose-files",
+      "exists": false,
+      "accessible": false,
+      "degradedMode": true,
+      "message": "Compose files directory is not accessible. Application is running in degraded mode.",
+      "impact": "Only existing Docker projects can be managed. Compose file discovery is disabled."
+    },
+    "dockerDaemon": {
+      "status": "healthy",
+      "connected": true,
+      "version": "24.0.7",
+      "apiVersion": "1.43"
+    }
+  }
+}
+
+// Mode critique (Docker daemon inaccessible)
+{
+  "success": true,
+  "data": {
+    "status": "critical",
+    "composeDiscovery": {
+      "status": "healthy",
+      "rootPath": "/app/compose-files",
+      "exists": true,
+      "accessible": true,
+      "degradedMode": false
+    },
+    "dockerDaemon": {
+      "status": "unhealthy",
+      "connected": false,
+      "error": "Cannot connect to Docker daemon. Is Docker running?"
+    }
   }
 }
 ```
