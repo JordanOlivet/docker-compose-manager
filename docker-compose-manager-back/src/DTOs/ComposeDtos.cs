@@ -60,7 +60,30 @@ public record ComposeProjectDto(
     string State, // up, down, degraded
     List<ComposeServiceDto> Services,
     List<string> ComposeFiles,
-    DateTime? LastUpdated
+    DateTime? LastUpdated,
+
+    // New fields for compose discovery revamp
+    /// <summary>
+    /// Path to the primary compose file associated with this project (null if not found)
+    /// </summary>
+    string? ComposeFilePath = null,
+
+    /// <summary>
+    /// Indicates whether a compose file was found for this project
+    /// </summary>
+    bool HasComposeFile = false,
+
+    /// <summary>
+    /// Warning message if project has issues (e.g., "No compose file found for this project")
+    /// </summary>
+    string? Warning = null,
+
+    /// <summary>
+    /// Dictionary of available actions and whether they can be performed.
+    /// Actions that require a compose file (up, build, recreate, pull) will be false if HasComposeFile is false.
+    /// Actions that work with project name only (start, stop, restart, pause, logs, ps, down) are always true for running projects.
+    /// </summary>
+    Dictionary<string, bool>? AvailableActions = null
 );
 
 /// <summary>
