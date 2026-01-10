@@ -26,6 +26,7 @@ public class ComposeController : BaseController
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IOptions<ComposeDiscoveryOptions> _composeOptions;
     private readonly DockerService _dockerService;
+    private readonly IComposeFileCacheService _cacheService;
 
     public ComposeController(
         AppDbContext context,
@@ -39,7 +40,8 @@ public class ComposeController : BaseController
         ILogger<ComposeController> logger,
         IServiceScopeFactory serviceScopeFactory,
         IOptions<ComposeDiscoveryOptions> composeOptions,
-        DockerService dockerService)
+        DockerService dockerService,
+        IComposeFileCacheService cacheService)
     {
         _context = context;
         _fileService = fileService;
@@ -53,6 +55,7 @@ public class ComposeController : BaseController
         _serviceScopeFactory = serviceScopeFactory;
         _composeOptions = composeOptions;
         _dockerService = dockerService;
+        _cacheService = cacheService;
     }
 
     // ============================================
@@ -261,6 +264,50 @@ public class ComposeController : BaseController
         );
 
         return Ok(ApiResponse.Ok(healthDto));
+    }
+
+    /// <summary>
+    /// Manually refreshes the compose file discovery cache
+    /// </summary>
+    /// <remarks>
+    /// Invalidates the cache and performs a fresh filesystem scan.
+    /// Use this after adding, modifying, or removing compose files.
+    /// </remarks>
+    /// <returns>Scan results with file count and timestamp</returns>
+    [HttpPost("refresh")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> RefreshComposeFiles()
+    {
+        int? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiResponse.Fail<object>("User not authenticated"));
+        }
+
+        _logger.LogInformation("Admin user {UserId} triggered manual cache refresh", userId.Value);
+
+        // Invalidate cache
+        _cacheService.Invalidate();
+
+        // Trigger fresh scan
+        var files = await _cacheService.GetOrScanAsync(bypassCache: true);
+
+        await _auditService.LogActionAsync(
+            userId.Value,
+            "compose.cache_refresh",
+            GetUserIpAddress(),
+            $"Manual cache refresh triggered, found {files.Count} files",
+            resourceType: "System",
+            resourceId: "ComposeDiscovery"
+        );
+
+        return Ok(ApiResponse.Ok(new
+        {
+            success = true,
+            message = $"Cache refreshed. Found {files.Count} compose files.",
+            filesDiscovered = files.Count,
+            timestamp = DateTime.UtcNow
+        }));
     }
 
     // ============================================
