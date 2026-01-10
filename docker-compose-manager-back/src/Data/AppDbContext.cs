@@ -12,11 +12,15 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
-    // DEPRECATED: Tables will be removed by migration - temporarily re-enabled for compilation
+
+    // DEPRECATED: These DbSets reference tables that will be removed by migration RemoveComposePathsAndFiles
+    // They must remain here temporarily to allow existing code to compile until it's refactored
+    // TODO: Remove these DbSets once all references in controllers/services are removed
     #pragma warning disable CS0618 // Type or member is obsolete
     public DbSet<ComposePath> ComposePaths { get; set; } = null!;
     public DbSet<ComposeFile> ComposeFiles { get; set; } = null!;
     #pragma warning restore CS0618 // Type or member is obsolete
+
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
     public DbSet<Operation> Operations { get; set; } = null!;
@@ -62,30 +66,6 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
-
-        // DEPRECATED: ComposePath and ComposeFile configurations - will be removed by migration
-        #pragma warning disable CS0618 // Type or member is obsolete
-        // ComposePath configuration
-        modelBuilder.Entity<ComposePath>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Path).IsUnique();
-            entity.Property(e => e.Path).IsRequired();
-        });
-
-        // ComposeFile configuration
-        modelBuilder.Entity<ComposeFile>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.FullPath).IsUnique();
-            entity.Property(e => e.FileName).IsRequired();
-            entity.Property(e => e.FullPath).IsRequired();
-            entity.HasOne(e => e.ComposePath)
-                .WithMany(cp => cp.ComposeFiles)
-                .HasForeignKey(e => e.ComposePathId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-        #pragma warning restore CS0618 // Type or member is obsolete
 
         // AppSetting configuration
         modelBuilder.Entity<AppSetting>(entity =>
@@ -216,20 +196,5 @@ public class AppDbContext : DbContext
                 CreatedAt = seedDate
             }
         );
-
-        // DEPRECATED: Seed default compose path - will be removed by migration
-        #pragma warning disable CS0618 // Type or member is obsolete
-        // Seed default compose path
-        modelBuilder.Entity<ComposePath>().HasData(
-            new ComposePath
-            {
-                Id = 1,
-                Path = "/compose-files",
-                IsReadOnly = false,
-                IsEnabled = true,
-                CreatedAt = seedDate
-            }
-        );
-        #pragma warning restore CS0618 // Type or member is obsolete
     }
 }
