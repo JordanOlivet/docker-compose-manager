@@ -51,7 +51,11 @@
       "Bash(git checkout:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
+<<<<<<< HEAD
       "Bash(git merge:*)"
+=======
+      "Bash(dotnet list:*)"
+>>>>>>> feature/refresh-endpoint
     ],
     "deny": [],
     "ask": []
