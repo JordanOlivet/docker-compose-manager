@@ -12,15 +12,6 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
-
-    // DEPRECATED: These DbSets reference tables that will be removed by migration RemoveComposePathsAndFiles
-    // They must remain here temporarily to allow existing code to compile until it's refactored
-    // TODO: Remove these DbSets once all references in controllers/services are removed
-    #pragma warning disable CS0618 // Type or member is obsolete
-    public DbSet<ComposePath> ComposePaths { get; set; } = null!;
-    public DbSet<ComposeFile> ComposeFiles { get; set; } = null!;
-    #pragma warning restore CS0618 // Type or member is obsolete
-
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
     public DbSet<Operation> Operations { get; set; } = null!;

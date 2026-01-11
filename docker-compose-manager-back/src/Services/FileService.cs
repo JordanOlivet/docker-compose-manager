@@ -22,44 +22,13 @@ public class FileService
 
     /// <summary>
     /// Validates that a file path is within an allowed ComposePath and prevents directory traversal
+    /// DEPRECATED: ComposePaths table has been removed. Use PathValidator service instead.
     /// </summary>
-    public async Task<(bool IsValid, string? Error, ComposePath? AllowedPath)> ValidateFilePathAsync(string filePath)
+    [Obsolete("ComposePaths table has been removed. Use PathValidator service for file path validation.")]
+    public Task<(bool IsValid, string? Error, ComposePath? AllowedPath)> ValidateFilePathAsync(string filePath)
     {
-        try
-        {
-            // Normalize the path
-            string normalizedPath = Path.GetFullPath(filePath);
-
-            // Get all enabled compose paths
-            List<ComposePath> composePaths = await _context.ComposePaths
-                .Where(cp => cp.IsEnabled)
-                .ToListAsync();
-
-            if (composePaths.Count == 0)
-            {
-                return (false, "No compose paths are configured", null);
-            }
-
-            // Check if the file path is within any allowed compose path
-            foreach (ComposePath composePath in composePaths)
-            {
-                string normalizedComposePath = Path.GetFullPath(composePath.Path);
-
-                // Check if the file is within this compose path
-                if (normalizedPath.StartsWith(normalizedComposePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogDebug("File path {FilePath} is valid within {ComposePath}", filePath, composePath.Path);
-                    return (true, null, composePath);
-                }
-            }
-
-            return (false, "File path is not within any allowed compose path", null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error validating file path: {FilePath}", filePath);
-            return (false, "Invalid file path", null);
-        }
+        _logger.LogWarning("ValidateFilePathAsync called but ComposePaths are no longer supported");
+        return Task.FromResult((false, "No compose paths are configured", (ComposePath?)null));
     }
 
     /// <summary>
