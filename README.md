@@ -155,6 +155,15 @@ Frontend will be available at `http://localhost:5173`
 - Rate limiting ready
 - Audit logging infrastructure
 
+### ✅ Compose File Discovery (NEW in v0.21.0)
+- Automatic discovery of compose files in designated directory
+- No manual path configuration needed
+- Real-time conflict detection
+- `x-disabled` flag to temporarily disable files
+- Intelligent project name matching
+- Orphaned project management (containers without files)
+- Thread-safe caching with configurable TTL
+
 ## Project Structure
 
 ```
@@ -190,6 +199,63 @@ See `.env.example` for all configuration options.
 Key variables:
 - `JWT_SECRET`: Secret key for JWT signing (MUST be changed in production)
 - `DOCKER_HOST`: Docker daemon connection string
+
+## Configuration
+
+### Compose File Discovery
+
+Configure the automatic file discovery system in `appsettings.json`:
+
+```json
+{
+  "ComposeDiscovery": {
+    "RootPath": "/app/compose-files",
+    "ScanDepthLimit": 5,
+    "CacheDurationSeconds": 10,
+    "MaxFileSizeKB": 1024
+  }
+}
+```
+
+**Configuration Options**:
+
+- **RootPath**: Directory to scan for compose files (default: `/app/compose-files`)
+  - Can be an absolute path or relative to the application directory
+  - Must be readable by the backend process
+
+- **ScanDepthLimit**: Maximum directory depth to scan (default: `5`)
+  - Prevents infinite recursion in deep directory structures
+  - Set to `0` to scan only the root directory
+
+- **CacheDurationSeconds**: How long to cache discovery results (default: `10`)
+  - Lower values: More responsive to file changes
+  - Higher values: Better performance, less filesystem access
+
+- **MaxFileSizeKB**: Maximum compose file size in KB (default: `1024` = 1MB)
+  - Prevents scanning extremely large files
+  - Files exceeding this limit are ignored
+
+**Environment Variable Override**:
+
+You can override settings using environment variables with double underscore notation:
+
+```bash
+ComposeDiscovery__RootPath=/custom/path
+ComposeDiscovery__ScanDepthLimit=3
+ComposeDiscovery__CacheDurationSeconds=30
+```
+
+**Docker Compose Example**:
+
+```yaml
+services:
+  backend:
+    environment:
+      - ComposeDiscovery__RootPath=/app/compose-files
+      - ComposeDiscovery__CacheDurationSeconds=30
+    volumes:
+      - ./my-compose-files:/app/compose-files:ro  # Mount your compose files
+```
 
 ## CI/CD with GitHub Actions
 
@@ -255,6 +321,110 @@ docker compose up -d
 
 # Remove old images (optional)
 docker image prune -f
+```
+
+## Migrating from v0.20.x to v0.21.0
+
+**Major Change**: Compose file management has been completely revamped with automatic discovery.
+
+### What Changed
+
+**Removed**:
+- Manual compose path configuration (database-stored paths)
+- `/api/config/compose-paths` endpoints (now return HTTP 410 Gone)
+- `ComposePaths` and `ComposeFiles` database tables
+
+**New**:
+- Automatic file discovery by scanning a single root directory
+- No manual configuration needed - just drop your compose files in the designated folder
+- Real-time conflict detection and resolution
+- `x-disabled` feature to temporarily disable files
+
+### Migration Steps
+
+1. **Backup your existing setup** (optional):
+   ```bash
+   docker compose exec backend cp /app/data/app.db /app/data/app.db.backup
+   ```
+
+2. **Update to v0.21.0**:
+   ```bash
+   docker compose pull
+   docker compose up -d
+   ```
+
+3. **Move your compose files** to the new root directory:
+   ```bash
+   # Default location: /app/compose-files
+   # Create subdirectories to organize your files:
+   mkdir -p /path/to/compose-files/project1
+   mkdir -p /path/to/compose-files/project2
+
+   # Move your files
+   cp /old/location/docker-compose.yml /path/to/compose-files/project1/
+   ```
+
+4. **Verify discovery**:
+   - Visit the Compose page in the UI
+   - Check that all projects are discovered
+   - Review any naming conflicts in the UI
+
+5. **Configure the root path** (if needed):
+   Edit your `appsettings.json` or `.env`:
+   ```json
+   {
+     "ComposeDiscovery": {
+       "RootPath": "/your/custom/path",
+       "ScanDepthLimit": 5,
+       "CacheDurationSeconds": 10
+     }
+   }
+   ```
+
+### Troubleshooting
+
+**Problem**: "No compose files found"
+- **Solution**: Check that files are in the configured `RootPath`
+- Check file permissions (must be readable by the backend process)
+- Verify files have `.yml` or `.yaml` extension
+
+**Problem**: "Multiple files with same project name"
+- **Solution**: Add `x-disabled: true` to files you want to ignore:
+  ```yaml
+  x-disabled: true
+  name: my-project
+  services:
+    web:
+      image: nginx
+  ```
+
+**Problem**: "Project running but no actions available"
+- **Solution**: This happens when containers exist but the compose file is missing/outside root path
+- Only runtime actions (stop, restart, logs) work without the file
+- To enable all actions (up, build, etc.), ensure the compose file is discovered
+
+**Problem**: "Discovery is slow"
+- **Solution**: Reduce `ScanDepthLimit` to limit recursion depth
+- Increase `CacheDurationSeconds` to cache results longer
+- Remove unnecessary subdirectories from the root path
+
+### Rollback (if needed)
+
+To rollback to v0.20.x:
+
+```bash
+# Stop current version
+docker compose down
+
+# Set IMAGE_TAG to v0.20.x in .env
+echo "IMAGE_TAG=0.20.0" >> .env
+
+# Start old version
+docker compose up -d
+
+# Restore database backup if needed
+docker compose exec backend cp /app/data/app.db.backup /app/data/app.db
+docker compose restart backend
 ```
 
 #### Building and Pushing Your Own Images
