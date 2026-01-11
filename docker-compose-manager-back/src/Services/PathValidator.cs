@@ -42,6 +42,22 @@ public class PathValidator : IPathValidator
             return false;
         }
 
+        // Check for path length (Windows MAX_PATH is 260, but modern Windows supports longer paths)
+        // We use a conservative limit to ensure compatibility
+        if (userProvidedPath.Length > 260)
+        {
+            _logger.LogWarning("Path validation failed: path too long ({Length} chars)", userProvidedPath.Length);
+            return false;
+        }
+
+        // Check for invalid path characters
+        var invalidChars = Path.GetInvalidPathChars();
+        if (userProvidedPath.IndexOfAny(invalidChars) >= 0)
+        {
+            _logger.LogWarning("Path validation failed: contains invalid characters");
+            return false;
+        }
+
         try
         {
             // Get the absolute path of the configured root directory

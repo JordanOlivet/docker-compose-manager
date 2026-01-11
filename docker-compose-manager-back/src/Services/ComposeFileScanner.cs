@@ -74,10 +74,12 @@ public class ComposeFileScanner : IComposeFileScanner
         {
             // Scan ALL .yml and .yaml files at the current level
             // Note: On Linux, extensions are case-sensitive (.yml != .YML)
+            // Use Distinct() to avoid duplicates on case-insensitive file systems (Windows)
             var ymlFiles = Directory.GetFiles(rootPath, "*.yml")
                 .Concat(Directory.GetFiles(rootPath, "*.yaml"))
                 .Concat(Directory.GetFiles(rootPath, "*.YML"))
-                .Concat(Directory.GetFiles(rootPath, "*.YAML"));
+                .Concat(Directory.GetFiles(rootPath, "*.YAML"))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
 
             foreach (var filePath in ymlFiles)
             {

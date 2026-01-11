@@ -143,7 +143,7 @@ public class ComposeFileCacheServiceTests
     }
 
     [Fact]
-    public void Invalidate_RemovesCache()
+    public async Task Invalidate_RemovesCache()
     {
         // Arrange
         var expectedFiles = new List<DiscoveredComposeFile>
@@ -153,14 +153,14 @@ public class ComposeFileCacheServiceTests
         _mockScanner.Setup(s => s.ScanComposeFilesAsync()).ReturnsAsync(expectedFiles);
 
         // Populate cache
-        _cacheService.GetOrScanAsync().Wait();
+        await _cacheService.GetOrScanAsync();
         _mockScanner.Invocations.Clear();
 
         // Act
         _cacheService.Invalidate();
 
         // Second call should trigger scanner again
-        var result = _cacheService.GetOrScanAsync().Result;
+        var result = await _cacheService.GetOrScanAsync();
 
         // Assert
         result.Should().BeEquivalentTo(expectedFiles);
