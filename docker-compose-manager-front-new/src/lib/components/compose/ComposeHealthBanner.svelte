@@ -6,9 +6,9 @@
   import { composeApi } from '$lib/api';
   import type { ComposeHealthDto } from '$lib/types';
 
-  let health: ComposeHealthDto | null = $state(null);
-  let dismissed = $state(false);
-  let loading = $state(true);
+  let health: ComposeHealthDto | null = null;
+  let dismissed = false;
+  let loading = true;
 
   onMount(async () => {
     // Check localStorage for dismissed state
@@ -41,9 +41,7 @@
     localStorage.setItem('health-banner-dismissed', until.toISOString());
   }
 
-  const showBanner = $derived(
-    !loading && !dismissed && health && (health.status === 'degraded' || health.status === 'critical')
-  );
+  $: showBanner = !loading && !dismissed && health && (health.status === 'degraded' || health.status === 'critical');
 </script>
 
 {#if showBanner && health}
