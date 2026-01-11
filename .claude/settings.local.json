@@ -54,7 +54,8 @@
       "Bash(git merge:*)",
       "Bash(dotnet list:*)",
       "Bash(test:*)",
-      "Bash(timeout 10 dotnet run:*)"
+      "Bash(timeout 10 dotnet run:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

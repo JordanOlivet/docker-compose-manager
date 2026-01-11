@@ -58,7 +58,7 @@ public class ProjectMatchingService : IProjectMatchingService
                     ComposeFilePath = file.FilePath,
                     HasComposeFile = true,
                     Services = file.Services.Select(serviceName => new ComposeServiceDto(
-                        Id: string.Empty,
+                        Id: $"{project.Name}_{serviceName}",
                         Name: serviceName,
                         Image: null,
                         State: "Unknown",
@@ -102,7 +102,7 @@ public class ProjectMatchingService : IProjectMatchingService
 
             // Create services list from discovered file
             var services = unmatchedFile.Services.Select(serviceName => new ComposeServiceDto(
-                Id: string.Empty,
+                Id: $"{unmatchedFile.ProjectName}_{serviceName}",
                 Name: serviceName,
                 Image: null,
                 State: "Not Started",

@@ -451,7 +451,7 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                      {#each project.services as service (service.id)}
+                      {#each project.services as service (service.name)}
                         <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
                           <td class="px-4 py-2 whitespace-nowrap">
                             <div class="text-xs font-medium text-gray-900 dark:text-white">
