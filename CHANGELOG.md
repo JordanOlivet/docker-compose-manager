@@ -1,4 +1,4 @@
-## Changes in v0.21.0
+## Changes in v0.22.0
 
 ### 🎉 Major Release: Compose Discovery Revamp
 
@@ -146,6 +146,16 @@ See README.md for complete migration instructions. Quick summary:
 This release represents a major architectural improvement making compose file management simpler, more intuitive, and more robust.
 
 ---
+
+## Changes in v0.21.0
+
+**Merged Pull Requests:**
+- Docker debug fixes and more (#31)
+
+**Commits:**
+- Docker debug fixes and more (#31) (379289a)
+- docs: update CHANGELOG for v0.20.0 [skip ci] (73efed9)
+- chore: bump version to v0.20.0 [skip ci] (f006f0e)
 
 ## Changes in v0.20.0
 
