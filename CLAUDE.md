@@ -131,6 +131,15 @@ Data/ → Entity Framework Core context and migrations
 - **FileService**: Manages compose file CRUD with path validation
 - **AuditService**: Logs all user actions to AuditLogs table
 
+**Compose Discovery Services:**
+
+- **ComposeFileScanner**: Scans filesystem recursively to discover compose files
+- **PathValidator**: Validates paths to prevent traversal attacks
+- **ComposeFileCacheService**: Thread-safe caching of discovered files
+- **ConflictResolutionService**: Resolves naming conflicts between files
+- **ProjectMatchingService**: Matches Docker projects with discovered files
+- **ComposeCommandClassifier**: Determines which commands need compose files
+
 **Authentication Flow:**
 
 1. User logs in → receives short-lived access token (60 min) + long-lived refresh token (7 days)
@@ -140,7 +149,8 @@ Data/ → Entity Framework Core context and migrations
 
 **Database (SQLite):**
 
-- Schema includes: Users, Roles, ComposePaths, ComposeFiles, AppSettings, AuditLogs, Sessions
+- Schema includes: Users, Roles, AppSettings, AuditLogs, Sessions
+- Note: ComposePaths and ComposeFiles tables have been removed in v0.21.0 (automatic file discovery)
 - Migrations managed via Entity Framework Core
 - Default location: `Data/app.db` (development) or `/app/data/app.db` (Docker)
 - Architecture supports future migration to PostgreSQL if needed
@@ -182,17 +192,76 @@ utils/ → Helper functions
 - JWT token included in Authorization header: `Bearer {token}`
 - TanStack Query handles caching, refetching, and optimistic updates
 
-### File Path Handling Strategy
+### Compose File Discovery
 
-**Problem**: Compose file paths contain slashes that conflict with URL routing.
+**New in v0.21.0**: Automatic file discovery system replaces manual path configuration.
 
-**Solution**: Use numeric IDs for API operations:
+**How it works:**
 
-- `ComposeFiles` table maps file paths to IDs
-- APIs use `/api/compose/files/{id}` for operations
-- Alternative query param endpoint: `/api/compose/files/by-path?path={encodedPath}`
-- File discovery runs on startup and periodically (default: 5 min intervals)
-- WebSocket notifications when files change
+- Scans a single root directory (`/app/compose-files` by default) recursively
+- Automatically discovers all `.yml` and `.yaml` files containing compose services
+- No database storage needed - files discovered on-demand with caching
+- Configuration via `appsettings.json` → `ComposeDiscovery` section
+
+**Configuration Options:**
+
+```json
+{
+  "ComposeDiscovery": {
+    "RootPath": "/app/compose-files",     // Root directory to scan
+    "ScanDepthLimit": 5,                  // Maximum recursion depth
+    "CacheDurationSeconds": 10,           // Cache TTL (default: 10s)
+    "MaxFileSizeKB": 1024                 // Max file size (1MB)
+  }
+}
+```
+
+**File Validation:**
+
+- Must be valid YAML
+- Must contain `services` key with at least one service
+- File size must not exceed configured limit
+- Path must be within configured `RootPath` (security)
+
+**Project Name Extraction** (priority order):
+
+1. `name` attribute in compose file
+2. Parent directory name
+3. Filename (without extension)
+
+**Disabling Files with `x-disabled`:**
+
+You can disable a compose file without deleting it by adding `x-disabled: true` at the root level:
+
+```yaml
+x-disabled: true
+name: my-project
+services:
+  web:
+    image: nginx:latest
+```
+
+Files marked as disabled:
+- Are still discovered and scanned
+- Will not appear in project lists
+- Useful for temporarily deactivating projects
+- Helps resolve naming conflicts (see below)
+
+**Conflict Resolution:**
+
+When multiple compose files share the same project name:
+
+- **Case A**: 1 active file → Project uses that file ✅
+- **Case B**: 0 active files (all disabled) → Project not available ⚠️
+- **Case C**: 2+ active files → Conflict error ❌
+
+To resolve conflicts, add `x-disabled: true` to unwanted files.
+
+**Caching:**
+
+- Discovered files cached in-memory (default: 10 seconds)
+- Cache invalidated via `POST /api/compose/refresh` (admin only)
+- Thread-safe with double-check locking pattern
 
 ### Compose Projects vs Files
 
@@ -201,13 +270,48 @@ utils/ → Helper functions
 - Project identified by name (directory name or `-p` flag)
 - API automatically detects related files (same directory, naming convention like `docker-compose.override.yml`)
 
+**Available Actions:**
+
+Commands are classified based on whether they require a compose file:
+
+- **Require file**: `up`, `create`, `build`, `pull`, `push`, `config`, `convert`
+- **Work without file** (use `-p projectname`): `start`, `stop`, `restart`, `pause`, `unpause`, `logs`, `ps`, `top`, `down`, `rm`, `kill`
+
+For projects without compose files, only commands that work with `-p` flag are available. This allows managing "orphaned" projects (containers running but file deleted/moved).
+
+### Compose Discovery API Endpoints
+
+**New in v0.21.0**: Endpoints for automatic file discovery.
+
+- `GET /api/compose/files` - List all discovered compose files
+  - Returns: File path, project name, services, last modified, disabled status
+
+- `GET /api/compose/projects` - List all projects (Docker + discovered files)
+  - Returns: Enhanced with `hasComposeFile`, `composeFilePath`, `availableActions`, `warning` fields
+  - Projects without files show warning and limited actions
+
+- `GET /api/compose/conflicts` - List naming conflicts
+  - Returns: Conflicting files grouped by project name with resolution steps
+
+- `GET /api/compose/health` - Check discovery system health
+  - Returns: Status (healthy/degraded/critical), root path accessibility, Docker status
+
+- `POST /api/compose/refresh` - Force cache invalidation and re-scan (admin only)
+  - Triggers immediate filesystem scan
+
+**Deprecated Endpoints** (return HTTP 410 Gone):
+
+- `GET /api/config/compose-paths` - Removed (no longer needed)
+- `POST /api/config/compose-paths` - Removed (no longer needed)
+- `DELETE /api/config/compose-paths/{id}` - Removed (no longer needed)
+
 ### Security Architecture
 
 **Critical Security Considerations:**
 
 1. **Docker Socket Access**: Backend container has root-level access to host via Docker socket mounting. This is required but dangerous. In production, consider Docker API over TCP with TLS instead.
 
-2. **Path Traversal Prevention**: All file paths validated against whitelist (configured ComposePaths). Never trust user input for file paths.
+2. **Path Traversal Prevention**: All file paths validated against configured `RootPath` (v0.21.0+). Never trust user input for file paths.
 
 3. **Input Validation**: FluentValidation on all endpoints, sanitize all input before passing to Docker API.
 

@@ -9,3 +9,6 @@ export { default as Badge } from './badge.svelte';
 export { default as Dialog } from './dialog.svelte';
 export { default as Select } from './select.svelte';
 export { default as Checkbox } from './checkbox.svelte';
+export { default as Alert } from './alert.svelte';
+export { default as AlertTitle } from './alert-title.svelte';
+export { default as AlertDescription } from './alert-description.svelte';

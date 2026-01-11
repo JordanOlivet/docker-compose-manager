@@ -106,82 +106,6 @@ namespace docker_compose_manager_back.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("docker_compose_manager_back.Models.ComposeFile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ComposePathId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FullPath")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDiscovered")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("LastModified")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("LastScanned")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComposePathId");
-
-                    b.HasIndex("FullPath")
-                        .IsUnique();
-
-                    b.ToTable("ComposeFiles");
-                });
-
-            modelBuilder.Entity("docker_compose_manager_back.Models.ComposePath", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsReadOnly")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Path")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Path")
-                        .IsUnique();
-
-                    b.ToTable("ComposePaths");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            IsReadOnly = false,
-                            Path = "/compose-files"
-                        });
-                });
-
             modelBuilder.Entity("docker_compose_manager_back.Models.Operation", b =>
                 {
                     b.Property<int>("Id")
@@ -490,17 +414,6 @@ namespace docker_compose_manager_back.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("docker_compose_manager_back.Models.ComposeFile", b =>
-                {
-                    b.HasOne("docker_compose_manager_back.Models.ComposePath", "ComposePath")
-                        .WithMany("ComposeFiles")
-                        .HasForeignKey("ComposePathId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ComposePath");
-                });
-
             modelBuilder.Entity("docker_compose_manager_back.Models.Operation", b =>
                 {
                     b.HasOne("docker_compose_manager_back.Models.User", "User")
@@ -567,11 +480,6 @@ namespace docker_compose_manager_back.Migrations
                     b.Navigation("User");
 
                     b.Navigation("UserGroup");
-                });
-
-            modelBuilder.Entity("docker_compose_manager_back.Models.ComposePath", b =>
-                {
-                    b.Navigation("ComposeFiles");
                 });
 
             modelBuilder.Entity("docker_compose_manager_back.Models.User", b =>

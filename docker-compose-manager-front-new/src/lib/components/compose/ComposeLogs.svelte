@@ -24,7 +24,7 @@
 	let isStreaming = $state(false);
 	let error = $state<string | null>(null);
 	let autoScroll = $state(true);
-	let logsEndRef: HTMLDivElement;
+	let logsEndRef = $state<HTMLDivElement>();
 	let scrollContainerRef: HTMLDivElement;
 	let lastScrollTop = 0;
 	let streamingInProgress = false;

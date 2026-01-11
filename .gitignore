@@ -30,3 +30,5 @@ NUL
 node_modules
 logs
 docker-compose-manager-front-new/.vscode/chrome-debug-profile
+docker-compose-manager-back/docker-compose-manager-back.Tests/obj
+docker-compose-manager-back/docker-compose-manager-back.Tests/bin

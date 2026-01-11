@@ -131,10 +131,10 @@ jobs:
       - name: Setup Node.js 20
         uses: ./.github/actions/setup-node
       - name: Install dependencies
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./docker-compose-manager-front-new
         run: npm ci
       - name: Run frontend tests
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./docker-compose-manager-front-new
         run: npm test -- --run
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -160,7 +160,7 @@ jobs:
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./docker-compose-manager-front
+          context: ./docker-compose-manager-front-new
           platforms: linux/amd64
           push: true
           tags: ${{ startsWith(github.ref, 'refs/tags/v') && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
