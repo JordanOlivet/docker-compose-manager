@@ -33,13 +33,13 @@ public class FileServiceTests
         string composeFile = Path.Combine(tempDir, "docker-compose.yml");
         await File.WriteAllTextAsync(composeFile, "services:\n  web:\n    image: nginx:latest\n");
 
-        // Act (first, normal read should fail because path not configured)
+        // Act (first, normal read should fail because no compose paths configured)
         var (successNormal, _, errorNormal) = await service.ReadFileAsync(composeFile);
         var (successExternal, contentExternal, errorExternal) = await service.ReadFileExternalAsync(composeFile);
 
         // Assert
         Assert.False(successNormal);
-        Assert.Equal("File path is not within any allowed compose path", errorNormal);
+        Assert.Equal("No compose paths are configured", errorNormal);
         Assert.True(successExternal);
         Assert.NotNull(contentExternal);
         Assert.Contains("services", contentExternal);

@@ -1,5 +1,10 @@
 namespace docker_compose_manager_back.Models;
 
+/// <summary>
+/// DEPRECATED: This model is obsolete. Compose files are now discovered as metadata from Docker API.
+/// See DOCKER_COMPOSE_DISCOVERY_MIGRATION.md for details. Will be removed in a future version.
+/// </summary>
+[Obsolete("ComposeFile is deprecated. File metadata now comes from Docker API. See DOCKER_COMPOSE_DISCOVERY_MIGRATION.md for migration details.")]
 public class ComposeFile
 {
     public int Id { get; set; }

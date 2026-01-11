@@ -13,6 +13,27 @@ export interface ComposeFile {
   isDiscovered: boolean;
 }
 
+/**
+ * Discovered compose file information from the discovery system.
+ * Used by the compose file discovery API.
+ */
+export interface DiscoveredComposeFileDto {
+  /** Full absolute path to the compose file */
+  filePath: string;
+  /** Project name (from 'name:' attribute or directory name) */
+  projectName: string;
+  /** Directory containing the compose file */
+  directoryPath: string;
+  /** Last modification timestamp */
+  lastModified: string;
+  /** Whether the file is valid YAML with required structure */
+  isValid: boolean;
+  /** Whether the file is marked with x-disabled: true */
+  isDisabled: boolean;
+  /** List of service names in the compose file */
+  services: string[];
+}
+
 export interface ComposeFileContent {
   id: number;
   fileName: string;
@@ -40,6 +61,15 @@ export interface ComposeProject {
   services: ComposeService[];
   composeFiles: string[];
   lastUpdated: Date;
+  // New fields from compose discovery revamp
+  /** Path to the primary compose file associated with this project (null if not found) */
+  composeFilePath?: string | null;
+  /** Indicates whether a compose file was found for this project */
+  hasComposeFile?: boolean;
+  /** Warning message if project has issues (e.g., "No compose file found for this project") */
+  warning?: string | null;
+  /** Dictionary of available actions and whether they can be performed */
+  availableActions?: Record<string, boolean> | null;
 }
 
 export interface ComposeService {
@@ -185,4 +215,99 @@ export interface VolumeDetails {
   external?: boolean;
   driverOpts?: Record<string, string>;
   labels?: Record<string, string>;
+}
+
+// ============================================
+// Conflict Detection Types
+// ============================================
+
+/**
+ * Error information about conflicting compose files with the same project name.
+ */
+export interface ConflictErrorDto {
+  /** The project name that has conflicts */
+  projectName: string;
+  /** List of file paths that conflict (all have same project name, none are disabled) */
+  conflictingFiles: string[];
+  /** User-friendly error message */
+  message: string;
+  /** Step-by-step instructions to resolve the conflict */
+  resolutionSteps: string[];
+}
+
+/**
+ * Response wrapper for the conflicts endpoint
+ */
+export interface ConflictsResponse {
+  /** List of all detected conflicts */
+  conflicts: ConflictErrorDto[];
+  /** Whether any conflicts exist */
+  hasConflicts: boolean;
+}
+
+// ============================================
+// Health Check Types
+// ============================================
+
+/**
+ * Status information for the compose file discovery subsystem
+ */
+export interface ComposeHealthStatusDto {
+  /** Status: "healthy" or "degraded" */
+  status: 'healthy' | 'degraded';
+  /** Configured root path for compose files */
+  rootPath: string;
+  /** Whether the root path exists on filesystem */
+  exists: boolean;
+  /** Whether the root path is accessible (readable) */
+  accessible: boolean;
+  /** Whether the system is running in degraded mode (compose discovery disabled) */
+  degradedMode: boolean;
+  /** Optional message explaining degraded status */
+  message?: string;
+  /** Description of the impact when in degraded mode */
+  impact?: string;
+}
+
+/**
+ * Status information for the Docker daemon connection
+ */
+export interface DockerDaemonStatusDto {
+  /** Status: "healthy" or "unhealthy" */
+  status: 'healthy' | 'unhealthy';
+  /** Whether connected to Docker daemon */
+  connected: boolean;
+  /** Docker version (if connected) */
+  version?: string;
+  /** Docker API version (if connected) */
+  apiVersion?: string;
+  /** Error message if connection failed */
+  error?: string;
+}
+
+/**
+ * Health status information for the compose discovery system.
+ * Used by the GET /api/compose/health endpoint.
+ */
+export interface ComposeHealthDto {
+  /** Overall system status: "healthy", "degraded", or "critical" */
+  status: 'healthy' | 'degraded' | 'critical';
+  /** Compose discovery subsystem status */
+  composeDiscovery: ComposeHealthStatusDto;
+  /** Docker daemon connection status */
+  dockerDaemon: DockerDaemonStatusDto;
+}
+
+/**
+ * Response from the refresh endpoint
+ */
+export interface RefreshComposeResponse {
+  /** Number of files discovered */
+  filesDiscovered: number;
+  /** Timestamp of the refresh operation */
+  timestamp: string;
+  /** Success status */
+  success: boolean;
+  /** Optional message */
+  message?: string;
 }
