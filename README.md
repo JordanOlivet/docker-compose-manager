@@ -312,7 +312,3 @@ These permissions are automatically granted to the `GITHUB_TOKEN` in the workflo
 ## Security Notes
 
 ⚠️ **Important**: The backend requires access to the Docker socket, which grants root-level access to the host system. Only deploy in trusted environments.
-
-## License
-
-MIT
