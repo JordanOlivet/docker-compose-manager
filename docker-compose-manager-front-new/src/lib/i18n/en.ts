@@ -169,6 +169,7 @@ export default {
     liveResourceStats: 'Live Resource Stats',
     containerNotRunning: 'Container is not running',
     noContainers: 'No containers found',
+    noContainer: 'No container',
     containerNotFound: 'Container not found',
     containerNotFoundMessage: 'The requested container could not be found',
     failedToLoad: 'Failed to load container details',

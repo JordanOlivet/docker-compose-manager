@@ -169,6 +169,7 @@ const fr = {
     liveResourceStats: 'Statistiques des ressources en direct',
     containerNotRunning: 'Le conteneur n\'est pas en cours d\'exécution',
     noContainers: 'Aucun conteneur trouvé',
+    noContainer: 'Pas de conteneur',
     containerNotFound: 'Conteneur introuvable',
     containerNotFoundMessage: 'Le conteneur demandé n\'a pas pu être trouvé',
     failedToLoad: 'Échec du chargement des détails du conteneur',

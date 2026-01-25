@@ -169,6 +169,7 @@ const es = {
     liveResourceStats: 'Estadísticas de recursos en vivo',
     containerNotRunning: 'El contenedor no está en ejecución',
     noContainers: 'No se encontraron contenedores',
+    noContainer: 'Sin contenedor',
     containerNotFound: 'Contenedor no encontrado',
     containerNotFoundMessage: 'No se pudo encontrar el contenedor solicitado',
     failedToLoad: 'Error al cargar los detalles del contenedor',

@@ -14,6 +14,7 @@ namespace docker_compose_manager_back.Services;
 public class ComposeDiscoveryService : IComposeDiscoveryService
 {
     private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerService _dockerService;
     private readonly IMemoryCache _cache;
     private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeDiscoveryService> _logger;
@@ -23,11 +24,13 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
 
     public ComposeDiscoveryService(
         DockerCommandExecutor dockerExecutor,
+        DockerService dockerService,
         IMemoryCache cache,
         IPermissionService permissionService,
         ILogger<ComposeDiscoveryService> logger)
     {
         _dockerExecutor = dockerExecutor;
+        _dockerService = dockerService;
         _cache = cache;
         _permissionService = permissionService;
         _logger = logger;
@@ -188,116 +191,19 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
 
     private async Task<List<ComposeServiceDto>> GetProjectServicesAsync(string projectName)
     {
-        var services = new List<ComposeServiceDto>();
-
         try
         {
-            // Execute docker compose ps for this project
-            (int exitCode, string? output, string? error) = await _dockerExecutor.ExecuteComposeCommandAsync(
-                workingDirectory: "/",
-                arguments: $"-p \"{projectName}\" ps --format json"
-            );
+            // Use Docker API to list containers by compose project label
+            // This is more reliable than docker compose ps and shows all containers (including exited)
+            var services = await _dockerService.ListContainersByComposeProjectAsync(projectName, showAll: true);
 
-            if (exitCode != 0)
-            {
-                _logger.LogDebug(
-                    "docker compose ps failed for project {ProjectName}: {Error}",
-                    projectName,
-                    error
-                );
-                return services;
-            }
-
-            if (string.IsNullOrWhiteSpace(output))
-            {
-                _logger.LogDebug("No services found for project {ProjectName}", projectName);
-                return services;
-            }
-
-            // Parse JSON - can be array or single object
-            using JsonDocument doc = JsonDocument.Parse(output);
-            JsonElement root = doc.RootElement;
-
-            if (root.ValueKind == JsonValueKind.Array)
-            {
-                foreach (JsonElement element in root.EnumerateArray())
-                {
-                    ComposeServiceDto? service = ParseServiceElement(element);
-                    if (service != null)
-                    {
-                        services.Add(service);
-                    }
-                }
-            }
-            else if (root.ValueKind == JsonValueKind.Object)
-            {
-                ComposeServiceDto? service = ParseServiceElement(root);
-                if (service != null)
-                {
-                    services.Add(service);
-                }
-            }
-
-            _logger.LogDebug("Found {Count} services for project {ProjectName}", services.Count, projectName);
+            _logger.LogDebug("Found {Count} services for project {ProjectName} via Docker API", services.Count, projectName);
+            return services;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error getting services for project {ProjectName}", projectName);
-        }
-
-        return services;
-    }
-
-    private ComposeServiceDto? ParseServiceElement(JsonElement element)
-    {
-        try
-        {
-            string id = element.GetProperty("ID").GetString() ?? "unknown";
-            string name = element.GetProperty("Name").GetString() ?? "unknown";
-            string? image = element.TryGetProperty("Image", out JsonElement imageEl) ? imageEl.GetString() : null;
-            string state = element.GetProperty("State").GetString() ?? "unknown";
-            string status = element.GetProperty("Status").GetString() ?? "";
-
-            // Normalize state to match EntityState format (capitalize first letter)
-            // Docker returns: "running", "exited", "paused", etc.
-            // We need: "Running", "Exited", "Paused", etc.
-            if (!string.IsNullOrEmpty(state))
-            {
-                state = char.ToUpper(state[0]) + state.Substring(1).ToLower();
-            }
-
-            // Parse ports
-            List<string> ports = new();
-            if (element.TryGetProperty("Publishers", out JsonElement publishersEl) && publishersEl.ValueKind == JsonValueKind.Array)
-            {
-                foreach (JsonElement pub in publishersEl.EnumerateArray())
-                {
-                    var publishedPort = pub.TryGetProperty("PublishedPort", out JsonElement pp) ? pp.GetInt32() : 0;
-                    var targetPort = pub.TryGetProperty("TargetPort", out JsonElement tp) ? tp.GetInt32() : 0;
-                    if (publishedPort > 0 && targetPort > 0)
-                    {
-                        ports.Add($"{publishedPort}:{targetPort}");
-                    }
-                }
-            }
-
-            // Parse health
-            string? health = element.TryGetProperty("Health", out JsonElement healthEl) ? healthEl.GetString() : null;
-
-            return new ComposeServiceDto(
-                Id: id,
-                Name: name,
-                Image: image,
-                State: state,
-                Status: status,
-                Ports: ports,
-                Health: health
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error parsing service element");
-            return null;
+            return new List<ComposeServiceDto>();
         }
     }
 

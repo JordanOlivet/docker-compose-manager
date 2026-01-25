@@ -354,7 +354,7 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                      {#each project.services as service (service.name)}
+                      {#each project.services as service (service.id)}
                         <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
                           <td class="px-4 py-2 whitespace-nowrap">
                             <div class="text-xs font-medium text-gray-900 dark:text-white">
@@ -383,7 +383,9 @@
                           </td>
                           <td class="px-4 py-2 whitespace-nowrap text-xs">
                             <div class="flex items-center gap-1">
-                              {#if service.state === EntityState.Running}
+                              {#if service.state === EntityState.Unknown || service.state === 'Not Started'}
+                                <span class="text-gray-400 text-xs italic">{$t('containers.noContainer')}</span>
+                              {:else if service.state === EntityState.Running}
                                 <button
                                   onclick={() => restartContainerMutation.mutate(service.id)}
                                   class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
@@ -398,6 +400,13 @@
                                 >
                                   <Square class="w-3 h-3" />
                                 </button>
+                                <button
+                                  onclick={() => handleRemoveService(service)}
+                                  class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+                                  title={$t('containers.remove')}
+                                >
+                                  <Trash2 class="w-3 h-3" />
+                                </button>
                               {:else}
                                 <button
                                   onclick={() => startContainerMutation.mutate(service.id)}
@@ -406,14 +415,14 @@
                                 >
                                   <Play class="w-3 h-3" />
                                 </button>
+                                <button
+                                  onclick={() => handleRemoveService(service)}
+                                  class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+                                  title={$t('containers.remove')}
+                                >
+                                  <Trash2 class="w-3 h-3" />
+                                </button>
                               {/if}
-                              <button
-                                onclick={() => handleRemoveService(service)}
-                                class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-                                title={$t('containers.remove')}
-                              >
-                                <Trash2 class="w-3 h-3" />
-                              </button>
                             </div>
                           </td>
                         </tr>
