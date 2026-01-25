@@ -354,6 +354,15 @@ const fr = {
     validationError: 'Erreur de validation. Veuillez vérifier votre saisie.',
     unknownError: 'Une erreur inattendue s\'est produite.',
   },
+
+  connection: {
+    connected: 'Mises à jour temps réel connectées',
+    connecting: 'Connexion en cours...',
+    reconnecting: 'Reconnexion en cours...',
+    disconnected: 'Déconnecté - mises à jour suspendues',
+    attempt: 'Tentative',
+    lastConnected: 'Dernière connexion',
+  },
 };
 
 export default fr;

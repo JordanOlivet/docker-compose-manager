@@ -354,4 +354,13 @@ export default {
     validationError: 'Validation error. Please check your input.',
     unknownError: 'An unexpected error occurred.',
   },
+
+  connection: {
+    connected: 'Real-time updates connected',
+    connecting: 'Connecting...',
+    reconnecting: 'Reconnecting...',
+    disconnected: 'Disconnected - updates paused',
+    attempt: 'Attempt',
+    lastConnected: 'Last connected',
+  },
 } as const;

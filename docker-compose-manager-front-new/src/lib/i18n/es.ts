@@ -354,6 +354,15 @@ const es = {
     validationError: 'Error de validación. Por favor, verifique su entrada.',
     unknownError: 'Ocurrió un error inesperado.',
   },
+
+  connection: {
+    connected: 'Actualizaciones en tiempo real conectadas',
+    connecting: 'Conectando...',
+    reconnecting: 'Reconectando...',
+    disconnected: 'Desconectado - actualizaciones pausadas',
+    attempt: 'Intento',
+    lastConnected: 'Última conexión',
+  },
 };
 
 export default es;

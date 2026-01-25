@@ -11,7 +11,7 @@
 		RefreshCw
 	} from 'lucide-svelte';
 	import { composeApi, containersApi } from '$lib/api';
-	import type { ComposeService, OperationUpdateEvent } from '$lib/types';
+	import type { ComposeService } from '$lib/types';
 	import StateBadge from '$lib/components/common/StateBadge.svelte';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ProjectInfoSection from '$lib/components/compose/ProjectInfoSection.svelte';
@@ -19,8 +19,6 @@
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
 	import { t } from '$lib/i18n';
 	import { toast } from 'svelte-sonner';
-	import { createSignalRConnection, startConnection, type ComposeProjectStateChangedEvent, type ContainerStateChangedEvent } from '$lib/services/signalr';
-	import { onMount, onDestroy } from 'svelte';
 
 	const projectName = $derived(
 		$page.params.projectName ? decodeURIComponent($page.params.projectName) : ''
@@ -28,167 +26,68 @@
 
 	const queryClient = useQueryClient();
 
+	// SignalR is now handled globally in the protected layout
+	// The SignalR-Query bridge automatically invalidates queries on events
 	const projectQuery = createQuery(() => ({
 		queryKey: ['compose', 'project', projectName],
 		queryFn: () => composeApi.getProjectDetails(projectName),
 		enabled: !!projectName,
-		refetchInterval: false, // SignalR handles real-time updates
+		refetchInterval: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
-		staleTime: 0 // Always consider data stale so invalidation triggers immediate refetch
+		staleTime: 0
 	}));
 
-	// Setup SignalR connection for real-time project updates
-	let unsubscribe: (() => void) | null = null;
-	let invalidateTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	// Debounced invalidation to avoid excessive refetches when multiple events arrive quickly
-	function invalidateProject() {
-		if (invalidateTimeout) {
-			clearTimeout(invalidateTimeout);
-		}
-		invalidateTimeout = setTimeout(async () => {
-			console.log('🚀 Refetching project details after state change');
-			await queryClient.refetchQueries({ queryKey: ['compose', 'project', projectName] });
-			console.log('✅ Project details refetched');
-			invalidateTimeout = null;
-		}, 500); // Wait 500ms to let Docker propagate state changes
-	}
-
-	onMount(async () => {
-		unsubscribe = createSignalRConnection({
-			onOperationUpdate: (update: OperationUpdateEvent) => {
-				// Listen for compose-related operations that are completed or failed
-				const statusMatch = update.status === 'completed' || update.status === 'failed';
-				const typeMatch = update.type && update.type.toLowerCase().includes('compose');
-
-				if (statusMatch && typeMatch) {
-					// Debounced invalidation
-					invalidateProject();
-				}
-
-				if (update.errorMessage) {
-					toast.error(`Operation error: ${update.errorMessage}`);
-				}
-			},
-			onContainerStateChanged: (event: ContainerStateChangedEvent) => {
-				// Listen for any container state changes
-				console.log(`Container ${event.containerName} changed state: ${event.action}`);
-
-				// Debounced invalidation to refresh project details
-				invalidateProject();
-			},
-			onComposeProjectStateChanged: (event: ComposeProjectStateChangedEvent) => {
-				// Listen for Docker events (external changes like Docker Desktop, Docker CLI)
-				// Only invalidate if the event is for the current project
-				if (event.projectName === projectName) {
-					console.log(`Compose project ${event.projectName} - service ${event.serviceName} changed state: ${event.action}`);
-
-					// Debounced invalidation
-					invalidateProject();
-				}
-			},
-			onConnected: () => {
-				console.log('SignalR connected - listening for project updates');
-			},
-			onDisconnected: (error) => {
-				if (error) {
-					console.error('SignalR disconnected with error:', error);
-				}
-			},
-			onReconnecting: (error) => {
-				console.warn('SignalR reconnecting...', error);
-			}
-		});
-
-		await startConnection();
-	});
-
-	onDestroy(() => {
-		// Clear pending invalidation timeout
-		if (invalidateTimeout) {
-			clearTimeout(invalidateTimeout);
-		}
-
-		// Unsubscribe from events but keep the connection alive for other pages
-		if (unsubscribe) {
-			unsubscribe();
-		}
-	});
-
 	// Project mutations
+	// Note: The SignalR-Query bridge handles cache invalidation automatically
 	const upMutation = createMutation(() => ({
 		mutationFn: ({ detach, forceRecreate }: { detach?: boolean; forceRecreate?: boolean }) =>
 			composeApi.upProject(projectName, { detach, forceRecreate }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.upSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.upSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	const downMutation = createMutation(() => ({
 		mutationFn: () => composeApi.downProject(projectName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.downSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.downSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	const restartMutation = createMutation(() => ({
 		mutationFn: () => composeApi.restartProject(projectName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.restartSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.restartSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	const stopMutation = createMutation(() => ({
 		mutationFn: () => composeApi.stopProject(projectName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.stopSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.stopSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	// Container mutations
 	const startContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.start(containerId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.startSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.startSuccess')),
 		onError: () => toast.error($t('containers.failedToStart'))
 	}));
 
 	const stopContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.stop(containerId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.stopSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.stopSuccess')),
 		onError: () => toast.error($t('containers.failedToStop'))
 	}));
 
 	const restartContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.restart(containerId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.restartSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.restartSuccess')),
 		onError: () => toast.error($t('containers.failedToRestart'))
 	}));
 
 	const removeContainerMutation = createMutation(() => ({
 		mutationFn: ({ containerId, force }: { containerId: string; force: boolean }) =>
 			containersApi.remove(containerId, force),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.removeSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.removeSuccess')),
 		onError: () => toast.error($t('containers.failedToRemove'))
 	}));
 

@@ -11,7 +11,7 @@
 
 <button
   onclick={() => theme.toggle()}
-  class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {className}"
+  class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer {className}"
   aria-label="Toggle theme"
 >
   {#if theme.isDark.current}

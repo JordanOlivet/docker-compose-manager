@@ -8,10 +8,7 @@
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
-  import { EntityState, type OperationUpdateEvent } from '$lib/types';
-  import { createSignalRConnection, startConnection, type ContainerStateChangedEvent } from '$lib/services/signalr';
-  import { debounce } from '$lib/utils/debounce';
-  import { onMount, onDestroy } from 'svelte';
+  import { EntityState } from '$lib/types';
 
   // Grouped filter state
   type SortKey = 'name' | 'image' | 'state' | 'status';
@@ -34,80 +31,22 @@
 
   const queryClient = useQueryClient();
 
+  // SignalR is now handled globally in the protected layout
+  // The SignalR-Query bridge automatically invalidates queries on events
   const containersQuery = createQuery(() => ({
     queryKey: ['containers', { all: filters.showAll }],
     queryFn: () => containersApi.list(filters.showAll),
     refetchInterval: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    staleTime: 0, // Always consider data stale so invalidation triggers immediate refetch
+    staleTime: 0,
   }));
 
-  // Debounced invalidation - using utility function with refetch
-  const invalidateContainers = debounce(
-    async () => {
-      console.log('🚀 Refetching containers after state change');
-      await queryClient.refetchQueries({ queryKey: ['containers'] });
-      console.log('✅ Containers refetched');
-    },
-    500
-  );
-
-  // Setup SignalR connection for real-time container updates
-  let unsubscribe: (() => void) | null = null;
-
-  onMount(async () => {
-    unsubscribe = createSignalRConnection({
-      onOperationUpdate: (update: OperationUpdateEvent) => {
-        // Listen for container-related operations that are completed or failed
-        const statusMatch = update.status === 'completed' || update.status === 'failed';
-        const typeMatch = update.type && update.type.toLowerCase().includes('container');
-
-        if (statusMatch && typeMatch) {
-          // Debounced invalidation
-          invalidateContainers();
-        }
-
-        if (update.errorMessage) {
-          toast.error(`Operation error: ${update.errorMessage}`);
-        }
-      },
-      onContainerStateChanged: (event: ContainerStateChangedEvent) => {
-        // Listen for Docker events (external changes like Docker Desktop, Docker CLI)
-        console.log(`Container ${event.containerName} changed state: ${event.action}`);
-
-        // Debounced invalidation
-        invalidateContainers();
-      },
-      onConnected: () => {
-        console.log('SignalR connected - listening for container updates');
-      },
-      onDisconnected: (error) => {
-        if (error) {
-          console.error('SignalR disconnected with error:', error);
-        }
-      },
-      onReconnecting: (error) => {
-        console.warn('SignalR reconnecting...', error);
-      }
-    });
-
-    await startConnection();
-  });
-
-  onDestroy(() => {
-    // Unsubscribe from events but keep the connection alive for other pages
-    if (unsubscribe) {
-      unsubscribe();
-    }
-  });
-
+  // Container Mutations
+  // Note: The SignalR-Query bridge handles cache invalidation automatically
   const startMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.start(id),
-    onSuccess: () => {
-      toast.success($t('containers.startSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['containers'] });
-    },
+    onSuccess: () => toast.success($t('containers.startSuccess')),
     onError: (error: any) => {
       toast.error(error.response?.data?.message || $t('containers.startFailed'));
     },
@@ -115,10 +54,7 @@
 
   const stopMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.stop(id),
-    onSuccess: () => {
-      toast.success($t('containers.stopSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['containers'] });
-    },
+    onSuccess: () => toast.success($t('containers.stopSuccess')),
     onError: (error: any) => {
       toast.error(error.response?.data?.message || $t('containers.stopFailed'));
     },
@@ -126,10 +62,7 @@
 
   const restartMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.restart(id),
-    onSuccess: () => {
-      toast.success($t('containers.restartSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['containers'] });
-    },
+    onSuccess: () => toast.success($t('containers.restartSuccess')),
     onError: (error: any) => {
       toast.error(error.response?.data?.message || $t('containers.restartFailed'));
     },
@@ -139,7 +72,6 @@
     mutationFn: ({ id, force }: { id: string; force: boolean }) => containersApi.remove(id, force),
     onSuccess: () => {
       toast.success($t('containers.removeSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['containers'] });
       confirmDialog = { open: false, containerId: '', containerName: '', isRunning: false };
     },
     onError: (error: any) => {
