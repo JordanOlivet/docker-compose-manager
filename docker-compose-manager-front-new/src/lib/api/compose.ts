@@ -162,8 +162,16 @@ export const composeApi = {
   // Compose Projects API
 
   // List all compose projects
-  listProjects: async (): Promise<ComposeProject[]> => {
-    const response = await apiClient.get<ApiResponseWrapper<ComposeProject[]>>('/compose/projects');
+  // @param options.refreshState - If true, only invalidates Docker state cache (fast, for container state changes)
+  // @param options.refresh - If true, invalidates both caches including file discovery (slow, for file changes)
+  listProjects: async (options?: { refreshState?: boolean; refresh?: boolean }): Promise<ComposeProject[]> => {
+    const params: Record<string, string> = {};
+    if (options?.refreshState) params.refreshState = 'true';
+    if (options?.refresh) params.refresh = 'true';
+    const response = await apiClient.get<ApiResponseWrapper<ComposeProject[]>>(
+      '/compose/projects',
+      Object.keys(params).length > 0 ? { params } : undefined
+    );
     return response.data.data || [];
   },
 

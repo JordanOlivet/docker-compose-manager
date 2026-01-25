@@ -195,7 +195,11 @@ export async function stopGlobalConnection(): Promise<void> {
  */
 export function onContainerStateChanged(callback: (event: ContainerStateChangedEvent) => void): () => void {
   containerCallbacks.add(callback);
-  return () => containerCallbacks.delete(callback);
+  console.log('[SignalR Store] Container callback registered, total:', containerCallbacks.size);
+  return () => {
+    containerCallbacks.delete(callback);
+    console.log('[SignalR Store] Container callback unregistered, total:', containerCallbacks.size);
+  };
 }
 
 /**
@@ -203,7 +207,11 @@ export function onContainerStateChanged(callback: (event: ContainerStateChangedE
  */
 export function onComposeProjectStateChanged(callback: (event: ComposeProjectStateChangedEvent) => void): () => void {
   composeProjectCallbacks.add(callback);
-  return () => composeProjectCallbacks.delete(callback);
+  console.log('[SignalR Store] Compose callback registered, total:', composeProjectCallbacks.size);
+  return () => {
+    composeProjectCallbacks.delete(callback);
+    console.log('[SignalR Store] Compose callback unregistered, total:', composeProjectCallbacks.size);
+  };
 }
 
 /**
@@ -211,7 +219,11 @@ export function onComposeProjectStateChanged(callback: (event: ComposeProjectSta
  */
 export function onOperationUpdate(callback: (event: OperationUpdateEvent) => void): () => void {
   operationCallbacks.add(callback);
-  return () => operationCallbacks.delete(callback);
+  console.log('[SignalR Store] Operation callback registered, total:', operationCallbacks.size);
+  return () => {
+    operationCallbacks.delete(callback);
+    console.log('[SignalR Store] Operation callback unregistered, total:', operationCallbacks.size);
+  };
 }
 
 /**
@@ -219,7 +231,11 @@ export function onOperationUpdate(callback: (event: OperationUpdateEvent) => voi
  */
 export function onReconnected(callback: () => void): () => void {
   reconnectedCallbacks.add(callback);
-  return () => reconnectedCallbacks.delete(callback);
+  console.log('[SignalR Store] Reconnected callback registered, total:', reconnectedCallbacks.size);
+  return () => {
+    reconnectedCallbacks.delete(callback);
+    console.log('[SignalR Store] Reconnected callback unregistered, total:', reconnectedCallbacks.size);
+  };
 }
 
 /**

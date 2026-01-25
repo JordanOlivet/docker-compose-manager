@@ -5,13 +5,14 @@
 	import { authApi } from '$lib/api';
 	import { initializeGlobalConnection, stopGlobalConnection } from '$lib/stores/signalr.svelte';
 	import { setupSignalRQueryBridge } from '$lib/services/signalrQueryBridge';
-	import { useQueryClient } from '@tanstack/svelte-query';
+	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
 	let isLoading = $state(true);
 	let cleanupBridge: (() => void) | null = null;
 
-	const queryClient = useQueryClient();
+	// Use the singleton QueryClient - same instance used by all components
+	const queryClient = getQueryClient();
 
 	onMount(async () => {
 		// Si on a un token mais pas d'utilisateur, récupérer les infos utilisateur

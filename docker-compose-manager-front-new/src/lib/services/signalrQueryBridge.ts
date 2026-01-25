@@ -8,47 +8,110 @@ import {
   type ComposeProjectStateChangedEvent,
 } from '$lib/stores/signalr.svelte';
 import type { OperationUpdateEvent } from '$lib/types';
+import { composeApi } from '$lib/api/compose';
 
 // Configuration
-const DEBOUNCE_DELAY_MS = 500;
+const DEBOUNCE_DELAY_MS = 50; // Minimal debounce to batch truly simultaneous events
 const DEDUPE_WINDOW_MS = 1000;
+
+// Events that indicate actual state changes (not just signals)
+// - 'start': container started
+// - 'die': container stopped/crashed
+// - 'create': container created
+// - 'destroy': container removed
+// - 'pause'/'unpause': container paused/resumed
+// Ignored events: 'kill', 'stop' (signals, not state changes)
+const STATE_CHANGING_EVENTS = new Set([
+  'start', 'die', 'create', 'destroy', 'pause', 'unpause', 'restart'
+]);
 
 // Track recent compose events to avoid double invalidation
 // Key: `${containerId}-${action}`, Value: timestamp
 const recentComposeEvents = new Map<string, number>();
 
 /**
- * Creates a debounced invalidation function
+ * Refetches queries by key, bypassing backend cache for compose projects
  */
-function createDebouncedInvalidator(
+async function refetchQueries(queryClient: QueryClient, queryKeys: string[][]): Promise<void> {
+  const queryCache = queryClient.getQueryCache();
+
+  for (const queryKey of queryKeys) {
+    try {
+      const matchingQueries = queryCache.findAll({ queryKey });
+      if (matchingQueries.length === 0) continue;
+
+      for (const query of matchingQueries) {
+        let freshData;
+        const keyStr = JSON.stringify(query.queryKey);
+
+        if (keyStr === '["compose","projects"]') {
+          // For compose projects, use refreshState=true to only invalidate Docker cache (fast)
+          // This skips the slow filesystem scan for compose files
+          freshData = await composeApi.listProjects({ refreshState: true });
+        } else {
+          // For other queries, use the queryFn
+          const queryFn = query.options.queryFn;
+          if (!queryFn) continue;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          freshData = await (queryFn as any)({ queryKey: query.queryKey });
+        }
+
+        queryClient.setQueryData(query.queryKey, freshData);
+        console.log(`[Bridge] Refreshed ${keyStr}`);
+      }
+    } catch (error) {
+      console.error(`[Bridge] Failed to refetch ${JSON.stringify(queryKey)}:`, error);
+    }
+  }
+}
+
+/**
+ * Creates a "leading edge" debounced refetcher:
+ * - First event: executes IMMEDIATELY (no delay)
+ * - Subsequent events within window: batched and executed after delay
+ *
+ * This gives instant response for single operations while still
+ * batching bulk operations (e.g., docker-compose down with 5 services)
+ */
+function createDebouncedRefetcher(
   queryClient: QueryClient,
   delayMs: number
 ): (queryKeys: string[][]) => void {
   let pendingKeys: Set<string> = new Set();
   let timeout: ReturnType<typeof setTimeout> | null = null;
+  let isExecuting = false;
 
   return (queryKeys: string[][]) => {
     // Add all keys to pending set
     queryKeys.forEach(key => pendingKeys.add(JSON.stringify(key)));
 
-    // Clear existing timeout
-    if (timeout) {
-      clearTimeout(timeout);
+    // If already executing or scheduled, let the existing flow handle it
+    if (timeout || isExecuting) {
+      return;
     }
 
-    // Schedule invalidation
-    timeout = setTimeout(async () => {
-      const keysToInvalidate = Array.from(pendingKeys).map(k => JSON.parse(k));
+    // Execute immediately (leading edge)
+    const executeNow = async () => {
+      isExecuting = true;
+      const keysToRefetch = Array.from(pendingKeys).map(k => JSON.parse(k));
       pendingKeys.clear();
-      timeout = null;
 
-      console.log('[Bridge] Invalidating queries:', keysToInvalidate);
+      await refetchQueries(queryClient, keysToRefetch);
 
-      // Invalidate all pending queries
-      for (const queryKey of keysToInvalidate) {
-        await queryClient.invalidateQueries({ queryKey });
-      }
-    }, delayMs);
+      // After execution, wait a bit before allowing next immediate execution
+      // This batches rapid subsequent events
+      timeout = setTimeout(() => {
+        timeout = null;
+        isExecuting = false;
+
+        // If more events accumulated during execution, process them
+        if (pendingKeys.size > 0) {
+          executeNow();
+        }
+      }, delayMs);
+    };
+
+    executeNow();
   };
 }
 
@@ -99,22 +162,32 @@ function markHandledViaCompose(containerId: string, action: string): void {
  * @returns Cleanup function to remove all subscriptions
  */
 export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
-  const scheduleInvalidation = createDebouncedInvalidator(queryClient, DEBOUNCE_DELAY_MS);
+  console.log('[Bridge] Setting up SignalR-Query bridge');
+  console.log('[Bridge] QueryClient instance:', queryClient);
+
+  const scheduleRefetch = createDebouncedRefetcher(queryClient, DEBOUNCE_DELAY_MS);
   const unsubscribers: (() => void)[] = [];
 
   // Handle ComposeProjectStateChanged events
   // These events are specific to compose projects and should trigger compose-related invalidations
   const unsubComposeProject = onComposeProjectStateChanged((event: ComposeProjectStateChangedEvent) => {
-    console.log(`[Bridge] Compose event: ${event.projectName} - ${event.action}`);
+    const action = event.action.toLowerCase();
+
+    // Only react to state-changing events, ignore signals like 'kill', 'stop'
+    if (!STATE_CHANGING_EVENTS.has(action)) {
+      console.log(`[Bridge] Ignoring compose event (not state-changing): ${event.projectName} - ${event.action}`);
+      return;
+    }
+
+    console.log(`[Bridge] Compose event (state-changing): ${event.projectName} - ${event.action}`);
 
     // Mark this container+action as handled via compose to prevent double invalidation
     markHandledViaCompose(event.containerId, event.action);
 
     // Invalidate compose-related queries
-    scheduleInvalidation([
+    scheduleRefetch([
       ['compose', 'projects'],
       ['compose', 'project', event.projectName],
-      ['dashboard'], // Dashboard might show compose stats
     ]);
   });
   unsubscribers.push(unsubComposeProject);
@@ -122,21 +195,28 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
   // Handle ContainerStateChanged events
   // These are more general container events that might not be compose-related
   const unsubContainer = onContainerStateChanged((event: ContainerStateChangedEvent) => {
+    const action = event.action.toLowerCase();
+
+    // Only react to state-changing events, ignore signals like 'kill', 'stop'
+    if (!STATE_CHANGING_EVENTS.has(action)) {
+      console.log(`[Bridge] Ignoring container event (not state-changing): ${event.containerName} - ${event.action}`);
+      return;
+    }
+
     // Check if this was already handled via compose event
     if (wasRecentlyHandledViaCompose(event.containerId, event.action)) {
       console.log(`[Bridge] Skipping container event (already handled via compose): ${event.containerName} - ${event.action}`);
       return;
     }
 
-    console.log(`[Bridge] Container event: ${event.containerName} - ${event.action}`);
+    console.log(`[Bridge] Container event (state-changing): ${event.containerName} - ${event.action}`);
 
     // Invalidate container-related queries
     // Also invalidate compose queries since standalone container changes might affect project states
-    scheduleInvalidation([
+    scheduleRefetch([
       ['containers'],
       ['container', event.containerId],
       ['compose', 'projects'], // Compose projects might be affected
-      ['dashboard'], // Dashboard shows container stats
     ]);
   });
   unsubscribers.push(unsubContainer);
@@ -170,7 +250,7 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
     queriesToInvalidate.push(['dashboard']);
 
     if (queriesToInvalidate.length > 0) {
-      scheduleInvalidation(queriesToInvalidate);
+      scheduleRefetch(queriesToInvalidate);
     }
   });
   unsubscribers.push(unsubOperation);
@@ -179,11 +259,10 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
   const unsubReconnected = onReconnected(() => {
     console.log('[Bridge] Reconnected - refreshing all data immediately');
 
-    // Clear any pending debounced invalidations and refresh everything now
-    // Don't use debouncing here - we want immediate refresh after reconnection
-    queryClient.invalidateQueries({ queryKey: ['containers'] });
-    queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    // Force refetch all queries
+    queryClient.refetchQueries({ queryKey: ['containers'], exact: false });
+    queryClient.refetchQueries({ queryKey: ['compose'], exact: false });
+    queryClient.refetchQueries({ queryKey: ['dashboard'], exact: false });
   });
   unsubscribers.push(unsubReconnected);
 

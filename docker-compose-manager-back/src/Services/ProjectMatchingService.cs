@@ -53,11 +53,11 @@ public class ProjectMatchingService : IProjectMatchingService
                     file.FilePath
                 );
 
-                var enrichedProject = project with
-                {
-                    ComposeFilePath = file.FilePath,
-                    HasComposeFile = true,
-                    Services = file.Services.Select(serviceName => new ComposeServiceDto(
+                // Keep the original services from Docker (they have real container IDs)
+                // Only use synthetic services if no Docker services exist
+                var services = project.Services.Count > 0
+                    ? project.Services
+                    : file.Services.Select(serviceName => new ComposeServiceDto(
                         Id: $"{project.Name}_{serviceName}",
                         Name: serviceName,
                         Image: null,
@@ -65,7 +65,13 @@ public class ProjectMatchingService : IProjectMatchingService
                         Status: string.Empty,
                         Ports: new List<string>(),
                         Health: null
-                    )).ToList(),
+                    )).ToList();
+
+                var enrichedProject = project with
+                {
+                    ComposeFilePath = file.FilePath,
+                    HasComposeFile = true,
+                    Services = services,
                     AvailableActions = ComputeAvailableActions(true, project.State)
                 };
 

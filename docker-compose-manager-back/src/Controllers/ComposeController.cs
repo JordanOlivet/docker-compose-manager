@@ -391,7 +391,9 @@ public class ComposeController : BaseController
     /// - Enriched with file paths, available actions, and warnings
     /// </remarks>
     [HttpGet("projects")]
-    public async Task<ActionResult<ApiResponse<List<ComposeProjectDto>>>> ListProjects([FromQuery] bool refresh = false)
+    public async Task<ActionResult<ApiResponse<List<ComposeProjectDto>>>> ListProjects(
+        [FromQuery] bool refresh = false,
+        [FromQuery] bool refreshState = false)
     {
         try
         {
@@ -402,11 +404,17 @@ public class ComposeController : BaseController
                 return Unauthorized(ApiResponse.Fail<List<ComposeProjectDto>>("User not authenticated"));
             }
 
-            // Invalidate cache if refresh requested
+            // Invalidate caches based on refresh type:
+            // - refresh: invalidate both caches (use when files might have changed)
+            // - refreshState: only invalidate Docker cache (use for container state changes - much faster)
             if (refresh)
             {
-                _cacheService.Invalidate();
-                _discoveryService.InvalidateCache();
+                _cacheService.Invalidate();  // Compose file cache (triggers slow filesystem scan)
+                _discoveryService.InvalidateCache();  // Docker projects cache
+            }
+            else if (refreshState)
+            {
+                _discoveryService.InvalidateCache();  // Only Docker projects cache (fast)
             }
 
             // Get unified project list from matching service (includes permission filtering)

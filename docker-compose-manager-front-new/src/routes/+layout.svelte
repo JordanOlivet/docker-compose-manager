@@ -1,20 +1,13 @@
 <script lang="ts">
 	import '../app.css';
-	import { QueryClientProvider, QueryClient } from '@tanstack/svelte-query';
+	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { Toaster } from 'svelte-sonner';
+	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
 
-	const queryClient = new QueryClient({
-		defaultOptions: {
-			queries: {
-				staleTime: 1000 * 60 * 5, // 5 minutes
-				gcTime: 1000 * 60 * 30, // 30 minutes
-				retry: 1,
-				refetchOnWindowFocus: false,
-			},
-		},
-	});
+	// Use singleton QueryClient instance
+	const queryClient = getQueryClient();
 
 	// No need for theme initialization - theme.svelte.ts handles it automatically
 </script>
