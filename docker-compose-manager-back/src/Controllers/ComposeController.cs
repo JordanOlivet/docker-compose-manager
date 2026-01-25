@@ -638,9 +638,10 @@ public class ComposeController : BaseController
                 request?.Build ?? false
             );
 
-            // Invalidate cache
-            _discoveryService.InvalidateCache();
-            _cacheService.Invalidate();
+            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // and compose files themselves haven't changed
+            // _discoveryService.InvalidateCache();
+            // _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -717,9 +718,10 @@ public class ComposeController : BaseController
                 request?.RemoveVolumes ?? false
             );
 
-            // Invalidate cache
-            _discoveryService.InvalidateCache();
-            _cacheService.Invalidate();
+            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // and compose files themselves haven't changed
+            // _discoveryService.InvalidateCache();
+            // _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1343,8 +1345,9 @@ volumes:
             }
 
             OperationResult result = await _operationService.StartAsync(projectName);
-            _discoveryService.InvalidateCache();
-            _cacheService.Invalidate();
+            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // _discoveryService.InvalidateCache();
+            // _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1404,8 +1407,9 @@ volumes:
             }
 
             OperationResult result = await _operationService.StopAsync(projectName);
-            _discoveryService.InvalidateCache();
-            _cacheService.Invalidate();
+            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // _discoveryService.InvalidateCache();
+            // _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1465,8 +1469,9 @@ volumes:
             }
 
             OperationResult result = await _operationService.RestartAsync(projectName);
-            _discoveryService.InvalidateCache();
-            _cacheService.Invalidate();
+            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // _discoveryService.InvalidateCache();
+            // _cacheService.Invalidate();
 
             await _auditService.LogActionAsync(
                 userId.Value,

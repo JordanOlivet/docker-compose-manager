@@ -56,6 +56,31 @@ public class ComposeFileScanner : IComposeFileScanner
         return await ValidateAndParseComposeFile(filePath);
     }
 
+    // Directories to skip during scanning (common dependency/build folders)
+    private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "node_modules",
+        ".git",
+        ".svn",
+        ".hg",
+        "vendor",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "bin",
+        "obj",
+        ".vs",
+        ".idea",
+        "packages",
+        "target",
+        "dist",
+        "build",
+        ".next",
+        ".nuxt",
+        "coverage",
+        ".cache"
+    };
+
     /// <summary>
     /// Recursively scans directories for compose files up to the configured depth limit
     /// </summary>
@@ -72,14 +97,15 @@ public class ComposeFileScanner : IComposeFileScanner
 
         try
         {
-            // Scan ALL .yml and .yaml files at the current level
-            // Note: On Linux, extensions are case-sensitive (.yml != .YML)
-            // Use Distinct() to avoid duplicates on case-insensitive file systems (Windows)
-            var ymlFiles = Directory.GetFiles(rootPath, "*.yml")
-                .Concat(Directory.GetFiles(rootPath, "*.yaml"))
-                .Concat(Directory.GetFiles(rootPath, "*.YML"))
-                .Concat(Directory.GetFiles(rootPath, "*.YAML"))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
+            // Use EnumerateFiles for better performance (streaming instead of loading all at once)
+            // Single enumeration with filter instead of 4 separate GetFiles calls
+            var ymlFiles = Directory.EnumerateFiles(rootPath)
+                .Where(f =>
+                {
+                    var ext = Path.GetExtension(f);
+                    return ext.Equals(".yml", StringComparison.OrdinalIgnoreCase) ||
+                           ext.Equals(".yaml", StringComparison.OrdinalIgnoreCase);
+                });
 
             foreach (var filePath in ymlFiles)
             {
@@ -90,9 +116,18 @@ public class ComposeFileScanner : IComposeFileScanner
                 }
             }
 
-            // Recursively scan subdirectories
-            foreach (var directory in Directory.GetDirectories(rootPath))
+            // Recursively scan subdirectories, excluding common dependency folders
+            foreach (var directory in Directory.EnumerateDirectories(rootPath))
             {
+                var dirName = Path.GetFileName(directory);
+
+                // Skip excluded directories
+                if (ExcludedDirectories.Contains(dirName))
+                {
+                    _logger.LogDebug("Skipping excluded directory: {Path}", directory);
+                    continue;
+                }
+
                 var subFiles = await ScanComposeFilesRecursive(directory, currentDepth + 1);
                 discoveredFiles.AddRange(subFiles);
             }

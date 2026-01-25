@@ -1,3 +1,4 @@
+using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Filters;
 using docker_compose_manager_back.Hubs;
@@ -196,9 +197,9 @@ builder.Services.AddControllers(options =>
     options.Filters.Add<ValidateModelStateFilter>();
 });
 
-// Add Swagger/OpenAPI
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+//// Add Swagger/OpenAPI
+//builder.Services.AddEndpointsApiExplorer();
+//builder.Services.AddSwaggerGen();
 
 WebApplication app = builder.Build();
 
@@ -231,7 +232,7 @@ using (IServiceScope scope = app.Services.CreateScope())
 }
 
 // Ensure compose files directory exists
-var composeOptions = app.Services.GetRequiredService<IOptions<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>>();
+IOptions<ComposeDiscoveryOptions> composeOptions = app.Services.GetRequiredService<IOptions<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>>();
 string rootPath = composeOptions.Value.RootPath;
 
 if (!Directory.Exists(rootPath))
@@ -256,8 +257,8 @@ else
 // Configure middleware pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    //app.UseSwagger();
+    //app.UseSwaggerUI();
 }
 
 // Add Error Handling Middleware first

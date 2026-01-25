@@ -41,7 +41,7 @@
     refetchInterval: false, // SignalR handles real-time updates
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnReconnect: false, // Don't refetch on reconnect
-    staleTime: 60000, // Consider data fresh for 1 minute to avoid excessive refetches
+    staleTime: 0, // Always consider data stale so invalidation triggers immediate refetch
   }));
 
   // Setup SignalR connection for real-time compose project updates
@@ -50,13 +50,24 @@
 
   // Debounced invalidation to avoid excessive refetches when multiple events arrive quickly
   function invalidateProjects() {
+    console.log('🔄 invalidateProjects() called - scheduling invalidation in 500ms');
     if (invalidateTimeout) {
       clearTimeout(invalidateTimeout);
+      console.log('⏱️ Clearing previous timeout');
     }
-    invalidateTimeout = setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+    invalidateTimeout = setTimeout(async () => {
+      console.log('🚀 Refetching projects after state change');
+
+      // Fetch new data
+      const newData = await composeApi.listProjects();
+      console.log('✅ New data fetched:', newData.length, 'projects');
+
+      // Force update by setting data directly
+      queryClient.setQueryData(['compose', 'projects'], newData);
+      console.log('✅ Query data updated');
+
       invalidateTimeout = null;
-    }, 500); // Wait 500ms after the last event before invalidating
+    }, 500); // Wait 500ms to let Docker propagate state changes
   }
 
   onMount(async () => {
@@ -122,8 +133,9 @@
   const upMutation = createMutation(() => ({
     mutationFn: ({ projectName, forceRecreate }: { projectName: string; forceRecreate?: boolean }) =>
       composeApi.upProject(projectName, { detach: true, forceRecreate }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+    onSuccess: async () => {
+      const newData = await composeApi.listProjects();
+      queryClient.setQueryData(['compose', 'projects'], newData);
       toast.success($t('compose.upSuccess'));
     },
     onError: () => toast.error($t('compose.failedToLoad')),
@@ -131,8 +143,9 @@
 
   const downMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.downProject(projectName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+    onSuccess: async () => {
+      const newData = await composeApi.listProjects();
+      queryClient.setQueryData(['compose', 'projects'], newData);
       toast.success($t('compose.downSuccess'));
     },
     onError: () => toast.error($t('compose.failedToLoad')),
@@ -140,8 +153,9 @@
 
   const restartMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.restartProject(projectName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+    onSuccess: async () => {
+      const newData = await composeApi.listProjects();
+      queryClient.setQueryData(['compose', 'projects'], newData);
       toast.success($t('compose.restartSuccess'));
     },
     onError: () => toast.error($t('compose.failedToLoad')),
@@ -149,8 +163,9 @@
 
   const stopMutation = createMutation(() => ({
     mutationFn: (projectName: string) => composeApi.stopProject(projectName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+    onSuccess: async () => {
+      const newData = await composeApi.listProjects();
+      queryClient.setQueryData(['compose', 'projects'], newData);
       toast.success($t('compose.stopSuccess'));
     },
     onError: () => toast.error($t('compose.failedToLoad')),

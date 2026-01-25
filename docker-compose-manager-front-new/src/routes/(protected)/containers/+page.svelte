@@ -9,8 +9,9 @@
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { EntityState, type OperationUpdateEvent } from '$lib/types';
-  import { createSignalRConnection, type ContainerStateChangedEvent } from '$lib/services/signalr';
+  import { createSignalRConnection, startConnection, type ContainerStateChangedEvent } from '$lib/services/signalr';
   import { debounce } from '$lib/utils/debounce';
+  import { onMount, onDestroy } from 'svelte';
 
   // Grouped filter state
   type SortKey = 'name' | 'image' | 'state' | 'status';
@@ -39,18 +40,24 @@
     refetchInterval: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    staleTime: 60000,
+    staleTime: 0, // Always consider data stale so invalidation triggers immediate refetch
   }));
 
-  // Debounced invalidation - using utility function
+  // Debounced invalidation - using utility function with refetch
   const invalidateContainers = debounce(
-    () => queryClient.invalidateQueries({ queryKey: ['containers'] }),
+    async () => {
+      console.log('🚀 Refetching containers after state change');
+      await queryClient.refetchQueries({ queryKey: ['containers'] });
+      console.log('✅ Containers refetched');
+    },
     500
   );
 
-  // Setup SignalR connection for real-time container updates using $effect
-  $effect(() => {
-    const unsubscribe = createSignalRConnection({
+  // Setup SignalR connection for real-time container updates
+  let unsubscribe: (() => void) | null = null;
+
+  onMount(async () => {
+    unsubscribe = createSignalRConnection({
       onOperationUpdate: (update: OperationUpdateEvent) => {
         // Listen for container-related operations that are completed or failed
         const statusMatch = update.status === 'completed' || update.status === 'failed';
@@ -85,8 +92,14 @@
       }
     });
 
-    // Cleanup function - Svelte automatically calls this
-    return () => unsubscribe?.();
+    await startConnection();
+  });
+
+  onDestroy(() => {
+    // Unsubscribe from events but keep the connection alive for other pages
+    if (unsubscribe) {
+      unsubscribe();
+    }
   });
 
   const startMutation = createMutation(() => ({

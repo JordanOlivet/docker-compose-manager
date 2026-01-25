@@ -67,7 +67,13 @@ function initializeConnection() {
 
   connection = new signalR.HubConnectionBuilder()
     .withUrl(hubUrl, {
-      accessTokenFactory: () => localStorage.getItem('accessToken') || '',
+      accessTokenFactory: () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          console.warn('SignalR: No access token found in localStorage. Connection may be rejected by server.');
+        }
+        return token || '';
+      },
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .configureLogging(signalR.LogLevel.Warning)
@@ -221,7 +227,13 @@ async function initializeLogsConnection() {
 
   logsConnection = new signalR.HubConnectionBuilder()
     .withUrl(hubUrl, {
-      accessTokenFactory: () => localStorage.getItem('accessToken') || '',
+      accessTokenFactory: () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          console.warn('SignalR Logs: No access token found in localStorage. Connection may be rejected by server.');
+        }
+        return token || '';
+      },
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .configureLogging(signalR.LogLevel.Warning)
