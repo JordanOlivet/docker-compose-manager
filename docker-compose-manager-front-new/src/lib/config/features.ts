@@ -8,10 +8,13 @@
  * auto-discovered via `docker compose ls`.
  *
  * COMPOSE_TEMPLATES: Template creation depends on file editing, so it's also disabled.
+ *
+ * COMPOSE_LOGS: Project logs viewing is temporarily disabled until the feature is operational.
  */
 export const FEATURES = {
   COMPOSE_FILE_EDITING: false,
   COMPOSE_TEMPLATES: false,
+  COMPOSE_LOGS: false,
 } as const;
 
 export type FeatureFlags = typeof FEATURES;

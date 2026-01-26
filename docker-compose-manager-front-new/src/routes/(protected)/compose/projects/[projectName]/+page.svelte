@@ -18,6 +18,7 @@
 	import ProjectStatsCard from '$lib/components/compose/ProjectStatsCard.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
 	import { t } from '$lib/i18n';
+	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
 
 	const projectName = $derived(
@@ -389,12 +390,12 @@
 		</div>
 
 		<!-- Row 3: Logs (full width, resizable) -->
-		<div class="w-full">
-			{#if project.path}
+		{#if FEATURES.COMPOSE_LOGS && project.path}
+			<div class="w-full">
 				<div class="h-[500px] resize-y overflow-auto min-h-[500px] max-h-[1000px]">
 					<ComposeLogs projectPath={project.path} {projectName} />
 				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/if}
 </div>
