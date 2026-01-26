@@ -215,6 +215,8 @@ const fr = {
     noProjectsMessage: 'Créez un fichier compose pour commencer',
     noFiles: 'Aucun fichier Compose trouvé',
     noFilesMessage: 'Ajoutez un chemin compose dans les paramètres pour commencer',
+    noServices: 'Aucun service défini dans ce projet',
+    noComposeFile: 'Aucun fichier compose trouvé pour ce projet. Les opérations sur fichier ne sont pas disponibles.',
     projectNotFound: 'Projet introuvable',
     projectNotFoundMessage: 'Le projet demandé n\'a pas pu être trouvé',
     failedToLoad: 'Échec du chargement des projets compose',

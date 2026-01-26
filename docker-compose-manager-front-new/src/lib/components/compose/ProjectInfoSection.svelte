@@ -2,7 +2,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { goto } from '$app/navigation';
 	import { composeApi } from '$lib/api';
-	import { Edit, Network, HardDrive, Tag, Variable } from 'lucide-svelte';
+	import { Edit, Network, HardDrive, Tag, Variable, FileWarning } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
 	import type { ServiceDetails, NetworkDetails, VolumeDetails } from '$lib/types';
@@ -10,13 +10,16 @@
 	interface Props {
 		projectName: string;
 		projectPath?: string;
+		hasComposeFile?: boolean;
 	}
 
-	let { projectName, projectPath }: Props = $props();
+	let { projectName, projectPath, hasComposeFile = true }: Props = $props();
 
+	// Only fetch parsed details if we have a compose file
 	const parsedDetailsQuery = createQuery(() => ({
 		queryKey: ['projectParsedDetails', projectName],
-		queryFn: () => composeApi.getProjectParsedDetails(projectName)
+		queryFn: () => composeApi.getProjectParsedDetails(projectName),
+		enabled: hasComposeFile
 	}));
 
 	async function handleEditFile() {
@@ -31,7 +34,21 @@
 
 </script>
 
-{#if parsedDetailsQuery.isLoading}
+{#if !hasComposeFile}
+	<div
+		class="bg-white dark:bg-gray-800 rounded-2xl border border-amber-200 dark:border-amber-700 shadow-lg p-6"
+	>
+		<div class="flex items-center gap-3">
+			<FileWarning class="h-6 w-6 text-amber-500 dark:text-amber-400" />
+			<div>
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Compose File Details</h3>
+				<p class="text-sm text-amber-600 dark:text-amber-400 mt-1">
+					{$t('compose.noComposeFile')}
+				</p>
+			</div>
+		</div>
+	</div>
+{:else if parsedDetailsQuery.isLoading}
 	<div
 		class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg p-6"
 	>

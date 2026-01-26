@@ -215,6 +215,8 @@ export default {
     noProjectsMessage: 'Create a compose file to get started',
     noFiles: 'No compose files found',
     noFilesMessage: 'Add a compose path in settings to get started',
+    noServices: 'No services defined in this project',
+    noComposeFile: 'No compose file found for this project. File operations are not available.',
     projectNotFound: 'Project not found',
     projectNotFoundMessage: 'The requested project could not be found',
     failedToLoad: 'Failed to load compose projects',

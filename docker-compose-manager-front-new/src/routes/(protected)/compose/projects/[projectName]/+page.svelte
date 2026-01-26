@@ -182,29 +182,54 @@
 			<div
 				class="bg-white dark:bg-gray-800 px-6 py-4 rounded-t-2xl border-b border-gray-200 dark:border-gray-700"
 			>
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-4">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+					<div class="flex items-center justify-between">
+					<div class="flex items-center gap-4 min-w-0 flex-1">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex-shrink-0">
 							{project.name}
 						</h3>
 						<StateBadge class={getStateColor(project.state)} status={project.state} />
+						<!-- Compose file path and warning inline -->
+						{#if project.composeFilePath}
+							<span class="text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:inline" title={project.composeFilePath}>
+								{project.composeFilePath}
+							</span>
+						{/if}
+						{#if project.warning}
+							<span class="flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400 flex-shrink-0" title={project.warning}>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+								</svg>
+								<span class="hidden md:inline">{project.warning}</span>
+							</span>
+						{/if}
 					</div>
-					<div class="flex gap-2">
+					<div class="flex gap-2 flex-shrink-0">
 						{#if project.state === 'Down' || project.state === 'Stopped' || project.state === 'Exited' || project.state === 'Degraded' || project.state === 'Created'}
-							<button
-								onclick={() => upMutation.mutate({ detach: true })}
-								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.start')}
-							>
-								<Play class="w-4 h-4" />
-							</button>
-							<button
-								onclick={() => upMutation.mutate({ detach: true, forceRecreate: true })}
-								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-								title={$t('compose.forceRecreate')}
-							>
-								<Zap class="w-4 h-4" />
-							</button>
+							{#if project.availableActions?.up}
+								<button
+									onclick={() => upMutation.mutate({ detach: true })}
+									class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+									title={$t('containers.start')}
+								>
+									<Play class="w-4 h-4" />
+								</button>
+								<button
+									onclick={() => upMutation.mutate({ detach: true, forceRecreate: true })}
+									class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+									title={$t('compose.forceRecreate')}
+								>
+									<Zap class="w-4 h-4" />
+								</button>
+							{:else if project.availableActions?.start}
+								<!-- No compose file but can use start (uses -p flag) -->
+								<button
+									onclick={() => restartMutation.mutate()}
+									class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+									title={$t('containers.start')}
+								>
+									<Play class="w-4 h-4" />
+								</button>
+							{/if}
 						{/if}
 						{#if project.state === 'Running' || project.state === 'Degraded'}
 							<button
@@ -232,11 +257,6 @@
 							</button>
 						{/if}
 					</div>
-				</div>
-				<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-					{#if project.path}
-						<span>{$t('compose.directoryPath')}: {project.path}</span>
-					{/if}
 				</div>
 			</div>
 
@@ -281,7 +301,7 @@
 						</thead>
 
 						<tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-							{#each project.services as service (service.name)}
+							{#each project.services as service (service.id)}
 								<tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
 									<td class="px-8 py-5 whitespace-nowrap">
 										<div class="text-sm font-medium text-gray-900 dark:text-white">
@@ -357,9 +377,8 @@
 			<div>
 				<ProjectInfoSection
 					{projectName}
-					projectPath={project.composeFiles && project.composeFiles.length > 0
-						? project.composeFiles[0]
-						: undefined}
+					projectPath={project.composeFilePath ?? undefined}
+					hasComposeFile={project.hasComposeFile ?? false}
 				/>
 			</div>
 

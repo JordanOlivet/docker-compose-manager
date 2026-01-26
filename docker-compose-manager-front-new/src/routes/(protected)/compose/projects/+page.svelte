@@ -248,16 +248,16 @@
             aria-expanded={isOpen}
           >
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
                 <!-- Collapse/expand chevron -->
                 <span
-                  class="inline-block transition-transform duration-150 ease-in-out text-gray-900 dark:text-white group-hover:text-blue-600 group-hover:dark:text-blue-400"
+                  class="inline-block transition-transform duration-150 ease-in-out text-gray-900 dark:text-white group-hover:text-blue-600 group-hover:dark:text-blue-400 flex-shrink-0"
                   class:rotate-90={isOpen}
                   aria-hidden="true"
                 >
                   <ChevronRight class="w-4 h-4" />
                 </span>
-                <h3 class="text-base font-semibold">
+                <h3 class="text-base font-semibold flex-shrink-0">
                   <button
                     class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                     onclick={(e) => {
@@ -269,27 +269,52 @@
                   </button>
                 </h3>
                 <StateBadge
-                  class="{getStateColor(project.state)} text-xs px-2 py-0.5"
+                  class="{getStateColor(project.state)} text-xs px-2 py-0.5 flex-shrink-0"
                   status={project.state}
                   size="sm"
                 />
+                <!-- Compose file path and warning inline -->
+                {#if project.composeFilePath}
+                  <span class="text-xs text-gray-500 dark:text-gray-400 truncate hidden sm:inline" title={project.composeFilePath}>
+                    {project.composeFilePath}
+                  </span>
+                {/if}
+                {#if project.warning}
+                  <span class="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 flex-shrink-0" title={project.warning}>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span class="hidden md:inline">{project.warning}</span>
+                  </span>
+                {/if}
               </div>
-              <div class="flex gap-1">
+              <div class="flex gap-1 flex-shrink-0">
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created}
-                  <button
-                    onclick={() => upMutation.mutate({ projectName: project.name })}
-                    class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                    title={$t('compose.up')}
-                  >
-                    <Play class="w-4 h-4" />
-                  </button>
-                  <button
-                    onclick={() => upMutation.mutate({ projectName: project.name, forceRecreate: true })}
-                    class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-                    title={$t('compose.forceRecreate')}
-                  >
-                    <Zap class="w-3 h-3" />
-                  </button>
+                  {#if project.availableActions?.up}
+                    <button
+                      onclick={() => upMutation.mutate({ projectName: project.name })}
+                      class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+                      title={$t('compose.up')}
+                    >
+                      <Play class="w-4 h-4" />
+                    </button>
+                    <button
+                      onclick={() => upMutation.mutate({ projectName: project.name, forceRecreate: true })}
+                      class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+                      title={$t('compose.forceRecreate')}
+                    >
+                      <Zap class="w-3 h-3" />
+                    </button>
+                  {:else if project.availableActions?.start}
+                    <!-- No compose file but can use start -->
+                    <button
+                      onclick={() => restartMutation.mutate(project.name)}
+                      class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+                      title={$t('containers.start')}
+                    >
+                      <Play class="w-4 h-4" />
+                    </button>
+                  {/if}
                 {/if}
                 {#if project.state === EntityState.Running || project.state === EntityState.Degraded}
                   <button
@@ -317,11 +342,6 @@
                   </button>
                 {/if}
               </div>
-            </div>
-            <div class="mt-1 text-xs text-gray-600 dark:text-gray-400">
-              {#if project.path}
-                <span>{$t('compose.directoryPath')}: {project.path}</span>
-              {/if}
             </div>
           </div>
 

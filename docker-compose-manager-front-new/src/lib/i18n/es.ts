@@ -215,6 +215,8 @@ const es = {
     noProjectsMessage: 'Cree un archivo compose para comenzar',
     noFiles: 'No se encontraron archivos Compose',
     noFilesMessage: 'Agregue una ruta compose en configuración para comenzar',
+    noServices: 'No hay servicios definidos en este proyecto',
+    noComposeFile: 'No se encontró archivo compose para este proyecto. Las operaciones de archivo no están disponibles.',
     projectNotFound: 'Proyecto no encontrado',
     projectNotFoundMessage: 'No se pudo encontrar el proyecto solicitado',
     failedToLoad: 'Error al cargar proyectos compose',

@@ -3,9 +3,11 @@ using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using YamlDotNet.Core;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -1020,8 +1022,10 @@ volumes:
                 return Unauthorized(ApiResponse.Fail<ComposeProjectDto>("User not authenticated"));
             }
 
-            // Get project from discovery service (includes permission check)
-            ComposeProjectDto? project = await _discoveryService.GetProjectByNameAsync(projectName, userId.Value);
+            // Get project from unified list (includes file path resolution, permissions, and enrichment)
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+            ComposeProjectDto? project = projects.FirstOrDefault(p =>
+                p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
             if (project == null)
             {
@@ -1046,188 +1050,197 @@ volumes:
         }
     }
 
-    ///// <summary>
-    ///// Get parsed compose file details with structured information (networks, volumes, env vars, labels, etc.)
-    ///// </summary>
-    //[HttpGet("projects/{projectName}/parsed")]
-    //public async Task<ActionResult<ApiResponse<ComposeFileDetailsDto>>> GetProjectParsedDetails(string projectName)
-    //{
-    //    try
-    //    {
-    //        // Find project path
-    //        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-    //        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
+    /// <summary>
+    /// Get parsed compose file details with structured information (networks, volumes, env vars, labels, etc.)
+    /// </summary>
+    [HttpGet("projects/{projectName}/parsed")]
+    public async Task<ActionResult<ApiResponse<ComposeFileDetailsDto>>> GetProjectParsedDetails(string projectName)
+    {
+        try
+        {
+            projectName = Uri.UnescapeDataString(projectName);
 
-    //        if (projectPath == null)
-    //        {
-    //            return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
-    //        }
+            // Check authentication
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ComposeFileDetailsDto>("User not authenticated"));
+            }
 
-    //        // Check View permission
-    //        int? userId = GetCurrentUserId();
-    //        if (!userId.HasValue)
-    //        {
-    //            return Unauthorized(ApiResponse.Fail<ComposeFileDetailsDto>("User not authenticated"));
-    //        }
+            // Check View permission
+            bool hasPermission = await _permissionService.HasPermissionAsync(
+                userId.Value,
+                ResourceType.ComposeProject,
+                projectName,
+                PermissionFlags.View);
 
-    //        bool hasPermission = await _permissionService.HasPermissionAsync(
-    //            userId.Value,
-    //            ResourceType.ComposeProject,
-    //            projectName,
-    //            PermissionFlags.View);
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeFileDetailsDto>(
+                    "You don't have permission to view this compose project",
+                    "PERMISSION_DENIED"));
+            }
 
-    //        if (!hasPermission)
-    //        {
-    //            return StatusCode(403, ApiResponse.Fail<ComposeFileDetailsDto>(
-    //                "You don't have permission to view this compose project",
-    //                "PERMISSION_DENIED"));
-    //        }
+            // Get project from unified list (includes file path resolution)
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+            ComposeProjectDto? project = projects.FirstOrDefault(p =>
+                p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
-    //        // Get primary compose file
-    //        string? composeFile = _composeService.GetPrimaryComposeFile(projectPath);
-    //        if (composeFile == null)
-    //        {
-    //            return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>("No compose file found in project", "FILE_NOT_FOUND"));
-    //        }
+            if (project == null)
+            {
+                return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>("Project not found", "PROJECT_NOT_FOUND"));
+            }
 
-    //        // Read file content
-    //        (bool success, string content, string error) = await _fileService.ReadFileAsync(composeFile);
-    //        if (!success || content == null)
-    //        {
-    //            // Fallback: if the failure is due to path not being within allowed compose paths,
-    //            // attempt an external read (project discovered via docker compose ls -a).
-    //            if (error == "File path is not within any allowed compose path" || error == "No compose paths are configured")
-    //            {
-    //                (success, content, error) = await _fileService.ReadFileExternalAsync(composeFile);
-    //            }
+            // Check if we have a compose file path
+            if (string.IsNullOrEmpty(project.ComposeFilePath))
+            {
+                return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>(
+                    "No compose file found for this project. The file may have been moved or deleted.",
+                    "FILE_NOT_FOUND"));
+            }
 
-    //            if (!success || content == null)
-    //            {
-    //                return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
-    //                    error ?? "Error reading compose file", "READ_ERROR"));
-    //            }
-    //        }
+            // Read file content directly from the resolved path
+            string composeFile = project.ComposeFilePath;
+            if (!System.IO.File.Exists(composeFile))
+            {
+                _logger.LogWarning("Compose file not found at path: {Path}", composeFile);
+                return NotFound(ApiResponse.Fail<ComposeFileDetailsDto>(
+                    $"Compose file not found at: {composeFile}",
+                    "FILE_NOT_FOUND"));
+            }
 
-    //        // Parse YAML
-    //        try
-    //        {
-    //            Dictionary<string, object>? composeData = YamlParserHelper.Deserialize(content);
+            string content;
+            try
+            {
+                content = await System.IO.File.ReadAllTextAsync(composeFile);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading compose file: {Path}", composeFile);
+                return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
+                    $"Error reading compose file: {ex.Message}", "READ_ERROR"));
+            }
 
-    //            if (composeData == null)
-    //            {
-    //                return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>("Invalid compose file format", "INVALID_FORMAT"));
-    //            }
+            // Parse YAML
+            try
+            {
+                Dictionary<string, object>? composeData = YamlParserHelper.Deserialize(content);
 
-    //            // Extract version
-    //            string? version = composeData.ContainsKey("version")
-    //                ? composeData["version"]?.ToString()
-    //                : null;
+                if (composeData == null)
+                {
+                    return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>("Invalid compose file format", "INVALID_FORMAT"));
+                }
 
-    //            // Extract services
-    //            Dictionary<string, ServiceDetailsDto> servicesDict = new();
-    //            if (composeData.ContainsKey("services") && composeData["services"] is Dictionary<object, object> services)
-    //            {
-    //                foreach (KeyValuePair<object, object> svcEntry in services)
-    //                {
-    //                    string serviceName = svcEntry.Key.ToString() ?? "unknown";
-    //                    Dictionary<object, object>? svcData = svcEntry.Value as Dictionary<object, object>;
+                // Extract version
+                string? version = composeData.ContainsKey("version")
+                    ? composeData["version"]?.ToString()
+                    : null;
 
-    //                    if (svcData != null)
-    //                    {
-    //                        servicesDict[serviceName] = new ServiceDetailsDto(
-    //                            Name: serviceName,
-    //                            Image: svcData.ContainsKey("image") ? svcData["image"]?.ToString() : null,
-    //                            Build: svcData.ContainsKey("build") ? svcData["build"]?.ToString() : null,
-    //                            Ports: YamlParserHelper.ExtractStringList(svcData, "ports"),
-    //                            Environment: YamlParserHelper.ExtractEnvironment(svcData),
-    //                            Labels: YamlParserHelper.ExtractStringDictionary(svcData, "labels"),
-    //                            Volumes: YamlParserHelper.ExtractStringList(svcData, "volumes"),
-    //                            DependsOn: YamlParserHelper.ExtractStringList(svcData, "depends_on"),
-    //                            Restart: svcData.ContainsKey("restart") ? svcData["restart"]?.ToString() : null,
-    //                            Networks: YamlParserHelper.ExtractStringDictionary(svcData, "networks")
-    //                        );
-    //                    }
-    //                }
-    //            }
+                // Extract services
+                Dictionary<string, ServiceDetailsDto> servicesDict = new();
+                if (composeData.ContainsKey("services") && composeData["services"] is Dictionary<object, object> services)
+                {
+                    foreach (KeyValuePair<object, object> svcEntry in services)
+                    {
+                        string serviceName = svcEntry.Key.ToString() ?? "unknown";
+                        Dictionary<object, object>? svcData = svcEntry.Value as Dictionary<object, object>;
 
-    //            // Extract networks
-    //            Dictionary<string, NetworkDetailsDto>? networksDict = null;
-    //            if (composeData.ContainsKey("networks") && composeData["networks"] is Dictionary<object, object> networks)
-    //            {
-    //                networksDict = new Dictionary<string, NetworkDetailsDto>();
-    //                foreach (KeyValuePair<object, object> netEntry in networks)
-    //                {
-    //                    string networkName = netEntry.Key.ToString() ?? "unknown";
-    //                    Dictionary<object, object>? netData = netEntry.Value as Dictionary<object, object>;
+                        if (svcData != null)
+                        {
+                            servicesDict[serviceName] = new ServiceDetailsDto(
+                                Name: serviceName,
+                                Image: svcData.ContainsKey("image") ? svcData["image"]?.ToString() : null,
+                                Build: svcData.ContainsKey("build") ? svcData["build"]?.ToString() : null,
+                                Ports: YamlParserHelper.ExtractStringList(svcData, "ports"),
+                                Environment: YamlParserHelper.ExtractEnvironment(svcData),
+                                Labels: YamlParserHelper.ExtractStringDictionary(svcData, "labels"),
+                                Volumes: YamlParserHelper.ExtractStringList(svcData, "volumes"),
+                                DependsOn: YamlParserHelper.ExtractStringList(svcData, "depends_on"),
+                                Restart: svcData.ContainsKey("restart") ? svcData["restart"]?.ToString() : null,
+                                Networks: YamlParserHelper.ExtractStringDictionary(svcData, "networks")
+                            );
+                        }
+                    }
+                }
 
-    //                    if (netData != null)
-    //                    {
-    //                        networksDict[networkName] = new NetworkDetailsDto(
-    //                            Name: networkName,
-    //                            Driver: netData.ContainsKey("driver") ? netData["driver"]?.ToString() : null,
-    //                            External: netData.ContainsKey("external") ? Convert.ToBoolean(netData["external"]) : null,
-    //                            DriverOpts: YamlParserHelper.ExtractObjectDictionary(netData, "driver_opts"),
-    //                            Labels: YamlParserHelper.ExtractStringDictionary(netData, "labels")
-    //                        );
-    //                    }
-    //                }
-    //            }
+                // Extract networks
+                Dictionary<string, NetworkDetailsDto>? networksDict = null;
+                if (composeData.ContainsKey("networks") && composeData["networks"] is Dictionary<object, object> networks)
+                {
+                    networksDict = new Dictionary<string, NetworkDetailsDto>();
+                    foreach (KeyValuePair<object, object> netEntry in networks)
+                    {
+                        string networkName = netEntry.Key.ToString() ?? "unknown";
+                        Dictionary<object, object>? netData = netEntry.Value as Dictionary<object, object>;
 
-    //            // Extract volumes
-    //            Dictionary<string, VolumeDetailsDto>? volumesDict = null;
-    //            if (composeData.ContainsKey("volumes") && composeData["volumes"] is Dictionary<object, object> volumes)
-    //            {
-    //                volumesDict = new Dictionary<string, VolumeDetailsDto>();
-    //                foreach (KeyValuePair<object, object> volEntry in volumes)
-    //                {
-    //                    string volumeName = volEntry.Key.ToString() ?? "unknown";
-    //                    Dictionary<object, object>? volData = volEntry.Value as Dictionary<object, object>;
+                        if (netData != null)
+                        {
+                            networksDict[networkName] = new NetworkDetailsDto(
+                                Name: networkName,
+                                Driver: netData.ContainsKey("driver") ? netData["driver"]?.ToString() : null,
+                                External: netData.ContainsKey("external") ? Convert.ToBoolean(netData["external"]) : null,
+                                DriverOpts: YamlParserHelper.ExtractObjectDictionary(netData, "driver_opts"),
+                                Labels: YamlParserHelper.ExtractStringDictionary(netData, "labels")
+                            );
+                        }
+                    }
+                }
 
-    //                    if (volData != null)
-    //                    {
-    //                        volumesDict[volumeName] = new VolumeDetailsDto(
-    //                            Name: volumeName,
-    //                            Driver: volData.ContainsKey("driver") ? volData["driver"]?.ToString() : null,
-    //                            External: volData.ContainsKey("external") ? Convert.ToBoolean(volData["external"]) : null,
-    //                            DriverOpts: YamlParserHelper.ExtractObjectDictionary(volData, "driver_opts"),
-    //                            Labels: YamlParserHelper.ExtractStringDictionary(volData, "labels")
-    //                        );
-    //                    }
-    //                }
-    //            }
+                // Extract volumes
+                Dictionary<string, VolumeDetailsDto>? volumesDict = null;
+                if (composeData.ContainsKey("volumes") && composeData["volumes"] is Dictionary<object, object> volumes)
+                {
+                    volumesDict = new Dictionary<string, VolumeDetailsDto>();
+                    foreach (KeyValuePair<object, object> volEntry in volumes)
+                    {
+                        string volumeName = volEntry.Key.ToString() ?? "unknown";
+                        Dictionary<object, object>? volData = volEntry.Value as Dictionary<object, object>;
 
-    //            ComposeFileDetailsDto result = new(
-    //                ProjectName: projectName,
-    //                Version: version,
-    //                Services: servicesDict,
-    //                Networks: networksDict,
-    //                Volumes: volumesDict
-    //            );
+                        if (volData != null)
+                        {
+                            volumesDict[volumeName] = new VolumeDetailsDto(
+                                Name: volumeName,
+                                Driver: volData.ContainsKey("driver") ? volData["driver"]?.ToString() : null,
+                                External: volData.ContainsKey("external") ? Convert.ToBoolean(volData["external"]) : null,
+                                DriverOpts: YamlParserHelper.ExtractObjectDictionary(volData, "driver_opts"),
+                                Labels: YamlParserHelper.ExtractStringDictionary(volData, "labels")
+                            );
+                        }
+                    }
+                }
 
-    //            await _auditService.LogActionAsync(
-    //                GetCurrentUserId(),
-    //                "compose.parsed_details",
-    //                GetUserIpAddress(),
-    //                $"Retrieved parsed details for project: {projectName}",
-    //                resourceType: "compose_project",
-    //                resourceId: projectName
-    //            );
+                ComposeFileDetailsDto result = new(
+                    ProjectName: projectName,
+                    Version: version,
+                    Services: servicesDict,
+                    Networks: networksDict,
+                    Volumes: volumesDict
+                );
 
-    //            return Ok(ApiResponse.Ok(result, "Parsed compose file details retrieved successfully"));
-    //        }
-    //        catch (YamlDotNet.Core.YamlException yamlEx)
-    //        {
-    //            _logger.LogWarning(yamlEx, "Error parsing YAML for project: {ProjectName}", projectName);
-    //            return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
-    //                $"Error parsing YAML: {yamlEx.Message}", "YAML_PARSE_ERROR"));
-    //        }
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        _logger.LogError(ex, "Error getting parsed details for project: {ProjectName}", projectName);
-    //        return StatusCode(500, ApiResponse.Fail<ComposeFileDetailsDto>("Error getting parsed details", "SERVER_ERROR"));
-    //    }
-    //}
+                await _auditService.LogActionAsync(
+                    userId.Value,
+                    "compose.parsed_details",
+                    GetUserIpAddress(),
+                    $"Retrieved parsed details for project: {projectName}",
+                    resourceType: "compose_project",
+                    resourceId: projectName
+                );
+
+                return Ok(ApiResponse.Ok(result, "Parsed compose file details retrieved successfully"));
+            }
+            catch (YamlDotNet.Core.YamlException yamlEx)
+            {
+                _logger.LogWarning(yamlEx, "Error parsing YAML for project: {ProjectName}", projectName);
+                return BadRequest(ApiResponse.Fail<ComposeFileDetailsDto>(
+                    $"Error parsing YAML: {yamlEx.Message}", "YAML_PARSE_ERROR"));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting parsed details for project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<ComposeFileDetailsDto>("Error getting parsed details", "SERVER_ERROR"));
+        }
+    }
 
     #region Helper Methods
 

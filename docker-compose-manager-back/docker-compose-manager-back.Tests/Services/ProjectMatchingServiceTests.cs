@@ -1,8 +1,10 @@
+using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace docker_compose_manager_back.Tests.Services;
@@ -22,9 +24,16 @@ public class ProjectMatchingServiceTests
         _mockDiscoveryService = new Mock<IComposeDiscoveryService>();
         _mockCacheService = new Mock<IComposeFileCacheService>();
 
+        var options = Options.Create(new ComposeDiscoveryOptions
+        {
+            RootPath = "/app/compose-files",
+            HostPathMapping = null // No host path mapping in tests
+        });
+
         _service = new ProjectMatchingService(
             _mockDiscoveryService.Object,
             _mockCacheService.Object,
+            options,
             new NullLogger<ProjectMatchingService>()
         );
     }

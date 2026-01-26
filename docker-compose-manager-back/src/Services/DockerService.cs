@@ -323,10 +323,8 @@ public class DockerService
                 });
 
             return containers.Select(c => {
-                // Extract compose service name from label
-                string serviceName = c.Labels?.TryGetValue("com.docker.compose.service", out var svc) == true
-                    ? svc
-                    : NormalizeName(c.Names.FirstOrDefault());
+                // Use the actual container name (consistent with containers page)
+                string containerName = NormalizeName(c.Names.FirstOrDefault());
 
                 // Parse ports
                 var ports = c.Ports?
@@ -342,7 +340,7 @@ public class DockerService
 
                 return new ComposeServiceDto(
                     Id: c.ID,
-                    Name: serviceName,
+                    Name: containerName,
                     Image: c.Image,
                     State: c.State.ToEntityState().ToStateString(),
                     Status: c.Status ?? "",
