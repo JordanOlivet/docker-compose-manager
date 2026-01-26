@@ -289,7 +289,7 @@
                 {/if}
               </div>
               <div class="flex gap-1 flex-shrink-0">
-                {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created}
+                {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
                   {#if project.availableActions?.up}
                     <button
                       onclick={() => upMutation.mutate({ projectName: project.name })}

@@ -11,6 +11,7 @@ namespace docker_compose_manager_back.src.Utils
         Exited = 4,
         Stopped = 5,
         Created = 6,
+        NotStarted = 7,
         Unknown = 99,
     }
 
@@ -72,6 +73,7 @@ namespace docker_compose_manager_back.src.Utils
                 EntityState.Exited => "Exited",
                 EntityState.Stopped => "Stopped",
                 EntityState.Created => "Created",
+                EntityState.NotStarted => "Not Started",
                 _ => "Unknown",
             };
         }
@@ -87,6 +89,7 @@ namespace docker_compose_manager_back.src.Utils
                 "exited" => EntityState.Exited,
                 "stopped" => EntityState.Stopped,
                 "created" => EntityState.Created,
+                "not started" or "not-started" or "notstarted" => EntityState.NotStarted,
                 _ => EntityState.Unknown,
             };
         }

@@ -1,6 +1,7 @@
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.src.Utils;
 using Microsoft.Extensions.Options;
 
 namespace docker_compose_manager_back.Services;
@@ -195,11 +196,12 @@ public class ProjectMatchingService : IProjectMatchingService
             );
 
             // Create services list from discovered file
+            var notStartedState = EntityState.NotStarted.ToStateString();
             var services = unmatchedFile.Services.Select(serviceName => new ComposeServiceDto(
                 Id: $"{unmatchedFile.ProjectName}_{serviceName}",
                 Name: serviceName,
                 Image: null,
-                State: "Not Started",
+                State: notStartedState,
                 Status: string.Empty,
                 Ports: new List<string>(),
                 Health: null
@@ -208,14 +210,14 @@ public class ProjectMatchingService : IProjectMatchingService
             var notStartedProject = new ComposeProjectDto(
                 Name: unmatchedFile.ProjectName,
                 Path: unmatchedFile.DirectoryPath,
-                State: "not-started",
+                State: notStartedState,
                 Services: services,
                 ComposeFiles: new List<string> { unmatchedFile.FilePath },
                 LastUpdated: null,
                 ComposeFilePath: unmatchedFile.FilePath,
                 HasComposeFile: true,
                 Warning: unmatchedFile.IsDisabled ? "Project is disabled (x-disabled: true)" : null,
-                AvailableActions: ComputeAvailableActions(true, "not-started")
+                AvailableActions: ComputeAvailableActions(true, notStartedState)
             );
 
             enrichedProjects.Add(notStartedProject);
@@ -246,8 +248,8 @@ public class ProjectMatchingService : IProjectMatchingService
     /// </remarks>
     private Dictionary<string, bool> ComputeAvailableActions(bool hasFile, string state)
     {
-        // Normalize state to lowercase for comparison
-        string normalizedState = state.ToLowerInvariant();
+        // Convert state string to EntityState for comparison
+        var entityState = state.ToEntityState();
 
         return new Dictionary<string, bool>
         {
@@ -258,15 +260,15 @@ public class ProjectMatchingService : IProjectMatchingService
             ["recreate"] = hasFile,
 
             // Runtime state transitions - require project to exist
-            ["start"] = normalizedState != "running" && normalizedState != "not-started",
-            ["stop"] = normalizedState == "running",
-            ["restart"] = normalizedState != "not-started",
-            ["pause"] = normalizedState == "running",
-            ["unpause"] = normalizedState == "paused",
+            ["start"] = entityState != EntityState.Running && entityState != EntityState.NotStarted,
+            ["stop"] = entityState == EntityState.Running,
+            ["restart"] = entityState != EntityState.NotStarted,
+            ["pause"] = entityState == EntityState.Running,
+            ["unpause"] = state.ToLowerInvariant() == "paused", // Paused not in EntityState enum
 
             // Query actions - require containers to exist
-            ["logs"] = normalizedState != "not-started",
-            ["ps"] = normalizedState != "not-started",
+            ["logs"] = entityState != EntityState.NotStarted,
+            ["ps"] = entityState != EntityState.NotStarted,
 
             // Cleanup action - always available
             ["down"] = true,

@@ -11,7 +11,7 @@
 		RefreshCw
 	} from 'lucide-svelte';
 	import { composeApi, containersApi } from '$lib/api';
-	import type { ComposeService } from '$lib/types';
+	import { EntityState, type ComposeService } from '$lib/types';
 	import StateBadge from '$lib/components/common/StateBadge.svelte';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ProjectInfoSection from '$lib/components/compose/ProjectInfoSection.svelte';
@@ -205,7 +205,7 @@
 						{/if}
 					</div>
 					<div class="flex gap-2 flex-shrink-0">
-						{#if project.state === 'Down' || project.state === 'Stopped' || project.state === 'Exited' || project.state === 'Degraded' || project.state === 'Created'}
+						{#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
 							{#if project.availableActions?.up}
 								<button
 									onclick={() => upMutation.mutate({ detach: true })}
