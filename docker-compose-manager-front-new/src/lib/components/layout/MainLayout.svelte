@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Header from './Header.svelte';
+  import ComposeHealthBanner from '$lib/components/compose/ComposeHealthBanner.svelte';
 
   interface Props {
     children: Snippet;
@@ -23,6 +24,7 @@
 
     <main class="flex-1 overflow-y-auto p-8 lg:p-10 bg-gray-50 dark:bg-gray-900">
       <div class="mx-auto">
+        <ComposeHealthBanner />
         {@render children()}
       </div>
     </main>

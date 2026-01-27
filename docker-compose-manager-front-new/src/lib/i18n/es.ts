@@ -169,6 +169,7 @@ const es = {
     liveResourceStats: 'Estadísticas de recursos en vivo',
     containerNotRunning: 'El contenedor no está en ejecución',
     noContainers: 'No se encontraron contenedores',
+    noContainer: 'Sin contenedor',
     containerNotFound: 'Contenedor no encontrado',
     containerNotFoundMessage: 'No se pudo encontrar el contenedor solicitado',
     failedToLoad: 'Error al cargar los detalles del contenedor',
@@ -214,6 +215,8 @@ const es = {
     noProjectsMessage: 'Cree un archivo compose para comenzar',
     noFiles: 'No se encontraron archivos Compose',
     noFilesMessage: 'Agregue una ruta compose en configuración para comenzar',
+    noServices: 'No hay servicios definidos en este proyecto',
+    noComposeFile: 'No se encontró archivo compose para este proyecto. Las operaciones de archivo no están disponibles.',
     projectNotFound: 'Proyecto no encontrado',
     projectNotFoundMessage: 'No se pudo encontrar el proyecto solicitado',
     failedToLoad: 'Error al cargar proyectos compose',
@@ -236,6 +239,7 @@ const es = {
     downSuccess: 'Proyecto detenido con éxito',
     restartSuccess: 'Proyecto reiniciado con éxito',
     stopSuccess: 'Proyecto detenido con éxito',
+    startSuccess: 'Servicios del proyecto iniciados con éxito',
     confirmAction: '¿Está seguro?',
     confirmUpMessage: 'iniciar todos los servicios',
     confirmDownMessage: 'detener y eliminar todos los servicios',
@@ -353,6 +357,15 @@ const es = {
     serverError: 'Error del servidor. Por favor, inténtelo de nuevo más tarde.',
     validationError: 'Error de validación. Por favor, verifique su entrada.',
     unknownError: 'Ocurrió un error inesperado.',
+  },
+
+  connection: {
+    connected: 'Actualizaciones en tiempo real conectadas',
+    connecting: 'Conectando...',
+    reconnecting: 'Reconectando...',
+    disconnected: 'Desconectado - actualizaciones pausadas',
+    attempt: 'Intento',
+    lastConnected: 'Última conexión',
   },
 };
 

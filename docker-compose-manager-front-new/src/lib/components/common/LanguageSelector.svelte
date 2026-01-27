@@ -31,7 +31,7 @@
 <div class="relative {className}" bind:this={dropdownRef}>
   <button
     onclick={() => isOpen = !isOpen}
-    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer"
     aria-label="Select language"
   >
     <Globe class="w-4 h-4 text-gray-600 dark:text-gray-300" />

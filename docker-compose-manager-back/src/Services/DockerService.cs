@@ -296,6 +296,84 @@ public class DockerService
         }
     }
     /// <summary>
+    /// Lists containers belonging to a specific Docker Compose project.
+    /// Uses the com.docker.compose.project label to filter containers.
+    /// </summary>
+    /// <param name="projectName">The compose project name</param>
+    /// <param name="showAll">Include stopped containers</param>
+    /// <returns>List of containers with compose-specific metadata</returns>
+    public async Task<List<ComposeServiceDto>> ListContainersByComposeProjectAsync(string projectName, bool showAll = true)
+    {
+        try
+        {
+            // Filter containers by compose project label
+            var filters = new Dictionary<string, IDictionary<string, bool>>
+            {
+                ["label"] = new Dictionary<string, bool>
+                {
+                    [$"com.docker.compose.project={projectName}"] = true
+                }
+            };
+
+            IList<ContainerListResponse> containers = await _dockerClient.Containers.ListContainersAsync(
+                new ContainersListParameters
+                {
+                    All = showAll,
+                    Filters = filters
+                });
+
+            return containers.Select(c => {
+                // Use the actual container name (consistent with containers page)
+                string containerName = NormalizeName(c.Names.FirstOrDefault());
+
+                // Parse ports
+                var ports = c.Ports?
+                    .Where(p => p.PublicPort > 0)
+                    .Select(p => $"{p.PublicPort}:{p.PrivatePort}")
+                    .ToList() ?? new List<string>();
+
+                // Get health status from labels or status string
+                string? health = null;
+                if (c.Status?.Contains("(healthy)") == true) health = "healthy";
+                else if (c.Status?.Contains("(unhealthy)") == true) health = "unhealthy";
+                else if (c.Status?.Contains("(health:") == true) health = "starting";
+
+                return new ComposeServiceDto(
+                    Id: c.ID,
+                    Name: containerName,
+                    Image: c.Image,
+                    State: c.State.ToEntityState().ToStateString(),
+                    Status: c.Status ?? "",
+                    Ports: ports,
+                    Health: health
+                );
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing containers for compose project {ProjectName}", projectName);
+            return new List<ComposeServiceDto>();
+        }
+    }
+
+    /// <summary>
+    /// Gets Docker daemon version information
+    /// </summary>
+    public async Task<(string? version, string? apiVersion)> GetVersionAsync()
+    {
+        try
+        {
+            var versionResponse = await _dockerClient.System.GetVersionAsync();
+            return (versionResponse.Version, versionResponse.APIVersion);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting Docker version");
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Normalizes a docker container name by removing the leading '/' that the Docker API returns.
     /// Returns "unknown" if the provided name is null or whitespace.
     /// </summary>

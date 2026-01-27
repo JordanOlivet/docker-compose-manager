@@ -10,4 +10,5 @@ export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as PasswordInput } from './PasswordInput.svelte';
 export { default as FolderPicker } from './FolderPicker.svelte';
 export { default as InfoCard } from './InfoCard.svelte';
+export { default as ConnectionStatus } from './ConnectionStatus.svelte';
 export type { InfoSection } from './InfoCard.svelte';

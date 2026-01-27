@@ -5,6 +5,7 @@
   import { authApi } from '$lib/api';
   import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
   import LanguageSelector from '$lib/components/common/LanguageSelector.svelte';
+  import ConnectionStatus from '$lib/components/common/ConnectionStatus.svelte';
   import { t } from '$lib/i18n';
 
   interface Props {
@@ -45,6 +46,7 @@
     </div>
 
     <div class="flex items-center gap-3">
+      <ConnectionStatus />
       <LanguageSelector />
       <ThemeToggle />
 

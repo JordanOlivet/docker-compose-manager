@@ -1,6 +1,6 @@
+using docker_compose_manager_back.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using docker_compose_manager_back.Services;
 
 namespace docker_compose_manager_back.Hubs;
 
@@ -36,56 +36,56 @@ public class LogsHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    /// <summary>
-    /// Streams logs from a compose project
-    /// </summary>
-    public async Task StreamComposeLogs(string projectPath, string? serviceName = null/*, int tail = 100*/)
-    {
-        string connectionId = Context.ConnectionId;
+    ///// <summary>
+    ///// Streams logs from a compose project
+    ///// </summary>
+    //public async Task StreamComposeLogs(string projectPath, string? serviceName = null/*, int tail = 100*/)
+    //{
+    //    string connectionId = Context.ConnectionId;
 
-        try
-        {
-            CancellationTokenSource cts = new();
-            _activeStreams[connectionId] = cts;
+    //    try
+    //    {
+    //        CancellationTokenSource cts = new();
+    //        _activeStreams[connectionId] = cts;
 
-            _logger.LogInformation("Starting compose log stream for {ProjectPath}", projectPath);
+    //        _logger.LogInformation("Starting compose log stream for {ProjectPath}", projectPath);
 
-            // Get initial logs
-            var (success, output, error) = await _composeService.GetLogsAsync(
-                projectPath,
-                serviceName,
-                null,
-                follow: false,
-                cts.Token
-            );
+    //        // Get initial logs
+    //        var (success, output, error) = await _composeService.GetLogsAsync(
+    //            projectPath,
+    //            serviceName,
+    //            null,
+    //            follow: false,
+    //            cts.Token
+    //        );
 
-            if (success)
-            {
-                await Clients.Caller.SendAsync("ReceiveLogs", output, cts.Token);
-            }
-            else
-            {
-                await Clients.Caller.SendAsync("LogError", error ?? "Failed to get logs", cts.Token);
-            }
+    //        if (success)
+    //        {
+    //            await Clients.Caller.SendAsync("ReceiveLogs", output, cts.Token);
+    //        }
+    //        else
+    //        {
+    //            await Clients.Caller.SendAsync("LogError", error ?? "Failed to get logs", cts.Token);
+    //        }
 
-            // In a production system, you would implement proper log streaming
-            // For now, we just send the initial logs
-            await Clients.Caller.SendAsync("StreamComplete", cancellationToken: cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("Log stream cancelled for {ProjectPath}", projectPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error streaming logs for {ProjectPath}", projectPath);
-            await Clients.Caller.SendAsync("LogError", "Error streaming logs");
-        }
-        finally
-        {
-            _activeStreams.Remove(connectionId);
-        }
-    }
+    //        // In a production system, you would implement proper log streaming
+    //        // For now, we just send the initial logs
+    //        await Clients.Caller.SendAsync("StreamComplete", cancellationToken: cts.Token);
+    //    }
+    //    catch (OperationCanceledException)
+    //    {
+    //        _logger.LogInformation("Log stream cancelled for {ProjectPath}", projectPath);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error streaming logs for {ProjectPath}", projectPath);
+    //        await Clients.Caller.SendAsync("LogError", "Error streaming logs");
+    //    }
+    //    finally
+    //    {
+    //        _activeStreams.Remove(connectionId);
+    //    }
+    //}
 
     /// <summary>
     /// Streams logs from a container
@@ -102,7 +102,7 @@ public class LogsHub : Hub
             _logger.LogInformation("Starting container log stream for {ContainerId}", containerId);
 
             // Get container logs
-            var logs = await _dockerService.GetContainerLogsAsync(containerId, tail, timestamps: true);
+            List<string> logs = await _dockerService.GetContainerLogsAsync(containerId, tail, timestamps: true);
 
             if (logs != null && logs.Any())
             {

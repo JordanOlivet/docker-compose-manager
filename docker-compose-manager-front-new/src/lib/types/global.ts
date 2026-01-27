@@ -7,6 +7,7 @@ export const EntityState = {
     Stopped: "Stopped",
     Created: "Created",
     Unknown: "Unknown",
+    NotStarted: "Not Started",
 } as const;
 
 export type EntityState = typeof EntityState[keyof typeof EntityState];

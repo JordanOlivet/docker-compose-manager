@@ -11,13 +11,14 @@
 		RefreshCw
 	} from 'lucide-svelte';
 	import { composeApi, containersApi } from '$lib/api';
-	import type { ComposeService } from '$lib/types';
+	import { EntityState, type ComposeService } from '$lib/types';
 	import StateBadge from '$lib/components/common/StateBadge.svelte';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ProjectInfoSection from '$lib/components/compose/ProjectInfoSection.svelte';
 	import ProjectStatsCard from '$lib/components/compose/ProjectStatsCard.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
 	import { t } from '$lib/i18n';
+	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
 
 	const projectName = $derived(
@@ -26,86 +27,74 @@
 
 	const queryClient = useQueryClient();
 
+	// SignalR is now handled globally in the protected layout
+	// The SignalR-Query bridge automatically invalidates queries on events
 	const projectQuery = createQuery(() => ({
 		queryKey: ['compose', 'project', projectName],
 		queryFn: () => composeApi.getProjectDetails(projectName),
 		enabled: !!projectName,
-		refetchInterval: 5000
+		refetchInterval: false,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
+		staleTime: 0
 	}));
 
 	// Project mutations
+	// Note: The SignalR-Query bridge handles cache invalidation automatically
 	const upMutation = createMutation(() => ({
 		mutationFn: ({ detach, forceRecreate }: { detach?: boolean; forceRecreate?: boolean }) =>
 			composeApi.upProject(projectName, { detach, forceRecreate }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.upSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.upSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	const downMutation = createMutation(() => ({
 		mutationFn: () => composeApi.downProject(projectName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.downSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.downSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	const restartMutation = createMutation(() => ({
 		mutationFn: () => composeApi.restartProject(projectName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.restartSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.restartSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	const stopMutation = createMutation(() => ({
 		mutationFn: () => composeApi.stopProject(projectName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('compose.stopSuccess'));
-		},
+		onSuccess: () => toast.success($t('compose.stopSuccess')),
+		onError: () => toast.error($t('compose.failedToLoadProject'))
+	}));
+
+	const startMutation = createMutation(() => ({
+		mutationFn: () => composeApi.startProject(projectName),
+		onSuccess: () => toast.success($t('compose.startSuccess')),
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
 	// Container mutations
 	const startContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.start(containerId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.startSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.startSuccess')),
 		onError: () => toast.error($t('containers.failedToStart'))
 	}));
 
 	const stopContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.stop(containerId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.stopSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.stopSuccess')),
 		onError: () => toast.error($t('containers.failedToStop'))
 	}));
 
 	const restartContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.restart(containerId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.restartSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.restartSuccess')),
 		onError: () => toast.error($t('containers.failedToRestart'))
 	}));
 
 	const removeContainerMutation = createMutation(() => ({
 		mutationFn: ({ containerId, force }: { containerId: string; force: boolean }) =>
 			containersApi.remove(containerId, force),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
-			toast.success($t('containers.removeSuccess'));
-		},
+		onSuccess: () => toast.success($t('containers.removeSuccess')),
 		onError: () => toast.error($t('containers.failedToRemove'))
 	}));
 
@@ -200,19 +189,34 @@
 			<div
 				class="bg-white dark:bg-gray-800 px-6 py-4 rounded-t-2xl border-b border-gray-200 dark:border-gray-700"
 			>
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-4">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+					<div class="flex items-center justify-between">
+					<div class="flex items-center gap-4 min-w-0 flex-1">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex-shrink-0">
 							{project.name}
 						</h3>
 						<StateBadge class={getStateColor(project.state)} status={project.state} />
+						<!-- Compose file path and warning inline -->
+						{#if project.composeFilePath}
+							<span class="text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:inline" title={project.composeFilePath}>
+								{project.composeFilePath}
+							</span>
+						{/if}
+						{#if project.warning}
+							<span class="flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400 flex-shrink-0" title={project.warning}>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+								</svg>
+								<span class="hidden md:inline">{project.warning}</span>
+							</span>
+						{/if}
 					</div>
-					<div class="flex gap-2">
-						{#if project.state === 'Down' || project.state === 'Stopped' || project.state === 'Exited' || project.state === 'Degraded' || project.state === 'Created'}
+					<div class="flex gap-2 flex-shrink-0">
+						<!-- UP: For "Not Started" projects with compose file -->
+						{#if project.state === EntityState.NotStarted && project.availableActions?.up}
 							<button
 								onclick={() => upMutation.mutate({ detach: true })}
 								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.start')}
+								title={$t('compose.up')}
 							>
 								<Play class="w-4 h-4" />
 							</button>
@@ -223,38 +227,51 @@
 							>
 								<Zap class="w-4 h-4" />
 							</button>
+
+						<!-- START: For stopped containers (Stopped, Exited, Down, Created) -->
+						{:else if (project.state === EntityState.Stopped ||
+						           project.state === EntityState.Exited ||
+						           project.state === EntityState.Down ||
+						           project.state === EntityState.Created) &&
+						          project.availableActions?.start}
+							<button
+								onclick={() => startMutation.mutate()}
+								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+								title={$t('containers.start')}
+							>
+								<Play class="w-4 h-4" />
+							</button>
 						{/if}
-						{#if project.state === 'Running' || project.state === 'Degraded'}
+
+						<!-- RESTART & STOP: For running projects -->
+						{#if project.state === EntityState.Running || project.state === EntityState.Degraded}
 							<button
 								onclick={() => restartMutation.mutate()}
 								class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.restart')}
+								title={$t('compose.restart')}
 							>
 								<RotateCw class="w-4 h-4" />
 							</button>
 							<button
 								onclick={() => stopMutation.mutate()}
 								class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.stop')}
+								title={$t('compose.stop')}
 							>
 								<Square class="w-4 h-4" />
 							</button>
 						{/if}
-						{#if project.state !== 'Down'}
+
+						<!-- DOWN: To remove (if containers exist) -->
+						{#if project.state !== EntityState.NotStarted && project.availableActions?.down}
 							<button
 								onclick={() => handleRemoveComposeProject(project.state)}
 								class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.remove')}
+								title={$t('common.delete')}
 							>
 								<Trash2 class="w-4 h-4" />
 							</button>
 						{/if}
 					</div>
-				</div>
-				<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-					{#if project.path}
-						<span>{$t('compose.directoryPath')}: {project.path}</span>
-					{/if}
 				</div>
 			</div>
 
@@ -375,9 +392,8 @@
 			<div>
 				<ProjectInfoSection
 					{projectName}
-					projectPath={project.composeFiles && project.composeFiles.length > 0
-						? project.composeFiles[0]
-						: undefined}
+					projectPath={project.composeFilePath ?? undefined}
+					hasComposeFile={project.hasComposeFile ?? false}
 				/>
 			</div>
 
@@ -388,12 +404,12 @@
 		</div>
 
 		<!-- Row 3: Logs (full width, resizable) -->
-		<div class="w-full">
-			{#if project.path}
+		{#if FEATURES.COMPOSE_LOGS && project.path}
+			<div class="w-full">
 				<div class="h-[500px] resize-y overflow-auto min-h-[500px] max-h-[1000px]">
 					<ComposeLogs projectPath={project.path} {projectName} />
 				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/if}
 </div>

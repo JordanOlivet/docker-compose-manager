@@ -23,7 +23,20 @@ public class UsersControllerTests
             new UserDto(2, "user1", "user", true, false, DateTime.UtcNow, null)
         };
 
-        mockUserService.Setup(s => s.GetAllUsersAsync()).ReturnsAsync(users);
+        var paginatedResponse = new PaginatedResponse<UserDto>(
+            Items: users,
+            PageNumber: 1,
+            PageSize: 20,
+            TotalPages: 1,
+            TotalItems: 2,
+            HasNext: false,
+            HasPrevious: false
+        );
+
+        mockUserService.Setup(s => s.GetAllUsersAsync(
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<bool?>(), It.IsAny<string>(),
+            It.IsAny<bool>())).ReturnsAsync(paginatedResponse);
 
         var controller = new UsersController(mockUserService.Object, mockLogger.Object);
 
@@ -31,11 +44,12 @@ public class UsersControllerTests
         var result = await controller.GetAllUsers();
 
         // Assert
-        var okResult = Assert.IsType<ActionResult<ApiResponse<List<UserDto>>>>(result);
+        var okResult = Assert.IsType<ActionResult<ApiResponse<PaginatedResponse<UserDto>>>>(result);
         var objectResult = Assert.IsType<OkObjectResult>(okResult.Result);
-        var response = Assert.IsType<ApiResponse<List<UserDto>>>(objectResult.Value);
+        var response = Assert.IsType<ApiResponse<PaginatedResponse<UserDto>>>(objectResult.Value);
         Assert.True(response.Success);
-        Assert.Equal(2, response.Data?.Count);
+        Assert.Equal(2, response.Data?.TotalItems);
+        Assert.Equal(2, response.Data?.Items.Count);
     }
 
     [Fact]

@@ -17,6 +17,8 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
+    <!-- Kill container when stopping debug -->
+    <DockerDebuggeeKillProgram>docker</DockerDebuggeeKillProgram>
   </PropertyGroup>
 
   <ItemGroup>

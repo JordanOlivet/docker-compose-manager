@@ -1,12 +1,11 @@
-using Xunit;
-using Moq;
+using docker_compose_manager_back.Data;
+using docker_compose_manager_back.DTOs;
+using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services;
+using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using docker_compose_manager_back.Data;
-using docker_compose_manager_back.Services;
-using docker_compose_manager_back.Controllers;
-using docker_compose_manager_back.Models;
-using docker_compose_manager_back.DTOs;
+using Moq;
 
 namespace docker_compose_manager_back.Tests.Services;
 
@@ -14,7 +13,7 @@ public class UserServiceTests
 {
     private AppDbContext GetInMemoryDbContext()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
+        DbContextOptions<AppDbContext> options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
@@ -34,9 +33,10 @@ public class UserServiceTests
     public async Task GetAllUsersAsync_ReturnsAllUsers()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
 
         context.Users.AddRange(
             new User { Id = 1, Username = "admin", PasswordHash = "hash1", RoleId = 1, IsEnabled = true, CreatedAt = DateTime.UtcNow },
@@ -44,10 +44,10 @@ public class UserServiceTests
         );
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
 
         // Act
-        var users = await service.GetAllUsersAsync();
+        List<UserDto> users = await service.GetAllUsersAsync();
 
         // Assert
         Assert.Equal(2, users.Count);
@@ -59,10 +59,12 @@ public class UserServiceTests
     public async Task CreateUserAsync_CreatesUserSuccessfully()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var passwordHasher = new Mock<IPasswordHasher>();
+        passwordHasher.Setup(p => p.HashPassword(It.IsAny<string>())).Returns("hashed_password");
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
 
         var request = new CreateUserRequest("testuser", "password123", "user");
 
@@ -77,7 +79,7 @@ public class UserServiceTests
         Assert.True(result.MustChangePassword);
 
         // Verify password was hashed
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Username == "testuser");
+        User? user = await context.Users.FirstOrDefaultAsync(u => u.Username == "testuser");
         Assert.NotNull(user);
         Assert.NotEqual("password123", user.PasswordHash);
     }
@@ -86,9 +88,10 @@ public class UserServiceTests
     public async Task CreateUserAsync_ThrowsWhenUsernameExists()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
 
         context.Users.Add(new User
         {
@@ -100,7 +103,7 @@ public class UserServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
         var request = new CreateUserRequest("existinguser", "password123", "user");
 
         // Act & Assert
@@ -111,9 +114,10 @@ public class UserServiceTests
     public async Task DeleteUserAsync_PreventsDeletingLastAdmin()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
 
         var adminUser = new User
         {
@@ -127,10 +131,10 @@ public class UserServiceTests
         context.Users.Add(adminUser);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteUserAsync(1));
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteUserAsync(1));
         Assert.Contains("Cannot delete the last admin user", exception.Message);
     }
 
@@ -138,9 +142,10 @@ public class UserServiceTests
     public async Task UpdateUserAsync_UpdatesUserSuccessfully()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
 
         var user = new User
         {
@@ -154,7 +159,7 @@ public class UserServiceTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
         var request = new UpdateUserRequest(Role: "admin", IsEnabled: null, NewPassword: null);
 
         // Act
@@ -169,9 +174,10 @@ public class UserServiceTests
     public async Task EnableUserAsync_EnablesDisabledUser()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
 
         var user = new User
         {
@@ -185,10 +191,10 @@ public class UserServiceTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
 
         // Act
-        var result = await service.EnableUserAsync(1);
+        UserDto result = await service.EnableUserAsync(1);
 
         // Assert
         Assert.True(result.IsEnabled);
@@ -198,9 +204,10 @@ public class UserServiceTests
     public async Task DisableUserAsync_DisablesEnabledUser()
     {
         // Arrange
-        var context = GetInMemoryDbContext();
+        AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
         var auditService = new Mock<IAuditService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
 
         context.Users.AddRange(
             new User { Id = 1, Username = "admin", PasswordHash = "hash1", RoleId = 1, IsEnabled = true, CreatedAt = DateTime.UtcNow },
@@ -208,10 +215,10 @@ public class UserServiceTests
         );
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
 
         // Act
-        var result = await service.DisableUserAsync(2);
+        UserDto result = await service.DisableUserAsync(2);
 
         // Assert
         Assert.False(result.IsEnabled);

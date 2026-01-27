@@ -1,3 +1,4 @@
+using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Filters;
 using docker_compose_manager_back.Hubs;
@@ -9,6 +10,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
@@ -142,6 +144,13 @@ builder.Services.Configure<PasswordHashingOptions>(
     builder.Configuration.GetSection(PasswordHashingOptions.SectionName));
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
+// Add Memory Cache (required for ComposeDiscoveryService)
+builder.Services.AddMemoryCache();
+
+// Configure Compose Discovery Options
+builder.Services.Configure<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>(
+    builder.Configuration.GetSection("ComposeDiscovery"));
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -153,9 +162,24 @@ builder.Services.AddScoped<OperationService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddSingleton<DockerService>();
 
+// Register Docker Compose services (new architecture)
+builder.Services.AddSingleton<DockerCommandExecutor>();
+builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
+builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
+
+// Register Compose Discovery services
+builder.Services.AddScoped<IComposeFileScanner, ComposeFileScanner>();
+builder.Services.AddScoped<IPathValidator, PathValidator>();
+builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
+builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
+builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
+// Note: ComposeCommandClassifier is static, no DI registration needed
+
 // Register background services
-builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
+// DEPRECATED: File discovery service replaced by Docker-only discovery
+// builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
 builder.Services.AddHostedService<DockerEventsMonitorService>();
+builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -173,9 +197,9 @@ builder.Services.AddControllers(options =>
     options.Filters.Add<ValidateModelStateFilter>();
 });
 
-// Add Swagger/OpenAPI
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+//// Add Swagger/OpenAPI
+//builder.Services.AddEndpointsApiExplorer();
+//builder.Services.AddSwaggerGen();
 
 WebApplication app = builder.Build();
 
@@ -207,11 +231,34 @@ using (IServiceScope scope = app.Services.CreateScope())
     }
 }
 
+// Ensure compose files directory exists
+IOptions<ComposeDiscoveryOptions> composeOptions = app.Services.GetRequiredService<IOptions<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>>();
+string rootPath = composeOptions.Value.RootPath;
+
+if (!Directory.Exists(rootPath))
+{
+    try
+    {
+        Directory.CreateDirectory(rootPath);
+        Log.Information("Created compose files directory: {Path}", rootPath);
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex,
+            "Could not create compose files directory: {Path}. " +
+            "Application will run in degraded mode.", rootPath);
+    }
+}
+else
+{
+    Log.Information("Compose files directory exists: {Path}", rootPath);
+}
+
 // Configure middleware pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    //app.UseSwagger();
+    //app.UseSwaggerUI();
 }
 
 // Add Error Handling Middleware first

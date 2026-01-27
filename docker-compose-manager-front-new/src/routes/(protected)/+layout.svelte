@@ -1,11 +1,18 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import MainLayout from '$lib/components/layout/MainLayout.svelte';
 	import * as auth from '$lib/stores/auth.svelte';
 	import { authApi } from '$lib/api';
+	import { initializeGlobalConnection, stopGlobalConnection } from '$lib/stores/signalr.svelte';
+	import { setupSignalRQueryBridge } from '$lib/services/signalrQueryBridge';
+	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
 	let isLoading = $state(true);
+	let cleanupBridge: (() => void) | null = null;
+
+	// Use the singleton QueryClient - same instance used by all components
+	const queryClient = getQueryClient();
 
 	onMount(async () => {
 		// Si on a un token mais pas d'utilisateur, récupérer les infos utilisateur
@@ -20,7 +27,21 @@
 				return;
 			}
 		}
+
+		// Initialize global SignalR connection
+		await initializeGlobalConnection();
+
+		// Set up the SignalR-Query bridge for automatic cache invalidation
+		cleanupBridge = setupSignalRQueryBridge(queryClient);
+
 		isLoading = false;
+	});
+
+	onDestroy(() => {
+		// Clean up the bridge when the layout is destroyed
+		if (cleanupBridge) {
+			cleanupBridge();
+		}
 	});
 </script>
 

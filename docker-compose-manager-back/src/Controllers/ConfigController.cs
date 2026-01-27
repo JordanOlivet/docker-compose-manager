@@ -27,119 +27,63 @@ public class ConfigController : BaseController
     #region Compose Paths Management
 
     /// <summary>
-    /// Get all configured compose file paths
+    /// Get all configured compose file paths (DEPRECATED - Removed in v0.21.0)
     /// </summary>
     [HttpGet("paths")]
-    [ProducesResponseType(typeof(ApiResponse<List<ComposePath>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<List<ComposePath>>>> GetComposePaths()
+    [Obsolete("This endpoint has been removed in version 0.21.0")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status410Gone)]
+    public IActionResult GetComposePaths_Removed()
     {
-        try
-        {
-            var paths = await _context.ComposePaths
-                .OrderBy(p => p.Path)
-                .ToListAsync();
-
-            return Ok(ApiResponse.Ok(paths, "Compose paths retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving compose paths");
-            return StatusCode(500, ApiResponse.Fail<List<ComposePath>>("Failed to retrieve compose paths"));
-        }
+        return StatusCode(410, ApiResponse.Fail<object>(
+            "This endpoint has been removed in version 0.21.0. Compose files are now auto-discovered from the configured root directory. No manual path configuration needed.",
+            "ENDPOINT_REMOVED"
+        ));
     }
 
     /// <summary>
-    /// Add new compose file path
+    /// Add new compose file path (DEPRECATED - Removed in v0.21.0)
     /// </summary>
     [HttpPost("paths")]
-    [ProducesResponseType(typeof(ApiResponse<ComposePath>), StatusCodes.Status201Created)]
-    public async Task<ActionResult<ApiResponse<ComposePath>>> AddComposePath([FromBody] AddComposePathRequest request)
+    [Obsolete("This endpoint has been removed in version 0.21.0")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status410Gone)]
+    public IActionResult AddComposePath_Removed()
     {
-        try
-        {
-            // Validate path exists
-            if (!Directory.Exists(request.Path))
-            {
-                return BadRequest(ApiResponse.Fail<ComposePath>($"Directory '{request.Path}' does not exist"));
-            }
-
-            // Check if path already exists
-            var existing = await _context.ComposePaths
-                .FirstOrDefaultAsync(p => p.Path == request.Path);
-
-            if (existing != null)
-            {
-                return Conflict(ApiResponse.Fail<ComposePath>($"Path '{request.Path}' is already configured"));
-            }
-
-            var composePath = new ComposePath
-            {
-                Path = request.Path,
-                IsReadOnly = request.IsReadOnly,
-                IsEnabled = true
-            };
-
-            _context.ComposePaths.Add(composePath);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Compose path added: {Path} (ReadOnly: {IsReadOnly})", composePath.Path, composePath.IsReadOnly);
-
-            return CreatedAtAction(
-                nameof(GetComposePaths),
-                new { },
-                ApiResponse.Ok(composePath, "Compose path added successfully")
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error adding compose path");
-            return StatusCode(500, ApiResponse.Fail<ComposePath>("Failed to add compose path"));
-        }
+        return StatusCode(410, ApiResponse.Fail<object>(
+            "This endpoint has been removed in version 0.21.0. Compose files are now auto-discovered from the configured root directory. No manual path configuration needed.",
+            "ENDPOINT_REMOVED"
+        ));
     }
 
     /// <summary>
-    /// Update compose path settings
+    /// Update compose path settings (DEPRECATED - Removed in v0.21.0)
     /// </summary>
     [HttpPut("paths/{id}")]
-    [ProducesResponseType(typeof(ApiResponse<ComposePath>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<ComposePath>>> UpdateComposePath(int id, [FromBody] UpdateComposePathRequest request)
+    [Obsolete("This endpoint has been removed in version 0.21.0")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status410Gone)]
+    public IActionResult UpdateComposePath_Removed(int id)
     {
-        try
-        {
-            var composePath = await _context.ComposePaths.FindAsync(id);
-            if (composePath == null)
-            {
-                return NotFound(ApiResponse.Fail<ComposePath>($"Compose path with ID {id} not found"));
-            }
-
-            if (request.IsReadOnly.HasValue)
-            {
-                composePath.IsReadOnly = request.IsReadOnly.Value;
-            }
-
-            if (request.IsEnabled.HasValue)
-            {
-                composePath.IsEnabled = request.IsEnabled.Value;
-            }
-
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Compose path updated: {Path}", composePath.Path);
-
-            return Ok(ApiResponse.Ok(composePath, "Compose path updated successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating compose path {Id}", id);
-            return StatusCode(500, ApiResponse.Fail<ComposePath>("Failed to update compose path"));
-        }
+        return StatusCode(410, ApiResponse.Fail<object>(
+            "This endpoint has been removed in version 0.21.0. Compose files are now auto-discovered from the configured root directory. No manual path configuration needed.",
+            "ENDPOINT_REMOVED"
+        ));
     }
 
     /// <summary>
-    /// Delete compose path
+    /// Delete compose path (DEPRECATED - Removed in v0.21.0)
     /// </summary>
     [HttpDelete("paths/{id}")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [Obsolete("This endpoint has been removed in version 0.21.0")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status410Gone)]
+    public IActionResult DeleteComposePath_Removed(int id)
+    {
+        return StatusCode(410, ApiResponse.Fail<object>(
+            "This endpoint has been removed in version 0.21.0. Compose files are now auto-discovered from the configured root directory. No manual path configuration needed.",
+            "ENDPOINT_REMOVED"
+        ));
+    }
+
+    // Original implementation removed - kept as comment for reference
+    /*
     public async Task<ActionResult<ApiResponse<object>>> DeleteComposePath(int id)
     {
         try
@@ -170,6 +114,7 @@ public class ConfigController : BaseController
             return StatusCode(500, ApiResponse.Fail<object>("Failed to delete compose path"));
         }
     }
+    */
 
     #endregion
 

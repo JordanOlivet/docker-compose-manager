@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createQuery } from '@tanstack/svelte-query';
-  import { FileText, Plus, Edit, Search } from 'lucide-svelte';
+  import { FileText, Plus, Edit, Search, AlertCircle } from 'lucide-svelte';
   import { composeApi } from '$lib/api';
+  import { FEATURES } from '$lib/config/features';
   import type { ComposeFile } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import Button from '$lib/components/ui/button.svelte';
@@ -48,27 +49,57 @@
       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$t('compose.files')}</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('compose.subtitle')}</p>
     </div>
-    <a href="/compose/files/create">
-      <Button>
-        <Plus class="w-4 h-4 mr-2" />
-        {$t('compose.createFile')}
-      </Button>
-    </a>
+    {#if FEATURES.COMPOSE_FILE_EDITING}
+      <a href="/compose/files/create">
+        <Button>
+          <Plus class="w-4 h-4 mr-2" />
+          {$t('compose.createFile')}
+        </Button>
+      </a>
+    {/if}
   </div>
 
-  <!-- Search -->
-  <div class="relative">
-    <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-    <Input
-      type="text"
-      placeholder={$t('common.search')}
-      bind:value={searchQuery}
-      class="pl-10"
-    />
-  </div>
+  <!-- Feature Disabled Message -->
+  {#if !FEATURES.COMPOSE_FILE_EDITING}
+    <div class="max-w-2xl mx-auto mt-12">
+      <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
+        <div class="flex items-start gap-3">
+          <AlertCircle class="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h2 class="text-xl font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
+              Feature Temporarily Disabled
+            </h2>
+            <p class="text-yellow-800 dark:text-yellow-300 mb-4">
+              File editing is currently disabled due to cross-platform path mapping issues.
+            </p>
+            <div class="bg-yellow-100 dark:bg-yellow-900/30 rounded-md p-4 mt-4">
+              <p class="text-sm text-yellow-700 dark:text-yellow-400 font-semibold mb-2">
+                How to add compose projects:
+              </p>
+              <ol class="text-sm text-yellow-700 dark:text-yellow-400 space-y-1 list-decimal list-inside">
+                <li>Create your <code class="bg-yellow-200 dark:bg-yellow-900 px-1.5 py-0.5 rounded">docker-compose.yml</code> on the Docker host</li>
+                <li>Run <code class="bg-yellow-200 dark:bg-yellow-900 px-1.5 py-0.5 rounded">docker compose up -d</code></li>
+                <li>Your project will appear automatically in the <a href="/compose/projects" class="underline font-medium hover:text-yellow-900 dark:hover:text-yellow-200">Projects</a> page</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {:else}
+    <!-- Search -->
+    <div class="relative">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <Input
+        type="text"
+        placeholder={$t('common.search')}
+        bind:value={searchQuery}
+        class="pl-10"
+      />
+    </div>
 
-  <!-- Files List -->
-  {#if filesQuery.isLoading}
+    <!-- Files List -->
+    {#if filesQuery.isLoading}
     <LoadingState message={$t('common.loading')} />
   {:else if filesQuery.error}
     <div class="text-center py-8 text-red-500">
@@ -133,5 +164,6 @@
         </tbody>
       </table>
     </div>
+    {/if}
   {/if}
 </div>

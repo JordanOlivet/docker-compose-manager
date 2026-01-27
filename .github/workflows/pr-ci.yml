@@ -61,19 +61,19 @@ jobs:
       - name: Setup Node.js 20
         uses: ./.github/actions/setup-node
       - name: Install dependencies
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./docker-compose-manager-front-new
         run: npm ci
       - name: Build frontend
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./docker-compose-manager-front-new
         env:
           VITE_API_URL: /api
           VITE_APP_VERSION: ${{ needs.prepare.outputs.version }}
           VITE_BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
           VITE_GIT_COMMIT: ${{ needs.prepare.outputs.vcs_ref }}
         run: npm run build
-      - name: Run frontend tests
-        working-directory: ./docker-compose-manager-front
-        run: npm test -- --run
+      - name: Run frontend type checking
+        working-directory: ./docker-compose-manager-front-new
+        run: npm run check
 
   summary:
     name: Summary

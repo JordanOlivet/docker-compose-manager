@@ -45,7 +45,17 @@
       "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" log --oneline --all)",
       "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" show d1a148d:docker-compose-manager-front/package.json)",
       "Bash(git -C \"C:\\Users\\Lakio\\source\\repos\\docker-compose-manager\" show --stat d1a148d)",
-      "Bash(npx svelte-kit sync)"
+      "Bash(npx svelte-kit sync)",
+      "Bash(Select-String \"error|warning CS\")",
+      "Bash(Select-Object -Last 20)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(dotnet list:*)",
+      "Bash(test:*)",
+      "Bash(timeout 10 dotnet run:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

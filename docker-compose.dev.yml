@@ -18,14 +18,16 @@ services:
       # Configuration pour le développement
       - ASPNETCORE_ENVIRONMENT=Development
       - Serilog__MinimumLevel__Default=Debug
-    # volumes:
+    volumes:
       # Ajouter le mapping pour hot-reload (optionnel, nécessite configuration supplémentaire)
       # - ./docker-compose-manager-back/src:/app/src:ro
+      # Montage du bureau pour tester la découverte de fichiers compose
+      - C:\Users\Lakio\Desktop:/app/compose-files
 
   frontend:
     # Override l'image par un build local
     build:
-      context: ./docker-compose-manager-front
+      context: ./docker-compose-manager-front-new
       dockerfile: Dockerfile
       args:
         # URL de l'API pour le développement

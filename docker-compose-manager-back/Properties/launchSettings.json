@@ -24,7 +24,7 @@
     },
     "Container (Dockerfile)": {
       "commandName": "Docker",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
         "ASPNETCORE_HTTP_PORTS": "8080",
@@ -32,7 +32,7 @@
       },
       "publishAllPorts": true,
       "useSSL": false,
-      "containerRunArguments": "-p 5000:8080 -v /var/run/docker.sock:/var/run/docker.sock"
+      "containerRunArguments": "--rm -p 5000:8080 -v /var/run/docker.sock:/var/run/docker.sock -v C:\\Users\\Lakio\\Desktop:/app/compose-files"
     },
     "WSL": {
       "commandName": "WSL2",

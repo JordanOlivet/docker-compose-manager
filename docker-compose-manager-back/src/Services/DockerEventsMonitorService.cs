@@ -6,6 +6,25 @@ using Microsoft.AspNetCore.SignalR;
 namespace docker_compose_manager_back.Services;
 
 /// <summary>
+/// Custom IProgress implementation that invokes the callback synchronously without using SynchronizationContext.
+/// This avoids delays that can occur when Progress&lt;T&gt; posts to a captured context.
+/// </summary>
+internal class SynchronousProgress<T> : IProgress<T>
+{
+    private readonly Action<T> _handler;
+
+    public SynchronousProgress(Action<T> handler)
+    {
+        _handler = handler ?? throw new ArgumentNullException(nameof(handler));
+    }
+
+    public void Report(T value)
+    {
+        _handler(value);
+    }
+}
+
+/// <summary>
 /// Background service that monitors Docker events and broadcasts container state changes via SignalR
 /// </summary>
 public class DockerEventsMonitorService : BackgroundService
@@ -80,16 +99,20 @@ public class DockerEventsMonitorService : BackgroundService
             }
         };
 
-        Progress<Message> progress = new Progress<Message>(async (message) =>
+        // Use SynchronousProgress instead of Progress<T> to avoid delays caused by
+        // SynchronizationContext posting. Progress<T> captures the context and posts
+        // callbacks asynchronously, which can introduce significant delays (25-30s observed).
+        var progress = new SynchronousProgress<Message>((message) =>
         {
-            try
+            // Fire and forget with proper error handling
+            // We don't await to avoid blocking the event stream
+            HandleDockerEventAsync(message).ContinueWith(t =>
             {
-                await HandleDockerEventAsync(message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error handling Docker event");
-            }
+                if (t.IsFaulted && t.Exception != null)
+                {
+                    _logger.LogError(t.Exception.InnerException ?? t.Exception, "Error handling Docker event");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
         });
 
         await _dockerClient.System.MonitorEventsAsync(parameters, progress, stoppingToken);
