@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import {
     LayoutDashboard,
     FileText,
@@ -15,12 +16,23 @@
   } from 'lucide-svelte';
   import * as auth from '$lib/stores/auth.svelte';
   import { t } from '$lib/i18n';
+  import { systemApi } from '$lib/api';
 
   interface Props {
     isOpen: boolean;
   }
 
   let { isOpen }: Props = $props();
+  let version = $state('...');
+
+  onMount(async () => {
+    try {
+      const versionInfo = await systemApi.getVersion();
+      version = versionInfo.version;
+    } catch {
+      version = 'unknown';
+    }
+  });
 
   interface NavItem {
     to: string;
@@ -126,7 +138,7 @@
     <div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
       <div class="text-xs space-y-1">
         <p class="font-semibold text-gray-700 dark:text-gray-300">{$t('app.title')}</p>
-        <p class="text-gray-500 dark:text-gray-500">Version 0.1.0</p>
+        <p class="text-gray-500 dark:text-gray-500">v{version}</p>
       </div>
     </div>
   </aside>

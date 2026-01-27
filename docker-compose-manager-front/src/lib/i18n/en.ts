@@ -1,7 +1,7 @@
 export default {
   app: {
     title: 'Docker Compose Manager',
-    composeManager: 'Compose Manager',
+    composeManager: 'Docker Compose Manager',
   },
 
   common: {
@@ -49,6 +49,11 @@ export default {
     selectFolder: 'Select Folder',
     enterOrSelectPath: 'Enter or select a path',
     go: 'Go',
+    saving: 'Saving',
+    update: 'Update',
+    optional: 'optional',
+    performedAction: 'performed {action}',
+    onResource: 'on {type}',
   },
 
   navigation: {
@@ -100,6 +105,8 @@ export default {
     logoutSuccess: 'Logged out successfully',
     passwordChanged: 'Password changed successfully',
     passwordMismatch: 'Passwords do not match',
+    passwordTooShort: 'Password must be at least 6 characters',
+    changePasswordSubtitle: 'Please enter your current password and choose a new one',
     defaultCredentials: 'Default credentials:',
   },
   
@@ -186,6 +193,10 @@ export default {
     confirmRemoveRunning: 'Container is running. Force remove it?',
     showAll: 'Show All',
     showRunning: 'Show Running Only',
+    failedToStart: 'Failed to start container',
+    failedToStop: 'Failed to stop container',
+    failedToRestart: 'Failed to restart container',
+    failedToRemove: 'Failed to remove container',
   },
   
   compose: {
@@ -287,6 +298,7 @@ export default {
     descriptionPlaceholder: 'Enter group description (optional)',
     members: 'Members',
     noMembers: 'No members yet',
+    leaveBlankToKeepCurrent: 'Leave blank to keep current password',
   },
   
   settings: {
@@ -351,6 +363,7 @@ export default {
   
   errors: {
     generic: 'An error occurred',
+    failedToLoad: 'Failed to load data',
     network: 'Network error. Please check your connection.',
     unauthorized: 'You are not authorized to perform this action.',
     notFound: 'Resource not found.',

@@ -1,7 +1,7 @@
 const es = {
   app: {
     title: 'Docker Compose Manager',
-    composeManager: 'Gestor Compose',
+    composeManager: 'Docker Compose Manager',
   },
 
   common: {
@@ -49,6 +49,11 @@ const es = {
     selectFolder: 'Seleccionar carpeta',
     enterOrSelectPath: 'Ingrese o seleccione una ruta',
     go: 'Ir',
+    saving: 'Guardando',
+    update: 'Actualizar',
+    optional: 'opcional',
+    performedAction: 'realizó {action}',
+    onResource: 'en {type}',
   },
 
   navigation: {
@@ -100,6 +105,8 @@ const es = {
     logoutSuccess: 'Sesión cerrada con éxito',
     passwordChanged: 'Contraseña cambiada con éxito',
     passwordMismatch: 'Las contraseñas no coinciden',
+    passwordTooShort: 'La contraseña debe tener al menos 6 caracteres',
+    changePasswordSubtitle: 'Por favor ingrese su contraseña actual y elija una nueva',
     defaultCredentials: 'Credenciales predeterminadas:',
   },
   
@@ -186,6 +193,10 @@ const es = {
     confirmRemoveRunning: 'El contenedor está en ejecución. ¿Forzar eliminación?',
     showAll: 'Mostrar todos',
     showRunning: 'Mostrar solo en ejecución',
+    failedToStart: 'Error al iniciar el contenedor',
+    failedToStop: 'Error al detener el contenedor',
+    failedToRestart: 'Error al reiniciar el contenedor',
+    failedToRemove: 'Error al eliminar el contenedor',
   },
   
   compose: {
@@ -287,6 +298,7 @@ const es = {
     descriptionPlaceholder: 'Ingrese la descripción del grupo (opcional)',
     members: 'Miembros',
     noMembers: 'Sin miembros aún',
+    leaveBlankToKeepCurrent: 'Dejar en blanco para mantener la contraseña actual',
   },
   
   settings: {
@@ -351,6 +363,7 @@ const es = {
   
   errors: {
     generic: 'Ocurrió un error',
+    failedToLoad: 'Error al cargar los datos',
     network: 'Error de red. Por favor, verifique su conexión.',
     unauthorized: 'No está autorizado para realizar esta acción.',
     notFound: 'Recurso no encontrado.',

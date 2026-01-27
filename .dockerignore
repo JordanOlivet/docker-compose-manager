@@ -78,9 +78,6 @@ desktop.ini
 # Compose files from user's system
 compose-files/
 
-# Legacy frontend (if exists)
-docker-compose-manager-front/
-
 # Test scripts
 test-unified-build.sh
 test-unified-build.ps1

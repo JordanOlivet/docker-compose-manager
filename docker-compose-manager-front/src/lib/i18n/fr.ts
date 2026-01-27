@@ -1,7 +1,7 @@
 const fr = {
   app: {
     title: 'Docker Compose Manager',
-    composeManager: 'Gestionnaire Compose',
+    composeManager: 'Docker Compose Manager',
   },
 
   common: {
@@ -49,6 +49,11 @@ const fr = {
     selectFolder: 'Sélectionner un dossier',
     enterOrSelectPath: 'Entrer ou sélectionner un chemin',
     go: 'Aller',
+    saving: 'Enregistrement',
+    update: 'Mettre à jour',
+    optional: 'optionnel',
+    performedAction: 'a effectué {action}',
+    onResource: 'sur {type}',
   },
 
   navigation: {
@@ -100,6 +105,8 @@ const fr = {
     logoutSuccess: 'Déconnexion réussie',
     passwordChanged: 'Mot de passe modifié avec succès',
     passwordMismatch: 'Les mots de passe ne correspondent pas',
+    passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères',
+    changePasswordSubtitle: 'Veuillez entrer votre mot de passe actuel et choisir un nouveau',
     defaultCredentials: 'Identifiants par défaut :',
   },
   
@@ -186,6 +193,10 @@ const fr = {
     confirmRemoveRunning: 'Le conteneur est en cours d\'exécution. Forcer la suppression ?',
     showAll: 'Afficher tout',
     showRunning: 'Afficher uniquement ceux en cours d\'exécution',
+    failedToStart: 'Échec du démarrage du conteneur',
+    failedToStop: 'Échec de l\'arrêt du conteneur',
+    failedToRestart: 'Échec du redémarrage du conteneur',
+    failedToRemove: 'Échec de la suppression du conteneur',
   },
   
   compose: {
@@ -287,6 +298,7 @@ const fr = {
     descriptionPlaceholder: 'Entrez la description du groupe (optionnel)',
     members: 'Membres',
     noMembers: 'Aucun membre pour le moment',
+    leaveBlankToKeepCurrent: 'Laisser vide pour conserver le mot de passe actuel',
   },
   
   settings: {
@@ -351,6 +363,7 @@ const fr = {
   
   errors: {
     generic: 'Une erreur s\'est produite',
+    failedToLoad: 'Échec du chargement des données',
     network: 'Erreur réseau. Veuillez vérifier votre connexion.',
     unauthorized: 'Vous n\'êtes pas autorisé à effectuer cette action.',
     notFound: 'Ressource non trouvée.',

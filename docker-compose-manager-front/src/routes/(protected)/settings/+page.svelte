@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Settings, Plus, Trash2, FolderOpen, Search, AlertTriangle } from 'lucide-svelte';
+  import { Settings, Plus, Trash2, FolderOpen, Search, AlertTriangle, AlertCircle } from 'lucide-svelte';
   import configApi from '$lib/api/config';
   import { composeApi } from '$lib/api/compose';
   import type { ComposePath, ComposeProject } from '$lib/types';
@@ -16,6 +16,7 @@
   import Badge from '$lib/components/ui/badge.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
+  import { FEATURES } from '$lib/config/features';
 
   let confirmDialog = $state<{ open: boolean; title: string; description: string; onConfirm: () => void }>({
     open: false,
@@ -131,6 +132,24 @@
     <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('settings.subtitle')}</p>
   </div>
 
+  <!-- Feature Disabled Message -->
+  {#if !FEATURES.COMPOSE_FILE_EDITING}
+    <div class="max-w-2xl mx-auto mt-12">
+      <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
+        <div class="flex items-start gap-3">
+          <AlertCircle class="w-6 h-6 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+          <div>
+            <h2 class="text-xl font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
+              Feature Temporarily Disabled
+            </h2>
+            <p class="text-yellow-800 dark:text-yellow-300 mb-4">
+              File editing is currently disabled due to cross-platform path mapping issues.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  {:else}
   <!-- Compose Paths -->
   <Card>
     <CardHeader>
@@ -219,6 +238,7 @@
       {/if}
     </CardContent>
   </Card>
+  {/if}
 </div>
 
 <ConfirmDialog
