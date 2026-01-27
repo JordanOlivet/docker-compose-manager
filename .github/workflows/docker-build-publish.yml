@@ -12,6 +12,11 @@ on:
   release:
     types: [created, published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Custom version tag (e.g., 1.2.3 or v1.2.3). Leave empty to use automatic versioning.'
+        required: false
+        type: string
 
 concurrency:
   group: build-${{ github.ref }}
@@ -27,10 +32,11 @@ jobs:
     name: Prepare & Version Extraction
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      assembly_version: ${{ steps.version.outputs.assembly_version }}
-      build_date: ${{ steps.version.outputs.build_date }}
-      vcs_ref: ${{ steps.version.outputs.vcs_ref }}
+      version: ${{ steps.final_version.outputs.version }}
+      assembly_version: ${{ steps.final_version.outputs.assembly_version }}
+      build_date: ${{ steps.final_version.outputs.build_date }}
+      vcs_ref: ${{ steps.final_version.outputs.vcs_ref }}
+      is_custom_version: ${{ steps.final_version.outputs.is_custom_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,6 +45,25 @@ jobs:
       - name: Extract version
         id: version
         uses: ./.github/actions/extract-version
+      - name: Determine final version
+        id: final_version
+        run: |
+          CUSTOM_VERSION="${{ github.event.inputs.version }}"
+          if [ -n "$CUSTOM_VERSION" ]; then
+            # Remove 'v' prefix if present for consistency
+            VERSION=$(echo "$CUSTOM_VERSION" | sed 's/^v//')
+            echo "Using custom version: $VERSION"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "assembly_version=$VERSION" >> $GITHUB_OUTPUT
+            echo "is_custom_version=true" >> $GITHUB_OUTPUT
+          else
+            echo "Using extracted version: ${{ steps.version.outputs.version }}"
+            echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "assembly_version=${{ steps.version.outputs.assembly_version }}" >> $GITHUB_OUTPUT
+            echo "is_custom_version=false" >> $GITHUB_OUTPUT
+          fi
+          echo "build_date=${{ steps.version.outputs.build_date }}" >> $GITHUB_OUTPUT
+          echo "vcs_ref=${{ steps.version.outputs.vcs_ref }}" >> $GITHUB_OUTPUT
 
   backend-build-test-push:
     name: Backend - Build, Test & Push
@@ -90,7 +115,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           image_name: ${{ env.BACKEND_IMAGE_NAME }}
       - name: Override tags for release (Backend)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || needs.prepare.outputs.is_custom_version == 'true'
         id: release_tags
         run: |
           IMAGE_NAME=$(echo "${{ env.BACKEND_IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
@@ -102,7 +127,7 @@ jobs:
           context: ./docker-compose-manager-back
           platforms: linux/amd64
           push: true
-          tags: ${{ startsWith(github.ref, 'refs/tags/v') && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
+          tags: ${{ (startsWith(github.ref, 'refs/tags/v') || needs.prepare.outputs.is_custom_version == 'true') && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
@@ -151,7 +176,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           image_name: ${{ env.FRONTEND_IMAGE_NAME }}
       - name: Override tags for release (Frontend)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || needs.prepare.outputs.is_custom_version == 'true'
         id: release_tags
         run: |
           IMAGE_NAME=$(echo "${{ env.FRONTEND_IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
@@ -163,7 +188,7 @@ jobs:
           context: ./docker-compose-manager-front-new
           platforms: linux/amd64
           push: true
-          tags: ${{ startsWith(github.ref, 'refs/tags/v') && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
+          tags: ${{ (startsWith(github.ref, 'refs/tags/v') || needs.prepare.outputs.is_custom_version == 'true') && steps.release_tags.outputs.tags || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
           provenance: false
