@@ -69,7 +69,7 @@ public class ProjectMatchingServiceTests
         result.Should().HaveCount(1);
         var project = result[0];
         project.Name.Should().Be("myapp");
-        project.State.Should().Be("not-started");
+        project.State.Should().Be("Not Started");
         project.HasComposeFile.Should().BeTrue();
         project.ComposeFilePath.Should().Be("/app/myapp/docker-compose.yml");
         project.Services.Should().HaveCount(2);
@@ -293,7 +293,7 @@ public class ProjectMatchingServiceTests
         stoppedApp.Warning.Should().Contain("No compose file found");
 
         var newApp = result.First(p => p.Name == "new-app");
-        newApp.State.Should().Be("not-started");
+        newApp.State.Should().Be("Not Started");
         newApp.HasComposeFile.Should().BeTrue();
     }
 
@@ -437,7 +437,7 @@ public class ProjectMatchingServiceTests
     }
 
     [Fact]
-    public async Task GetUnifiedProjectListAsync_ServicesFromFile_OverrideDockerServices()
+    public async Task GetUnifiedProjectListAsync_ServicesFromFile_PreservesDockerServicesWhenExist()
     {
         // Arrange
         var userId = 1;
@@ -449,7 +449,7 @@ public class ProjectMatchingServiceTests
                 "running",
                 new List<ComposeServiceDto>
                 {
-                    new("id1", "old-service", null, "running", "", new List<string>(), null)
+                    new("id1", "running-service", null, "running", "", new List<string>(), null)
                 },
                 new List<string>(),
                 DateTime.UtcNow,
@@ -469,7 +469,7 @@ public class ProjectMatchingServiceTests
                 DirectoryPath = "/app/myapp",
                 IsValid = true,
                 IsDisabled = false,
-                Services = new List<string> { "web", "db", "redis" } // Different services
+                Services = new List<string> { "web", "db", "redis" } // Different services in file
             }
         };
 
@@ -481,7 +481,56 @@ public class ProjectMatchingServiceTests
         // Act
         var result = await _service.GetUnifiedProjectListAsync(userId);
 
-        // Assert
+        // Assert - Docker services are preserved (they have real container IDs)
+        var project = result[0];
+        project.Services.Should().HaveCount(1);
+        project.Services[0].Name.Should().Be("running-service");
+        project.Services[0].Id.Should().Be("id1");
+    }
+
+    [Fact]
+    public async Task GetUnifiedProjectListAsync_ServicesFromFile_UsedWhenNoDockerServices()
+    {
+        // Arrange
+        var userId = 1;
+        var dockerProjects = new List<ComposeProjectDto>
+        {
+            new ComposeProjectDto(
+                "myapp",
+                "/app/myapp",
+                "running",
+                new List<ComposeServiceDto>(), // No Docker services
+                new List<string>(),
+                DateTime.UtcNow,
+                null,
+                false,
+                null,
+                null
+            )
+        };
+
+        var discoveredFiles = new List<DiscoveredComposeFile>
+        {
+            new()
+            {
+                FilePath = "/app/myapp/docker-compose.yml",
+                ProjectName = "myapp",
+                DirectoryPath = "/app/myapp",
+                IsValid = true,
+                IsDisabled = false,
+                Services = new List<string> { "web", "db", "redis" }
+            }
+        };
+
+        _mockDiscoveryService.Setup(s => s.GetProjectsForUserAsync(It.IsAny<int>(), It.IsAny<bool>()))
+            .Returns(() => Task.FromResult(dockerProjects));
+        _mockCacheService.Setup(s => s.GetOrScanAsync(It.IsAny<bool>()))
+            .ReturnsAsync(discoveredFiles);
+
+        // Act
+        var result = await _service.GetUnifiedProjectListAsync(userId);
+
+        // Assert - File services are used when Docker has no services
         var project = result[0];
         project.Services.Should().HaveCount(3);
         project.Services.Select(s => s.Name).Should().Contain(new[] { "web", "db", "redis" });

@@ -180,7 +180,6 @@ public class PathValidatorTests : IDisposable
 
     [Theory]
     [InlineData("../../../etc/passwd")]
-    [InlineData("..\\..\\..\\windows\\system32\\config\\sam")]
     [InlineData("../../../../root/.ssh/id_rsa")]
     public void IsValidComposeFilePath_CommonPathTraversalPatterns_ReturnsFalse(string maliciousPath)
     {
@@ -195,9 +194,30 @@ public class PathValidatorTests : IDisposable
     }
 
     [Fact]
+    public void IsValidComposeFilePath_WindowsPathTraversalPattern_ReturnsFalse()
+    {
+        // Skip on non-Windows platforms - backslashes are valid filename characters on Linux/macOS
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        // Arrange
+        var maliciousPath = Path.Combine(_testRoot, "..\\..\\..\\windows\\system32\\config\\sam");
+
+        // Act
+        var result = _validator.IsValidComposeFilePath(maliciousPath);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public void IsValidComposeFilePath_InvalidCharactersInPath_ReturnsFalse()
     {
-        // Arrange - Path with invalid characters (depends on OS)
+        // Skip on non-Windows platforms - characters like <>|? are valid on Linux/macOS
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        // Arrange - Path with invalid characters (Windows-specific)
         var invalidPath = Path.Combine(_testRoot, "invalid<>|?.yml");
 
         // Act
