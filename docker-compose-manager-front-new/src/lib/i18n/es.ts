@@ -239,6 +239,7 @@ const es = {
     downSuccess: 'Proyecto detenido con éxito',
     restartSuccess: 'Proyecto reiniciado con éxito',
     stopSuccess: 'Proyecto detenido con éxito',
+    startSuccess: 'Servicios del proyecto iniciados con éxito',
     confirmAction: '¿Está seguro?',
     confirmUpMessage: 'iniciar todos los servicios',
     confirmDownMessage: 'detener y eliminar todos los servicios',

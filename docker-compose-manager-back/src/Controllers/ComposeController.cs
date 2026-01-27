@@ -620,31 +620,29 @@ public class ComposeController : BaseController
                 ));
             }
 
-            // Check if command requires compose file
-            if (ComposeCommandClassifier.RequiresComposeFile("up"))
+            // Get project info to check if compose file exists
+            var projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+            var project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+
+            if (project == null)
             {
-                // Get project info to check if compose file exists
-                var projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
-                var project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+                return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found"));
+            }
 
-                if (project == null)
-                {
-                    return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found"));
-                }
-
-                if (!project.HasComposeFile)
-                {
-                    return BadRequest(ApiResponse.Fail<ComposeOperationResponse>(
-                        $"Cannot execute 'up' command: No compose file found for project '{projectName}'. " +
-                        "This command requires a compose file to function.",
-                        "COMPOSE_FILE_REQUIRED"
-                    ));
-                }
+            // 'up' command requires compose file
+            if (!project.HasComposeFile)
+            {
+                return BadRequest(ApiResponse.Fail<ComposeOperationResponse>(
+                    $"Cannot execute 'up' command: No compose file found for project '{projectName}'. " +
+                    "This command requires a compose file to function.",
+                    "COMPOSE_FILE_REQUIRED"
+                ));
             }
 
             // Execute operation using new service
             OperationResult result = await _operationService.UpAsync(
                 projectName,
+                project.ComposeFilePath,
                 request?.Build ?? false
             );
 

@@ -48,58 +48,68 @@ public class ComposeOperationService : IComposeOperationService
         }
     }
 
-    public async Task<OperationResult> UpAsync(string projectName, bool build = false, CancellationToken cancellationToken = default)
+    public async Task<OperationResult> UpAsync(string projectName, string? composeFilePath = null, bool build = false, CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation("Starting compose project: {ProjectName}, Build: {Build}", projectName, build);
+            _logger.LogInformation(
+                "Creating/starting compose project with 'up': {ProjectName}, ComposeFile: {ComposeFile}, Build: {Build}",
+                projectName, composeFilePath ?? "none", build);
 
-            // Validate project exists
-            bool projectExists = await ValidateProjectExistsAsync(projectName);
-            if (!projectExists)
+            // 'up' requires compose file - validation is done by controller via GetUnifiedProjectListAsync
+            // We don't validate against Docker projects because "Not Started" projects don't exist in Docker yet
+            if (string.IsNullOrEmpty(composeFilePath))
             {
                 return new OperationResult
                 {
                     Success = false,
-                    Message = $"Project '{projectName}' not found",
+                    Message = $"Cannot execute 'up' for project '{projectName}': No compose file provided",
                     Output = null,
-                    Error = "Project not found in Docker"
+                    Error = "The 'up' command requires a compose file. Use 'start' to resume existing stopped containers."
                 };
             }
 
-            // For existing projects, use 'start' instead of 'up'
-            // This avoids the need to access compose files which may not be accessible from the container
-            if (build)
+            // Validate compose file exists
+            if (!File.Exists(composeFilePath))
             {
-                _logger.LogWarning("Build flag ignored for existing project {ProjectName} - using 'start' instead of 'up'", projectName);
+                _logger.LogWarning("Compose file not found: {ComposeFile}", composeFilePath);
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = $"Compose file not found: {composeFilePath}",
+                    Output = null,
+                    Error = "Compose file does not exist"
+                };
             }
 
-            string arguments = $"-p \"{projectName}\" start";
-            _logger.LogDebug("Using 'start' command for existing project {ProjectName}", projectName);
+            // Execute docker compose -f <file> up -d [--build]
+            string workingDirectory = Path.GetDirectoryName(composeFilePath) ?? "/";
+            string buildArg = build ? "--build" : "";
+            string arguments = $"up -d {buildArg}".Trim();
+
+            _logger.LogDebug(
+                "Executing 'up' with compose file '{ComposeFile}' in '{WorkingDir}'",
+                composeFilePath, workingDirectory);
 
             (int exitCode, string? output, string? error) = await _dockerExecutor.ExecuteComposeCommandAsync(
-                workingDirectory: "/",
+                workingDirectory: workingDirectory,
                 arguments: arguments,
+                composeFile: composeFilePath,
                 cancellationToken: cancellationToken
             );
 
             bool success = exitCode == 0;
             string message = success
-                ? $"Project '{projectName}' started successfully"
-                : $"Failed to start project '{projectName}'";
+                ? $"Project '{projectName}' created/started successfully"
+                : $"Failed to create/start project '{projectName}'";
 
             if (success)
             {
-                _logger.LogInformation("Project {ProjectName} started successfully", projectName);
+                _logger.LogInformation("Project {ProjectName} up successful", projectName);
             }
             else
             {
-                _logger.LogWarning(
-                    "Failed to start project {ProjectName}: Exit code {ExitCode}, Error: {Error}",
-                    projectName,
-                    exitCode,
-                    error
-                );
+                _logger.LogWarning("Failed to up project {ProjectName}: {Error}", projectName, error);
             }
 
             return new OperationResult
@@ -112,7 +122,7 @@ public class ComposeOperationService : IComposeOperationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error starting project {ProjectName}", projectName);
+            _logger.LogError(ex, "Error executing 'up' for project {ProjectName}", projectName);
             return new OperationResult
             {
                 Success = false,

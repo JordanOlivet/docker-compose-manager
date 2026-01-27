@@ -248,16 +248,16 @@
             aria-expanded={isOpen}
           >
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="flex items-center gap-2">
                 <!-- Collapse/expand chevron -->
                 <span
-                  class="inline-block transition-transform duration-150 ease-in-out text-gray-900 dark:text-white group-hover:text-blue-600 group-hover:dark:text-blue-400 flex-shrink-0"
+                  class="inline-block transition-transform duration-150 ease-in-out text-gray-900 dark:text-white group-hover:text-blue-600 group-hover:dark:text-blue-400"
                   class:rotate-90={isOpen}
                   aria-hidden="true"
                 >
                   <ChevronRight class="w-4 h-4" />
                 </span>
-                <h3 class="text-base font-semibold flex-shrink-0">
+                <h3 class="text-base font-semibold">
                   <button
                     class="text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                     onclick={(e) => {
@@ -269,26 +269,12 @@
                   </button>
                 </h3>
                 <StateBadge
-                  class="{getStateColor(project.state)} text-xs px-2 py-0.5 flex-shrink-0"
+                  class="{getStateColor(project.state)} text-xs px-2 py-0.5"
                   status={project.state}
                   size="sm"
                 />
-                <!-- Compose file path and warning inline -->
-                {#if project.composeFilePath}
-                  <span class="text-xs text-gray-500 dark:text-gray-400 truncate hidden sm:inline" title={project.composeFilePath}>
-                    {project.composeFilePath}
-                  </span>
-                {/if}
-                {#if project.warning}
-                  <span class="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 flex-shrink-0" title={project.warning}>
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span class="hidden md:inline">{project.warning}</span>
-                  </span>
-                {/if}
               </div>
-              <div class="flex gap-1 flex-shrink-0">
+              <div class="flex gap-1">
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
                   {#if project.availableActions?.up}
                     <button
@@ -332,7 +318,7 @@
                     <Square class="w-4 h-4" />
                   </button>
                 {/if}
-                {#if project.state !== EntityState.Down}
+                {#if project.state !== EntityState.Down && project.state !== EntityState.NotStarted && project.availableActions?.down}
                   <button
                     onclick={() => handleRemoveProject(project)}
                     class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
@@ -342,6 +328,19 @@
                   </button>
                 {/if}
               </div>
+            </div>
+            <div class="mt-1 text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+              {#if project.path}
+                <div>{$t('compose.directoryPath')}: {project.path}</div>
+              {/if}
+              {#if project.warning}
+                <div class="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>{project.warning}</span>
+                </div>
+              {/if}
             </div>
           </div>
 
@@ -403,7 +402,7 @@
                           </td>
                           <td class="px-4 py-2 whitespace-nowrap text-xs">
                             <div class="flex items-center gap-1">
-                              {#if service.state === EntityState.Unknown || service.state === 'Not Started'}
+                              {#if service.state === EntityState.Unknown || service.state === EntityState.NotStarted}
                                 <span class="text-gray-400 text-xs italic">{$t('containers.noContainer')}</span>
                               {:else if service.state === EntityState.Running}
                                 <button

@@ -240,38 +240,52 @@ public class ProjectMatchingService : IProjectMatchingService
     /// <param name="state">Current state of the project (running, stopped, not-started, etc.)</param>
     /// <returns>Dictionary mapping action names to availability (true/false)</returns>
     /// <remarks>
-    /// Action classification (simplified version - will be refined in Phase C3):
-    /// - File-dependent actions (up, build, pull, recreate): Require hasFile=true
-    /// - Runtime actions (start, stop, restart, pause, unpause): Require project to exist in Docker
+    /// Action classification:
+    /// - up: Creates containers from compose file (docker compose -f file up -d) - requires hasFile=true
+    /// - start: Starts existing stopped containers (docker compose -p name start) - requires containers to exist
+    /// - stop: Stops containers without removing (docker compose -p name stop) - requires running
+    /// - down: Removes containers (docker compose -p name down) - requires containers to exist
+    /// - Other file-dependent actions (build, pull, recreate): Require hasFile=true
     /// - Query actions (logs, ps): Available for projects with containers
-    /// - Down: Always available (can clean up orphaned projects)
     /// </remarks>
     private Dictionary<string, bool> ComputeAvailableActions(bool hasFile, string state)
     {
         // Convert state string to EntityState for comparison
         var entityState = state.ToEntityState();
 
+        var isNotStarted = entityState == EntityState.NotStarted;
+        var isRunning = entityState == EntityState.Running;
+        var hasContainers = !isNotStarted;
+
         return new Dictionary<string, bool>
         {
-            // File-dependent actions - require compose file
+            // up: Create containers from compose file - requires file
             ["up"] = hasFile,
+
+            // start: Start existing stopped containers - requires containers AND not running
+            ["start"] = hasContainers && !isRunning,
+
+            // stop: Stop without removing - only if running
+            ["stop"] = isRunning,
+
+            // down: Remove containers - if containers exist
+            ["down"] = hasContainers,
+
+            // restart: Restart containers - if containers exist
+            ["restart"] = hasContainers,
+
+            // Other file-dependent actions
             ["build"] = hasFile,
             ["pull"] = hasFile,
             ["recreate"] = hasFile,
 
-            // Runtime state transitions - require project to exist
-            ["start"] = entityState != EntityState.Running && entityState != EntityState.NotStarted,
-            ["stop"] = entityState == EntityState.Running,
-            ["restart"] = entityState != EntityState.NotStarted,
-            ["pause"] = entityState == EntityState.Running,
+            // Pause/unpause
+            ["pause"] = isRunning,
             ["unpause"] = state.ToLowerInvariant() == "paused", // Paused not in EntityState enum
 
             // Query actions - require containers to exist
-            ["logs"] = entityState != EntityState.NotStarted,
-            ["ps"] = entityState != EntityState.NotStarted,
-
-            // Cleanup action - always available
-            ["down"] = true,
+            ["logs"] = hasContainers,
+            ["ps"] = hasContainers,
 
             // Config validation - requires file
             ["config"] = hasFile,

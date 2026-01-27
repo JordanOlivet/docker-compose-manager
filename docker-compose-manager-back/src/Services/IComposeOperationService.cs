@@ -8,13 +8,14 @@ namespace docker_compose_manager_back.Services;
 public interface IComposeOperationService
 {
     /// <summary>
-    /// Starts a compose project (docker compose up)
+    /// Creates and starts a compose project from file (docker compose -f file up -d)
     /// </summary>
     /// <param name="projectName">Name of the project</param>
+    /// <param name="composeFilePath">Path to the compose file (required for 'up' command)</param>
     /// <param name="build">Whether to build images before starting</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Operation result</returns>
-    Task<OperationResult> UpAsync(string projectName, bool build = false, CancellationToken cancellationToken = default);
+    Task<OperationResult> UpAsync(string projectName, string? composeFilePath = null, bool build = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops and removes a compose project (docker compose down)

@@ -239,6 +239,7 @@ export default {
     downSuccess: 'Project stopped successfully',
     restartSuccess: 'Project restarted successfully',
     stopSuccess: 'Project stopped successfully',
+    startSuccess: 'Project services started successfully',
     confirmAction: 'Are you sure?',
     confirmUpMessage: 'start all services',
     confirmDownMessage: 'stop and remove all services',

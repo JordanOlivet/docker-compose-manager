@@ -239,6 +239,7 @@ const fr = {
     downSuccess: 'Projet arrêté avec succès',
     restartSuccess: 'Projet redémarré avec succès',
     stopSuccess: 'Projet arrêté avec succès',
+    startSuccess: 'Services du projet démarrés avec succès',
     confirmAction: 'Êtes-vous sûr ?',
     confirmUpMessage: 'démarrer tous les services',
     confirmDownMessage: 'arrêter et supprimer tous les services',

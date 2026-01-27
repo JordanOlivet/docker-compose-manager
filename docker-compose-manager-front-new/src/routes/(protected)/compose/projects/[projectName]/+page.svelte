@@ -66,6 +66,12 @@
 		onError: () => toast.error($t('compose.failedToLoadProject'))
 	}));
 
+	const startMutation = createMutation(() => ({
+		mutationFn: () => composeApi.startProject(projectName),
+		onSuccess: () => toast.success($t('compose.startSuccess')),
+		onError: () => toast.error($t('compose.failedToLoadProject'))
+	}));
+
 	// Container mutations
 	const startContainerMutation = createMutation(() => ({
 		mutationFn: (containerId: string) => containersApi.start(containerId),
@@ -205,54 +211,62 @@
 						{/if}
 					</div>
 					<div class="flex gap-2 flex-shrink-0">
-						{#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
-							{#if project.availableActions?.up}
-								<button
-									onclick={() => upMutation.mutate({ detach: true })}
-									class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-									title={$t('containers.start')}
-								>
-									<Play class="w-4 h-4" />
-								</button>
-								<button
-									onclick={() => upMutation.mutate({ detach: true, forceRecreate: true })}
-									class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-									title={$t('compose.forceRecreate')}
-								>
-									<Zap class="w-4 h-4" />
-								</button>
-							{:else if project.availableActions?.start}
-								<!-- No compose file but can use start (uses -p flag) -->
-								<button
-									onclick={() => restartMutation.mutate()}
-									class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
-									title={$t('containers.start')}
-								>
-									<Play class="w-4 h-4" />
-								</button>
-							{/if}
+						<!-- UP: For "Not Started" projects with compose file -->
+						{#if project.state === EntityState.NotStarted && project.availableActions?.up}
+							<button
+								onclick={() => upMutation.mutate({ detach: true })}
+								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+								title={$t('compose.up')}
+							>
+								<Play class="w-4 h-4" />
+							</button>
+							<button
+								onclick={() => upMutation.mutate({ detach: true, forceRecreate: true })}
+								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+								title={$t('compose.forceRecreate')}
+							>
+								<Zap class="w-4 h-4" />
+							</button>
+
+						<!-- START: For stopped containers (Stopped, Exited, Down, Created) -->
+						{:else if (project.state === EntityState.Stopped ||
+						           project.state === EntityState.Exited ||
+						           project.state === EntityState.Down ||
+						           project.state === EntityState.Created) &&
+						          project.availableActions?.start}
+							<button
+								onclick={() => startMutation.mutate()}
+								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+								title={$t('containers.start')}
+							>
+								<Play class="w-4 h-4" />
+							</button>
 						{/if}
-						{#if project.state === 'Running' || project.state === 'Degraded'}
+
+						<!-- RESTART & STOP: For running projects -->
+						{#if project.state === EntityState.Running || project.state === EntityState.Degraded}
 							<button
 								onclick={() => restartMutation.mutate()}
 								class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.restart')}
+								title={$t('compose.restart')}
 							>
 								<RotateCw class="w-4 h-4" />
 							</button>
 							<button
 								onclick={() => stopMutation.mutate()}
 								class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.stop')}
+								title={$t('compose.stop')}
 							>
 								<Square class="w-4 h-4" />
 							</button>
 						{/if}
-						{#if project.state !== 'Down'}
+
+						<!-- DOWN: To remove (if containers exist) -->
+						{#if project.state !== EntityState.NotStarted && project.availableActions?.down}
 							<button
 								onclick={() => handleRemoveComposeProject(project.state)}
 								class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
-								title={$t('containers.remove')}
+								title={$t('common.delete')}
 							>
 								<Trash2 class="w-4 h-4" />
 							</button>
