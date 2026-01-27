@@ -32,3 +32,5 @@ logs
 docker-compose-manager-front/.vscode/chrome-debug-profile
 docker-compose-manager-back/docker-compose-manager-back.Tests/obj
 docker-compose-manager-back/docker-compose-manager-back.Tests/bin
+docker-compose-manager-back/docker-compose-manager-back/bin
+docker-compose-manager-back/docker-compose-manager-back/obj

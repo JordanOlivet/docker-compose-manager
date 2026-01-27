@@ -4,11 +4,11 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS backend-build
 WORKDIR /src
 
 # Copy backend project file and restore dependencies
-COPY docker-compose-manager-back/*.csproj ./
+COPY docker-compose-manager-back/docker-compose-manager-back/*.csproj ./
 RUN dotnet restore
 
 # Copy backend source and build
-COPY docker-compose-manager-back/ ./
+COPY docker-compose-manager-back/docker-compose-manager-back/ ./
 ARG VERSION=0.0.0
 ARG ASSEMBLY_VERSION=0.0.0
 ARG BUILD_DATE

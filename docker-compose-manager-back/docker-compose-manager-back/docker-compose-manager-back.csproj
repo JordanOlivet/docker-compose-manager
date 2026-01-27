@@ -41,11 +41,4 @@
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="docker-compose-manager-back.Tests\**" />
-    <Content Remove="docker-compose-manager-back.Tests\**" />
-    <EmbeddedResource Remove="docker-compose-manager-back.Tests\**" />
-    <None Remove="docker-compose-manager-back.Tests\**" />
-  </ItemGroup>
-
 </Project>
