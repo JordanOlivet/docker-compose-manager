@@ -1,3 +1,14 @@
+## Changes in v1.0.0
+
+**Merged Pull Requests:**
+- Refactor the compose discovery mecanism (#32)
+
+**Commits:**
+- Refactor the compose discovery mecanism (#32) (5b8af06)
+- Update README by removing license section (3df33da)
+- docs: update CHANGELOG for v0.21.0 [skip ci] (cb31e99)
+- chore: bump version to v0.21.0 [skip ci] (1e01ef0)
+
 ## Changes in v0.22.0
 
 ### 🎉 Major Release: Compose Discovery Revamp
