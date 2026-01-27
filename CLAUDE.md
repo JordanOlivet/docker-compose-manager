@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a Docker Compose management system with two main applications:
+This repository contains a Docker Compose management system deployed as a **unified single-container application**:
 
 - **docker-compose-manager-back**: .NET 9 Web API backend that interfaces with Docker Engine
-- **docker-compose-manager-front**: React 18 + TypeScript frontend with shadcn/ui
+- **docker-compose-manager-front-new**: SvelteKit frontend with shadcn/ui components
 
 The system provides a web-based interface for managing Docker containers and compose files, with features including user authentication, role-based access control, real-time updates via WebSockets, and a compose file editor.
+
+**Deployment Architecture**: The production deployment uses a single Docker image containing both frontend and backend, managed by Supervisor with Nginx as a reverse proxy. See [UNIFIED-DEPLOYMENT.md](UNIFIED-DEPLOYMENT.md) for details.
 
 ## Development Commands
 
@@ -45,9 +47,9 @@ dotnet ef migrations remove
 
 Backend runs at `http://localhost:5000` with Swagger UI at `http://localhost:5000/swagger`
 
-### Frontend (docker-compose-manager-front)
+### Frontend (docker-compose-manager-front-new)
 
-Located in `./docker-compose-manager-front/`
+Located in `./docker-compose-manager-front-new/`
 
 ```bash
 # Install dependencies
@@ -77,12 +79,12 @@ npm run lint
 
 Frontend runs at `http://localhost:5173` (Vite default)
 
-### Docker Deployment
+### Docker Deployment (Unified Container)
 
 From repository root:
 
 ```bash
-# Build and start all services
+# Build and start the unified application
 docker compose up --build
 
 # Run in background
@@ -91,20 +93,25 @@ docker compose up -d
 # View logs
 docker compose logs -f
 
-# View backend logs only
-docker compose logs -f backend
+# View logs for specific process (backend or nginx)
+docker compose logs -f app
 
-# Stop services
+# Stop service
 docker compose down
 
 # Stop and remove volumes (fresh start)
 docker compose down -v
 
-# Rebuild specific service
-docker compose build backend
+# Rebuild the unified image
+docker compose build app
+
+# For development with local builds
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 Application accessible at `http://localhost:3000` when running via Docker Compose.
+
+**Note**: The unified deployment combines both frontend and backend into a single container managed by Supervisor. For architecture details, see [UNIFIED-DEPLOYMENT.md](UNIFIED-DEPLOYMENT.md).
 
 ## Architecture Overview
 

@@ -1,9 +1,9 @@
 services:
-  backend:
-    image: ghcr.io/jordanolivet/docker-compose-manager-backend:latest
-    container_name: docker-manager-backend
+  app:
+    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    container_name: docker-compose-manager
     ports:
-      - "5000:5000"
+      - "3030:80"
     environment:
       # JWT Secret (must be set in .env)
       # WARNING: Generate a strong key in production (min 32 random characters)
@@ -11,55 +11,27 @@ services:
       # Docker Host
       - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock} # For linux host
       # - Docker__Host=${DOCKER_HOST:-npipe://./pipe/docker_engine} # For windows host
-      # CORS Origins (frontend URL)
-      - Cors__Origins__0=http://localhost:3000
       # Logging
       - Serilog__MinimumLevel__Default=${LOG_LEVEL:-Information}
     volumes:
       # Database persistence
-      - backend-data:/app/data
+      - app-data:/app/data
       # Docker socket access (Linux/Mac)
       - /var/run/docker.sock:/var/run/docker.sock
       # Windows Docker socket (uncomment if on Windows and comment the line above):
       # - //./pipe/docker_engine://./pipe/docker_engine
-      # Optional: logs persistence
-      - ./logs/backend:/app/logs
-    networks:
-      - docker-manager-network
+      # Logs persistence
+      - ./logs:/app/logs
+      # Compose files directory
+      - ./compose-files:/app/compose-files
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  frontend:
-    image: ghcr.io/jordanolivet/docker-compose-manager-frontend:latest
-    container_name: docker-manager-frontend
-    ports:
-      - "3000:80"
-    environment:
-      # Nginx environment variables (if needed)
-      - NGINX_HOST=localhost
-      - NGINX_PORT=80
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - docker-manager-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
 volumes:
-  backend-data:
+  app-data:
     driver: local
-
-networks:
-  docker-manager-network:
-    driver: bridge
