@@ -511,7 +511,7 @@ PHASE G (Final - Testing & Documentation)
 **Estimated Time:** 1 hour
 
 **Files to Modify:**
-- `docker-compose-manager-front-new/src/lib/api/compose.ts`
+- `docker-compose-manager-front/src/lib/api/compose.ts`
 
 **Tasks:**
 - [ ] Add new API functions:
@@ -534,7 +534,7 @@ PHASE G (Final - Testing & Documentation)
 **Estimated Time:** 30 min
 
 **Files to Modify:**
-- `docker-compose-manager-front-new/src/lib/types/` (create or update relevant type files)
+- `docker-compose-manager-front/src/lib/types/` (create or update relevant type files)
 
 **Tasks:**
 - [ ] Add TypeScript interfaces matching backend DTOs:

@@ -106,10 +106,10 @@ jobs:
       - name: Setup Node.js 20
         uses: ./.github/actions/setup-node
       - name: Install frontend dependencies
-        working-directory: ./docker-compose-manager-front-new
+        working-directory: ./docker-compose-manager-front
         run: npm ci
       - name: Run frontend tests
-        working-directory: ./docker-compose-manager-front-new
+        working-directory: ./docker-compose-manager-front
         run: npm test -- --run
 
       # Docker build and push

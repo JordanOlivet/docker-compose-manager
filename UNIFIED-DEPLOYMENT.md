@@ -235,9 +235,9 @@ dotnet watch run
 # Access at http://localhost:5000
 ```
 
-### Frontend (docker-compose-manager-front-new/)
+### Frontend (docker-compose-manager-front/)
 ```bash
-cd docker-compose-manager-front-new
+cd docker-compose-manager-front
 npm run dev
 # Access at http://localhost:5173
 ```

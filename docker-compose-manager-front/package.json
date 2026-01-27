@@ -1,5 +1,5 @@
 {
-	"name": "docker-compose-manager-front-new",
+	"name": "docker-compose-manager-front",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",

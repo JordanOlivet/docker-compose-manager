@@ -173,7 +173,7 @@ dotnet ef migrations add RemoveComposePathsAndFiles
 
 ### 4.2 Feature Flags
 
-**Fichier :** `docker-compose-manager-front-new/src/lib/config/features.ts` (NOUVEAU)
+**Fichier :** `docker-compose-manager-front/src/lib/config/features.ts` (NOUVEAU)
 
 ```typescript
 export const FEATURES = {

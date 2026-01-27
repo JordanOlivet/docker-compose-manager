@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repository contains a Docker Compose management system deployed as a **unified single-container application**:
 
 - **docker-compose-manager-back**: .NET 9 Web API backend that interfaces with Docker Engine
-- **docker-compose-manager-front-new**: SvelteKit frontend with shadcn/ui components
+- **docker-compose-manager-front**: SvelteKit frontend with shadcn/ui components
 
 The system provides a web-based interface for managing Docker containers and compose files, with features including user authentication, role-based access control, real-time updates via WebSockets, and a compose file editor.
 
@@ -47,9 +47,9 @@ dotnet ef migrations remove
 
 Backend runs at `http://localhost:5000` with Swagger UI at `http://localhost:5000/swagger`
 
-### Frontend (docker-compose-manager-front-new)
+### Frontend (docker-compose-manager-front)
 
-Located in `./docker-compose-manager-front-new/`
+Located in `./docker-compose-manager-front/`
 
 ```bash
 # Install dependencies

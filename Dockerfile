@@ -24,11 +24,11 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app
 
 # Copy frontend package files and install dependencies
-COPY docker-compose-manager-front-new/package*.json ./
+COPY docker-compose-manager-front/package*.json ./
 RUN npm ci
 
 # Copy frontend source and build
-COPY docker-compose-manager-front-new/ ./
+COPY docker-compose-manager-front/ ./
 ARG VITE_APP_VERSION
 ARG VITE_BUILD_DATE
 ARG VITE_GIT_COMMIT
