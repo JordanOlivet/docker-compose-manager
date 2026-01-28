@@ -1,3 +1,13 @@
+## Changes in v1.0.2
+
+**Merged Pull Requests:**
+- Handle project name conflict with parentDirectory-fileName (#37)
+
+**Commits:**
+- Handle project name conflict with parentDirectory-fileName (#37) (e2f5977)
+- docs: update CHANGELOG for v1.0.1 [skip ci] (7cf8e0a)
+- chore: bump version to v1.0.1 [skip ci] (a5ac2cb)
+
 ## Changes in v1.0.1
 
 **Merged Pull Requests:**
