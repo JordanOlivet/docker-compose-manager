@@ -1,3 +1,13 @@
+## Changes in v1.0.1
+
+**Merged Pull Requests:**
+- Handle conflict on project name (#36)
+
+**Commits:**
+- Handle conflict on project name (#36) (0d77c86)
+- docs: update CHANGELOG for v1.0.0 [skip ci] (495fa7e)
+- chore: bump version to v1.0.0 [skip ci] (ddd734e)
+
 ## Changes in v1.0.0
 
 **Merged Pull Requests:**
