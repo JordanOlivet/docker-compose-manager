@@ -402,4 +402,9 @@ public static class AuditActions
     // Audit
     public const string AuditView = "audit.view";
     public const string AuditPurge = "audit.purge";
+
+    // Application Update
+    public const string AppUpdateCheck = "app.update_check";
+    public const string AppUpdate = "app.update";
+    public const string AppRollback = "app.rollback";
 }

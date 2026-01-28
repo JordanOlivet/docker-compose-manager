@@ -151,6 +151,12 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>(
     builder.Configuration.GetSection("ComposeDiscovery"));
 
+// Configure Self-Update Options
+builder.Services.Configure<SelfUpdateOptions>(
+    builder.Configuration.GetSection("SelfUpdate"));
+builder.Services.Configure<MaintenanceOptions>(
+    builder.Configuration.GetSection("Maintenance"));
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -174,6 +180,10 @@ builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
 builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
 builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
 // Note: ComposeCommandClassifier is static, no DI registration needed
+
+// Register Self-Update services
+builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
+builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
 
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery

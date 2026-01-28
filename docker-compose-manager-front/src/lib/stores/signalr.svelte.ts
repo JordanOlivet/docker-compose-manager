@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import * as signalR from '@microsoft/signalr';
 import type { OperationUpdateEvent } from '$lib/types';
+import type { MaintenanceModeNotification } from '$lib/types/update';
 import { logger } from '$lib/utils/logger';
 
 // Types for SignalR events
@@ -43,6 +44,7 @@ export const isReconnecting = {
 const containerCallbacks = new Set<(event: ContainerStateChangedEvent) => void>();
 const composeProjectCallbacks = new Set<(event: ComposeProjectStateChangedEvent) => void>();
 const operationCallbacks = new Set<(event: OperationUpdateEvent) => void>();
+const maintenanceModeCallbacks = new Set<(event: MaintenanceModeNotification) => void>();
 const reconnectedCallbacks = new Set<() => void>();
 const connectedCallbacks = new Set<() => void>();
 const disconnectedCallbacks = new Set<(error?: Error) => void>();
@@ -116,6 +118,11 @@ export async function initializeGlobalConnection(): Promise<void> {
     connection.on('ComposeProjectStateChanged', (event: ComposeProjectStateChangedEvent) => {
       logger.log('[SignalR Store] ComposeProjectStateChanged:', event.projectName, event.action);
       composeProjectCallbacks.forEach(cb => cb(event));
+    });
+
+    connection.on('MaintenanceMode', (event: MaintenanceModeNotification) => {
+      logger.log('[SignalR Store] MaintenanceMode:', event.isActive, event.message);
+      maintenanceModeCallbacks.forEach(cb => cb(event));
     });
 
     // Connection lifecycle handlers
@@ -224,6 +231,18 @@ export function onOperationUpdate(callback: (event: OperationUpdateEvent) => voi
   return () => {
     operationCallbacks.delete(callback);
     logger.log('[SignalR Store] Operation callback unregistered, total:', operationCallbacks.size);
+  };
+}
+
+/**
+ * Subscribe to maintenance mode events (application update notifications)
+ */
+export function onMaintenanceMode(callback: (event: MaintenanceModeNotification) => void): () => void {
+  maintenanceModeCallbacks.add(callback);
+  logger.log('[SignalR Store] MaintenanceMode callback registered, total:', maintenanceModeCallbacks.size);
+  return () => {
+    maintenanceModeCallbacks.delete(callback);
+    logger.log('[SignalR Store] MaintenanceMode callback unregistered, total:', maintenanceModeCallbacks.size);
   };
 }
 

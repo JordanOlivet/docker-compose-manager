@@ -1,0 +1,355 @@
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using docker_compose_manager_back.Configuration;
+using docker_compose_manager_back.DTOs;
+using Microsoft.Extensions.Options;
+
+namespace docker_compose_manager_back.Services;
+
+public interface IGitHubReleaseService
+{
+    Task<AppUpdateCheckResponse> CheckForUpdateAsync(CancellationToken cancellationToken = default);
+    Task<List<ReleaseInfo>> GetChangelogBetweenVersionsAsync(string fromVersion, string toVersion, CancellationToken cancellationToken = default);
+    Task<ReleaseInfo?> GetLatestReleaseAsync(CancellationToken cancellationToken = default);
+    void InvalidateCache();
+}
+
+public partial class GitHubReleaseService : IGitHubReleaseService
+{
+    private readonly HttpClient _httpClient;
+    private readonly SelfUpdateOptions _options;
+    private readonly ILogger<GitHubReleaseService> _logger;
+
+    private List<GitHubRelease>? _cachedReleases;
+    private DateTime _cacheExpiration = DateTime.MinValue;
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
+
+    public GitHubReleaseService(
+        HttpClient httpClient,
+        IOptions<SelfUpdateOptions> options,
+        ILogger<GitHubReleaseService> logger)
+    {
+        _httpClient = httpClient;
+        _options = options.Value;
+        _logger = logger;
+
+        // Configure HttpClient for GitHub API
+        _httpClient.BaseAddress = new Uri(_options.GitHubApiBaseUrl);
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("docker-compose-manager", GetCurrentVersion()));
+
+        if (!string.IsNullOrEmpty(_options.GitHubAccessToken))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.GitHubAccessToken);
+        }
+    }
+
+    public async Task<AppUpdateCheckResponse> CheckForUpdateAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            string currentVersion = GetCurrentVersion();
+            List<GitHubRelease> releases = await GetReleasesAsync(cancellationToken);
+
+            GitHubRelease? latestRelease = releases
+                .Where(r => !r.Draft)
+                .Where(r => _options.AllowPreRelease || !r.Prerelease)
+                .OrderByDescending(r => ParseVersion(r.TagName))
+                .FirstOrDefault();
+
+            if (latestRelease == null)
+            {
+                return new AppUpdateCheckResponse(
+                    CurrentVersion: currentVersion,
+                    LatestVersion: currentVersion,
+                    UpdateAvailable: false,
+                    ReleaseUrl: null,
+                    Changelog: new List<ReleaseInfo>(),
+                    Summary: new ChangelogSummary(0, false, false, false)
+                );
+            }
+
+            string latestVersion = NormalizeVersion(latestRelease.TagName);
+            bool updateAvailable = CompareVersions(currentVersion, latestVersion) < 0;
+
+            List<ReleaseInfo> changelog = new();
+            ChangelogSummary summary;
+
+            if (updateAvailable)
+            {
+                changelog = await GetChangelogBetweenVersionsAsync(currentVersion, latestVersion, cancellationToken);
+                summary = new ChangelogSummary(
+                    TotalReleases: changelog.Count,
+                    HasBreakingChanges: changelog.Any(r => r.IsBreakingChange),
+                    HasSecurityFixes: changelog.Any(r => r.IsSecurityFix),
+                    HasPreReleases: changelog.Any(r => r.IsPreRelease)
+                );
+            }
+            else
+            {
+                summary = new ChangelogSummary(0, false, false, false);
+            }
+
+            return new AppUpdateCheckResponse(
+                CurrentVersion: currentVersion,
+                LatestVersion: latestVersion,
+                UpdateAvailable: updateAvailable,
+                ReleaseUrl: latestRelease.HtmlUrl,
+                Changelog: changelog,
+                Summary: summary
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking for updates from GitHub");
+            throw;
+        }
+    }
+
+    public async Task<List<ReleaseInfo>> GetChangelogBetweenVersionsAsync(string fromVersion, string toVersion, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            List<GitHubRelease> releases = await GetReleasesAsync(cancellationToken);
+
+            Version from = ParseVersion(fromVersion);
+            Version to = ParseVersion(toVersion);
+
+            return releases
+                .Where(r => !r.Draft)
+                .Where(r => _options.AllowPreRelease || !r.Prerelease)
+                .Where(r =>
+                {
+                    Version v = ParseVersion(r.TagName);
+                    return v > from && v <= to;
+                })
+                .OrderByDescending(r => ParseVersion(r.TagName))
+                .Select(r => ToReleaseInfo(r))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching changelog between {From} and {To}", fromVersion, toVersion);
+            return new List<ReleaseInfo>();
+        }
+    }
+
+    public async Task<ReleaseInfo?> GetLatestReleaseAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            List<GitHubRelease> releases = await GetReleasesAsync(cancellationToken);
+
+            GitHubRelease? latest = releases
+                .Where(r => !r.Draft)
+                .Where(r => _options.AllowPreRelease || !r.Prerelease)
+                .OrderByDescending(r => ParseVersion(r.TagName))
+                .FirstOrDefault();
+
+            return latest != null ? ToReleaseInfo(latest) : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching latest release");
+            return null;
+        }
+    }
+
+    public void InvalidateCache()
+    {
+        _cacheExpiration = DateTime.MinValue;
+        _cachedReleases = null;
+        _logger.LogInformation("GitHub releases cache invalidated");
+    }
+
+    private async Task<List<GitHubRelease>> GetReleasesAsync(CancellationToken cancellationToken)
+    {
+        await _cacheLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_cachedReleases != null && DateTime.UtcNow < _cacheExpiration)
+            {
+                _logger.LogDebug("Using cached releases");
+                return _cachedReleases;
+            }
+
+            string url = $"/repos/{_options.GitHubRepo}/releases";
+            _logger.LogInformation("Fetching releases from GitHub: {Url}", url);
+
+            HttpResponseMessage response = await _httpClient.GetAsync(url, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("GitHub API returned {StatusCode}: {Content}", response.StatusCode, errorContent);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    // Check for rate limiting
+                    if (response.Headers.TryGetValues("X-RateLimit-Remaining", out var remaining) &&
+                        int.TryParse(remaining.FirstOrDefault(), out int rem) && rem == 0)
+                    {
+                        throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later or configure a GitHub access token.");
+                    }
+                }
+
+                throw new HttpRequestException($"GitHub API returned {response.StatusCode}");
+            }
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken);
+            List<GitHubRelease>? releases = JsonSerializer.Deserialize<List<GitHubRelease>>(content);
+
+            if (releases == null)
+            {
+                throw new InvalidOperationException("Failed to parse GitHub releases response");
+            }
+
+            _cachedReleases = releases;
+            _cacheExpiration = DateTime.UtcNow.AddSeconds(_options.CacheDurationSeconds);
+
+            _logger.LogInformation("Fetched {Count} releases from GitHub, cached until {Expiration}", releases.Count, _cacheExpiration);
+
+            return releases;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
+    private ReleaseInfo ToReleaseInfo(GitHubRelease release)
+    {
+        string notes = release.Body ?? "";
+        bool isBreaking = DetectBreakingChange(release);
+        bool isSecurity = DetectSecurityFix(release);
+
+        return new ReleaseInfo(
+            Version: NormalizeVersion(release.TagName),
+            TagName: release.TagName,
+            PublishedAt: release.PublishedAt ?? release.CreatedAt,
+            ReleaseNotes: notes,
+            ReleaseUrl: release.HtmlUrl,
+            IsBreakingChange: isBreaking,
+            IsSecurityFix: isSecurity,
+            IsPreRelease: release.Prerelease
+        );
+    }
+
+    private bool DetectBreakingChange(GitHubRelease release)
+    {
+        // Check release name/body for breaking change indicators
+        string combined = $"{release.Name} {release.Body}".ToLowerInvariant();
+        return combined.Contains("breaking change") ||
+               combined.Contains("breaking:") ||
+               combined.Contains("major change") ||
+               BreakingChangeRegex().IsMatch(release.TagName);
+    }
+
+    private bool DetectSecurityFix(GitHubRelease release)
+    {
+        // Check release name/body for security fix indicators
+        string combined = $"{release.Name} {release.Body}".ToLowerInvariant();
+        return combined.Contains("security") ||
+               combined.Contains("vulnerability") ||
+               combined.Contains("cve-");
+    }
+
+    private static string GetCurrentVersion()
+    {
+        // Try to read from VERSION file first (preferred)
+        string versionFile = Path.Combine(AppContext.BaseDirectory, "VERSION");
+        if (File.Exists(versionFile))
+        {
+            string version = File.ReadAllText(versionFile).Trim();
+            if (!string.IsNullOrEmpty(version))
+            {
+                return NormalizeVersion(version);
+            }
+        }
+
+        // Fallback to environment variable
+        string? envVersion = Environment.GetEnvironmentVariable("APP_VERSION");
+        if (!string.IsNullOrEmpty(envVersion))
+        {
+            return NormalizeVersion(envVersion);
+        }
+
+        // Last fallback to assembly version
+        return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
+    }
+
+    private static string NormalizeVersion(string version)
+    {
+        // Remove 'v' prefix if present
+        return version.TrimStart('v', 'V');
+    }
+
+    private static Version ParseVersion(string version)
+    {
+        string normalized = NormalizeVersion(version);
+
+        // Remove pre-release suffix (e.g., -beta.1, -rc.1)
+        int dashIndex = normalized.IndexOf('-');
+        if (dashIndex > 0)
+        {
+            normalized = normalized.Substring(0, dashIndex);
+        }
+
+        // Try to parse as Version
+        if (Version.TryParse(normalized, out Version? parsedVersion))
+        {
+            return parsedVersion;
+        }
+
+        // Default to 0.0.0 if parsing fails
+        return new Version(0, 0, 0);
+    }
+
+    private static int CompareVersions(string version1, string version2)
+    {
+        return ParseVersion(version1).CompareTo(ParseVersion(version2));
+    }
+
+    // Regex for detecting major version bumps (e.g., v1.0.0 -> v2.0.0)
+    [GeneratedRegex(@"^v?(\d+)\.0\.0$")]
+    private static partial Regex BreakingChangeRegex();
+}
+
+internal class GitHubRelease
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("tag_name")]
+    public string TagName { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("body")]
+    public string? Body { get; set; }
+
+    [JsonPropertyName("html_url")]
+    public string HtmlUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("draft")]
+    public bool Draft { get; set; }
+
+    [JsonPropertyName("prerelease")]
+    public bool Prerelease { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("published_at")]
+    public DateTime? PublishedAt { get; set; }
+
+    [JsonPropertyName("tarball_url")]
+    public string? TarballUrl { get; set; }
+
+    [JsonPropertyName("zipball_url")]
+    public string? ZipballUrl { get; set; }
+}
