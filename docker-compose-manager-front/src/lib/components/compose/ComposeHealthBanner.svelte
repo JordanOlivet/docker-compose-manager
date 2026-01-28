@@ -5,6 +5,7 @@
   import { AlertTriangle, XCircle, X } from 'lucide-svelte';
   import { composeApi } from '$lib/api';
   import type { ComposeHealthDto } from '$lib/types';
+  import { logger } from '$utils/logger';
 
   let health: ComposeHealthDto | null = null;
   let dismissed = false;
@@ -27,7 +28,7 @@
     try {
       health = await composeApi.getComposeHealth();
     } catch (error) {
-      console.error('Failed to check health:', error);
+      logger.error('Failed to check health:', error);
     } finally {
       loading = false;
     }

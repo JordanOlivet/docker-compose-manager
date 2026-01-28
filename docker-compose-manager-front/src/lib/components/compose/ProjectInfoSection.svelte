@@ -6,6 +6,7 @@
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
 	import type { ServiceDetails, NetworkDetails, VolumeDetails } from '$lib/types';
+  import { logger } from '$utils/logger';
 
 	interface Props {
 		projectName: string;
@@ -28,7 +29,7 @@
 			const fileContent = await composeApi.getFileByPath(projectPath);
 			goto(`/compose/files/${fileContent.id}/edit`);
 		} catch (e) {
-			console.error('Failed to get file ID:', e);
+			logger.error('Failed to get file ID:', e);
 		}
 	}
 

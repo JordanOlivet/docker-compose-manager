@@ -1,6 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
+import { logger } from '$lib/utils/logger';
 
 let connection: signalR.HubConnection | null = null;
 let logsConnection: signalR.HubConnection | null = null;
@@ -70,7 +71,7 @@ function initializeConnection() {
       accessTokenFactory: () => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
-          console.warn('SignalR: No access token found in localStorage. Connection may be rejected by server.');
+          logger.warn('SignalR: No access token found in localStorage. Connection may be rejected by server.');
         }
         return token || '';
       },
@@ -168,11 +169,11 @@ export async function startConnection() {
 
   try {
     await connection.start();
-    console.log('SignalR connected');
+    logger.log('SignalR connected');
     // Call all onConnected callbacks for initial connection
     connectedCallbacks.forEach(cb => cb());
   } catch (error) {
-    console.error('SignalR connection error:', error);
+    logger.error('SignalR connection error:', error);
     // Retry after 5 seconds
     setTimeout(startConnection, 5000);
   } finally {
@@ -185,20 +186,20 @@ export async function stopConnection() {
 
   try {
     await connection.stop();
-    console.log('SignalR disconnected');
+    logger.log('SignalR disconnected');
   } catch (error) {
-    console.error('SignalR disconnection error:', error);
+    logger.error('SignalR disconnection error:', error);
   }
 }
 
 export function subscribeToOperation(operationId: string) {
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-    console.warn('SignalR not connected, cannot subscribe to operation');
+    logger.warn('SignalR not connected, cannot subscribe to operation');
     return;
   }
 
   connection.invoke('SubscribeToOperation', operationId).catch((err) => {
-    console.error('Failed to subscribe to operation:', err);
+    logger.error('Failed to subscribe to operation:', err);
   });
 }
 
@@ -208,7 +209,7 @@ export function unsubscribeFromOperation(operationId: string) {
   }
 
   connection.invoke('UnsubscribeFromOperation', operationId).catch((err) => {
-    console.error('Failed to unsubscribe from operation:', err);
+    logger.error('Failed to unsubscribe from operation:', err);
   });
 }
 
@@ -230,7 +231,7 @@ async function initializeLogsConnection() {
       accessTokenFactory: () => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
-          console.warn('SignalR Logs: No access token found in localStorage. Connection may be rejected by server.');
+          logger.warn('SignalR Logs: No access token found in localStorage. Connection may be rejected by server.');
         }
         return token || '';
       },
@@ -253,16 +254,16 @@ async function initializeLogsConnection() {
   });
 
   logsConnection.onclose((error) => {
-    console.error('Logs SignalR connection closed:', error);
+    logger.error('Logs SignalR connection closed:', error);
     isLogsConnecting = false;
   });
 
   logsConnection.onreconnecting((error) => {
-    console.warn('Logs SignalR connection lost. Reconnecting...', error);
+    logger.warn('Logs SignalR connection lost. Reconnecting...', error);
   });
 
   logsConnection.onreconnected((connectionId) => {
-    console.log('Logs SignalR reconnected. Connection ID:', connectionId);
+    logger.log('Logs SignalR reconnected. Connection ID:', connectionId);
   });
 }
 
@@ -299,9 +300,9 @@ export async function connectToLogsHub(): Promise<void> {
     }
 
     await logsConnection.start();
-    console.log('Logs SignalR connected successfully');
+    logger.log('Logs SignalR connected successfully');
   } catch (error) {
-    console.error('Logs SignalR connection error:', error);
+    logger.error('Logs SignalR connection error:', error);
     throw error;
   } finally {
     isLogsConnecting = false;
@@ -313,10 +314,10 @@ export async function disconnectFromLogsHub(): Promise<void> {
 
   try {
     await logsConnection.stop();
-    console.log('Logs SignalR disconnected');
+    logger.log('Logs SignalR disconnected');
     logsConnection = null;
   } catch (error) {
-    console.error('Logs SignalR disconnection error:', error);
+    logger.error('Logs SignalR disconnection error:', error);
   }
 }
 
