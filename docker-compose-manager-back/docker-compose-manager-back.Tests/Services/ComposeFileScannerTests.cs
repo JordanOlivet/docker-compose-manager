@@ -390,4 +390,128 @@ services:
         result.Should().HaveCount(2);
         result.Select(f => f.ProjectName).Should().Contain(new[] { "project1", "project2" });
     }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_NonStandardFileName_UsesCombinedName()
+    {
+        // Arrange - Non-standard file name in a directory
+        var projectDir = Path.Combine(_testRoot, "pterodactyl");
+        Directory.CreateDirectory(projectDir);
+
+        var composeContent = @"
+services:
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+";
+        var filePath = Path.Combine(projectDir, "panel.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        // Act
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        // Assert - Should use "directory-filename" format
+        result.Should().NotBeNull();
+        result!.ProjectName.Should().Be("pterodactyl-panel");
+    }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_StandardFileName_UsesDirectoryName()
+    {
+        // Arrange - Standard compose file names should use directory name only
+        var projectDir = Path.Combine(_testRoot, "myapp");
+        Directory.CreateDirectory(projectDir);
+
+        var composeContent = @"
+services:
+  web:
+    image: nginx:latest
+";
+        // Test docker-compose.yml (standard)
+        var filePath = Path.Combine(projectDir, "docker-compose.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        // Act
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        // Assert - Should use directory name only
+        result.Should().NotBeNull();
+        result!.ProjectName.Should().Be("myapp");
+    }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_ComposeYaml_UsesDirectoryName()
+    {
+        // Arrange - compose.yaml is also a standard name
+        var projectDir = Path.Combine(_testRoot, "webapp");
+        Directory.CreateDirectory(projectDir);
+
+        var composeContent = @"
+services:
+  api:
+    image: node:20
+";
+        var filePath = Path.Combine(projectDir, "compose.yaml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        // Act
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        // Assert - Should use directory name only
+        result.Should().NotBeNull();
+        result!.ProjectName.Should().Be("webapp");
+    }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_FileNameMatchesDirectory_UsesDirectoryName()
+    {
+        // Arrange - When file name equals directory name, use directory name only
+        var projectDir = Path.Combine(_testRoot, "redis");
+        Directory.CreateDirectory(projectDir);
+
+        var composeContent = @"
+services:
+  cache:
+    image: redis:alpine
+";
+        var filePath = Path.Combine(projectDir, "redis.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        // Act
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        // Assert - Should use directory name only (no duplication like "redis-redis")
+        result.Should().NotBeNull();
+        result!.ProjectName.Should().Be("redis");
+    }
+
+    [Fact]
+    public async Task ScanComposeFilesAsync_MultipleNonStandardFilesInSameFolder_NoDuplicateNames()
+    {
+        // Arrange - Multiple non-standard files in the same folder (pterodactyl scenario)
+        var projectDir = Path.Combine(_testRoot, "pterodactyl");
+        Directory.CreateDirectory(projectDir);
+
+        var panelContent = @"
+services:
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+";
+        var wingsContent = @"
+services:
+  wings:
+    image: ghcr.io/pterodactyl/wings:latest
+";
+        await File.WriteAllTextAsync(Path.Combine(projectDir, "panel.yml"), panelContent);
+        await File.WriteAllTextAsync(Path.Combine(projectDir, "wings.yml"), wingsContent);
+
+        // Act
+        var result = await _scanner.ScanComposeFilesAsync();
+
+        // Assert - Should have unique names
+        result.Should().HaveCount(2);
+        var projectNames = result.Select(f => f.ProjectName).ToList();
+        projectNames.Should().Contain("pterodactyl-panel");
+        projectNames.Should().Contain("pterodactyl-wings");
+        projectNames.Distinct().Should().HaveCount(2); // No duplicates
+    }
 }

@@ -56,6 +56,13 @@ public class ComposeFileScanner : IComposeFileScanner
         return await ValidateAndParseComposeFile(filePath);
     }
 
+    // Standard compose file names (without extension) that use directory name as project name
+    private static readonly HashSet<string> StandardComposeFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "docker-compose",
+        "compose"
+    };
+
     // Directories to skip during scanning (common dependency/build folders)
     private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -246,20 +253,36 @@ public class ComposeFileScanner : IComposeFileScanner
     }
 
     /// <summary>
-    /// Gets the default project name from directory or file name
+    /// Gets the default project name from directory or file name.
+    /// For non-standard file names (not docker-compose.yml or compose.yml),
+    /// combines the directory name with file name to avoid conflicts.
     /// </summary>
     private string GetDefaultProjectName(string filePath)
     {
         var directory = Path.GetDirectoryName(filePath);
+        var fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+
         if (!string.IsNullOrEmpty(directory))
         {
             var directoryName = new DirectoryInfo(directory).Name;
+
             if (!string.IsNullOrEmpty(directoryName))
+            {
+                // If the file has a non-standard name and it differs from the parent directory
+                // → use "parentDirectory-fileName" to avoid conflicts
+                if (!StandardComposeFileNames.Contains(fileNameWithoutExt) &&
+                    !string.Equals(fileNameWithoutExt, directoryName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"{directoryName}-{fileNameWithoutExt}";
+                }
+
+                // Otherwise, use the parent directory name
                 return directoryName;
+            }
         }
 
-        // 3. Last resort: filename without extension
-        return Path.GetFileNameWithoutExtension(filePath);
+        // Last resort: filename without extension
+        return fileNameWithoutExt;
     }
 
     /// <summary>
