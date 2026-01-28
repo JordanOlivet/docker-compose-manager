@@ -1,3 +1,14 @@
+## Changes in v1.1.1
+
+**Merged Pull Requests:**
+- Fix wrong compose project number displayed in dashboard (#50)
+
+**Commits:**
+- Fix wrong compose project number displayed in dashboard (#50) (0aaada0)
+- Add logger to manage when to log in web brower console + use it everywhere (#48) (d31d7c4)
+- docs: update CHANGELOG for v1.1.0 [skip ci] (6abaa90)
+- chore: bump version to v1.1.0 [skip ci] (da3996b)
+
 ## Changes in v1.1.0
 
 **Merged Pull Requests:**
