@@ -1,3 +1,13 @@
+## Changes in v1.0.4
+
+**Merged Pull Requests:**
+- Fix units in live stats cards (#43)
+
+**Commits:**
+- Fix units and improvements of live stats cards (#43) (611afe4)
+- docs: update CHANGELOG for v1.0.3 [skip ci] (8775653)
+- chore: bump version to v1.0.3 [skip ci] (3f4dee5)
+
 ## Changes in v1.0.3
 
 **Merged Pull Requests:**
