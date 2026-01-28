@@ -28,13 +28,13 @@ public class SystemController : BaseController
     {
         try
         {
-            var assembly = Assembly.GetExecutingAssembly();
+            Assembly assembly = Assembly.GetExecutingAssembly();
             var version = assembly.GetName().Version?.ToString() ?? "unknown";
             var informationalVersion = assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-                .InformationalVersion ?? version;
+                .GetCustomAttribute<AssemblyVersionAttribute>()?
+                .Version ?? version;
 
-            var versionInfo = new VersionInfo
+            VersionInfo versionInfo = new VersionInfo
             {
                 Version = informationalVersion,
                 BuildDate = Environment.GetEnvironmentVariable("BUILD_DATE") ?? "unknown",
@@ -59,7 +59,7 @@ public class SystemController : BaseController
     [ProducesResponseType(typeof(ApiResponse<HealthStatus>), StatusCodes.Status200OK)]
     public ActionResult<ApiResponse<HealthStatus>> GetHealth()
     {
-        var health = new HealthStatus
+        HealthStatus health = new HealthStatus
         {
             Status = "healthy",
             Timestamp = DateTime.UtcNow

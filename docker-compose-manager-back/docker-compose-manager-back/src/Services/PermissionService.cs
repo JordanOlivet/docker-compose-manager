@@ -224,4 +224,89 @@ public class PermissionService : IPermissionService
             targetUserId ?? targetUserGroupId
         );
     }
+
+    public async Task<bool> HasContainerPermissionAsync(int userId, string containerName, string? projectName, PermissionFlags requiredPermission)
+    {
+        // Admins have full access
+        if (await IsAdminAsync(userId))
+        {
+            return true;
+        }
+
+        // 1. Check direct container permission
+        var directPermissions = await GetUserPermissionsAsync(userId, ResourceType.Container, containerName);
+        if (directPermissions.HasFlag(requiredPermission))
+        {
+            return true;
+        }
+
+        // 2. Check inherited project permission
+        if (!string.IsNullOrEmpty(projectName))
+        {
+            var projectPermissions = await GetUserPermissionsAsync(userId, ResourceType.ComposeProject, projectName);
+            if (projectPermissions.HasFlag(requiredPermission))
+            {
+                _logger.LogDebug(
+                    "User {UserId} has inherited {Permission} permission on container {ContainerName} from project {ProjectName}",
+                    userId, requiredPermission, containerName, projectName);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public async Task<PermissionFlags> GetEffectiveContainerPermissionsAsync(int userId, string containerName, string? projectName)
+    {
+        // Admins have full permissions
+        if (await IsAdminAsync(userId))
+        {
+            return PermissionFlags.Full;
+        }
+
+        // Get direct container permissions
+        var permissions = await GetUserPermissionsAsync(userId, ResourceType.Container, containerName);
+
+        // Combine with inherited project permissions
+        if (!string.IsNullOrEmpty(projectName))
+        {
+            var projectPermissions = await GetUserPermissionsAsync(userId, ResourceType.ComposeProject, projectName);
+            permissions |= projectPermissions; // Combine with OR
+        }
+
+        return permissions;
+    }
+
+    public async Task<List<string>> FilterAuthorizedContainersAsync(int userId, IEnumerable<(string containerName, string? projectName)> containers)
+    {
+        // Admins can see all containers
+        if (await IsAdminAsync(userId))
+        {
+            return containers.Select(c => c.containerName).ToList();
+        }
+
+        // Get all authorized resources in one query for efficiency
+        var authorizedContainers = (await GetAuthorizedResourcesAsync(userId, ResourceType.Container)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var authorizedProjects = (await GetAuthorizedResourcesAsync(userId, ResourceType.ComposeProject)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var authorized = new List<string>();
+        foreach (var (containerName, projectName) in containers)
+        {
+            // Check direct container permission
+            if (authorizedContainers.Contains(containerName))
+            {
+                authorized.Add(containerName);
+            }
+            // Check inherited project permission
+            else if (!string.IsNullOrEmpty(projectName) && authorizedProjects.Contains(projectName))
+            {
+                authorized.Add(containerName);
+                _logger.LogDebug(
+                    "Container {ContainerName} authorized via project {ProjectName} permission",
+                    containerName, projectName);
+            }
+        }
+
+        return authorized;
+    }
 }
