@@ -15,6 +15,7 @@ public class ProjectMatchingService : IProjectMatchingService
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly IComposeFileCacheService _cacheService;
     private readonly IConflictResolutionService _conflictService;
+    private readonly IPermissionService _permissionService;
     private readonly ILogger<ProjectMatchingService> _logger;
     private readonly ComposeDiscoveryOptions _options;
 
@@ -22,12 +23,14 @@ public class ProjectMatchingService : IProjectMatchingService
         IComposeDiscoveryService discoveryService,
         IComposeFileCacheService cacheService,
         IConflictResolutionService conflictService,
+        IPermissionService permissionService,
         IOptions<ComposeDiscoveryOptions> options,
         ILogger<ProjectMatchingService> logger)
     {
         _discoveryService = discoveryService;
         _cacheService = cacheService;
         _conflictService = conflictService;
+        _permissionService = permissionService;
         _options = options.Value;
         _logger = logger;
     }
@@ -193,9 +196,27 @@ public class ProjectMatchingService : IProjectMatchingService
             }
         }
 
-        // Step 7: Add "not-started" projects (files without Docker projects)
+        // Step 7: Add "not-started" projects (files without Docker projects) - WITH PERMISSION FILTERING
         foreach (var unmatchedFile in filesByProjectName.Values)
         {
+            // Check if user has permission for this project
+            bool hasProjectPermission = await _permissionService.HasPermissionAsync(
+                userId,
+                ResourceType.ComposeProject,
+                unmatchedFile.ProjectName,
+                PermissionFlags.View);
+
+            bool isAdmin = await _permissionService.IsAdminAsync(userId);
+
+            if (!hasProjectPermission && !isAdmin)
+            {
+                _logger.LogDebug(
+                    "Skipping not-started project {ProjectName} - user {UserId} has no permission",
+                    unmatchedFile.ProjectName,
+                    userId);
+                continue;
+            }
+
             _logger.LogDebug(
                 "Adding not-started project {ProjectName} from file {FilePath}",
                 unmatchedFile.ProjectName,
