@@ -54,7 +54,7 @@
   <!-- Health Status -->
   {#if healthQuery.data}
     {@const health = healthQuery.data}
-    <div class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+    <div class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">
           <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -153,7 +153,7 @@
 
   <!-- Recent Activity - Admin Only -->
   {#if auth.isAdmin.current}
-    <div class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+    <div class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div class="p-6 border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">
           <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">

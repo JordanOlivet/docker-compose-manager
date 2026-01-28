@@ -60,7 +60,7 @@ const getApiUrl = () => {
   if (import.meta.env.PROD) {
     return '';
   }
-  return 'http://localhost:5050';
+  return 'https://localhost:5050';
 };
 
 /**

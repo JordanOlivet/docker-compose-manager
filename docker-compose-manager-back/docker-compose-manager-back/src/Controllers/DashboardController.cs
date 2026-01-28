@@ -1,9 +1,11 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.src.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ContainerState = docker_compose_manager_back.src.Utils.EntityState;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -17,72 +19,72 @@ public class DashboardController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly DockerService _dockerService;
-    private readonly ComposeService _composeService;
+    private readonly IComposeDiscoveryService _composeDiscoveryService;
     private readonly ILogger<DashboardController> _logger;
 
     public DashboardController(
         AppDbContext context,
         DockerService dockerService,
-        ComposeService composeService,
+        IComposeDiscoveryService composeDiscoveryService,
         ILogger<DashboardController> logger)
     {
         _context = context;
         _dockerService = dockerService;
-        _composeService = composeService;
+        _composeDiscoveryService = composeDiscoveryService;
         _logger = logger;
     }
 
-    ///// <summary>
-    ///// Get aggregated dashboard statistics
-    ///// </summary>
-    //[HttpGet("stats")]
-    //[ProducesResponseType(typeof(ApiResponse<DashboardStatsDto>), StatusCodes.Status200OK)]
-    //public async Task<ActionResult<ApiResponse<DashboardStatsDto>>> GetStats()
-    //{
-    //    try
-    //    {
-    //        // Get container stats
-    //        List<ContainerDto> containers = await _dockerService.ListContainersAsync(showAll: true);
-    //        int runningContainers = containers.Count(c => c.State == EntityState.Running.ToStateString());
-    //        int stoppedContainers = containers.Count(c => c.State != EntityState.Running.ToStateString());
+    /// <summary>
+    /// Get aggregated dashboard statistics
+    /// </summary>
+    [HttpGet("stats")]
+    [ProducesResponseType(typeof(ApiResponse<DashboardStatsDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<DashboardStatsDto>>> GetStats()
+    {
+        try
+        {
+            // Get container stats
+            List<ContainerDto> containers = await _dockerService.ListContainersAsync(showAll: true);
+            int runningContainers = containers.Count(c => c.State == ContainerState.Running.ToStateString());
+            int stoppedContainers = containers.Count(c => c.State != ContainerState.Running.ToStateString());
 
-    //        // Get compose project stats
-    //        List<ComposeProjectDto> projects = await _composeService.ListProjectsAsync();
-    //        int activeProjects = projects.Count(p => p.State == EntityState.Running.ToStateString());
+            // Get compose project stats
+            List<ComposeProjectDto> projects = await _composeDiscoveryService.GetAllProjectsAsync();
+            int activeProjects = projects.Count(p => p.State == ContainerState.Running.ToStateString());
 
-    //        // DEPRECATED: ComposeFiles table removed - return 0
-    //        // Files are now discovered from Docker metadata
-    //        int composeFilesCount = 0;
+            // DEPRECATED: ComposeFiles table removed - return 0
+            // Files are now discovered from Docker metadata
+            int composeFilesCount = 0;
 
-    //        // Get users count
-    //        int usersCount = await _context.Users.CountAsync();
-    //        int activeUsersCount = await _context.Users.CountAsync(u => u.IsEnabled);
+            // Get users count
+            int usersCount = await _context.Users.CountAsync();
+            int activeUsersCount = await _context.Users.CountAsync(u => u.IsEnabled);
 
-    //        // Get recent activity count (last 24 hours)
-    //        DateTime oneDayAgo = DateTime.UtcNow.AddDays(-1);
-    //        int recentActivityCount = await _context.AuditLogs
-    //            .CountAsync(a => a.Timestamp >= oneDayAgo);
+            // Get recent activity count (last 24 hours)
+            DateTime oneDayAgo = DateTime.UtcNow.AddDays(-1);
+            int recentActivityCount = await _context.AuditLogs
+                .CountAsync(a => a.Timestamp >= oneDayAgo);
 
-    //        DashboardStatsDto stats = new(
-    //            TotalContainers: containers.Count,
-    //            RunningContainers: runningContainers,
-    //            StoppedContainers: stoppedContainers,
-    //            TotalComposeProjects: projects.Count,
-    //            ActiveProjects: activeProjects,
-    //            ComposeFilesCount: composeFilesCount,
-    //            UsersCount: usersCount,
-    //            ActiveUsersCount: activeUsersCount,
-    //            RecentActivityCount: recentActivityCount
-    //        );
+            DashboardStatsDto stats = new(
+                TotalContainers: containers.Count,
+                RunningContainers: runningContainers,
+                StoppedContainers: stoppedContainers,
+                TotalComposeProjects: projects.Count,
+                ActiveProjects: activeProjects,
+                ComposeFilesCount: composeFilesCount,
+                UsersCount: usersCount,
+                ActiveUsersCount: activeUsersCount,
+                RecentActivityCount: recentActivityCount
+            );
 
-    //        return Ok(ApiResponse.Ok(stats, "Dashboard stats retrieved successfully"));
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        _logger.LogError(ex, "Error retrieving dashboard stats");
-    //        return StatusCode(500, ApiResponse.Fail<DashboardStatsDto>("Failed to retrieve dashboard stats"));
-    //    }
-    //}
+            return Ok(ApiResponse.Ok(stats, "Dashboard stats retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving dashboard stats");
+            return StatusCode(500, ApiResponse.Fail<DashboardStatsDto>("Failed to retrieve dashboard stats"));
+        }
+    }
 
     /// <summary>
     /// Get recent activity log

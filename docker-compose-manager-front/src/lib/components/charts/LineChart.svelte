@@ -92,6 +92,29 @@
 		return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	}
 
+	// Format minute marker (HH:MM only)
+	function formatMinuteMarker(date: Date): string {
+		return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+	}
+
+	// Calculate minute markers within the data range
+	const minuteMarkers = $derived.by(() => {
+		if (data.length < 2) return [];
+
+		const firstTime = data[0].timestamp.getTime();
+		const lastTime = data[data.length - 1].timestamp.getTime();
+
+		// Find the first minute boundary after firstTime
+		const firstMinute = Math.ceil(firstTime / 60000) * 60000;
+
+		const markers: Date[] = [];
+		for (let time = firstMinute; time <= lastTime; time += 60000) {
+			markers.push(new Date(time));
+		}
+
+		return markers.slice(0, 5);
+	});
+
 	// Calculate Y axis ticks
 	const yTicks = $derived.by(() => {
 		const tickCount = 5;
@@ -102,18 +125,18 @@
 
 <div style="height: {height}px;" class="relative w-full overflow-hidden">
 	{#if data.length > 0}
-		<!-- Legend -->
-		<div class="flex justify-center items-center gap-4 mb-2 pt-1">
+		<!-- Legend - Compact, positioned in top-right corner -->
+		<div class="absolute -top-1 right-2 flex items-center gap-3 bg-white/80 dark:bg-gray-800/80 px-2 py-0.5 rounded-sm z-10">
 			{#each lines as line}
-				<div class="flex items-center gap-1.5 text-xs">
-					<div class="w-3 h-3 rounded-full" style="background-color: {line.color}"></div>
-					<span class="text-gray-700 dark:text-gray-300 font-medium">{line.label}</span>
+				<div class="flex items-center gap-1">
+					<div class="w-2 h-2 rounded-full" style="background-color: {line.color}"></div>
+					<span class="text-[10px] text-gray-600 dark:text-gray-400">{line.label}</span>
 				</div>
 			{/each}
 		</div>
 
 		<!-- SVG Chart -->
-		<svg class="w-full" style="height: {height - 30}px;" viewBox="0 0 {width + 80} {height - 30}">
+		<svg class="w-full" style="height: {height - 10}px;" viewBox="0 0 {width + 80} {height - 10}">
 			<g transform="translate(60, 10)">
 				<!-- Grid lines -->
 				<g class="grid">
@@ -147,6 +170,32 @@
 					{/each}
 				</g>
 
+				<!-- Minute markers (vertical lines) -->
+				<g class="minute-markers">
+					{#each minuteMarkers as marker}
+						{@const x = xScale(marker.getTime())}
+						<line
+							x1={x}
+							x2={x}
+							y1="0"
+							y2={chartHeight}
+							stroke="#d1d5db"
+							class="dark:stroke-gray-600"
+							stroke-width="1"
+							stroke-dasharray="4,4"
+						/>
+						<text
+							x={x}
+							y={chartHeight + 20}
+							text-anchor="middle"
+							class="fill-gray-500 dark:fill-gray-400"
+							style="font-size: 12px;"
+						>
+							{formatMinuteMarker(marker)}
+						</text>
+					{/each}
+				</g>
+
 				<!-- Lines -->
 				{#each lines as line}
 					<path
@@ -158,8 +207,8 @@
 					/>
 				{/each}
 
-				<!-- X-axis labels -->
-				{#if data.length > 0}
+				<!-- X-axis labels (only show if no minute markers) -->
+				{#if data.length > 0 && minuteMarkers.length === 0}
 					{@const firstPoint = data[0]}
 					{@const lastPoint = data[data.length - 1]}
 					<text
