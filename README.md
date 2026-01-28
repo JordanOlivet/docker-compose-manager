@@ -25,21 +25,42 @@ mkdir compose-files
 # 2. Create docker-compose.yml
 cat > docker-compose.yml << 'EOF'
 services:
-  app:
+  docker-compose-manager:
     image: ghcr.io/jordanolivet/docker-compose-manager:latest
     container_name: docker-compose-manager
     ports:
       - "3030:80"
     environment:
-      - Jwt__Secret=YOUR-SECRET-KEY-MIN-32-CHARS-CHANGE-ME
+      # JWT Secret (must be set in .env)
+      # WARNING: Generate a strong key in production (min 32 random characters)
+      - Jwt__Secret=${JWT_SECRET:-CHANGE-THIS-SECRET-KEY-IN-PRODUCTION-MIN-32-CHARS}
+      # Docker Host
+      - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock} # For linux host
+      # - Docker__Host=${DOCKER_HOST:-npipe://./pipe/docker_engine} # For windows host
+      # Logging
+      - Serilog__MinimumLevel__Default=${LOG_LEVEL:-Information}
     volumes:
+      # Database persistence
       - app-data:/app/data
+      # Docker socket access (Linux/Mac)
       - /var/run/docker.sock:/var/run/docker.sock
+      # Windows Docker socket (uncomment if on Windows and comment the line above):
+      # - //./pipe/docker_engine://./pipe/docker_engine
+      # Logs persistence
+      - ./logs:/app/logs
+      # Compose files directory
       - ./compose-files:/app/compose-files
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   app-data:
+    driver: local
 EOF
 
 # 3. Start the application
