@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import * as signalR from '@microsoft/signalr';
 import type { OperationUpdateEvent } from '$lib/types';
+import { logger } from '$lib/utils/logger';
 
 // Types for SignalR events
 export interface ContainerStateChangedEvent {
@@ -92,7 +93,7 @@ export async function initializeGlobalConnection(): Promise<void> {
         accessTokenFactory: () => {
           const token = localStorage.getItem('accessToken');
           if (!token) {
-            console.warn('[SignalR Store] No access token found');
+            logger.warn('[SignalR Store] No access token found');
           }
           return token || '';
         },
@@ -103,23 +104,23 @@ export async function initializeGlobalConnection(): Promise<void> {
 
     // Register event handlers
     connection.on('OperationUpdate', (event: OperationUpdateEvent) => {
-      console.log('[SignalR Store] OperationUpdate:', event.type, event.status);
+      logger.log('[SignalR Store] OperationUpdate:', event.type, event.status);
       operationCallbacks.forEach(cb => cb(event));
     });
 
     connection.on('ContainerStateChanged', (event: ContainerStateChangedEvent) => {
-      console.log('[SignalR Store] ContainerStateChanged:', event.containerName, event.action);
+      logger.log('[SignalR Store] ContainerStateChanged:', event.containerName, event.action);
       containerCallbacks.forEach(cb => cb(event));
     });
 
     connection.on('ComposeProjectStateChanged', (event: ComposeProjectStateChangedEvent) => {
-      console.log('[SignalR Store] ComposeProjectStateChanged:', event.projectName, event.action);
+      logger.log('[SignalR Store] ComposeProjectStateChanged:', event.projectName, event.action);
       composeProjectCallbacks.forEach(cb => cb(event));
     });
 
     // Connection lifecycle handlers
     connection.onclose((error) => {
-      console.log('[SignalR Store] Connection closed', error);
+      logger.log('[SignalR Store] Connection closed', error);
       signalrState.connectionStatus = 'disconnected';
       if (error) {
         signalrState.error = error.message;
@@ -128,7 +129,7 @@ export async function initializeGlobalConnection(): Promise<void> {
     });
 
     connection.onreconnecting((error) => {
-      console.log('[SignalR Store] Reconnecting...', error);
+      logger.log('[SignalR Store] Reconnecting...', error);
       signalrState.connectionStatus = 'reconnecting';
       signalrState.reconnectAttempt += 1;
       if (error) {
@@ -137,7 +138,7 @@ export async function initializeGlobalConnection(): Promise<void> {
     });
 
     connection.onreconnected(() => {
-      console.log('[SignalR Store] Reconnected');
+      logger.log('[SignalR Store] Reconnected');
       signalrState.connectionStatus = 'connected';
       signalrState.lastConnected = new Date();
       signalrState.reconnectAttempt = 0;
@@ -149,14 +150,14 @@ export async function initializeGlobalConnection(): Promise<void> {
 
     // Start the connection
     await connection.start();
-    console.log('[SignalR Store] Connected successfully');
+    logger.log('[SignalR Store] Connected successfully');
     signalrState.connectionStatus = 'connected';
     signalrState.lastConnected = new Date();
     signalrState.error = null;
     connectedCallbacks.forEach(cb => cb());
 
   } catch (error) {
-    console.error('[SignalR Store] Connection failed:', error);
+    logger.error('[SignalR Store] Connection failed:', error);
     signalrState.connectionStatus = 'disconnected';
     signalrState.error = error instanceof Error ? error.message : 'Connection failed';
 
@@ -179,9 +180,9 @@ export async function stopGlobalConnection(): Promise<void> {
 
   try {
     await connection.stop();
-    console.log('[SignalR Store] Disconnected');
+    logger.log('[SignalR Store] Disconnected');
   } catch (error) {
-    console.error('[SignalR Store] Disconnection error:', error);
+    logger.error('[SignalR Store] Disconnection error:', error);
   } finally {
     connection = null;
     signalrState.connectionStatus = 'disconnected';
@@ -195,10 +196,10 @@ export async function stopGlobalConnection(): Promise<void> {
  */
 export function onContainerStateChanged(callback: (event: ContainerStateChangedEvent) => void): () => void {
   containerCallbacks.add(callback);
-  console.log('[SignalR Store] Container callback registered, total:', containerCallbacks.size);
+  logger.log('[SignalR Store] Container callback registered, total:', containerCallbacks.size);
   return () => {
     containerCallbacks.delete(callback);
-    console.log('[SignalR Store] Container callback unregistered, total:', containerCallbacks.size);
+    logger.log('[SignalR Store] Container callback unregistered, total:', containerCallbacks.size);
   };
 }
 
@@ -207,10 +208,10 @@ export function onContainerStateChanged(callback: (event: ContainerStateChangedE
  */
 export function onComposeProjectStateChanged(callback: (event: ComposeProjectStateChangedEvent) => void): () => void {
   composeProjectCallbacks.add(callback);
-  console.log('[SignalR Store] Compose callback registered, total:', composeProjectCallbacks.size);
+  logger.log('[SignalR Store] Compose callback registered, total:', composeProjectCallbacks.size);
   return () => {
     composeProjectCallbacks.delete(callback);
-    console.log('[SignalR Store] Compose callback unregistered, total:', composeProjectCallbacks.size);
+    logger.log('[SignalR Store] Compose callback unregistered, total:', composeProjectCallbacks.size);
   };
 }
 
@@ -219,10 +220,10 @@ export function onComposeProjectStateChanged(callback: (event: ComposeProjectSta
  */
 export function onOperationUpdate(callback: (event: OperationUpdateEvent) => void): () => void {
   operationCallbacks.add(callback);
-  console.log('[SignalR Store] Operation callback registered, total:', operationCallbacks.size);
+  logger.log('[SignalR Store] Operation callback registered, total:', operationCallbacks.size);
   return () => {
     operationCallbacks.delete(callback);
-    console.log('[SignalR Store] Operation callback unregistered, total:', operationCallbacks.size);
+    logger.log('[SignalR Store] Operation callback unregistered, total:', operationCallbacks.size);
   };
 }
 
@@ -231,10 +232,10 @@ export function onOperationUpdate(callback: (event: OperationUpdateEvent) => voi
  */
 export function onReconnected(callback: () => void): () => void {
   reconnectedCallbacks.add(callback);
-  console.log('[SignalR Store] Reconnected callback registered, total:', reconnectedCallbacks.size);
+  logger.log('[SignalR Store] Reconnected callback registered, total:', reconnectedCallbacks.size);
   return () => {
     reconnectedCallbacks.delete(callback);
-    console.log('[SignalR Store] Reconnected callback unregistered, total:', reconnectedCallbacks.size);
+    logger.log('[SignalR Store] Reconnected callback unregistered, total:', reconnectedCallbacks.size);
   };
 }
 
@@ -266,12 +267,12 @@ export function getConnectionState(): signalR.HubConnectionState {
  */
 export function subscribeToOperation(operationId: string): void {
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-    console.warn('[SignalR Store] Cannot subscribe - not connected');
+    logger.warn('[SignalR Store] Cannot subscribe - not connected');
     return;
   }
 
   connection.invoke('SubscribeToOperation', operationId).catch((err) => {
-    console.error('[SignalR Store] Failed to subscribe to operation:', err);
+    logger.error('[SignalR Store] Failed to subscribe to operation:', err);
   });
 }
 
@@ -284,6 +285,6 @@ export function unsubscribeFromOperation(operationId: string): void {
   }
 
   connection.invoke('UnsubscribeFromOperation', operationId).catch((err) => {
-    console.error('[SignalR Store] Failed to unsubscribe from operation:', err);
+    logger.error('[SignalR Store] Failed to unsubscribe from operation:', err);
   });
 }

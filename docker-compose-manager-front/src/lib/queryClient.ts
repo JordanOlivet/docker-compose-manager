@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/svelte-query';
 import { browser } from '$app/environment';
+import { logger } from './utils/logger';
 
 // Singleton QueryClient instance shared across the entire app
 let queryClientInstance: QueryClient | null = null;
@@ -18,7 +19,7 @@ export function getQueryClient(): QueryClient {
     });
 
     if (browser) {
-      console.log('[QueryClient] Created singleton instance');
+      logger.log('[QueryClient] Created singleton instance');
     }
   }
   return queryClientInstance;

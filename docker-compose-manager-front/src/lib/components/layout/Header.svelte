@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import * as auth from '$lib/stores/auth.svelte';
   import { authApi } from '$lib/api';
+  import { logger } from '$lib/utils/logger';
   import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
   import LanguageSelector from '$lib/components/common/LanguageSelector.svelte';
   import ConnectionStatus from '$lib/components/common/ConnectionStatus.svelte';
@@ -21,7 +22,7 @@
         await authApi.logout(refreshToken);
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
     } finally {
       auth.logout();
       goto('/login');

@@ -8,6 +8,7 @@ import type {
   ConflictsResponse,
   ComposeProject
 } from './src/lib/types/compose';
+import { logger } from './src/lib/utils/logger';
 
 // Test DiscoveredComposeFileDto
 const discoveredFile: DiscoveredComposeFileDto = {
@@ -69,4 +70,4 @@ const project: ComposeProject = {
   }
 };
 
-console.log('All type checks passed!');
+logger.log('All type checks passed!');
