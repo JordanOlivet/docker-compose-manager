@@ -15,7 +15,7 @@
 	import StateBadge from '$lib/components/common/StateBadge.svelte';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ProjectInfoSection from '$lib/components/compose/ProjectInfoSection.svelte';
-	import ProjectStatsCard from '$lib/components/compose/ProjectStatsCard.svelte';
+	import StatsCard from '$lib/components/stats/StatsCard.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
@@ -399,7 +399,7 @@
 
 			<!-- Right: Stats Charts -->
 			<div>
-				<ProjectStatsCard services={project.services} />
+				<StatsCard services={project.services} />
 			</div>
 		</div>
 

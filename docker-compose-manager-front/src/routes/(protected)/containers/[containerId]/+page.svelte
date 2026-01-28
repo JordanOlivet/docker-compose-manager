@@ -12,7 +12,7 @@
 	import { containersApi } from '$lib/api';
 	import StateBadge from '$lib/components/common/StateBadge.svelte';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
-	import ContainerStatsCard from '$lib/components/compose/ContainerStatsCard.svelte';
+	import StatsCard from '$lib/components/stats/StatsCard.svelte';
 	import ContainerInfoSection from '$lib/components/compose/ContainerInfoSection.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
 	import { t } from '$lib/i18n';
@@ -225,7 +225,7 @@
 
 			<!-- Right: Live Resource Stats -->
 			<div>
-				<ContainerStatsCard {containerId} isActive={isRunning} />
+				<StatsCard {containerId} isActive={isRunning} />
 			</div>
 		</div>
 
