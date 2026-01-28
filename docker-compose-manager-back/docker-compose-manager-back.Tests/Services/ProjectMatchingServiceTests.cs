@@ -18,6 +18,7 @@ public class ProjectMatchingServiceTests
     private readonly Mock<IComposeDiscoveryService> _mockDiscoveryService;
     private readonly Mock<IComposeFileCacheService> _mockCacheService;
     private readonly Mock<IConflictResolutionService> _mockConflictService;
+    private readonly Mock<IPermissionService> _mockPermissionService;
     private readonly ProjectMatchingService _service;
 
     public ProjectMatchingServiceTests()
@@ -25,11 +26,17 @@ public class ProjectMatchingServiceTests
         _mockDiscoveryService = new Mock<IComposeDiscoveryService>();
         _mockCacheService = new Mock<IComposeFileCacheService>();
         _mockConflictService = new Mock<IConflictResolutionService>();
+        _mockPermissionService = new Mock<IPermissionService>();
 
         // Default behavior: ResolveConflicts returns the same list (no conflicts)
         _mockConflictService
             .Setup(s => s.ResolveConflicts(It.IsAny<List<DiscoveredComposeFile>>()))
             .Returns((List<DiscoveredComposeFile> files) => files);
+
+        // Default behavior: User is admin (can see all projects)
+        _mockPermissionService
+            .Setup(s => s.IsAdminAsync(It.IsAny<int>()))
+            .ReturnsAsync(true);
 
         var options = Options.Create(new ComposeDiscoveryOptions
         {
@@ -41,6 +48,7 @@ public class ProjectMatchingServiceTests
             _mockDiscoveryService.Object,
             _mockCacheService.Object,
             _mockConflictService.Object,
+            _mockPermissionService.Object,
             options,
             new NullLogger<ProjectMatchingService>()
         );

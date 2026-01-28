@@ -1,3 +1,16 @@
+## Changes in v1.0.3
+
+**Merged Pull Requests:**
+- Fix permission view (#39)
+
+**Commits:**
+- Fix permission view (#39) (71cca76)
+- Enhance README with docker-compose.yml details (63cb650)
+- Rename app service to docker-compose-manager (2186b00)
+- Adjust healthcheck interval and start period (ca85bc9)
+- docs: update CHANGELOG for v1.0.2 [skip ci] (52cfd41)
+- chore: bump version to v1.0.2 [skip ci] (790d8ab)
+
 ## Changes in v1.0.2
 
 **Merged Pull Requests:**

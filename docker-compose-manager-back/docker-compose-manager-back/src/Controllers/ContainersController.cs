@@ -27,22 +27,6 @@ public class ContainersController : BaseController
     }
 
     /// <summary>
-    /// Helper to get container name by ID (for permission checks)
-    /// </summary>
-    private async Task<string?> GetContainerNameByIdAsync(string containerId)
-    {
-        try
-        {
-            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(containerId);
-            return container?.Name;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
     /// List all containers with optional filters
     /// </summary>
     /// <param name="all">Include stopped containers (default: true)</param>
@@ -62,12 +46,15 @@ public class ContainersController : BaseController
             List<ContainerDto> containers = await _dockerService.ListContainersAsync(all);
             int userId = GetCurrentUserIdRequired();
 
-            // Apply permission filtering
-            List<string> containerNames = containers.Select(c => c.Name).ToList();
-            List<string> authorizedNames = await _permissionService.FilterAuthorizedResourcesAsync(
-                userId,
-                ResourceType.Container,
-                containerNames);
+            // Build container-to-project mapping using Docker labels
+            var containerProjectPairs = containers.Select(c => (
+                containerName: c.Name,
+                projectName: c.Labels?.GetValueOrDefault("com.docker.compose.project")
+            )).ToList();
+
+            // Filter using new method that considers project permissions
+            List<string> authorizedNames = await _permissionService.FilterAuthorizedContainersAsync(
+                userId, containerProjectPairs);
 
             containers = containers.Where(c => authorizedNames.Contains(c.Name)).ToList();
 
@@ -119,12 +106,15 @@ public class ContainersController : BaseController
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
-            // Check View permission
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
+            // Check View permission (direct or inherited from project)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
                 container.Name,
+                projectName,
                 PermissionFlags.View);
 
             if (!hasPermission)
@@ -149,22 +139,23 @@ public class ContainersController : BaseController
     {
         try
         {
-            // Get container name for permission check
-            string? containerName = await GetContainerNameByIdAsync(id);
-            if (containerName == null)
+            // Get container details for permission check
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
+            if (container == null)
             {
-                containerName = await GetContainerNameByAbreviatedIdAsync(id);
-
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
-            // Check Start permission
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
+            // Check Start permission (direct or inherited from project)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
-                containerName,
+                container.Name,
+                projectName,
                 PermissionFlags.Start);
 
             if (!hasPermission)
@@ -192,38 +183,28 @@ public class ContainersController : BaseController
         }
     }
 
-    private async Task<string?> GetContainerNameByAbreviatedIdAsync(string containerAbreviatedId)
-    {
-        try
-        {
-            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(containerAbreviatedId);
-            return container?.Name;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     [HttpPost("{id}/stop")]
     public async Task<ActionResult<ApiResponse<bool>>> StopContainer(string id)
     {
         try
         {
-            // Get container name for permission check
-            string? containerName = await GetContainerNameByIdAsync(id);
-            if (containerName == null)
+            // Get container details for permission check
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
+            if (container == null)
             {
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
-            // Check Stop permission
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
+            // Check Stop permission (direct or inherited from project)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
-                containerName,
+                container.Name,
+                projectName,
                 PermissionFlags.Stop);
 
             if (!hasPermission)
@@ -256,20 +237,23 @@ public class ContainersController : BaseController
     {
         try
         {
-            // Get container name for permission check
-            string? containerName = await GetContainerNameByIdAsync(id);
-            if (containerName == null)
+            // Get container details for permission check
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
+            if (container == null)
             {
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
-            // Check Restart permission
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
+            // Check Restart permission (direct or inherited from project)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
-                containerName,
+                container.Name,
+                projectName,
                 PermissionFlags.Restart);
 
             if (!hasPermission)
@@ -302,20 +286,23 @@ public class ContainersController : BaseController
     {
         try
         {
-            // Get container name for permission check
-            string? containerName = await GetContainerNameByIdAsync(id);
-            if (containerName == null)
+            // Get container details for permission check
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
+            if (container == null)
             {
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
-            // Check Delete permission
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
+            // Check Delete permission (direct or inherited from project)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
-                containerName,
+                container.Name,
+                projectName,
                 PermissionFlags.Delete);
 
             if (!hasPermission)
@@ -360,20 +347,23 @@ public class ContainersController : BaseController
     {
         try
         {
-            // Get container name for permission check
-            string? containerName = await GetContainerNameByIdAsync(id);
-            if (containerName == null)
+            // Get container details for permission check
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
+            if (container == null)
             {
                 return NotFound(ApiResponse.Fail<List<string>>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
-            // Check Logs permission
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
+            // Check Logs permission (direct or inherited from project)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
-                containerName,
+                container.Name,
+                projectName,
                 PermissionFlags.Logs);
 
             if (!hasPermission)
@@ -406,20 +396,23 @@ public class ContainersController : BaseController
     {
         try
         {
-            // Get container name for permission check
-            string? containerName = await GetContainerNameByIdAsync(id);
-            if (containerName == null)
+            // Get container details for permission check
+            ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(id);
+            if (container == null)
             {
                 return NotFound(ApiResponse.Fail<ContainerStatsDto>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
+            // Get project name from Docker labels for inherited permissions
+            string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+
             // Check View permission (stats are part of viewing container details)
             int userId = GetCurrentUserIdRequired();
-            bool hasPermission = await _permissionService.HasPermissionAsync(
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
                 userId,
-                ResourceType.Container,
-                containerName,
+                container.Name,
+                projectName,
                 PermissionFlags.View);
 
             if (!hasPermission)
