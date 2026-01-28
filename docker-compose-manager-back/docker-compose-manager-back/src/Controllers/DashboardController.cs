@@ -21,17 +21,20 @@ public class DashboardController : BaseController
     private readonly DockerService _dockerService;
     private readonly IComposeDiscoveryService _composeDiscoveryService;
     private readonly ILogger<DashboardController> _logger;
+    private readonly IProjectMatchingService _projectMatchingService;
 
     public DashboardController(
         AppDbContext context,
         DockerService dockerService,
         IComposeDiscoveryService composeDiscoveryService,
-        ILogger<DashboardController> logger)
+        ILogger<DashboardController> logger,
+        IProjectMatchingService projectMatchingService)
     {
         _context = context;
         _dockerService = dockerService;
         _composeDiscoveryService = composeDiscoveryService;
         _logger = logger;
+        _projectMatchingService = projectMatchingService;
     }
 
     /// <summary>
@@ -43,13 +46,20 @@ public class DashboardController : BaseController
     {
         try
         {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<List<ComposeProjectDto>>("User not authenticated"));
+            }
+
             // Get container stats
             List<ContainerDto> containers = await _dockerService.ListContainersAsync(showAll: true);
             int runningContainers = containers.Count(c => c.State == ContainerState.Running.ToStateString());
             int stoppedContainers = containers.Count(c => c.State != ContainerState.Running.ToStateString());
 
             // Get compose project stats
-            List<ComposeProjectDto> projects = await _composeDiscoveryService.GetAllProjectsAsync();
+            //List<ComposeProjectDto> projects = await _composeDiscoveryService.GetAllProjectsAsync();
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
             int activeProjects = projects.Count(p => p.State == ContainerState.Running.ToStateString());
 
             // DEPRECATED: ComposeFiles table removed - return 0
