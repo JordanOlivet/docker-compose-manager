@@ -6,13 +6,26 @@
 	import { t } from '$lib/i18n';
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import type { ComposeService, ContainerStats } from '$lib/types';
-	import { formatBytes, getBestMemoryUnit, getBestNetworkUnit, getBestNetworkRateUnit, getBestDiskUnit, getBestDiskRateUnit } from '$lib/utils/units';
+	import {
+		formatBytes,
+		getBestMemoryUnit,
+		getBestNetworkRateUnit,
+		getBestDiskRateUnit
+	} from '$lib/utils/units';
 
 	interface Props {
-		services: ComposeService[];
+		// Mode 1: Container unique
+		containerId?: string;
+		isActive?: boolean; // Requis si containerId est fourni
+
+		// Mode 2: Services multiples (projet compose)
+		services?: ComposeService[];
+
+		// Titre personnalisé (optionnel)
+		title?: string;
 	}
 
-	let { services }: Props = $props();
+	let { containerId, isActive: isActiveProp, services, title }: Props = $props();
 
 	interface AggregatedStats {
 		cpuPercentage: number;
@@ -41,20 +54,42 @@
 	// Use plain variables (not reactive) to avoid circular dependency in effects
 	let previousStatsRef: AggregatedStats | null = null;
 
-	const isActive = $derived(services.some((s) => s.state === 'Running'));
-	const runningServiceIds = $derived(services.filter((s) => s.state === 'Running').map((s) => s.id));
+	// Détection automatique du mode et de l'état actif
+	const mode = $derived(containerId ? 'container' : 'project');
+	const isActive = $derived(
+		mode === 'container'
+			? (isActiveProp ?? false)
+			: (services?.some((s) => s.state === 'Running') ?? false)
+	);
 
-	// Fetch stats for all running services every 1 second
-	const servicesStatsQuery = createQuery(() => ({
-		queryKey: ['projectStats', runningServiceIds.sort().join(',')],
+	// IDs des containers à interroger
+	const containerIds = $derived(
+		mode === 'container'
+			? [containerId!]
+			: (services?.filter((s) => s.state === 'Running').map((s) => s.id) ?? [])
+	);
+
+	// Titre dynamique
+	const displayTitle = $derived(
+		title ?? (mode === 'container' ? $t('containers.liveResourceStats') : $t('common.projectStatistics'))
+	);
+
+	// Message quand inactif
+	const inactiveMessage = $derived(
+		mode === 'container' ? $t('containers.containerNotRunning') : $t('common.noRunningServices')
+	);
+
+	// Fetch stats for all containers every 1 second
+	const statsQuery = createQuery(() => ({
+		queryKey: ['stats', ...containerIds.sort()],
 		queryFn: async () => {
-			const statsPromises = runningServiceIds.map(async (serviceId) => {
+			const statsPromises = containerIds.map(async (id) => {
 				try {
-					return await containersApi.getStats(serviceId);
+					return await containersApi.getStats(id);
 				} catch (error: any) {
 					// Don't log 404 errors - container was probably stopped/removed
 					if (error?.response?.status !== 404) {
-						console.error(`Failed to fetch stats for service ${serviceId}:`, error);
+						console.error(`Failed to fetch stats for container ${id}:`, error);
 					}
 					return null;
 				}
@@ -64,14 +99,14 @@
 			return stats.filter((s): s is ContainerStats => s !== null);
 		},
 		refetchInterval: 1000,
-		enabled: isActive,
+		enabled: isActive && containerIds.length > 0,
 		retry: false
 	}));
 
 	// Update current stats and history when new data arrives
 	$effect(() => {
-		const servicesStats = servicesStatsQuery.data;
-		if (!servicesStats || servicesStats.length === 0) return;
+		const allStats = statsQuery.data;
+		if (!allStats || allStats.length === 0) return;
 
 		const aggregated: AggregatedStats = {
 			cpuPercentage: 0,
@@ -85,7 +120,7 @@
 			timestamp: new Date()
 		};
 
-		servicesStats.forEach((stats: ContainerStats) => {
+		allStats.forEach((stats: ContainerStats) => {
 			aggregated.cpuPercentage += stats.cpuPercentage;
 			aggregated.memoryUsage += stats.memoryUsage;
 			aggregated.memoryLimit += stats.memoryLimit;
@@ -147,10 +182,12 @@
 
 	// Use utility functions to get best units based on data
 	const memoryUnit = $derived(getBestMemoryUnit(statsHistory, (s) => s.memoryUsage));
-	const networkUnit = $derived(getBestNetworkUnit(statsHistory, (s) => Math.max(s.networkRx, s.networkTx)));
-	const networkRateUnit = $derived(getBestNetworkRateUnit(rateHistory, (s) => Math.max(s.networkRxRate, s.networkTxRate)));
-	const diskUnit = $derived(getBestDiskUnit(statsHistory, (s) => Math.max(s.diskRead, s.diskWrite)));
-	const diskRateUnit = $derived(getBestDiskRateUnit(rateHistory, (s) => Math.max(s.diskReadRate, s.diskWriteRate)));
+	const networkRateUnit = $derived(
+		getBestNetworkRateUnit(rateHistory, (s) => Math.max(s.networkRxRate, s.networkTxRate))
+	);
+	const diskRateUnit = $derived(
+		getBestDiskRateUnit(rateHistory, (s) => Math.max(s.diskReadRate, s.diskWriteRate))
+	);
 
 	// Prepare chart data
 	const cpuChartData = $derived(
@@ -191,10 +228,10 @@
 		<div class="flex items-center gap-2 mb-4">
 			<Activity class="h-5 w-5 text-gray-600 dark:text-gray-400" />
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-				{$t('common.projectStatistics')}
+				{displayTitle}
 			</h3>
 		</div>
-		<p class="text-sm text-gray-600 dark:text-gray-400">{$t('common.noRunningServices')}</p>
+		<p class="text-sm text-gray-600 dark:text-gray-400">{inactiveMessage}</p>
 	</div>
 {:else}
 	<div
@@ -204,7 +241,7 @@
 		<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
 			<div class="flex items-center gap-2">
 				<Activity class="h-5 w-5 text-gray-600 dark:text-gray-400" />
-				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Project Statistics</h3>
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">{displayTitle}</h3>
 			</div>
 		</div>
 
@@ -215,7 +252,9 @@
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<Cpu class="h-4 w-4 text-blue-600 dark:text-blue-400" />
-						<span class="text-sm font-semibold text-gray-900 dark:text-white">CPU Usage</span>
+						<span class="text-sm font-semibold text-gray-900 dark:text-white"
+							>{$t('containers.cpu')}</span
+						>
 					</div>
 					{#if currentStats}
 						<span class="text-sm font-mono text-blue-600 dark:text-blue-400">
@@ -236,7 +275,9 @@
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<HardDrive class="h-4 w-4 text-green-600 dark:text-green-400" />
-						<span class="text-sm font-semibold text-gray-900 dark:text-white">Memory</span>
+						<span class="text-sm font-semibold text-gray-900 dark:text-white"
+							>{$t('containers.ram')}</span
+						>
 					</div>
 					{#if currentStats}
 						<span class="text-sm font-mono text-green-600 dark:text-green-400">
@@ -270,17 +311,31 @@
 							/>
 						</svg>
 						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>Network (RX / TX)</span
+							>{$t('containers.networkStats')} (RX / TX)</span
 						>
 					</div>
 					{#if currentStats}
-						<div class="text-right">
-							<span class="text-sm font-mono text-purple-600 dark:text-purple-400">
-								{formatBytes(currentStats.networkRx)} / {formatBytes(currentStats.networkTx)}
-							</span>
+						<div class="text-right space-y-0.5">
+							<div class="flex items-center justify-end gap-1">
+								<span class="text-[12px] text-gray-500 dark:text-gray-400">Total:</span>
+								<span class="text-sm font-mono" style="color: #8b5cf6;">
+									{formatBytes(currentStats.networkRx)}
+								</span>
+								<span class="text-sm font-mono text-gray-400">/</span>
+								<span class="text-sm font-mono" style="color: #f59e0b;">
+									{formatBytes(currentStats.networkTx)}
+								</span>
+							</div>
 							{#if currentRates}
-								<div class="text-xs font-mono text-gray-500 dark:text-gray-400">
-									{formatBytes(currentRates.networkRxRate)}/s / {formatBytes(currentRates.networkTxRate)}/s
+								<div class="flex items-center justify-end gap-1">
+									<span class="text-[12px] text-gray-500 dark:text-gray-400">Rate:</span>
+									<span class="text-xs font-mono" style="color: #8b5cf6;">
+										{formatBytes(currentRates.networkRxRate)}/s
+									</span>
+									<span class="text-xs font-mono text-gray-400">/</span>
+									<span class="text-xs font-mono" style="color: #f59e0b;">
+										{formatBytes(currentRates.networkTxRate)}/s
+									</span>
 								</div>
 							{/if}
 						</div>
@@ -303,17 +358,31 @@
 					<div class="flex items-center gap-2">
 						<HardDrive class="h-4 w-4 text-pink-600 dark:text-pink-400" />
 						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>Disk IO (Read / Write)</span
+							>{$t('containers.diskStats')} (Read / Write)</span
 						>
 					</div>
 					{#if currentStats}
-						<div class="text-right">
-							<span class="text-sm font-mono text-pink-600 dark:text-pink-400">
-								{formatBytes(currentStats.diskRead)} / {formatBytes(currentStats.diskWrite)}
-							</span>
+						<div class="text-right space-y-0.5">
+							<div class="flex items-center justify-end gap-1">
+								<span class="text-[12px] text-gray-500 dark:text-gray-400">Total:</span>
+								<span class="text-sm font-mono" style="color: #8b5cf6;">
+									{formatBytes(currentStats.diskRead)}
+								</span>
+								<span class="text-sm font-mono text-gray-400">/</span>
+								<span class="text-sm font-mono" style="color: #ec4899;">
+									{formatBytes(currentStats.diskWrite)}
+								</span>
+							</div>
 							{#if currentRates}
-								<div class="text-xs font-mono text-gray-500 dark:text-gray-400">
-									{formatBytes(currentRates.diskReadRate)}/s / {formatBytes(currentRates.diskWriteRate)}/s
+								<div class="flex items-center justify-end gap-1">
+									<span class="text-[12px] text-gray-500 dark:text-gray-400">Rate:</span>
+									<span class="text-xs font-mono" style="color: #8b5cf6;">
+										{formatBytes(currentRates.diskReadRate)}/s
+									</span>
+									<span class="text-xs font-mono text-gray-400">/</span>
+									<span class="text-xs font-mono" style="color: #ec4899;">
+										{formatBytes(currentRates.diskWriteRate)}/s
+									</span>
 								</div>
 							{/if}
 						</div>
