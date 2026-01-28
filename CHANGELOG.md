@@ -1,3 +1,13 @@
+## Changes in v1.1.0
+
+**Merged Pull Requests:**
+- Improve password error feedback (#47)
+
+**Commits:**
+- Improve password error feedback (#47) (0e0455b)
+- docs: update CHANGELOG for v1.0.5 [skip ci] (33da113)
+- chore: bump version to v1.0.5 [skip ci] (be43bbf)
+
 ## Changes in v1.0.5
 
 **Merged Pull Requests:**
