@@ -1,6 +1,22 @@
 ## Changes in v1.0.0
 
 **Merged Pull Requests:**
+- Front and back unification. Revert version to 0.21.0 for proper true 1.0.0 (#35)
+
+**Commits:**
+- Front and back unification. (#35) (abebb5f)
+- Add custom optional version to CI (#34) (9b1bd7e)
+- Add front test placeholder until proper tests are added (#33) (3b6129f)
+- docs: update CHANGELOG for v1.0.0 [skip ci] (9b7114c)
+- chore: bump version to v1.0.0 [skip ci] (c34b5e7)
+- Refactor the compose discovery mecanism (#32) (5b8af06)
+- Update README by removing license section (3df33da)
+- docs: update CHANGELOG for v0.21.0 [skip ci] (cb31e99)
+- chore: bump version to v0.21.0 [skip ci] (1e01ef0)
+
+## Changes in v1.0.0
+
+**Merged Pull Requests:**
 - Refactor the compose discovery mecanism (#32)
 
 **Commits:**
