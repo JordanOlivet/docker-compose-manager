@@ -47,7 +47,16 @@
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       }
-      error = err.response?.data?.message || $t('auth.loginFailed');
+      // Extract detailed validation errors if available
+      const responseData = err.response?.data;
+      if (responseData?.errors && typeof responseData.errors === 'object') {
+        const errorMessages = Object.values(responseData.errors)
+          .flat()
+          .filter((msg): msg is string => typeof msg === 'string');
+        error = errorMessages.length > 0 ? errorMessages.join('. ') : (responseData.message || $t('auth.loginFailed'));
+      } else {
+        error = responseData?.message || $t('auth.loginFailed');
+      }
     } finally {
       loading = false;
     }
