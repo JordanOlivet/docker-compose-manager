@@ -44,4 +44,15 @@ public class OperationsHub : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
         _logger.LogInformation("Client {ConnectionId} unsubscribed from operation {OperationId}", Context.ConnectionId, operationId);
     }
+
+    /// <summary>
+    /// Subscribe to maintenance mode updates (all clients receive maintenance updates by default)
+    /// </summary>
+    public Task SubscribeToMaintenanceUpdates()
+    {
+        // All clients automatically receive MaintenanceMode broadcasts via Clients.All
+        // This method exists for explicitness and future extensibility
+        _logger.LogInformation("Client {ConnectionId} subscribed to maintenance updates", Context.ConnectionId);
+        return Task.CompletedTask;
+    }
 }
