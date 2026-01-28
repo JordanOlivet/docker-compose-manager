@@ -43,12 +43,27 @@ export function getBestMemoryUnit<T>(
 }
 
 /**
- * Get the best unit for network display
+ * Get the best unit for network display (cumulative bytes)
  * @param data Array of values
  * @param selector Function to extract value from data item
  * @returns Unit with divisor
  */
 export function getBestNetworkUnit<T>(
+  data: T[],
+  selector: (item: T) => number
+): Unit {
+  if (data.length === 0) return { unit: 'KB', divisor: 1024 };
+  const maxValue = Math.max(...data.map(selector));
+  return getBestUnit(maxValue, 'B');
+}
+
+/**
+ * Get the best unit for network rate display (bytes per second)
+ * @param data Array of values
+ * @param selector Function to extract value from data item
+ * @returns Unit with divisor
+ */
+export function getBestNetworkRateUnit<T>(
   data: T[],
   selector: (item: T) => number
 ): Unit {
@@ -58,12 +73,27 @@ export function getBestNetworkUnit<T>(
 }
 
 /**
- * Get the best unit for disk I/O display
+ * Get the best unit for disk I/O display (cumulative bytes)
  * @param data Array of values
  * @param selector Function to extract value from data item
  * @returns Unit with divisor
  */
 export function getBestDiskUnit<T>(
+  data: T[],
+  selector: (item: T) => number
+): Unit {
+  if (data.length === 0) return { unit: 'KB', divisor: 1024 };
+  const maxValue = Math.max(...data.map(selector));
+  return getBestUnit(maxValue, 'B');
+}
+
+/**
+ * Get the best unit for disk I/O rate display (bytes per second)
+ * @param data Array of values
+ * @param selector Function to extract value from data item
+ * @returns Unit with divisor
+ */
+export function getBestDiskRateUnit<T>(
   data: T[],
   selector: (item: T) => number
 ): Unit {

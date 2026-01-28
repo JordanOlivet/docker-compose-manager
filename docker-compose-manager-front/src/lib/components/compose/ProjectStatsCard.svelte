@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { containersApi } from '$lib/api';
 	import { Activity, Cpu, HardDrive } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import type { ComposeService, ContainerStats } from '$lib/types';
-	import { formatBytes, getBestMemoryUnit, getBestNetworkUnit, getBestDiskUnit } from '$lib/utils/units';
+	import { formatBytes, getBestMemoryUnit, getBestNetworkUnit, getBestNetworkRateUnit, getBestDiskUnit, getBestDiskRateUnit } from '$lib/utils/units';
 
 	interface Props {
 		services: ComposeService[];
@@ -25,8 +26,20 @@
 		timestamp: Date;
 	}
 
+	interface RateStats {
+		networkRxRate: number;
+		networkTxRate: number;
+		diskReadRate: number;
+		diskWriteRate: number;
+		timestamp: Date;
+	}
+
 	let statsHistory = $state<AggregatedStats[]>([]);
+	let rateHistory = $state<RateStats[]>([]);
 	let currentStats = $state<AggregatedStats | null>(null);
+	let currentRates = $state<RateStats | null>(null);
+	// Use plain variables (not reactive) to avoid circular dependency in effects
+	let previousStatsRef: AggregatedStats | null = null;
 
 	const isActive = $derived(services.some((s) => s.state === 'Running'));
 	const runningServiceIds = $derived(services.filter((s) => s.state === 'Running').map((s) => s.id));
@@ -55,7 +68,7 @@
 		retry: false
 	}));
 
-	// Update current stats when new data arrives
+	// Update current stats and history when new data arrives
 	$effect(() => {
 		const servicesStats = servicesStatsQuery.data;
 		if (!servicesStats || servicesStats.length === 0) return;
@@ -87,38 +100,57 @@
 			aggregated.memoryPercentage = (aggregated.memoryUsage / aggregated.memoryLimit) * 100;
 		}
 
+		// Calculate rates (bytes per second) based on difference from previous stats
+		let newRates: RateStats | null = null;
+		if (previousStatsRef) {
+			const timeDiff = (aggregated.timestamp.getTime() - previousStatsRef.timestamp.getTime()) / 1000;
+			if (timeDiff > 0) {
+				newRates = {
+					networkRxRate: Math.max(0, (aggregated.networkRx - previousStatsRef.networkRx) / timeDiff),
+					networkTxRate: Math.max(0, (aggregated.networkTx - previousStatsRef.networkTx) / timeDiff),
+					diskReadRate: Math.max(0, (aggregated.diskRead - previousStatsRef.diskRead) / timeDiff),
+					diskWriteRate: Math.max(0, (aggregated.diskWrite - previousStatsRef.diskWrite) / timeDiff),
+					timestamp: aggregated.timestamp
+				};
+			}
+		}
+
+		previousStatsRef = aggregated;
+
+		// Update history - use untrack to avoid creating dependencies on history arrays
+		const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+		untrack(() => {
+			statsHistory = [...statsHistory, aggregated].filter((stat) => stat.timestamp >= fiveMinutesAgo);
+
+			if (newRates) {
+				rateHistory = [...rateHistory, newRates].filter((stat) => stat.timestamp >= fiveMinutesAgo);
+			}
+		});
+
+		currentRates = newRates;
 		currentStats = aggregated;
 	});
 
-	// Add data points every 1 second - using $effect cleanup function
+	// Reset history when services stop
 	$effect(() => {
-		if (!isActive || !currentStats) {
-			statsHistory = [];
-			return;
-		}
-
-		const interval = setInterval(() => {
-			if (!currentStats) return;
-
-			const newPoint: AggregatedStats = {
-				...currentStats,
-				timestamp: new Date()
-			};
-
-			statsHistory = [...statsHistory, newPoint].filter((stat) => {
-				const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-				return stat.timestamp >= fiveMinutesAgo;
+		if (!isActive) {
+			untrack(() => {
+				statsHistory = [];
+				rateHistory = [];
+				previousStatsRef = null;
+				currentStats = null;
+				currentRates = null;
 			});
-		}, 1000);
-
-		// Cleanup function - Svelte automatically calls this
-		return () => clearInterval(interval);
+		}
 	});
 
 	// Use utility functions to get best units based on data
 	const memoryUnit = $derived(getBestMemoryUnit(statsHistory, (s) => s.memoryUsage));
 	const networkUnit = $derived(getBestNetworkUnit(statsHistory, (s) => Math.max(s.networkRx, s.networkTx)));
+	const networkRateUnit = $derived(getBestNetworkRateUnit(rateHistory, (s) => Math.max(s.networkRxRate, s.networkTxRate)));
 	const diskUnit = $derived(getBestDiskUnit(statsHistory, (s) => Math.max(s.diskRead, s.diskWrite)));
+	const diskRateUnit = $derived(getBestDiskRateUnit(rateHistory, (s) => Math.max(s.diskReadRate, s.diskWriteRate)));
 
 	// Prepare chart data
 	const cpuChartData = $derived(
@@ -136,18 +168,18 @@
 	);
 
 	const networkChartData = $derived(
-		statsHistory.map((stat) => ({
+		rateHistory.map((stat) => ({
 			timestamp: stat.timestamp,
-			rx: stat.networkRx / networkUnit.divisor,
-			tx: stat.networkTx / networkUnit.divisor
+			rx: stat.networkRxRate / networkRateUnit.divisor,
+			tx: stat.networkTxRate / networkRateUnit.divisor
 		}))
 	);
 
 	const diskChartData = $derived(
-		statsHistory.map((stat) => ({
+		rateHistory.map((stat) => ({
 			timestamp: stat.timestamp,
-			read: stat.diskRead / diskUnit.divisor,
-			write: stat.diskWrite / diskUnit.divisor
+			read: stat.diskReadRate / diskRateUnit.divisor,
+			write: stat.diskWriteRate / diskRateUnit.divisor
 		}))
 	);
 </script>
@@ -242,19 +274,26 @@
 						>
 					</div>
 					{#if currentStats}
-						<span class="text-sm font-mono text-purple-600 dark:text-purple-400">
-							{formatBytes(currentStats.networkRx)} / {formatBytes(currentStats.networkTx)}
-						</span>
+						<div class="text-right">
+							<span class="text-sm font-mono text-purple-600 dark:text-purple-400">
+								{formatBytes(currentStats.networkRx)} / {formatBytes(currentStats.networkTx)}
+							</span>
+							{#if currentRates}
+								<div class="text-xs font-mono text-gray-500 dark:text-gray-400">
+									{formatBytes(currentRates.networkRxRate)}/s / {formatBytes(currentRates.networkTxRate)}/s
+								</div>
+							{/if}
+						</div>
 					{/if}
 				</div>
 				<LineChart
 					data={networkChartData}
 					lines={[
-						{ key: 'rx', label: `RX (${networkUnit.unit})`, color: '#8b5cf6' },
-						{ key: 'tx', label: `TX (${networkUnit.unit})`, color: '#f59e0b' }
+						{ key: 'rx', label: `RX (${networkRateUnit.unit})`, color: '#8b5cf6' },
+						{ key: 'tx', label: `TX (${networkRateUnit.unit})`, color: '#f59e0b' }
 					]}
 					height={150}
-					formatValue={(v) => `${v.toFixed(2)} ${networkUnit.unit}`}
+					formatValue={(v) => `${v.toFixed(2)} ${networkRateUnit.unit}`}
 				/>
 			</div>
 
@@ -268,19 +307,26 @@
 						>
 					</div>
 					{#if currentStats}
-						<span class="text-sm font-mono text-pink-600 dark:text-pink-400">
-							{formatBytes(currentStats.diskRead)} / {formatBytes(currentStats.diskWrite)}
-						</span>
+						<div class="text-right">
+							<span class="text-sm font-mono text-pink-600 dark:text-pink-400">
+								{formatBytes(currentStats.diskRead)} / {formatBytes(currentStats.diskWrite)}
+							</span>
+							{#if currentRates}
+								<div class="text-xs font-mono text-gray-500 dark:text-gray-400">
+									{formatBytes(currentRates.diskReadRate)}/s / {formatBytes(currentRates.diskWriteRate)}/s
+								</div>
+							{/if}
+						</div>
 					{/if}
 				</div>
 				<LineChart
 					data={diskChartData}
 					lines={[
-						{ key: 'read', label: `Read (${diskUnit.unit})`, color: '#8b5cf6' },
-						{ key: 'write', label: `Write (${diskUnit.unit})`, color: '#ec4899' }
+						{ key: 'read', label: `Read (${diskRateUnit.unit})`, color: '#8b5cf6' },
+						{ key: 'write', label: `Write (${diskRateUnit.unit})`, color: '#ec4899' }
 					]}
 					height={150}
-					formatValue={(v) => `${v.toFixed(2)} ${diskUnit.unit}`}
+					formatValue={(v) => `${v.toFixed(2)} ${diskRateUnit.unit}`}
 				/>
 			</div>
 		</div>
