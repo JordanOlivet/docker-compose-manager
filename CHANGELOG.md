@@ -1,3 +1,13 @@
+## Changes in v1.0.5
+
+**Merged Pull Requests:**
+- Fix connection issues and re activate dashboard stats (#44)
+
+**Commits:**
+- Fix connection issues and re activate dashboard stats (#44) (ee55285)
+- docs: update CHANGELOG for v1.0.4 [skip ci] (5547865)
+- chore: bump version to v1.0.4 [skip ci] (c37c12d)
+
 ## Changes in v1.0.4
 
 **Merged Pull Requests:**
