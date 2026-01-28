@@ -9,6 +9,7 @@ import {
 } from '$lib/stores/signalr.svelte';
 import type { OperationUpdateEvent } from '$lib/types';
 import { composeApi } from '$lib/api/compose';
+import { logger } from '$lib/utils/logger';
 
 // Configuration
 const DEBOUNCE_DELAY_MS = 50; // Minimal debounce to batch truly simultaneous events
@@ -57,10 +58,10 @@ async function refetchQueries(queryClient: QueryClient, queryKeys: string[][]): 
         }
 
         queryClient.setQueryData(query.queryKey, freshData);
-        console.log(`[Bridge] Refreshed ${keyStr}`);
+        logger.log(`[Bridge] Refreshed ${keyStr}`);
       }
     } catch (error) {
-      console.error(`[Bridge] Failed to refetch ${JSON.stringify(queryKey)}:`, error);
+      logger.error(`[Bridge] Failed to refetch ${JSON.stringify(queryKey)}:`, error);
     }
   }
 }
@@ -162,8 +163,8 @@ function markHandledViaCompose(containerId: string, action: string): void {
  * @returns Cleanup function to remove all subscriptions
  */
 export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
-  console.log('[Bridge] Setting up SignalR-Query bridge');
-  console.log('[Bridge] QueryClient instance:', queryClient);
+  logger.log('[Bridge] Setting up SignalR-Query bridge');
+  logger.log('[Bridge] QueryClient instance:', queryClient);
 
   const scheduleRefetch = createDebouncedRefetcher(queryClient, DEBOUNCE_DELAY_MS);
   const unsubscribers: (() => void)[] = [];
@@ -175,11 +176,11 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
 
     // Only react to state-changing events, ignore signals like 'kill', 'stop'
     if (!STATE_CHANGING_EVENTS.has(action)) {
-      console.log(`[Bridge] Ignoring compose event (not state-changing): ${event.projectName} - ${event.action}`);
+      logger.log(`[Bridge] Ignoring compose event (not state-changing): ${event.projectName} - ${event.action}`);
       return;
     }
 
-    console.log(`[Bridge] Compose event (state-changing): ${event.projectName} - ${event.action}`);
+    logger.log(`[Bridge] Compose event (state-changing): ${event.projectName} - ${event.action}`);
 
     // Mark this container+action as handled via compose to prevent double invalidation
     markHandledViaCompose(event.containerId, event.action);
@@ -199,17 +200,17 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
 
     // Only react to state-changing events, ignore signals like 'kill', 'stop'
     if (!STATE_CHANGING_EVENTS.has(action)) {
-      console.log(`[Bridge] Ignoring container event (not state-changing): ${event.containerName} - ${event.action}`);
+      logger.log(`[Bridge] Ignoring container event (not state-changing): ${event.containerName} - ${event.action}`);
       return;
     }
 
     // Check if this was already handled via compose event
     if (wasRecentlyHandledViaCompose(event.containerId, event.action)) {
-      console.log(`[Bridge] Skipping container event (already handled via compose): ${event.containerName} - ${event.action}`);
+      logger.log(`[Bridge] Skipping container event (already handled via compose): ${event.containerName} - ${event.action}`);
       return;
     }
 
-    console.log(`[Bridge] Container event (state-changing): ${event.containerName} - ${event.action}`);
+    logger.log(`[Bridge] Container event (state-changing): ${event.containerName} - ${event.action}`);
 
     // Invalidate container-related queries
     // Also invalidate compose queries since standalone container changes might affect project states
@@ -229,7 +230,7 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
       return;
     }
 
-    console.log(`[Bridge] Operation ${event.status}: ${event.type}`);
+    logger.log(`[Bridge] Operation ${event.status}: ${event.type}`);
 
     const typeLower = (event.type || '').toLowerCase();
     const queriesToInvalidate: string[][] = [];
@@ -257,7 +258,7 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
 
   // Handle reconnection - immediately refresh ALL data
   const unsubReconnected = onReconnected(() => {
-    console.log('[Bridge] Reconnected - refreshing all data immediately');
+    logger.log('[Bridge] Reconnected - refreshing all data immediately');
 
     // Force refetch all queries
     queryClient.refetchQueries({ queryKey: ['containers'], exact: false });
@@ -266,11 +267,11 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
   });
   unsubscribers.push(unsubReconnected);
 
-  console.log('[Bridge] SignalR-Query bridge initialized');
+  logger.log('[Bridge] SignalR-Query bridge initialized');
 
   // Return cleanup function
   return () => {
-    console.log('[Bridge] Cleaning up SignalR-Query bridge');
+    logger.log('[Bridge] Cleaning up SignalR-Query bridge');
     unsubscribers.forEach(unsub => unsub());
     recentComposeEvents.clear();
   };

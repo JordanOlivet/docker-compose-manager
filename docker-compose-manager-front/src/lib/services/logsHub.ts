@@ -1,5 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { browser } from '$app/environment';
+import { logger } from '../utils/logger';
 
 let connection: signalR.HubConnection | null = null;
 
@@ -67,9 +68,9 @@ export async function startLogsConnection() {
 
 	try {
 		await connection.start();
-		console.log('Logs Hub connected');
+		logger.log('Logs Hub connected');
 	} catch (error) {
-		console.error('Logs Hub connection error:', error);
+		logger.error('Logs Hub connection error:', error);
 		setTimeout(startLogsConnection, 5000);
 	}
 }
@@ -79,9 +80,9 @@ export async function stopLogsConnection() {
 
 	try {
 		await connection.stop();
-		console.log('Logs Hub disconnected');
+		logger.log('Logs Hub disconnected');
 	} catch (error) {
-		console.error('Logs Hub disconnection error:', error);
+		logger.error('Logs Hub disconnection error:', error);
 	}
 }
 
@@ -90,14 +91,14 @@ export async function stopLogsConnection() {
  */
 export async function startContainerLogs(containerId: string, tail: number = 100) {
 	if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-		console.warn('Logs Hub not connected');
+		logger.warn('Logs Hub not connected');
 		return;
 	}
 
 	try {
 		await connection.invoke('StartContainerLogs', containerId, tail);
 	} catch (err) {
-		console.error('Failed to start container logs:', err);
+		logger.error('Failed to start container logs:', err);
 	}
 }
 
@@ -112,7 +113,7 @@ export async function stopContainerLogs(containerId: string) {
 	try {
 		await connection.invoke('StopContainerLogs', containerId);
 	} catch (err) {
-		console.error('Failed to stop container logs:', err);
+		logger.error('Failed to stop container logs:', err);
 	}
 }
 
@@ -125,14 +126,14 @@ export async function startProjectLogs(
 	tail: number = 100
 ) {
 	if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-		console.warn('Logs Hub not connected');
+		logger.warn('Logs Hub not connected');
 		return;
 	}
 
 	try {
 		await connection.invoke('StartProjectLogs', projectPath, serviceName, tail);
 	} catch (err) {
-		console.error('Failed to start project logs:', err);
+		logger.error('Failed to start project logs:', err);
 	}
 }
 
@@ -147,7 +148,7 @@ export async function stopProjectLogs(projectPath: string) {
 	try {
 		await connection.invoke('StopProjectLogs', projectPath);
 	} catch (err) {
-		console.error('Failed to stop project logs:', err);
+		logger.error('Failed to stop project logs:', err);
 	}
 }
 

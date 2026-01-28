@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { FileText, Play, Pause, Trash2, AlertCircle } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
+	import { logger } from '$lib/utils/logger';
 	import * as signalr from '$lib/services/signalr';
 
 	interface Props {
@@ -98,7 +99,7 @@
 	function handleReceiveLogs(logsText: string) {
 		const cleanedText = logsText.replace(/\r/g, '');
 		const lines = cleanedText.split('\n').filter((line) => line.trim() !== '');
-		console.log(`[RECEIVE] Received batch with ${lines.length} log lines`);
+		logger.log(`[RECEIVE] Received batch with ${lines.length} log lines`);
 
 		const newLogs = lines.map((line) => parseLogLine(line));
 
@@ -107,17 +108,17 @@
 
 	function handleLogError(errorMsg: string) {
 		error = errorMsg;
-		console.error('Log streaming error:', errorMsg);
+		logger.error('Log streaming error:', errorMsg);
 	}
 
 	function handleStreamComplete() {
-		console.log('Log stream completed');
+		logger.log('Log stream completed');
 		isStreaming = false;
 	}
 
 	async function startStreaming(clearExisting = false) {
 		if (streamingInProgress) {
-			console.log('[STREAMING] Already streaming, skipping...');
+			logger.log('[STREAMING] Already streaming, skipping...');
 			return;
 		}
 
@@ -132,7 +133,7 @@
 
 			// Connect to logs hub if not already connected
 			if (!signalr.isLogsConnected()) {
-				console.log('[STREAMING] Connecting to logs hub...');
+				logger.log('[STREAMING] Connecting to logs hub...');
 				await signalr.connectToLogsHub();
 			}
 
@@ -156,9 +157,9 @@
 			}
 
 			isStreaming = true;
-			console.log('[STREAMING] Log streaming started successfully');
+			logger.log('[STREAMING] Log streaming started successfully');
 		} catch (err) {
-			console.error('[STREAMING] Failed to start log streaming:', err);
+			logger.error('[STREAMING] Failed to start log streaming:', err);
 			error = `Failed to start streaming: ${err instanceof Error ? err.message : String(err)}`;
 			isStreaming = false;
 			streamingInProgress = false;
@@ -176,7 +177,7 @@
 			isStreaming = false;
 			streamingInProgress = false;
 		} catch (err) {
-			console.error('Failed to stop log streaming:', err);
+			logger.error('Failed to stop log streaming:', err);
 			error = `Failed to stop streaming: ${err instanceof Error ? err.message : String(err)}`;
 			streamingInProgress = false;
 		}
@@ -206,7 +207,7 @@
 	}
 
 	onMount(async () => {
-		console.log('[MOUNT] Component mounted, starting streaming...');
+		logger.log('[MOUNT] Component mounted, starting streaming...');
 		await startStreaming(true);
 
 		// Add scroll listener
@@ -216,7 +217,7 @@
 	});
 
 	onDestroy(() => {
-		console.log('[MOUNT] Component unmounting, cleaning up...');
+		logger.log('[MOUNT] Component unmounting, cleaning up...');
 
 		// Unregister handlers
 		signalr.offReceiveLogs(handleReceiveLogs);

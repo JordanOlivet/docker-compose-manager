@@ -4,6 +4,7 @@
 	import { containersApi } from '$lib/api';
 	import { Activity, Cpu, HardDrive } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
+	import { logger } from '$lib/utils/logger';
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import type { ComposeService, ContainerStats } from '$lib/types';
 	import {
@@ -89,7 +90,7 @@
 				} catch (error: any) {
 					// Don't log 404 errors - container was probably stopped/removed
 					if (error?.response?.status !== 404) {
-						console.error(`Failed to fetch stats for container ${id}:`, error);
+						logger.error(`Failed to fetch stats for container ${id}:`, error);
 					}
 					return null;
 				}
