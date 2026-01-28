@@ -352,22 +352,22 @@
             >
               <div class="bg-gray-50 dark:bg-gray-900 rounded-xl shadow border border-gray-100 dark:border-gray-700 overflow-hidden">
                 <div class="overflow-x-auto">
-                  <table class="w-full">
+                  <table class="w-full table-fixed">
                     <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                       <tr>
-                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[25%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.name')}
                         </th>
-                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[30%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.image')}
                         </th>
-                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[12%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.state')}
                         </th>
-                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[18%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.status')}
                         </th>
-                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[15%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.actions')}
                         </th>
                       </tr>
@@ -375,20 +375,29 @@
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                       {#each project.services as service (service.id)}
                         <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
-                          <td class="px-4 py-2 whitespace-nowrap">
-                            <div class="text-xs font-medium text-gray-900 dark:text-white">
+                          <td class="px-4 py-2">
+                            <div
+                              class="text-xs font-medium text-gray-900 dark:text-white truncate"
+                              title={service.name}
+                            >
                               {service.name}
                             </div>
-                            <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                            <div
+                              class="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate"
+                              title={service.id}
+                            >
                               {service.id}
                             </div>
                           </td>
                           <td class="px-4 py-2">
-                            <div class="text-xs text-gray-900 dark:text-gray-300">
+                            <div
+                              class="text-xs text-gray-900 dark:text-gray-300 truncate"
+                              title={service.image || '-'}
+                            >
                               {service.image || '-'}
                             </div>
                           </td>
-                          <td class="px-4 py-2 whitespace-nowrap">
+                          <td class="px-4 py-2">
                             <StateBadge
                               class="{getStateColor(service.state)} text-xs px-2 py-0.5"
                               status={service.state}
@@ -396,11 +405,14 @@
                             />
                           </td>
                           <td class="px-4 py-2">
-                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <div
+                              class="text-xs text-gray-500 dark:text-gray-400 truncate"
+                              title={service.status || '-'}
+                            >
                               {service.status || '-'}
                             </div>
                           </td>
-                          <td class="px-4 py-2 whitespace-nowrap text-xs">
+                          <td class="px-4 py-2 text-xs">
                             <div class="flex items-center gap-1">
                               {#if service.state === EntityState.Unknown || service.state === EntityState.NotStarted}
                                 <span class="text-gray-400 text-xs italic">{$t('containers.noContainer')}</span>
