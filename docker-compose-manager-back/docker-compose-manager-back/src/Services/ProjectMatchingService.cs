@@ -14,17 +14,20 @@ public class ProjectMatchingService : IProjectMatchingService
 {
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly IComposeFileCacheService _cacheService;
+    private readonly IConflictResolutionService _conflictService;
     private readonly ILogger<ProjectMatchingService> _logger;
     private readonly ComposeDiscoveryOptions _options;
 
     public ProjectMatchingService(
         IComposeDiscoveryService discoveryService,
         IComposeFileCacheService cacheService,
+        IConflictResolutionService conflictService,
         IOptions<ComposeDiscoveryOptions> options,
         ILogger<ProjectMatchingService> logger)
     {
         _discoveryService = discoveryService;
         _cacheService = cacheService;
+        _conflictService = conflictService;
         _options = options.Value;
         _logger = logger;
     }
@@ -39,19 +42,23 @@ public class ProjectMatchingService : IProjectMatchingService
         _logger.LogDebug("Found {Count} Docker projects for user {UserId}", dockerProjects.Count, userId);
 
         // Step 2: Get discovered files from scanner
-        var discoveredFiles = await _cacheService.GetOrScanAsync();
-        _logger.LogDebug("Found {Count} discovered compose files", discoveredFiles.Count);
+        var allDiscoveredFiles = await _cacheService.GetOrScanAsync();
+        _logger.LogDebug("Found {Count} discovered compose files", allDiscoveredFiles.Count);
 
-        // Step 3: Create lookup for fast matching (case-insensitive by project name)
+        // Step 3: Resolve conflicts (handles duplicate project names)
+        var discoveredFiles = _conflictService.ResolveConflicts(allDiscoveredFiles);
+        _logger.LogDebug("After conflict resolution: {Count} files", discoveredFiles.Count);
+
+        // Step 4: Create lookup for fast matching (case-insensitive by project name)
         var filesByProjectName = discoveredFiles
             .ToDictionary(f => f.ProjectName, f => f, StringComparer.OrdinalIgnoreCase);
         _logger.LogDebug("Created lookup dictionary with {Count} entries", filesByProjectName.Count);
 
-        // Step 4: Create additional lookups for fallback matching
+        // Step 5: Create additional lookups for fallback matching
         var filesByFilePath = discoveredFiles
             .ToDictionary(f => f.FilePath, f => f, StringComparer.OrdinalIgnoreCase);
 
-        // Step 5: Enrich Docker projects with file info
+        // Step 6: Enrich Docker projects with file info
         var enrichedProjects = new List<ComposeProjectDto>();
         foreach (var project in dockerProjects)
         {
@@ -186,7 +193,7 @@ public class ProjectMatchingService : IProjectMatchingService
             }
         }
 
-        // Step 6: Add "not-started" projects (files without Docker projects)
+        // Step 7: Add "not-started" projects (files without Docker projects)
         foreach (var unmatchedFile in filesByProjectName.Values)
         {
             _logger.LogDebug(

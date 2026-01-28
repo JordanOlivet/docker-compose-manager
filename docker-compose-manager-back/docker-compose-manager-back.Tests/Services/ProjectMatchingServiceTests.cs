@@ -17,12 +17,19 @@ public class ProjectMatchingServiceTests
 {
     private readonly Mock<IComposeDiscoveryService> _mockDiscoveryService;
     private readonly Mock<IComposeFileCacheService> _mockCacheService;
+    private readonly Mock<IConflictResolutionService> _mockConflictService;
     private readonly ProjectMatchingService _service;
 
     public ProjectMatchingServiceTests()
     {
         _mockDiscoveryService = new Mock<IComposeDiscoveryService>();
         _mockCacheService = new Mock<IComposeFileCacheService>();
+        _mockConflictService = new Mock<IConflictResolutionService>();
+
+        // Default behavior: ResolveConflicts returns the same list (no conflicts)
+        _mockConflictService
+            .Setup(s => s.ResolveConflicts(It.IsAny<List<DiscoveredComposeFile>>()))
+            .Returns((List<DiscoveredComposeFile> files) => files);
 
         var options = Options.Create(new ComposeDiscoveryOptions
         {
@@ -33,6 +40,7 @@ public class ProjectMatchingServiceTests
         _service = new ProjectMatchingService(
             _mockDiscoveryService.Object,
             _mockCacheService.Object,
+            _mockConflictService.Object,
             options,
             new NullLogger<ProjectMatchingService>()
         );
