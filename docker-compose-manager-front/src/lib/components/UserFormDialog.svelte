@@ -16,7 +16,8 @@
 	}
 
 	let { open, user = undefined, onClose, onCopyPermissionsClick }: Props = $props();
-
+ 	let error = $state('');
+	
 	const isEditMode = $derived(!!user);
 	const queryClient = useQueryClient();
 
@@ -56,12 +57,18 @@
 			toast.success($t('users.userCreated'));
 			onClose();
 		},
-		onError: (error: any) => {
-			console.error('Full error:', error);
-			console.error('Error response:', error.response);
-			console.error('Error data:', error.response?.data);
-			const errorMessage = error.response?.data?.message || error.response?.data?.title || error.message || $t('users.failedToCreate');
-			toast.error(errorMessage);
+		onError: (err: any) => {
+			// Extract detailed validation errors if available
+			const responseData = err.response?.data;
+
+			if (responseData?.errors && typeof responseData.errors === 'object') {
+				const errorMessages = Object.values(responseData.errors)
+				.flat()
+				.filter((msg): msg is string => typeof msg === 'string');
+				error = errorMessages.length > 0 ? errorMessages.join('.\n') : (responseData.message || $t('auth.loginFailed'));
+			} else {
+				error = responseData?.message || $t('auth.loginFailed');
+			}
 		}
 	}));
 
@@ -79,8 +86,18 @@
 			toast.success($t('users.userUpdated'));
 			onClose();
 		},
-		onError: (error: any) => {
-			toast.error(error.response?.data?.message || $t('users.failedToUpdate'));
+		onError: (err: any) => {
+			// Extract detailed validation errors if available
+			const responseData = err.response?.data;
+
+			if (responseData?.errors && typeof responseData.errors === 'object') {
+				const errorMessages = Object.values(responseData.errors)
+				.flat()
+				.filter((msg): msg is string => typeof msg === 'string');
+				error = errorMessages.length > 0 ? errorMessages.join('.\n') : (responseData.message || $t('auth.loginFailed'));
+			} else {
+				error = responseData?.message || $t('auth.loginFailed');
+			}
 		}
 	}));
 
@@ -88,7 +105,7 @@
 		e.preventDefault();
 
 		if (!formData.username || (!isEditMode && !formData.password)) {
-			toast.error('Please fill in all required fields');
+			error = 'Please fill in all required fields';
 			return;
 		}
 
@@ -184,6 +201,12 @@
 						showCopyButton={isEditMode && !!onCopyPermissionsClick}
 					/>
 				</div>
+
+				{#if error}
+					<div class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg text-sm whitespace-pre-line">
+					{@html error}
+					</div>
+				{/if}
 
 				<!-- Actions -->
 				<div class="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

@@ -45,18 +45,26 @@
 
       goto('/dashboard');
     } catch (err: any) {
-      error = err.response?.data?.message || $t('errors.generic');
-      toast.error(error);
+      // Extract detailed validation errors if available
+      const responseData = err.response?.data;
+      if (responseData?.errors && typeof responseData.errors === 'object') {
+        const errorMessages = Object.values(responseData.errors)
+          .flat()
+          .filter((msg): msg is string => typeof msg === 'string');
+        error = errorMessages.length > 0 ? errorMessages.join('. ') : (responseData.message || $t('errors.generic'));
+      } else {
+        error = responseData?.message || $t('errors.generic');
+      }
     } finally {
       loading = false;
     }
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
+<div class="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
   <Card class="max-w-md w-full mx-4 shadow-xl">
     <CardHeader class="text-center pb-2">
-      <div class="mx-auto w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
+      <div class="mx-auto w-16 h-16 bg-linear-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
         <KeyRound class="w-8 h-8 text-white" />
       </div>
       <CardTitle class="text-2xl font-bold">{$t('auth.changePassword')}</CardTitle>
