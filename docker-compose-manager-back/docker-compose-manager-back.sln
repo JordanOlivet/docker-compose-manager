@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.0.11205.157
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "docker-compose-manager-back", "docker-compose-manager-back.csproj", "{5B292145-1B66-71AB-DD57-B7D98C99B8C1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "docker-compose-manager-back", "docker-compose-manager-back\docker-compose-manager-back.csproj", "{5B292145-1B66-71AB-DD57-B7D98C99B8C1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "docker-compose-manager-back.Tests", "docker-compose-manager-back.Tests\docker-compose-manager-back.Tests.csproj", "{DD1BABE1-E9AF-7326-7F00-C19EDC864461}"
 EndProject

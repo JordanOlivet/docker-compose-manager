@@ -6,33 +6,24 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 services:
-  backend:
+  app:
     # Override l'image par un build local
     build:
-      context: ./docker-compose-manager-back
+      context: .
       dockerfile: Dockerfile
-    image: docker-compose-manager-backend:dev
-    ports:
-      - "5000:5000"
+      args:
+        VERSION: 0.0.1-dev
+        ASSEMBLY_VERSION: 0.0.1
+        BUILD_DATE: "2026-01-27"
+        VCS_REF: dev
+        VITE_APP_VERSION: 0.0.1-dev
+        VITE_BUILD_DATE: "2026-01-27"
+        VITE_GIT_COMMIT: dev
+    image: docker-compose-manager:dev
     environment:
       # Configuration pour le développement
       - ASPNETCORE_ENVIRONMENT=Development
       - Serilog__MinimumLevel__Default=Debug
     volumes:
-      # Ajouter le mapping pour hot-reload (optionnel, nécessite configuration supplémentaire)
-      # - ./docker-compose-manager-back/src:/app/src:ro
       # Montage du bureau pour tester la découverte de fichiers compose
       - C:\Users\Lakio\Desktop:/app/compose-files
-
-  frontend:
-    # Override l'image par un build local
-    build:
-      context: ./docker-compose-manager-front-new
-      dockerfile: Dockerfile
-      args:
-        # URL de l'API pour le développement
-        VITE_API_URL: /api
-    image: docker-compose-manager-frontend:dev
-    # Optionnel: exposer le port Vite dev server au lieu de Nginx
-    ports:
-      - "5173:80"

@@ -4,28 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a Docker Compose management system with two main applications:
+This repository contains a Docker Compose management system deployed as a **unified single-container application**:
 
 - **docker-compose-manager-back**: .NET 9 Web API backend that interfaces with Docker Engine
-- **docker-compose-manager-front**: React 18 + TypeScript frontend with shadcn/ui
+- **docker-compose-manager-front**: SvelteKit frontend with shadcn/ui components
 
 The system provides a web-based interface for managing Docker containers and compose files, with features including user authentication, role-based access control, real-time updates via WebSockets, and a compose file editor.
+
+**Deployment Architecture**: The production deployment uses a single Docker image containing both frontend and backend, managed by Supervisor with Nginx as a reverse proxy. See [DEPLOYMENT.md](DEPLOYMENT.md) for details.
 
 ## Development Commands
 
 ### Backend (docker-compose-manager-back)
 
-Located in `./docker-compose-manager-back/`
+Solution located in `./docker-compose-manager-back/` with the following structure:
+- `docker-compose-manager-back/` - Main API project
+- `docker-compose-manager-back.Tests/` - Test project
 
 ```bash
+# All commands run from ./docker-compose-manager-back/ (solution root)
+
 # Restore dependencies
 dotnet restore
 
 # Run in development mode with hot-reload
-dotnet watch run
+dotnet watch run --project docker-compose-manager-back
 
 # Run without hot-reload
-dotnet run
+dotnet run --project docker-compose-manager-back
 
 # Build the project
 dotnet build -c Release
@@ -33,14 +39,14 @@ dotnet build -c Release
 # Run tests
 dotnet test
 
-# Create database migration
-dotnet ef migrations add MigrationName
+# Create database migration (from solution root)
+dotnet ef migrations add MigrationName --project docker-compose-manager-back
 
 # Apply database migrations
-dotnet ef database update
+dotnet ef database update --project docker-compose-manager-back
 
 # Remove last migration (if not applied)
-dotnet ef migrations remove
+dotnet ef migrations remove --project docker-compose-manager-back
 ```
 
 Backend runs at `http://localhost:5000` with Swagger UI at `http://localhost:5000/swagger`
@@ -77,12 +83,12 @@ npm run lint
 
 Frontend runs at `http://localhost:5173` (Vite default)
 
-### Docker Deployment
+### Docker Deployment (Unified Container)
 
 From repository root:
 
 ```bash
-# Build and start all services
+# Build and start the unified application
 docker compose up --build
 
 # Run in background
@@ -91,20 +97,25 @@ docker compose up -d
 # View logs
 docker compose logs -f
 
-# View backend logs only
-docker compose logs -f backend
+# View logs for specific process (backend or nginx)
+docker compose logs -f app
 
-# Stop services
+# Stop service
 docker compose down
 
 # Stop and remove volumes (fresh start)
 docker compose down -v
 
-# Rebuild specific service
-docker compose build backend
+# Rebuild the unified image
+docker compose build app
+
+# For development with local builds
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-Application accessible at `http://localhost:3000` when running via Docker Compose.
+Application accessible at `http://localhost:3030` when running via Docker Compose.
+
+**Note**: The unified deployment combines both frontend and backend into a single container managed by Supervisor. For architecture details, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Architecture Overview
 
@@ -163,27 +174,28 @@ Data/ → Entity Framework Core context and migrations
 
 ### Frontend Architecture
 
-React application using functional components and hooks:
+SvelteKit application with Svelte 5 runes:
 
 ```
-components/ → Reusable UI components (shadcn/ui + custom)
-pages/ → Page-level components (Dashboard, Containers, Compose, Users, etc.)
-hooks/ → Custom React hooks
-services/ → API client functions (Axios)
-store/ → State management (Zustand stores)
-types/ → TypeScript type definitions
-utils/ → Helper functions
+src/
+├── routes/          → SvelteKit file-based routing
+├── lib/
+│   ├── components/  → Reusable UI components (bits-ui based)
+│   ├── stores/      → Svelte stores for state management
+│   ├── api/         → API client functions (Axios)
+│   └── types/       → TypeScript type definitions
+└── app.html         → HTML template
 ```
 
 **Key Technologies:**
 
-- **State Management**: Zustand for global state
-- **API Layer**: Axios + TanStack Query (React Query) for data fetching/caching
-- **Forms**: React Hook Form + Zod validation
-- **UI Components**: shadcn/ui (Radix UI primitives) + Tailwind CSS
+- **Framework**: SvelteKit 2.48+ with Svelte 5 runes
+- **API Layer**: Axios + TanStack Svelte Query for data fetching/caching
+- **Forms**: sveltekit-superforms + Zod validation
+- **UI Components**: bits-ui + Tailwind CSS 4
 - **Code Editor**: Monaco Editor for compose file editing
-- **WebSockets**: Socket.IO Client for real-time updates
-- **Routing**: React Router v6
+- **Real-time**: @microsoft/signalr for WebSocket updates
+- **Routing**: SvelteKit file-based routing
 
 **API Communication:**
 
@@ -378,10 +390,9 @@ Frontend subscribes to WebSocket `operation:update` events for real-time progres
 
 ### Real-Time Updates
 
-- WebSocket endpoint `/ws` for container status updates
-- WebSocket endpoint `/ws/logs` for log streaming
-- Server-Sent Events (SSE) as fallback
-- SignalR library on backend, Socket.IO on frontend
+- SignalR hub `/hub/containers` for container status updates
+- SignalR hub `/hub/logs` for log streaming
+- @microsoft/signalr client library on frontend
 
 ### Compose File Templates
 
@@ -419,7 +430,7 @@ Cors__Origins__0="http://localhost:5173"
 
 ### Backend Tests
 
-Located in `docker-compose-manager-back/tests/`:
+Located in `docker-compose-manager-back/docker-compose-manager-back.Tests/`:
 - xUnit for unit tests
 - Moq for mocking dependencies
 - TestContainers for integration tests with real Docker containers
@@ -427,8 +438,8 @@ Located in `docker-compose-manager-back/tests/`:
 
 ### Frontend Tests
 
-- Vitest for unit tests (React Testing Library)
-- Playwright for E2E tests
+- Vitest for unit tests
+- Playwright for E2E tests (planned)
 - Test real user workflows: login → view containers → perform actions → verify results
 
 ## Common Issues
@@ -485,15 +496,18 @@ curl http://localhost:5000/api/system/version
 ```
 
 **Frontend component:**
-```tsx
-import { VersionInfo } from '@/components/common'
-<VersionInfo />  // Simple badge
-<VersionInfo showDetails />  // Detailed info
+```svelte
+<script>
+  import VersionInfo from '$lib/components/VersionInfo.svelte';
+</script>
+
+<VersionInfo />  <!-- Simple badge -->
+<VersionInfo showDetails />  <!-- Detailed info -->
 ```
 
 **Access version programmatically:**
 ```typescript
-import { APP_VERSION } from '@/utils/version'
+import { APP_VERSION } from '$lib/utils/version';
 ```
 
 ### Current Version

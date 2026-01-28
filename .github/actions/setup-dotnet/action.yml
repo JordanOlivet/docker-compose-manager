@@ -8,4 +8,4 @@ runs:
       with:
         dotnet-version: '9.0.x'
         cache: true
-        cache-dependency-path: docker-compose-manager-back/*.csproj
+        cache-dependency-path: docker-compose-manager-back/docker-compose-manager-back/*.csproj

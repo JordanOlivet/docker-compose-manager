@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\docker-compose-manager-back.csproj" />
+    <ProjectReference Include="..\docker-compose-manager-back\docker-compose-manager-back.csproj" />
   </ItemGroup>
 
 </Project>

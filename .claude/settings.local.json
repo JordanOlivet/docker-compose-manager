@@ -55,7 +55,11 @@
       "Bash(dotnet list:*)",
       "Bash(test:*)",
       "Bash(timeout 10 dotnet run:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(if [ -f \"docker-compose-manager-back.csproj.user\" ])",
+      "Bash(then mv docker-compose-manager-back.csproj.user docker-compose-manager-back/)",
+      "Bash(if [ -f \"Dockerfile.original\" ])",
+      "Bash(then mv Dockerfile.original docker-compose-manager-back/)"
     ],
     "deny": [],
     "ask": []

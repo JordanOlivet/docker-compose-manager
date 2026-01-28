@@ -1,153 +1,206 @@
-# Deployment Guide - Docker Compose Manager
+# Production Deployment Guide
 
-This guide explains how to deploy the Docker Compose Manager application using pre-built Docker images from GitHub Container Registry.
+This guide covers deploying Docker Compose Manager in production environments.
 
-## Table of Contents
+## Prerequisites
 
-1. [Initial Setup](#initial-setup)
-2. [Making Images Public](#making-images-public)
-3. [Deploying with Docker Compose](#deploying-with-docker-compose)
-4. [Production Configuration](#production-configuration)
-5. [Updating](#updating)
-6. [Rollback](#rollback)
-7. [Monitoring and Logs](#monitoring-and-logs)
+- Docker Engine 24+ or Docker Desktop
+- Docker Compose v2
+- Access to Docker socket or Docker API
+- Minimum 512MB RAM, 1 CPU core
 
-## Initial Setup
+## Quick Deploy
 
-### 1. Prerequisites
+### 1. Create docker-compose.yml
 
-- Docker Engine 20.10+ or Docker Desktop
-- Docker Compose v2+
-- SSH access to the server (for remote deployment)
-- GitHub account with repository access
+```yaml
+services:
+  app:
+    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    container_name: docker-compose-manager
+    ports:
+      - "3030:80"
+    environment:
+      - Jwt__Secret=${JWT_SECRET}
+      - Docker__Host=unix:///var/run/docker.sock
+      - Serilog__MinimumLevel__Default=Information
+    volumes:
+      - app-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./compose-files:/app/compose-files
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-### 2. Clone the Repository
-
-```bash
-git clone https://github.com/your-username/docker-compose-manager.git
-cd docker-compose-manager
+volumes:
+  app-data:
 ```
 
-### 3. Configure Environment Variables
+### 2. Generate JWT Secret
 
 ```bash
-# Copy example file
-cp .env.example .env
+# Linux/Mac
+openssl rand -base64 32
 
-# Edit the .env file
-nano .env
+# PowerShell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
 ```
 
-Set the following variables:
+### 3. Create .env File
 
 ```bash
-# GitHub repository
-GITHUB_REPOSITORY=your-username/docker-compose-manager
-
-# Image tag (latest, 1.0.0, sha-abc1234, etc.)
-IMAGE_TAG=latest
-
-# JWT Secret - IMPORTANT: Generate a strong key!
-# Generate with: openssl rand -base64 32
-JWT_SECRET=your-super-secret-jwt-key-min-32-characters
-
-# Log level (production recommendation: Information or Warning)
-LOG_LEVEL=Information
+JWT_SECRET=your-generated-secret-here-minimum-32-characters
 ```
 
-## Making Images Public
-
-By default, images published to GitHub Container Registry are private. To make them public:
-
-### Via GitHub Web Interface
-
-1. Go to your GitHub profile
-2. Click **Packages**
-3. Select the `docker-compose-manager-backend` package
-4. Click **Package settings** (bottom right)
-5. Scroll to **Danger Zone**
-6. Click **Change visibility**
-7. Select **Public** and confirm
-8. Repeat for `docker-compose-manager-frontend`
-
-### Via GitHub CLI
+### 4. Deploy
 
 ```bash
-# Install GitHub CLI if needed
-# https://cli.github.com/
-
-# Authenticate
-gh auth login
-
-# Make packages public
-gh api \
-  --method PATCH \
-  -H "Accept: application/vnd.github+json" \
-  /user/packages/container/docker-compose-manager-backend/versions/VERSION_ID \
-  -f visibility='public'
-
-gh api \
-  --method PATCH \
-  -H "Accept: application/vnd.github+json" \
-  /user/packages/container/docker-compose-manager-frontend/versions/VERSION_ID \
-  -f visibility='public'
-```
-
-## Deploying with Docker Compose
-
-### Local or Single Server Deployment
-
-```bash
-# 1. Authenticate (if images are private)
-echo $GITHUB_TOKEN | docker login ghcr.io -u your-username --password-stdin
-
-# 2. Pull images
-docker compose pull
-
-# 3. Start services
 docker compose up -d
-
-# 4. Check status
-docker compose ps
-
-# 5. View logs
-docker compose logs -f
 ```
 
-### Application Access
+### 5. Access Application
 
-The application will be accessible at `http://localhost:3000` or `http://your-server-ip:3000`.
+- URL: `http://your-server:3030`
+- Default credentials: `admin` / `adminadmin`
+- **Change password immediately on first login**
 
-Default credentials:
-- Username: `admin`
-- Password: `admin`
+---
 
-**Important**: Change the password immediately after first login!
+## Configuration
 
-## Production Configuration
+### Required Environment Variables
 
-### 1. Reverse Proxy with Nginx
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `Jwt__Secret` | JWT signing key (min 32 chars) | Random base64 string |
 
-To expose the application with a domain name and SSL:
+### Optional Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `Docker__Host` | Docker daemon connection | `unix:///var/run/docker.sock` |
+| `Serilog__MinimumLevel__Default` | Log level | `Information` |
+| `ComposeDiscovery__RootPath` | Compose files directory | `/app/compose-files` |
+| `ComposeDiscovery__ScanDepthLimit` | Directory scan depth | `5` |
+| `ComposeDiscovery__CacheDurationSeconds` | File cache TTL | `10` |
+| `ComposeDiscovery__MaxFileSizeKB` | Max compose file size | `1024` |
+
+### Volumes
+
+| Container Path | Purpose | Required |
+|----------------|---------|----------|
+| `/app/data` | SQLite database | Yes |
+| `/var/run/docker.sock` | Docker socket (Linux) | Yes* |
+| `//./pipe/docker_engine` | Docker pipe (Windows) | Yes* |
+| `/app/compose-files` | Your compose files | Recommended |
+| `/app/logs` | Application logs | Optional |
+
+*One of the Docker connection methods is required.
+
+---
+
+## Deployment Scenarios
+
+### Linux Server
+
+Standard deployment with Unix socket:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    ports:
+      - "3030:80"
+    environment:
+      - Jwt__Secret=${JWT_SECRET}
+      - Docker__Host=unix:///var/run/docker.sock
+    volumes:
+      - app-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/compose-files:/app/compose-files
+    restart: unless-stopped
+
+volumes:
+  app-data:
+```
+
+### Windows Server
+
+Using named pipe for Docker Desktop:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    ports:
+      - "3030:80"
+    environment:
+      - Jwt__Secret=${JWT_SECRET}
+      - Docker__Host=npipe://./pipe/docker_engine
+    volumes:
+      - app-data:/app/data
+      - //./pipe/docker_engine://./pipe/docker_engine
+      - C:/compose-files:/app/compose-files
+    restart: unless-stopped
+
+volumes:
+  app-data:
+```
+
+### Behind Nginx Reverse Proxy
+
+If running behind an existing Nginx:
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    # No ports exposed - accessed via reverse proxy
+    environment:
+      - Jwt__Secret=${JWT_SECRET}
+    volumes:
+      - app-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./compose-files:/app/compose-files
+    networks:
+      - proxy-network
+    restart: unless-stopped
+
+networks:
+  proxy-network:
+    external: true
+
+volumes:
+  app-data:
+```
 
 ```nginx
-# /etc/nginx/sites-available/docker-manager
-
+# nginx.conf
 server {
-    listen 80;
+    listen 443 ssl http2;
     server_name docker-manager.example.com;
 
+    ssl_certificate /etc/ssl/certs/cert.pem;
+    ssl_certificate_key /etc/ssl/private/key.pem;
+
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://app:80;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # WebSocket support
-    location /hubs/ {
-        proxy_pass http://localhost:3000;
+    # WebSocket support for SignalR
+    location /hub/ {
+        proxy_pass http://app:80;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -156,230 +209,270 @@ server {
 }
 ```
 
-Enable SSL with Let's Encrypt:
-
-```bash
-sudo certbot --nginx -d docker-manager.example.com
-```
-
-### 2. Change Exposed Port
-
-Edit `docker-compose.yml` to change the port:
+### With Traefik
 
 ```yaml
 services:
+  app:
+    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    environment:
+      - Jwt__Secret=${JWT_SECRET}
+    volumes:
+      - app-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./compose-files:/app/compose-files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.docker-manager.rule=Host(`docker-manager.example.com`)"
+      - "traefik.http.routers.docker-manager.entrypoints=websecure"
+      - "traefik.http.routers.docker-manager.tls.certresolver=letsencrypt"
+      - "traefik.http.services.docker-manager.loadbalancer.server.port=80"
+    networks:
+      - traefik-network
+    restart: unless-stopped
+
+networks:
+  traefik-network:
+    external: true
+
+volumes:
+  app-data:
+```
+
+---
+
+## Security Hardening
+
+### Docker Socket Implications
+
+Mounting the Docker socket grants **root-level access** to the host system. The container can:
+- Create privileged containers
+- Access host filesystem via volume mounts
+- Execute commands on the host
+
+**Recommendations:**
+- Only deploy in trusted environments
+- Use network segmentation
+- Consider Docker API over TLS for remote access
+- Implement host-based firewall rules
+
+### HTTPS Configuration
+
+Always use HTTPS in production. Options:
+
+1. **Reverse proxy with TLS termination** (recommended)
+2. **Docker API over TLS** for remote Docker hosts
+
+### JWT Secret Management
+
+- Generate cryptographically secure secrets (min 256 bits)
+- Rotate secrets periodically
+- Use secret management tools (Vault, AWS Secrets Manager)
+- Never commit secrets to version control
+
+### Network Security
+
+```yaml
+services:
+  app:
+    # ... other config ...
+    networks:
+      - internal
+      - frontend
+
+networks:
+  internal:
+    internal: true  # No external access
   frontend:
-    ports:
-      - "8080:80"  # Change 3000 to your desired port
+    # Exposed for reverse proxy
 ```
 
-### 3. Secure Docker Socket Access
+### User Permissions
 
-On the production server, ensure only the backend container has access:
+After initial deployment:
 
-```bash
-# Check permissions
-ls -l /var/run/docker.sock
+1. Login with default credentials (`admin`/`adminadmin`)
+2. Change admin password immediately
+3. Create individual user accounts
+4. Disable or rename default admin if possible
+5. Use principle of least privilege for roles
 
-# If needed, create a docker group
-sudo groupadd docker
-sudo usermod -aG docker $USER
-```
+---
 
-### 4. Database Backup
+## Maintenance
 
-The SQLite database is stored in a Docker volume. To back it up:
-
-```bash
-# Create a backup
-docker compose exec backend sh -c 'cp /app/data/app.db /app/data/app.db.backup'
-
-# Copy the backup out of the container
-docker cp docker-manager-backend:/app/data/app.db.backup ./backup-$(date +%Y%m%d).db
-
-# Automate with cron
-0 2 * * * cd /path/to/docker-compose-manager && docker compose exec backend sh -c 'cp /app/data/app.db /app/data/app.db.backup'
-```
-
-## Updating
-
-### Update to Latest Version
+### Updating
 
 ```bash
-# 1. Backup the database
-docker compose exec backend sh -c 'cp /app/data/app.db /app/data/app.db.backup'
-
-# 2. Pull new images
+# Pull latest image
 docker compose pull
 
-# 3. Restart with new images
+# Recreate container
 docker compose up -d
 
-# 4. Check logs
-docker compose logs -f
-
-# 5. Verify application health
-curl http://localhost:3000/health
+# Check logs for issues
+docker compose logs -f app
 ```
 
-### Update to a Specific Version
+### Backup
 
+**Database backup:**
 ```bash
-# 1. Edit .env
-echo "IMAGE_TAG=1.2.3" >> .env
-
-# 2. Pull and restart
-docker compose pull
-docker compose up -d
-```
-
-## Rollback
-
-If an update causes issues:
-
-```bash
-# 1. Switch to previous version in .env
-IMAGE_TAG=1.2.2  # previous stable version
-
-# 2. Pull previous version
-docker compose pull
-
-# 3. Restart
-docker compose down
-docker compose up -d
-
-# 4. Restore backup if needed
-docker cp backup-20240115.db docker-manager-backend:/app/data/app.db
-docker compose restart backend
-```
-
-## Monitoring and Logs
-
-### View Logs
-
-```bash
-# All services
-docker compose logs -f
-
-# Backend only
-docker compose logs -f backend
-
-# Frontend only
-docker compose logs -f frontend
-
-# Last 100 lines
-docker compose logs --tail=100
-
-# Logs with timestamps
-docker compose logs -f -t
-```
-
-### Check Service Health
-
-```bash
-# Container status
-docker compose ps
-
-# Real-time stats
-docker stats
-
-# Disk usage
-docker system df
-```
-
-### Persistent Logs
-
-Backend logs are stored in `./logs/backend/`:
-
-```bash
-# View log files
-tail -f ./logs/backend/app-*.log
-
-# Archive old logs
-tar -czf logs-archive-$(date +%Y%m%d).tar.gz ./logs/backend/
-```
-
-## Useful Commands
-
-### Container Management
-
-```bash
-# Stop services
+# Stop for consistent backup
 docker compose stop
 
-# Start services
+# Copy database file
+docker cp docker-compose-manager:/app/data/app.db ./backup/app.db
+
+# Restart
 docker compose start
-
-# Restart services
-docker compose restart
-
-# Stop and remove containers
-docker compose down
-
-# Remove containers + volumes (WARNING: data loss!)
-docker compose down -v
 ```
 
-### Cleanup
+**Automated backup script:**
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/docker-manager"
+DATE=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p $BACKUP_DIR
+docker cp docker-compose-manager:/app/data/app.db "$BACKUP_DIR/app_$DATE.db"
+
+# Keep last 7 days
+find $BACKUP_DIR -name "app_*.db" -mtime +7 -delete
+```
+
+### Restore
 
 ```bash
-# Remove unused images
-docker image prune -a
+# Stop container
+docker compose stop
 
-# Remove stopped containers
-docker container prune
+# Restore database
+docker cp ./backup/app.db docker-compose-manager:/app/data/app.db
 
-# Full cleanup (WARNING)
-docker system prune -a --volumes
+# Start container
+docker compose start
 ```
 
-### Debug
+### Log Management
+
+Logs are written to `/app/logs` with daily rotation (30 days retention).
 
 ```bash
-# Access backend shell
-docker compose exec backend sh
+# View logs
+docker compose logs -f app
 
-# Access frontend shell
-docker compose exec frontend sh
-
-# Inspect a container
-docker inspect docker-manager-backend
-
-# View environment variables
-docker compose exec backend env
+# Or access log files directly
+ls -la ./logs/
+tail -f ./logs/app-*.log
 ```
 
-## Production Security
+---
 
-### Security Checklist
+## Troubleshooting
 
-- [ ] Changed default admin password
-- [ ] Generated a strong JWT_SECRET (min 32 characters)
-- [ ] Configured HTTPS with SSL certificate
-- [ ] Restricted access to port 3000 (firewall)
-- [ ] Set up regular backups
-- [ ] Enabled logging and monitoring
-- [ ] Regularly updated images
-- [ ] Secured access to Docker socket
-- [ ] Configured rate limiting (if publicly exposed)
-
-### Updating Secrets
-
-If you need to change the JWT_SECRET:
+### Container Won't Start
 
 ```bash
-# 1. Edit .env with new secret
-nano .env
+# Check logs
+docker compose logs app
 
-# 2. Restart backend
-docker compose restart backend
-
-# Note: All users will need to log in again
+# Common issues:
+# - Missing JWT_SECRET
+# - Docker socket not accessible
+# - Port already in use
 ```
 
-## Support
+### Cannot Connect to Docker
 
-For more information:
-- Documentation: see `README.md` and `CLAUDE.md`
-- Issues: https://github.com/your-username/docker-compose-manager/issues
-- CI/CD Workflow: `.github/workflows/docker-build-publish.yml`
+```bash
+# Linux: Check socket permissions
+ls -la /var/run/docker.sock
+sudo chmod 666 /var/run/docker.sock
+
+# Windows: Ensure Docker Desktop is running
+# Check "Expose daemon on tcp://localhost:2375" in settings
+```
+
+### Database Locked
+
+SQLite can have issues with concurrent access:
+
+```bash
+# Stop container
+docker compose stop
+
+# Check for .db-wal and .db-shm files
+ls -la ./data/
+
+# Restart
+docker compose start
+```
+
+### WebSocket Connection Failed
+
+If real-time updates don't work:
+
+1. Check reverse proxy WebSocket configuration
+2. Ensure `/hub/*` paths are proxied with upgrade headers
+3. Check browser console for connection errors
+
+### Health Check Failing
+
+```bash
+# Test health endpoint
+docker compose exec app curl http://localhost/health
+
+# Check application logs
+docker compose logs --tail 100 app
+```
+
+---
+
+## Monitoring
+
+### Health Endpoint
+
+```
+GET /health
+```
+
+Returns:
+```json
+{
+  "status": "Healthy",
+  "checks": {
+    "database": "Healthy",
+    "docker": "Healthy"
+  }
+}
+```
+
+### Prometheus Metrics (Optional)
+
+If enabled, metrics available at `/metrics`:
+
+- `http_requests_total`
+- `http_request_duration_seconds`
+- `docker_containers_total`
+
+### Recommended Alerts
+
+- Health check failures for > 5 minutes
+- High error rate (> 5% 5xx responses)
+- Docker daemon unreachable
+- Disk space < 10%
+
+---
+
+## Version Information
+
+Check running version:
+
+```bash
+# API endpoint
+curl http://localhost:3030/api/system/version
+
+# Or check container labels
+docker inspect docker-compose-manager --format '{{.Config.Labels}}'
+```

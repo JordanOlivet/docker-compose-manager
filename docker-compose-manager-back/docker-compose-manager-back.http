@@ -1,6 +1,0 @@
-@docker_compose_manager_back_HostAddress = http://localhost:5024
-
-GET {{docker_compose_manager_back_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
