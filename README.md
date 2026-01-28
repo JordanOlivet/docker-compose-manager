@@ -97,6 +97,34 @@ For Windows hosts, replace the Docker socket volume with:
 | `ComposeDiscovery__ScanDepthLimit` | Max directory depth | `5` |
 | `ComposeDiscovery__CacheDurationSeconds` | File cache TTL | `10` |
 
+### JWT Secret (Required)
+
+The `Jwt__Secret` environment variable is **mandatory** for the application to start.
+
+**What is it?**
+A secret key used to cryptographically sign authentication tokens (JWT). When users log in, the server generates a token signed with this secret. On each subsequent request, the server verifies the token's signature to ensure it hasn't been tampered with.
+
+**Why is it required?**
+Without a JWT secret, the application cannot securely authenticate users. The secret ensures that only the server can generate valid tokens - anyone without the secret cannot forge authentication tokens.
+
+**How to generate one:**
+
+```bash
+# Linux/macOS
+openssl rand -base64 32
+
+# PowerShell (Windows)
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
+
+# Or use any random string generator (minimum 32 characters)
+```
+
+**Important:**
+- Must be at least 32 characters long
+- Keep it secret - never commit to version control
+- Use a different secret for each environment (dev, staging, prod)
+- If you change the secret, all existing user sessions will be invalidated
+
 ### Volumes
 
 | Path | Description |

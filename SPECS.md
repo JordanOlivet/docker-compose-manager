@@ -227,6 +227,35 @@ The application requires Docker socket access, granting **root-level access** to
 
 ### Authentication
 
+**JWT Secret:**
+
+The `Jwt__Secret` configuration is **required** for the application to start. This secret key is used to sign and verify JSON Web Tokens (JWT) that authenticate users.
+
+| Aspect | Details |
+|--------|---------|
+| Purpose | Cryptographically sign authentication tokens |
+| Minimum Length | 32 characters |
+| Algorithm | HMAC-SHA256 |
+| Storage | Environment variable (never in code/config files) |
+
+When a user logs in, the server creates a JWT containing user claims (ID, username, role) and signs it with the secret. On each API request, the server verifies the signature to ensure the token is authentic and untampered.
+
+**Generation:**
+```bash
+# Linux/Mac
+openssl rand -base64 32
+
+# PowerShell (Windows)
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
+
+# Or use any random string generator (minimum 32 characters)
+```
+
+**Security considerations:**
+- Changing the secret invalidates all existing sessions
+- Use unique secrets per environment
+- Rotate periodically in production
+
 **JWT Token Strategy:**
 
 | Token Type | Lifetime | Storage |
