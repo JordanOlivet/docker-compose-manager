@@ -2,29 +2,26 @@
   "profiles": {
     "http": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5050"
       },
       "dotnetRunMessages": true,
       "hotReloadEnabled": true,
-      "applicationUrl": "http://localhost:5000"
+      "applicationUrl": "http://localhost:5050"
     },
     "https": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5050"
       },
       "dotnetRunMessages": true,
       "hotReloadEnabled": true,
-      "applicationUrl": "http://localhost:5000"
+      "applicationUrl": "https://localhost:5050"
     },
     "Container (Dockerfile)": {
       "commandName": "Docker",
-      "launchBrowser": false,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
         "ASPNETCORE_HTTP_PORTS": "8080",
@@ -32,15 +29,15 @@
       },
       "publishAllPorts": true,
       "useSSL": false,
-      "containerRunArguments": "--rm -p 5000:8080 -v /var/run/docker.sock:/var/run/docker.sock -v C:\\Users\\Lakio\\Desktop:/app/compose-files"
+      "containerRunArguments": "--rm -p 5050:8080 -v /var/run/docker.sock:/var/run/docker.sock -v C:\\Users\\Lakio\\Desktop:/app/compose-files"
     },
     "WSL": {
       "commandName": "WSL2",
       "launchBrowser": true,
-      "launchUrl": "http://localhost:5000/swagger",
+      "launchUrl": "http://localhost:5050/swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5000"
+        "ASPNETCORE_URLS": "http://localhost:5050"
       },
       "distributionName": ""
     }

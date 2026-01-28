@@ -127,7 +127,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // Configure CORS
-string[] corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:3000"];
+string[] corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:3030"];
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

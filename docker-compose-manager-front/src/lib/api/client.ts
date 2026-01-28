@@ -24,7 +24,7 @@ const getApiUrl = () => {
     return '';
   }
   // In development, default to local backend
-  return 'http://localhost:5000';
+  return 'https://localhost:5050';
 };
 
 const API_URL = getApiUrl();

@@ -35,7 +35,7 @@ The production deployment uses a single Docker image managed by Supervisor:
 │  │            Supervisor                 │  │
 │  │  ┌─────────────┐  ┌────────────────┐  │  │
 │  │  │   Nginx     │  │   .NET API     │  │  │
-│  │  │   (:80)     │  │   (:5000)      │  │  │
+│  │  │   (:80)     │  │   (:5050)      │  │  │
 │  │  └──────┬──────┘  └───────┬────────┘  │  │
 │  │         │                 │           │  │
 │  │         │    /api/*       │           │  │
@@ -402,6 +402,6 @@ Serilog__MinimumLevel__Default="Information"
 
 | Service | Development | Production |
 |---------|-------------|------------|
-| Backend API | 5000 | 5000 (internal) |
+| Backend API | 5050 | 5050 (internal) |
 | Frontend Dev | 5173 | N/A |
 | Application | N/A | 3030 (exposed) |

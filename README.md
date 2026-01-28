@@ -122,7 +122,7 @@ cd docker-compose-manager-back
 dotnet restore
 dotnet watch run
 
-# Access Swagger UI at http://localhost:5000/swagger
+# Access Swagger UI at http://localhost:5050/swagger
 ```
 
 ### Frontend
@@ -162,7 +162,7 @@ docker compose up --build
 │  ┌─────────────────┐            ┌─────────────────┐         │
 │  │   Frontend      │            │    Backend      │         │
 │  │   (SvelteKit)   │  /api/*    │   (.NET 9)      │         │
-│  │   Static Files  │ ─────────► │   :5000         │         │
+│  │   Static Files  │ ─────────► │   :5050         │         │
 │  └─────────────────┘            └────────┬────────┘         │
 │                                          │                  │
 │                                          ▼                  │
