@@ -1,5 +1,5 @@
 services:
-  app:
+  docker-compose-manager:
     image: ghcr.io/jordanolivet/docker-compose-manager:latest
     container_name: docker-compose-manager
     ports:
