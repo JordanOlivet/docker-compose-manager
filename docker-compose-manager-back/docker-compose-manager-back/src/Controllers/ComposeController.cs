@@ -344,7 +344,7 @@ public class ComposeController : BaseController
     /// </remarks>
     /// <returns>Scan results with file count and timestamp</returns>
     [HttpPost("refresh")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<ApiResponse<object>>> RefreshComposeFiles()
     {
         int? userId = GetCurrentUserId();

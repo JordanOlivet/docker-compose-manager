@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronDown, ChevronRight, AlertTriangle, Shield, ExternalLink, Tag } from 'lucide-svelte';
+  import { marked } from 'marked';
   import { t } from '$lib/i18n';
   import Badge from '$lib/components/ui/badge.svelte';
   import type { ReleaseInfo, ChangelogSummary } from '$lib/types/update';
@@ -15,6 +16,12 @@
 
   let expandedReleases = $state<Set<string>>(new Set());
   let showAllReleases = $state(false);
+
+  // Configure marked for safe rendering
+  marked.setOptions({
+    breaks: true, // Convert \n to <br>
+    gfm: true, // GitHub Flavored Markdown
+  });
 
   const visibleChangelog = $derived(
     showAllReleases ? changelog : changelog.slice(0, maxVisibleReleases)
@@ -37,6 +44,14 @@
       month: 'short',
       day: 'numeric'
     });
+  }
+
+  function renderMarkdown(text: string): string {
+    try {
+      return marked.parse(text) as string;
+    } catch {
+      return text;
+    }
   }
 </script>
 
@@ -109,8 +124,8 @@
           {#if isExpanded}
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
               {#if release.releaseNotes}
-                <div class="prose prose-sm dark:prose-invert max-w-none">
-                  <pre class="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 font-sans">{release.releaseNotes}</pre>
+                <div class="prose prose-sm dark:prose-invert max-w-none markdown-content">
+                  {@html renderMarkdown(release.releaseNotes)}
                 </div>
               {:else}
                 <p class="text-sm text-gray-500 dark:text-gray-400 italic">
@@ -156,3 +171,121 @@
     </p>
   {/if}
 </div>
+
+<style>
+  /* Markdown content styling */
+  :global(.markdown-content h1) {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-gray-900);
+  }
+  :global(.dark .markdown-content h1) {
+    color: var(--color-gray-100);
+  }
+
+  :global(.markdown-content h2) {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-gray-900);
+  }
+  :global(.dark .markdown-content h2) {
+    color: var(--color-gray-100);
+  }
+
+  :global(.markdown-content h3) {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+    color: var(--color-gray-800);
+  }
+  :global(.dark .markdown-content h3) {
+    color: var(--color-gray-200);
+  }
+
+  :global(.markdown-content p) {
+    margin-bottom: 0.5rem;
+    color: var(--color-gray-700);
+  }
+  :global(.dark .markdown-content p) {
+    color: var(--color-gray-300);
+  }
+
+  :global(.markdown-content ul),
+  :global(.markdown-content ol) {
+    margin-left: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  :global(.markdown-content ul) {
+    list-style-type: disc;
+  }
+
+  :global(.markdown-content ol) {
+    list-style-type: decimal;
+  }
+
+  :global(.markdown-content li) {
+    margin-bottom: 0.25rem;
+    color: var(--color-gray-700);
+  }
+  :global(.dark .markdown-content li) {
+    color: var(--color-gray-300);
+  }
+
+  :global(.markdown-content a) {
+    color: var(--color-blue-600);
+    text-decoration: underline;
+  }
+  :global(.dark .markdown-content a) {
+    color: var(--color-blue-400);
+  }
+  :global(.markdown-content a:hover) {
+    color: var(--color-blue-800);
+  }
+  :global(.dark .markdown-content a:hover) {
+    color: var(--color-blue-300);
+  }
+
+  :global(.markdown-content strong) {
+    font-weight: 600;
+  }
+
+  :global(.markdown-content code) {
+    background-color: var(--color-gray-100);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875em;
+  }
+  :global(.dark .markdown-content code) {
+    background-color: var(--color-gray-800);
+  }
+
+  :global(.markdown-content pre) {
+    background-color: var(--color-gray-100);
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    margin-bottom: 0.5rem;
+  }
+  :global(.dark .markdown-content pre) {
+    background-color: var(--color-gray-800);
+  }
+
+  :global(.markdown-content blockquote) {
+    border-left: 3px solid var(--color-gray-300);
+    padding-left: 1rem;
+    margin-left: 0;
+    color: var(--color-gray-600);
+    font-style: italic;
+  }
+  :global(.dark .markdown-content blockquote) {
+    border-left-color: var(--color-gray-600);
+    color: var(--color-gray-400);
+  }
+</style>

@@ -183,6 +183,7 @@ builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService
 
 // Register Self-Update services
 builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
+builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
 builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
 
 // Register background services

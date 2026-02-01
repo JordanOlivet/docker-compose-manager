@@ -1,5 +1,15 @@
 import { browser } from '$app/environment';
 import type { AppUpdateCheckResponse, MaintenanceModeNotification } from '$lib/types/update';
+import { updateApi } from '$lib/api/update';
+import { logger } from '$lib/utils/logger';
+
+// Configuration
+const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const MIN_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes minimum between checks
+
+// Internal state for periodic checking
+let checkIntervalId: ReturnType<typeof setInterval> | null = null;
+let isPeriodicCheckRunning = false;
 
 // Svelte 5 pattern: export state object with properties
 export const updateState = $state({
@@ -100,4 +110,102 @@ export function clearUpdateInfo() {
   updateState.lastChecked = null;
   updateState.checkError = null;
   updateState.updateError = null;
+}
+
+/**
+ * Check for updates from the API and update the store.
+ * Only runs if user is admin (API will return 403 otherwise).
+ * @param force - If true, skip the minimum interval check
+ */
+export async function checkForUpdates(force = false): Promise<AppUpdateCheckResponse | null> {
+  if (!browser) return null;
+
+  // Don't check if already checking
+  if (updateState.isCheckingUpdate) {
+    logger.log('[Update Store] Check already in progress, skipping');
+    return updateState.updateInfo;
+  }
+
+  // Don't check too frequently (unless forced)
+  if (!force && updateState.lastChecked) {
+    const timeSinceLastCheck = Date.now() - updateState.lastChecked.getTime();
+    if (timeSinceLastCheck < MIN_CHECK_INTERVAL_MS) {
+      logger.log('[Update Store] Checked recently, using cached result');
+      return updateState.updateInfo;
+    }
+  }
+
+  updateState.isCheckingUpdate = true;
+  updateState.checkError = null;
+
+  try {
+    logger.log('[Update Store] Checking for updates...');
+    const result = await updateApi.checkAppUpdate();
+
+    updateState.updateInfo = result;
+    updateState.lastChecked = new Date();
+
+    if (result.updateAvailable) {
+      logger.log('[Update Store] Update available:', result.currentVersion, '->', result.latestVersion);
+    } else {
+      logger.log('[Update Store] Application is up to date:', result.currentVersion);
+    }
+
+    return result;
+  } catch (error: unknown) {
+    // Don't log 403 errors as they're expected for non-admin users
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 403) {
+        logger.log('[Update Store] User is not admin, skipping update check');
+        return null;
+      }
+    }
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[Update Store] Failed to check for updates:', errorMessage);
+    updateState.checkError = errorMessage;
+    return null;
+  } finally {
+    updateState.isCheckingUpdate = false;
+  }
+}
+
+/**
+ * Start periodic update checking.
+ * Should be called once when the app loads (for admin users).
+ */
+export function startPeriodicCheck(): void {
+  if (!browser || isPeriodicCheckRunning) return;
+
+  isPeriodicCheckRunning = true;
+  logger.log('[Update Store] Starting periodic update check (interval:', CHECK_INTERVAL_MS / 1000 / 60, 'minutes)');
+
+  // Do an initial check
+  checkForUpdates();
+
+  // Set up periodic checking
+  checkIntervalId = setInterval(() => {
+    checkForUpdates();
+  }, CHECK_INTERVAL_MS);
+}
+
+/**
+ * Stop periodic update checking.
+ * Should be called when the user logs out.
+ */
+export function stopPeriodicCheck(): void {
+  if (checkIntervalId) {
+    clearInterval(checkIntervalId);
+    checkIntervalId = null;
+  }
+  isPeriodicCheckRunning = false;
+  logger.log('[Update Store] Stopped periodic update check');
+}
+
+/**
+ * Check if periodic checking is running.
+ */
+export function isPeriodicCheckActive(): boolean {
+  return isPeriodicCheckRunning;
 }

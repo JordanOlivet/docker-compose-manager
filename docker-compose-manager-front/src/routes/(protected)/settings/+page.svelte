@@ -1,12 +1,14 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Settings, Plus, Trash2, FolderOpen, Search, AlertTriangle, AlertCircle } from 'lucide-svelte';
+  import { Settings, Plus, Trash2, FolderOpen, Search, AlertTriangle, AlertCircle, RefreshCw, Download, CheckCircle, ExternalLink } from 'lucide-svelte';
   import configApi from '$lib/api/config';
   import { composeApi } from '$lib/api/compose';
+  import { updateApi } from '$lib/api/update';
   import type { ComposePath, ComposeProject } from '$lib/types';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import FolderPicker from '$lib/components/common/FolderPicker.svelte';
+  import ChangelogDisplay from '$lib/components/update/ChangelogDisplay.svelte';
   import Dialog from '$lib/components/ui/dialog.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Card from '$lib/components/ui/card.svelte';
@@ -17,6 +19,8 @@
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { FEATURES } from '$lib/config/features';
+  import { isAdmin } from '$lib/stores/auth.svelte';
+  import { updateState, checkForUpdates } from '$lib/stores/update.svelte';
 
   let confirmDialog = $state<{ open: boolean; title: string; description: string; onConfirm: () => void }>({
     open: false,
@@ -123,6 +127,52 @@
   function handleFolderCancel() {
     showFolderPicker = false;
   }
+
+  // Update-related state
+  let updateConfirmDialog = $state({ open: false });
+
+  // Trigger update mutation
+  const triggerUpdateMutation = createMutation(() => ({
+    mutationFn: () => updateApi.triggerAppUpdate(),
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success($t('update.updateStarted'));
+        updateConfirmDialog.open = false;
+        // The SignalR MaintenanceMode event will trigger the overlay
+      } else {
+        toast.error(data.message || $t('update.updateFailed'));
+      }
+    },
+    onError: (error: Error) => {
+      toast.error($t('update.updateFailed'));
+    },
+  }));
+
+  async function handleCheckUpdate() {
+    const result = await checkForUpdates(true); // Force check
+    if (result) {
+      if (result.updateAvailable) {
+        toast.success($t('update.updateAvailable'));
+      } else {
+        toast.success($t('update.upToDate'));
+      }
+    } else if (updateState.checkError) {
+      toast.error($t('update.checkFailed'));
+    }
+  }
+
+  function handleUpdateNow() {
+    updateConfirmDialog.open = true;
+  }
+
+  function confirmUpdate() {
+    triggerUpdateMutation.mutate();
+  }
+
+  function formatLastChecked(date: Date | null): string {
+    if (!date) return $t('update.never');
+    return date.toLocaleString();
+  }
 </script>
 
 <div class="space-y-6">
@@ -132,8 +182,117 @@
     <p class="text-gray-600 dark:text-gray-400 mt-1">{$t('settings.subtitle')}</p>
   </div>
 
+  <!-- Application Update Section (Admin only) -->
+  {#if isAdmin.current}
+    <Card>
+      <CardHeader>
+        <div class="flex items-center justify-between">
+          <CardTitle>{$t('update.title')}</CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onclick={handleCheckUpdate}
+            disabled={updateState.isCheckingUpdate}
+          >
+            {#if updateState.isCheckingUpdate}
+              <RefreshCw class="w-4 h-4 mr-2 animate-spin" />
+              {$t('update.checkingForUpdates')}
+            {:else}
+              <RefreshCw class="w-4 h-4 mr-2" />
+              {$t('update.checkForUpdates')}
+            {/if}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div class="space-y-6">
+          <!-- Version Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{$t('update.currentVersion')}</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                {updateState.updateInfo?.currentVersion ?? '-'}
+              </p>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{$t('update.latestVersion')}</p>
+              <div class="flex items-center gap-2">
+                <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {updateState.updateInfo?.latestVersion ?? '-'}
+                </p>
+                {#if updateState.updateInfo?.updateAvailable}
+                  <Badge variant="success">{$t('update.updateAvailable')}</Badge>
+                {:else if updateState.updateInfo && !updateState.updateInfo.updateAvailable}
+                  <Badge variant="secondary">
+                    <CheckCircle class="w-3 h-3 mr-1" />
+                    {$t('update.upToDate')}
+                  </Badge>
+                {/if}
+              </div>
+            </div>
+          </div>
+
+          <!-- Last Checked -->
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            {$t('update.lastChecked')}: {formatLastChecked(updateState.lastChecked)}
+          </div>
+
+          <!-- Update Available Section -->
+          {#if updateState.updateInfo?.updateAvailable}
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {$t('update.changelog')}
+                </h3>
+                {#if updateState.updateInfo.releaseUrl}
+                  <a
+                    href={updateState.updateInfo.releaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  >
+                    {$t('update.viewOnGitHub')}
+                    <ExternalLink class="w-3 h-3" />
+                  </a>
+                {/if}
+              </div>
+
+              <ChangelogDisplay
+                changelog={updateState.updateInfo.changelog}
+                summary={updateState.updateInfo.summary}
+              />
+
+              <!-- Update Button -->
+              <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  onclick={handleUpdateNow}
+                  disabled={triggerUpdateMutation.isPending}
+                  class="w-full sm:w-auto"
+                >
+                  {#if triggerUpdateMutation.isPending}
+                    <RefreshCw class="w-4 h-4 mr-2 animate-spin" />
+                    {$t('update.updating')}
+                  {:else}
+                    <Download class="w-4 h-4 mr-2" />
+                    {$t('update.updateNow')}
+                  {/if}
+                </Button>
+              </div>
+            </div>
+          {:else if !updateState.updateInfo}
+            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+              <RefreshCw class="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>{$t('update.subtitle')}</p>
+              <p class="text-sm mt-2">Click "{$t('update.checkForUpdates')}" to get started</p>
+            </div>
+          {/if}
+        </div>
+      </CardContent>
+    </Card>
+  {/if}
+
   <!-- Feature Disabled Message -->
-  {#if !FEATURES.COMPOSE_FILE_EDITING}
+  <!-- {#if !FEATURES.COMPOSE_FILE_EDITING}
     <div class="max-w-2xl mx-auto mt-12">
       <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
         <div class="flex items-start gap-3">
@@ -149,9 +308,9 @@
         </div>
       </div>
     </div>
-  {:else}
+  {:else} -->
   <!-- Compose Paths -->
-  <Card>
+  <!-- <Card>
     <CardHeader>
       <div class="flex items-center justify-between">
         <CardTitle>{$t('settings.composePathsTitle')}</CardTitle>
@@ -203,10 +362,10 @@
             </div>
           {/each}
         </div>
-      {/if}
+      {/if} -->
 
       <!-- Warning banner for external projects detected -->
-      {#if externalProjects.length > 0}
+      <!-- {#if externalProjects.length > 0}
         <div class="mt-6 space-y-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <AlertTriangle class="w-5 h-5 text-yellow-500" />
@@ -238,7 +397,7 @@
       {/if}
     </CardContent>
   </Card>
-  {/if}
+  {/if} -->
 </div>
 
 <ConfirmDialog
@@ -262,7 +421,7 @@
     <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
       {$t('settings.addPathTitle')}
     </h2>
-    
+
     <div class="space-y-4">
       <div>
         <label for="path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -286,7 +445,7 @@
           </button>
         </div>
       </div>
-      
+
       <div class="flex items-center gap-2">
         <input
           id="readonly"
@@ -299,7 +458,7 @@
         </label>
       </div>
     </div>
-    
+
     <div class="flex justify-end gap-3 mt-6">
       <Button variant="outline" onclick={closeAddDialog}>
         {$t('common.cancel')}
@@ -314,3 +473,14 @@
     </div>
   </div>
 </Dialog>
+
+<!-- Update Confirmation Dialog -->
+<ConfirmDialog
+  open={updateConfirmDialog.open}
+  title={$t('update.confirmUpdate')}
+  description={$t('update.confirmUpdateMessage')}
+  confirmText={$t('update.updateNow')}
+  confirmVariant="default"
+  onconfirm={confirmUpdate}
+  oncancel={() => updateConfirmDialog.open = false}
+/>

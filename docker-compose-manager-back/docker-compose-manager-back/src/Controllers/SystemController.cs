@@ -82,7 +82,7 @@ public class SystemController : BaseController
     /// </summary>
     /// <returns>Update check result including changelog if update is available</returns>
     [HttpGet("check-update")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "admin")]
     [ProducesResponseType(typeof(ApiResponse<AppUpdateCheckResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<AppUpdateCheckResponse>), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<ApiResponse<AppUpdateCheckResponse>>> CheckUpdate(CancellationToken cancellationToken)
@@ -128,7 +128,7 @@ public class SystemController : BaseController
     /// </summary>
     /// <returns>Update trigger result</returns>
     [HttpPost("update")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "admin")]
     [ProducesResponseType(typeof(ApiResponse<UpdateTriggerResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<UpdateTriggerResponse>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<UpdateTriggerResponse>), StatusCodes.Status500InternalServerError)]
@@ -170,7 +170,7 @@ public class SystemController : BaseController
     /// </summary>
     /// <returns>Update status</returns>
     [HttpGet("update-status")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "admin")]
     [ProducesResponseType(typeof(ApiResponse<UpdateStatusResponse>), StatusCodes.Status200OK)]
     public ActionResult<ApiResponse<UpdateStatusResponse>> GetUpdateStatus()
     {

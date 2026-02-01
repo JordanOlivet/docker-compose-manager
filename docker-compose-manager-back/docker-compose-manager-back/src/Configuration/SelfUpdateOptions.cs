@@ -5,6 +5,8 @@ namespace docker_compose_manager_back.Configuration;
 /// </summary>
 public class SelfUpdateOptions
 {
+    public const string SectionName = "SelfUpdate";
+
     /// <summary>
     /// Whether the self-update feature is enabled.
     /// </summary>
@@ -12,8 +14,10 @@ public class SelfUpdateOptions
 
     /// <summary>
     /// Path to the application's docker-compose file used for updates.
+    /// If null or empty, auto-detection from Docker labels will be attempted.
+    /// Can be overridden via environment variable: SelfUpdate__ComposeFilePath
     /// </summary>
-    public string ComposeFilePath { get; set; } = "/app/docker-compose.yml";
+    public string? ComposeFilePath { get; set; }
 
     /// <summary>
     /// Interval in hours between automatic update checks.

@@ -16,6 +16,7 @@ public interface ISelfUpdateService
 public class SelfUpdateService : ISelfUpdateService
 {
     private readonly IGitHubReleaseService _gitHubReleaseService;
+    private readonly IComposeFileDetectorService _composeFileDetector;
     private readonly DockerCommandExecutor _dockerCommandExecutor;
     private readonly IAuditService _auditService;
     private readonly IHubContext<OperationsHub> _hubContext;
@@ -39,6 +40,7 @@ public class SelfUpdateService : ISelfUpdateService
 
     public SelfUpdateService(
         IGitHubReleaseService gitHubReleaseService,
+        IComposeFileDetectorService composeFileDetector,
         DockerCommandExecutor dockerCommandExecutor,
         IAuditService auditService,
         IHubContext<OperationsHub> hubContext,
@@ -47,6 +49,7 @@ public class SelfUpdateService : ISelfUpdateService
         ILogger<SelfUpdateService> logger)
     {
         _gitHubReleaseService = gitHubReleaseService;
+        _composeFileDetector = composeFileDetector;
         _dockerCommandExecutor = dockerCommandExecutor;
         _auditService = auditService;
         _hubContext = hubContext;
@@ -94,6 +97,16 @@ public class SelfUpdateService : ISelfUpdateService
 
         try
         {
+            // Resolve compose file path: configuration takes priority, then auto-detection
+            string? composeFilePath = await ResolveComposeFilePathAsync();
+            if (string.IsNullOrEmpty(composeFilePath))
+            {
+                lock (_updateLock) { _updateInProgress = false; }
+                return new UpdateTriggerResponse(false,
+                    "Cannot perform self-update: compose file path not configured and auto-detection failed. " +
+                    "Please set the SelfUpdate:ComposeFilePath configuration or run the application via docker-compose.", null);
+            }
+
             // Check if update is actually available
             AppUpdateCheckResponse updateInfo = await _gitHubReleaseService.CheckForUpdateAsync(cancellationToken);
 
@@ -103,8 +116,8 @@ public class SelfUpdateService : ISelfUpdateService
                 return new UpdateTriggerResponse(false, "No update available. Current version is already the latest.", null);
             }
 
-            _logger.LogInformation("Starting application update from {Current} to {Latest}",
-                updateInfo.CurrentVersion, updateInfo.LatestVersion);
+            _logger.LogInformation("Starting application update from {Current} to {Latest} using compose file: {ComposeFile}",
+                updateInfo.CurrentVersion, updateInfo.LatestVersion, composeFilePath);
 
             // Log the update action
             await _auditService.LogActionAsync(
@@ -134,7 +147,7 @@ public class SelfUpdateService : ISelfUpdateService
 
             // Execute the update
             string operationId = Guid.NewGuid().ToString();
-            _ = ExecuteUpdateAsync(operationId, cancellationToken);
+            _ = ExecuteUpdateAsync(operationId, composeFilePath, cancellationToken);
 
             return new UpdateTriggerResponse(true, "Update started. The application will restart shortly.", operationId);
         }
@@ -146,11 +159,47 @@ public class SelfUpdateService : ISelfUpdateService
         }
     }
 
-    private async Task ExecuteUpdateAsync(string operationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Resolves the compose file path using configuration (priority) or auto-detection.
+    /// </summary>
+    private async Task<string?> ResolveComposeFilePathAsync()
+    {
+        // Priority 1: Configuration (environment variable or appsettings)
+        if (!string.IsNullOrWhiteSpace(_selfUpdateOptions.ComposeFilePath))
+        {
+            _logger.LogInformation("Using configured compose file path: {Path}", _selfUpdateOptions.ComposeFilePath);
+            return _selfUpdateOptions.ComposeFilePath;
+        }
+
+        // Priority 2: Auto-detection from Docker labels
+        _logger.LogInformation("Compose file path not configured, attempting auto-detection...");
+        ComposeDetectionResult detection = await _composeFileDetector.GetComposeDetectionResultAsync();
+
+        if (detection.IsRunningViaCompose && !string.IsNullOrEmpty(detection.ComposeFilePath))
+        {
+            _logger.LogInformation("Auto-detected compose file path: {Path} (Project: {Project})",
+                detection.ComposeFilePath, detection.ProjectName);
+            return detection.ComposeFilePath;
+        }
+
+        // Auto-detection failed
+        if (!detection.IsRunningInDocker)
+        {
+            _logger.LogWarning("Auto-detection failed: Application is not running in a Docker container");
+        }
+        else if (!detection.IsRunningViaCompose)
+        {
+            _logger.LogWarning("Auto-detection failed: Container was not started via docker-compose. Error: {Error}",
+                detection.DetectionError);
+        }
+
+        return null;
+    }
+
+    private async Task ExecuteUpdateAsync(string operationId, string composeFilePath, CancellationToken cancellationToken)
     {
         try
         {
-            string composeFilePath = _selfUpdateOptions.ComposeFilePath;
             string workingDirectory = Path.GetDirectoryName(composeFilePath) ?? "/app";
             string composeFileName = Path.GetFileName(composeFilePath);
 
