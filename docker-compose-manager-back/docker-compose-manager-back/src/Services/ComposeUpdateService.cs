@@ -1,0 +1,529 @@
+using docker_compose_manager_back.Configuration;
+using docker_compose_manager_back.DTOs;
+using Microsoft.Extensions.Options;
+using YamlDotNet.Serialization;
+
+namespace docker_compose_manager_back.Services;
+
+/// <summary>
+/// Service for checking and performing compose project updates.
+/// </summary>
+public interface IComposeUpdateService
+{
+    /// <summary>
+    /// Checks for available updates for a project's images.
+    /// </summary>
+    Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
+        string projectName,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Updates selected services in a project by pulling new images and recreating containers.
+    /// </summary>
+    Task<UpdateTriggerResponse> UpdateProjectAsync(
+        string projectName,
+        List<string>? services,
+        bool updateAll,
+        int userId,
+        string ipAddress,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets global update status for all cached projects.
+    /// </summary>
+    List<ProjectUpdateSummary> GetGlobalUpdateStatus();
+
+    /// <summary>
+    /// Updates all projects that have available updates.
+    /// </summary>
+    Task<UpdateAllResponse> UpdateAllProjectsAsync(
+        int userId,
+        string ipAddress,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Clears the update check cache.
+    /// </summary>
+    void ClearCache();
+}
+
+public class ComposeUpdateService : IComposeUpdateService
+{
+    private readonly IComposeDiscoveryService _discoveryService;
+    private readonly IComposeOperationService _operationService;
+    private readonly IImageDigestService _imageDigestService;
+    private readonly IImageUpdateCacheService _cacheService;
+    private readonly IComposeFileCacheService _fileCacheService;
+    private readonly IProjectMatchingService _projectMatchingService;
+    private readonly IAuditService _auditService;
+    private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly ILogger<ComposeUpdateService> _logger;
+    private readonly UpdateCheckOptions _options;
+
+    private readonly SemaphoreSlim _checkLock = new(1, 1);
+
+    public ComposeUpdateService(
+        IComposeDiscoveryService discoveryService,
+        IComposeOperationService operationService,
+        IImageDigestService imageDigestService,
+        IImageUpdateCacheService cacheService,
+        IComposeFileCacheService fileCacheService,
+        IProjectMatchingService projectMatchingService,
+        IAuditService auditService,
+        DockerCommandExecutor dockerExecutor,
+        IOptions<UpdateCheckOptions> options,
+        ILogger<ComposeUpdateService> logger)
+    {
+        _discoveryService = discoveryService;
+        _operationService = operationService;
+        _imageDigestService = imageDigestService;
+        _cacheService = cacheService;
+        _fileCacheService = fileCacheService;
+        _projectMatchingService = projectMatchingService;
+        _auditService = auditService;
+        _dockerExecutor = dockerExecutor;
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public async Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
+        string projectName,
+        CancellationToken ct = default)
+    {
+        // Check cache first
+        ProjectUpdateCheckResponse? cached = _cacheService.GetCachedCheck(projectName);
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        await _checkLock.WaitAsync(ct);
+        try
+        {
+            // Double-check after acquiring lock
+            cached = _cacheService.GetCachedCheck(projectName);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            _logger.LogInformation("Checking updates for project {ProjectName}", projectName);
+
+            // Use ProjectMatchingService to find the compose file path
+            // This uses the same sophisticated matching logic as the projects list
+            string? composeFilePath = await FindComposeFilePathAsync(projectName);
+
+            if (composeFilePath == null)
+            {
+                _logger.LogWarning("No compose file found for project {ProjectName}", projectName);
+                return new ProjectUpdateCheckResponse(
+                    ProjectName: projectName,
+                    Images: new List<ImageUpdateStatus>(),
+                    HasUpdates: false,
+                    LastChecked: DateTime.UtcNow
+                );
+            }
+
+            _logger.LogDebug("Found compose file for project {ProjectName}: {FilePath}", projectName, composeFilePath);
+
+            // Parse compose file to get services and images
+            var serviceImages = await ParseServiceImagesAsync(composeFilePath, ct);
+
+            // Check each image for updates (with concurrency limit)
+            var semaphore = new SemaphoreSlim(_options.MaxConcurrentChecks);
+            var tasks = new List<Task<ImageUpdateStatus>>();
+
+            foreach (var (serviceName, imageInfo) in serviceImages)
+            {
+                if (string.IsNullOrEmpty(imageInfo.Image))
+                {
+                    // Service uses build, not image
+                    continue;
+                }
+
+                // Check if image is excluded
+                if (IsImageExcluded(imageInfo.Image))
+                {
+                    _logger.LogDebug("Image {Image} is excluded from update checks", imageInfo.Image);
+                    continue;
+                }
+
+                tasks.Add(CheckImageWithSemaphoreAsync(
+                    semaphore,
+                    imageInfo.Image,
+                    serviceName,
+                    imageInfo.UpdatePolicy,
+                    ct));
+            }
+
+            ImageUpdateStatus[] results = await Task.WhenAll(tasks);
+
+            var response = new ProjectUpdateCheckResponse(
+                ProjectName: projectName,
+                Images: results.ToList(),
+                HasUpdates: results.Any(r => r.UpdateAvailable && r.UpdatePolicy != "disabled"),
+                LastChecked: DateTime.UtcNow
+            );
+
+            // Cache the result
+            _cacheService.SetCachedCheck(projectName, response);
+
+            _logger.LogInformation(
+                "Update check complete for {ProjectName}: {UpdateCount} updates available out of {TotalCount} images",
+                projectName,
+                results.Count(r => r.UpdateAvailable),
+                results.Length);
+
+            return response;
+        }
+        finally
+        {
+            _checkLock.Release();
+        }
+    }
+
+    private async Task<ImageUpdateStatus> CheckImageWithSemaphoreAsync(
+        SemaphoreSlim semaphore,
+        string image,
+        string serviceName,
+        string? updatePolicy,
+        CancellationToken ct)
+    {
+        await semaphore.WaitAsync(ct);
+        try
+        {
+            var status = await _imageDigestService.CheckImageUpdateAsync(image, serviceName, ct);
+
+            // Apply update policy from compose file
+            return status with { UpdatePolicy = updatePolicy };
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    public async Task<UpdateTriggerResponse> UpdateProjectAsync(
+        string projectName,
+        List<string>? services,
+        bool updateAll,
+        int userId,
+        string ipAddress,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Updating project {ProjectName} - Services: {Services}, UpdateAll: {UpdateAll}",
+                projectName,
+                services != null ? string.Join(", ", services) : "all",
+                updateAll);
+
+            // Use ProjectMatchingService to find the compose file path
+            string? composeFilePath = await FindComposeFilePathAsync(projectName);
+
+            if (composeFilePath == null)
+            {
+                return new UpdateTriggerResponse(
+                    Success: false,
+                    Message: $"No compose file found for project {projectName}",
+                    OperationId: null
+                );
+            }
+
+            _logger.LogDebug("Found compose file for project {ProjectName}: {FilePath}", projectName, composeFilePath);
+
+            // Determine which services to update
+            List<string> servicesToUpdate;
+            if (updateAll || services == null || services.Count == 0)
+            {
+                // Update all services with available updates
+                var updateCheck = await CheckProjectUpdatesAsync(projectName, ct);
+                servicesToUpdate = updateCheck.Images
+                    .Where(i => i.UpdateAvailable && i.UpdatePolicy != "disabled")
+                    .Select(i => i.ServiceName)
+                    .ToList();
+            }
+            else
+            {
+                servicesToUpdate = services;
+            }
+
+            if (servicesToUpdate.Count == 0)
+            {
+                return new UpdateTriggerResponse(
+                    Success: true,
+                    Message: "No services need updating",
+                    OperationId: null
+                );
+            }
+
+            string servicesArg = string.Join(" ", servicesToUpdate);
+            string operationId = Guid.NewGuid().ToString();
+
+            // Pull new images
+            _logger.LogInformation("Pulling images for services: {Services}", servicesArg);
+            (int pullExitCode, string pullOutput, string pullError) = await _dockerExecutor.ExecuteAsync(
+                "docker",
+                $"compose -f \"{composeFilePath}\" pull {servicesArg}",
+                ct);
+
+            if (pullExitCode != 0)
+            {
+                _logger.LogError("Pull failed for {ProjectName}: {Error}", projectName, pullError);
+                return new UpdateTriggerResponse(
+                    Success: false,
+                    Message: $"Failed to pull images: {pullError}",
+                    OperationId: operationId
+                );
+            }
+
+            // Recreate containers with new images
+            _logger.LogInformation("Recreating containers for services: {Services}", servicesArg);
+            (int upExitCode, string upOutput, string upError) = await _dockerExecutor.ExecuteAsync(
+                "docker",
+                $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}",
+                ct);
+
+            if (upExitCode != 0)
+            {
+                _logger.LogError("Up failed for {ProjectName}: {Error}", projectName, upError);
+                return new UpdateTriggerResponse(
+                    Success: false,
+                    Message: $"Failed to recreate containers: {upError}",
+                    OperationId: operationId
+                );
+            }
+
+            // Invalidate cache for this project
+            _cacheService.InvalidateProject(projectName);
+
+            // Audit log
+            await _auditService.LogActionAsync(
+                userId,
+                "compose.project_update",
+                ipAddress,
+                $"Updated {servicesToUpdate.Count} services in project {projectName}: {servicesArg}",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            _logger.LogInformation(
+                "Successfully updated {Count} services in project {ProjectName}",
+                servicesToUpdate.Count,
+                projectName);
+
+            return new UpdateTriggerResponse(
+                Success: true,
+                Message: $"Successfully updated {servicesToUpdate.Count} services",
+                OperationId: operationId
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating project {ProjectName}", projectName);
+            return new UpdateTriggerResponse(
+                Success: false,
+                Message: $"Error updating project: {ex.Message}",
+                OperationId: null
+            );
+        }
+    }
+
+    public List<ProjectUpdateSummary> GetGlobalUpdateStatus()
+    {
+        return _cacheService.GetAllCachedSummaries();
+    }
+
+    public async Task<UpdateAllResponse> UpdateAllProjectsAsync(
+        int userId,
+        string ipAddress,
+        CancellationToken ct = default)
+    {
+        var summaries = _cacheService.GetAllCachedSummaries();
+        var projectsWithUpdates = summaries
+            .Where(s => s.ServicesWithUpdates > 0)
+            .Select(s => s.ProjectName)
+            .ToList();
+
+        if (projectsWithUpdates.Count == 0)
+        {
+            return new UpdateAllResponse(
+                OperationId: Guid.NewGuid().ToString(),
+                ProjectsToUpdate: new List<string>(),
+                Status: "No projects with available updates"
+            );
+        }
+
+        string operationId = Guid.NewGuid().ToString();
+
+        // Start updates in background
+        _ = Task.Run(async () =>
+        {
+            foreach (string projectName in projectsWithUpdates)
+            {
+                try
+                {
+                    await UpdateProjectAsync(projectName, null, true, userId, ipAddress, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error updating project {ProjectName} during update-all", projectName);
+                }
+            }
+        }, ct);
+
+        await _auditService.LogActionAsync(
+            userId,
+            "compose.update_all",
+            ipAddress,
+            $"Started update-all for {projectsWithUpdates.Count} projects",
+            resourceType: "System",
+            resourceId: "UpdateAll"
+        );
+
+        return new UpdateAllResponse(
+            OperationId: operationId,
+            ProjectsToUpdate: projectsWithUpdates,
+            Status: "Update started"
+        );
+    }
+
+    public void ClearCache()
+    {
+        _cacheService.InvalidateAll();
+        _logger.LogInformation("Update check cache cleared");
+    }
+
+    private async Task<Dictionary<string, ServiceImageInfo>> ParseServiceImagesAsync(
+        string composeFilePath,
+        CancellationToken ct)
+    {
+        var result = new Dictionary<string, ServiceImageInfo>();
+
+        try
+        {
+            string content = await File.ReadAllTextAsync(composeFilePath, ct);
+
+            var deserializer = new DeserializerBuilder()
+                .IgnoreUnmatchedProperties()
+                .Build();
+
+            var composeData = deserializer.Deserialize<Dictionary<string, object>>(content);
+
+            if (composeData == null ||
+                !composeData.TryGetValue("services", out object? servicesObj) ||
+                servicesObj is not Dictionary<object, object> services)
+            {
+                return result;
+            }
+
+            foreach (var (serviceKey, serviceValue) in services)
+            {
+                string serviceName = serviceKey.ToString() ?? "";
+                if (serviceValue is not Dictionary<object, object> serviceData)
+                    continue;
+
+                string? image = null;
+                string? updatePolicy = null;
+
+                if (serviceData.TryGetValue("image", out object? imageObj))
+                {
+                    image = imageObj?.ToString();
+                }
+
+                // Check for x-update-policy extension
+                if (serviceData.TryGetValue("x-update-policy", out object? policyObj))
+                {
+                    updatePolicy = policyObj?.ToString()?.ToLowerInvariant();
+                }
+
+                // Also check at root level for project-wide policy
+                if (updatePolicy == null && composeData.TryGetValue("x-update-policy", out object? rootPolicyObj))
+                {
+                    updatePolicy = rootPolicyObj?.ToString()?.ToLowerInvariant();
+                }
+
+                result[serviceName] = new ServiceImageInfo(image, updatePolicy);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error parsing compose file {Path}", composeFilePath);
+        }
+
+        return result;
+    }
+
+    private bool IsImageExcluded(string image)
+    {
+        foreach (string pattern in _options.ExcludedImages)
+        {
+            if (MatchesPattern(image, pattern))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool MatchesPattern(string value, string pattern)
+    {
+        // Simple wildcard matching
+        if (pattern.Contains('*'))
+        {
+            string regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern)
+                .Replace("\\*", ".*") + "$";
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                value,
+                regexPattern,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        return string.Equals(value, pattern, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Finds the compose file path for a project using the ProjectMatchingService.
+    /// This reuses the same sophisticated matching logic used for the projects list,
+    /// handling cases where Docker's project name differs from the compose file's project name.
+    /// </summary>
+    /// <param name="projectName">The project name as reported by Docker</param>
+    /// <returns>The compose file path if found, null otherwise</returns>
+    private async Task<string?> FindComposeFilePathAsync(string projectName)
+    {
+        try
+        {
+            // Use the ProjectMatchingService to get the unified project list
+            // This uses the same matching strategies (by name, by path, by filename+directory)
+            // We use userId 1 (default admin) since this is only called from admin endpoints
+            const int systemAdminUserId = 1;
+            var projects = await _projectMatchingService.GetUnifiedProjectListAsync(systemAdminUserId);
+
+            // Find the project by name (case-insensitive)
+            var matchedProject = projects.FirstOrDefault(p =>
+                p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+
+            if (matchedProject != null && matchedProject.HasComposeFile)
+            {
+                _logger.LogDebug(
+                    "Found compose file via ProjectMatchingService for project {ProjectName}: {FilePath}",
+                    projectName,
+                    matchedProject.ComposeFilePath);
+                return matchedProject.ComposeFilePath;
+            }
+
+            _logger.LogDebug(
+                "No compose file found via ProjectMatchingService for project {ProjectName}",
+                projectName);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding compose file path for project {ProjectName}", projectName);
+            return null;
+        }
+    }
+
+    private record ServiceImageInfo(string? Image, string? UpdatePolicy);
+}

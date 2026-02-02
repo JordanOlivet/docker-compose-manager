@@ -54,6 +54,8 @@ export default {
     optional: 'optional',
     performedAction: 'performed {action}',
     onResource: 'on {type}',
+    selectAll: 'Select All',
+    deselectAll: 'Deselect All',
   },
 
   navigation: {
@@ -422,5 +424,17 @@ export default {
     reconnectionFailed: 'Reconnection Failed',
     maxAttemptsReached: 'Maximum reconnection attempts reached. Please refresh the page manually.',
     retryConnection: 'Retry Connection',
+    // Compose project update keys
+    checkUpdates: 'Check Updates',
+    updatesAvailable: 'updates available',
+    noImages: 'No images found in this project',
+    localBuild: 'Local Build',
+    pinnedDigest: 'Pinned Digest',
+    disabled: 'Disabled',
+    local: 'Local',
+    remote: 'Remote',
+    servicesSelected: 'services selected',
+    updateSelected: 'Update Selected',
+    updateSuccess: 'Successfully updated {count} services',
   },
 } as const;

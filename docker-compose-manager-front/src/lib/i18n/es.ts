@@ -54,6 +54,8 @@ const es = {
     optional: 'opcional',
     performedAction: 'realizó {action}',
     onResource: 'en {type}',
+    selectAll: 'Seleccionar todo',
+    deselectAll: 'Deseleccionar todo',
   },
 
   navigation: {
@@ -422,6 +424,18 @@ const es = {
     reconnectionFailed: 'Error de reconexión',
     maxAttemptsReached: 'Máximo de intentos alcanzado. Por favor actualice la página manualmente.',
     retryConnection: 'Reintentar conexión',
+    // Compose project update keys
+    checkUpdates: 'Verificar actualizaciones',
+    updatesAvailable: 'actualizaciones disponibles',
+    noImages: 'No se encontraron imágenes en este proyecto',
+    localBuild: 'Build local',
+    pinnedDigest: 'Digest fijado',
+    disabled: 'Desactivado',
+    local: 'Local',
+    remote: 'Remoto',
+    servicesSelected: 'servicios seleccionados',
+    updateSelected: 'Actualizar selección',
+    updateSuccess: '{count} servicios actualizados correctamente',
   },
 };
 

@@ -157,6 +157,10 @@ builder.Services.Configure<SelfUpdateOptions>(
 builder.Services.Configure<MaintenanceOptions>(
     builder.Configuration.GetSection("Maintenance"));
 
+// Configure Update Check Options (for compose project updates)
+builder.Services.Configure<UpdateCheckOptions>(
+    builder.Configuration.GetSection("UpdateCheck"));
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -185,6 +189,18 @@ builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService
 builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
 builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
 builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
+
+// Register Compose Update services (for project updates)
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.DockerHubRegistryClient>();
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.DockerHubRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClientFactory, docker_compose_manager_back.Services.Registry.RegistryClientFactory>();
+builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
+builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
+builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
 
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery

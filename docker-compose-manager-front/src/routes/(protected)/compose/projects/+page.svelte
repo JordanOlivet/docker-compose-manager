@@ -8,19 +8,25 @@
     Zap,
     RefreshCw,
     Search,
-    ChevronRight
+    ChevronRight,
+    Download,
+    Loader2
   } from 'lucide-svelte';
   import { composeApi } from '$lib/api/compose';
   import { containersApi } from '$lib/api/containers';
+  import { updateApi } from '$lib/api/update';
   import type { ComposeProject, ComposeService } from '$lib/types';
+  import type { ProjectUpdateCheckResponse } from '$lib/types/update';
   import { EntityState } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
+  import { isAdmin } from '$lib/stores/auth.svelte';
 
   let searchQuery = $state('');
   let openProjects = $state<Record<string, boolean>>({});
@@ -30,6 +36,12 @@
     description: '',
     onConfirm: () => {},
   });
+
+  // Update dialog state
+  let updateDialogOpen = $state(false);
+  let selectedProjectForUpdate = $state<string | null>(null);
+  let projectUpdateCheck = $state<ProjectUpdateCheckResponse | null>(null);
+  let checkingUpdatesFor = $state<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -96,6 +108,32 @@
     onSuccess: () => toast.success($t('containers.removeSuccess')),
     onError: () => toast.error($t('containers.failedToRemove')),
   }));
+
+  // Check updates mutation
+  const checkUpdatesMutation = createMutation(() => ({
+    mutationFn: (projectName: string) => updateApi.checkProjectUpdates(projectName),
+    onSuccess: (data: ProjectUpdateCheckResponse, projectName: string) => {
+      projectUpdateCheck = data;
+      selectedProjectForUpdate = projectName;
+      updateDialogOpen = true;
+      checkingUpdatesFor = null;
+    },
+    onError: (error: Error) => {
+      toast.error($t('update.checkFailed') + ': ' + error.message);
+      checkingUpdatesFor = null;
+    },
+  }));
+
+  function handleCheckUpdates(projectName: string) {
+    checkingUpdatesFor = projectName;
+    checkUpdatesMutation.mutate(projectName);
+  }
+
+  function closeUpdateDialog() {
+    updateDialogOpen = false;
+    selectedProjectForUpdate = null;
+    projectUpdateCheck = null;
+  }
 
   function toggleProjectOpen(projectName: string) {
     openProjects = {
@@ -275,6 +313,24 @@
                 />
               </div>
               <div class="flex gap-1">
+                <!-- Check Updates Button (admin only, when compose file exists) -->
+                {#if isAdmin.current && project.hasComposeFile}
+                  <button
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      handleCheckUpdates(project.name);
+                    }}
+                    disabled={checkingUpdatesFor === project.name}
+                    class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={$t('update.checkUpdates')}
+                  >
+                    {#if checkingUpdatesFor === project.name}
+                      <Loader2 class="w-4 h-4 animate-spin" />
+                    {:else}
+                      <Download class="w-4 h-4" />
+                    {/if}
+                  </button>
+                {/if}
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
                   {#if project.availableActions?.up}
                     <button
@@ -469,6 +525,14 @@
     </div>
   {/if}
 </div>
+
+<!-- Service Update Dialog -->
+<ServiceUpdateDialog
+  open={updateDialogOpen}
+  projectName={selectedProjectForUpdate ?? ''}
+  updateCheck={projectUpdateCheck}
+  onClose={closeUpdateDialog}
+/>
 
 <ConfirmDialog
   open={confirmDialog.open}

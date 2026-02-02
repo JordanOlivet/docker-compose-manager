@@ -66,3 +66,62 @@ export interface MaintenanceModeNotification {
   estimatedEndTime: string | null;
   gracePeriodSeconds: number;
 }
+
+// ============================================
+// Compose Project Update Types
+// ============================================
+
+/**
+ * Response containing project update check results
+ */
+export interface ProjectUpdateCheckResponse {
+  projectName: string;
+  images: ImageUpdateStatus[];
+  hasUpdates: boolean;
+  lastChecked: string;
+}
+
+/**
+ * Status of a single image's update availability
+ */
+export interface ImageUpdateStatus {
+  image: string;
+  serviceName: string;
+  hostArchitecture: string;
+  localDigest: string | null;
+  remoteDigest: string | null;
+  localCreatedAt: string | null;
+  remoteCreatedAt: string | null;
+  updateAvailable: boolean;
+  multiArchSupported: boolean;
+  updatePolicy: 'enabled' | 'disabled' | 'notify' | null;
+  isLocalBuild: boolean;
+  isPinnedDigest: boolean;
+  error: string | null;
+}
+
+/**
+ * Request to update project services
+ */
+export interface ProjectUpdateRequest {
+  services?: string[];
+  updateAll?: boolean;
+}
+
+/**
+ * Summary of a project's update status
+ */
+export interface ProjectUpdateSummary {
+  projectName: string;
+  servicesWithUpdates: number;
+  lastChecked: string | null;
+}
+
+/**
+ * Response for update all projects operation
+ */
+export interface UpdateAllResponse {
+  operationId: string;
+  projectsToUpdate: string[];
+  status: string;
+}

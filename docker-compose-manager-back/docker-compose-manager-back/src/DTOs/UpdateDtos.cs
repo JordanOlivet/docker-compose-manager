@@ -68,3 +68,73 @@ public record MaintenanceModeNotification(
 public record UpdateStatusResponse(
     bool IsUpdateInProgress
 );
+
+// ============================================
+// Compose Project Update DTOs
+// ============================================
+
+/// <summary>
+/// Response containing project update check results.
+/// </summary>
+public record ProjectUpdateCheckResponse(
+    string ProjectName,
+    List<ImageUpdateStatus> Images,
+    bool HasUpdates,
+    DateTime LastChecked
+);
+
+/// <summary>
+/// Status of a single image's update availability.
+/// </summary>
+public record ImageUpdateStatus(
+    string Image,
+    string ServiceName,
+    string HostArchitecture,
+    string? LocalDigest,
+    string? RemoteDigest,
+    DateTime? LocalCreatedAt,
+    DateTime? RemoteCreatedAt,
+    bool UpdateAvailable,
+    bool MultiArchSupported,
+    string? UpdatePolicy,
+    bool IsLocalBuild,
+    bool IsPinnedDigest,
+    string? Error
+);
+
+/// <summary>
+/// Request to update project services.
+/// </summary>
+public record ProjectUpdateRequest(
+    List<string>? Services = null,
+    bool UpdateAll = false
+);
+
+/// <summary>
+/// Summary of a project's update status.
+/// </summary>
+public record ProjectUpdateSummary(
+    string ProjectName,
+    int ServicesWithUpdates,
+    DateTime? LastChecked
+);
+
+/// <summary>
+/// Response for update all projects operation.
+/// </summary>
+public record UpdateAllResponse(
+    string OperationId,
+    List<string> ProjectsToUpdate,
+    string Status
+);
+
+/// <summary>
+/// Information about a parsed image reference.
+/// </summary>
+public record ImageReference(
+    string Registry,
+    string Repository,
+    string Tag,
+    string? Digest,
+    string FullName
+);

@@ -45,30 +45,30 @@ public class ProjectMatchingService : IProjectMatchingService
         _logger.LogDebug("Found {Count} Docker projects for user {UserId}", dockerProjects.Count, userId);
 
         // Step 2: Get discovered files from scanner
-        var allDiscoveredFiles = await _cacheService.GetOrScanAsync();
+        List<DiscoveredComposeFile> allDiscoveredFiles = await _cacheService.GetOrScanAsync();
         _logger.LogDebug("Found {Count} discovered compose files", allDiscoveredFiles.Count);
 
         // Step 3: Resolve conflicts (handles duplicate project names)
-        var discoveredFiles = _conflictService.ResolveConflicts(allDiscoveredFiles);
+        List<DiscoveredComposeFile> discoveredFiles = _conflictService.ResolveConflicts(allDiscoveredFiles);
         _logger.LogDebug("After conflict resolution: {Count} files", discoveredFiles.Count);
 
         // Step 4: Create lookup for fast matching (case-insensitive by project name)
-        var filesByProjectName = discoveredFiles
+        Dictionary<string, DiscoveredComposeFile> filesByProjectName = discoveredFiles
             .ToDictionary(f => f.ProjectName, f => f, StringComparer.OrdinalIgnoreCase);
         _logger.LogDebug("Created lookup dictionary with {Count} entries", filesByProjectName.Count);
 
         // Step 5: Create additional lookups for fallback matching
-        var filesByFilePath = discoveredFiles
+        Dictionary<string, DiscoveredComposeFile> filesByFilePath = discoveredFiles
             .ToDictionary(f => f.FilePath, f => f, StringComparer.OrdinalIgnoreCase);
 
         // Step 6: Enrich Docker projects with file info
-        var enrichedProjects = new List<ComposeProjectDto>();
-        foreach (var project in dockerProjects)
+        List<ComposeProjectDto> enrichedProjects = new List<ComposeProjectDto>();
+        foreach (ComposeProjectDto project in dockerProjects)
         {
             DiscoveredComposeFile? matchedFile = null;
 
             // Strategy 1: Match by project name
-            if (filesByProjectName.TryGetValue(project.Name, out var file))
+            if (filesByProjectName.TryGetValue(project.Name, out DiscoveredComposeFile? file))
             {
                 matchedFile = file;
                 _logger.LogDebug(
@@ -81,10 +81,10 @@ public class ProjectMatchingService : IProjectMatchingService
             // Strategy 2: Match by converting Docker's ConfigFiles path to Linux path
             if (matchedFile == null && project.ComposeFiles.Count > 0)
             {
-                foreach (var dockerFilePath in project.ComposeFiles)
+                foreach (string dockerFilePath in project.ComposeFiles)
                 {
-                    var linuxPath = ConvertHostPathToContainerPath(dockerFilePath);
-                    if (linuxPath != null && filesByFilePath.TryGetValue(linuxPath, out var fileByPath))
+                    string? linuxPath = ConvertHostPathToContainerPath(dockerFilePath);
+                    if (linuxPath != null && filesByFilePath.TryGetValue(linuxPath, out DiscoveredComposeFile? fileByPath))
                     {
                         matchedFile = fileByPath;
                         _logger.LogDebug(
@@ -101,13 +101,13 @@ public class ProjectMatchingService : IProjectMatchingService
             // Strategy 3: Match by filename within scanned files
             if (matchedFile == null && project.ComposeFiles.Count > 0)
             {
-                var dockerFileName = Path.GetFileName(project.ComposeFiles[0]);
-                var dockerDirName = GetParentDirectoryName(project.ComposeFiles[0]);
+                string dockerFileName = Path.GetFileName(project.ComposeFiles[0]);
+                string? dockerDirName = GetParentDirectoryName(project.ComposeFiles[0]);
 
-                foreach (var scannedFile in discoveredFiles)
+                foreach (DiscoveredComposeFile scannedFile in discoveredFiles)
                 {
-                    var scannedFileName = Path.GetFileName(scannedFile.FilePath);
-                    var scannedDirName = Path.GetFileName(scannedFile.DirectoryPath);
+                    string scannedFileName = Path.GetFileName(scannedFile.FilePath);
+                    string scannedDirName = Path.GetFileName(scannedFile.DirectoryPath);
 
                     // Match by filename AND parent directory name
                     if (string.Equals(dockerFileName, scannedFileName, StringComparison.OrdinalIgnoreCase) &&
@@ -129,7 +129,7 @@ public class ProjectMatchingService : IProjectMatchingService
             {
                 // Keep the original services from Docker (they have real container IDs)
                 // Only use synthetic services if no Docker services exist
-                var services = project.Services.Count > 0
+                List<ComposeServiceDto> services = project.Services.Count > 0
                     ? project.Services
                     : matchedFile.Services.Select(serviceName => new ComposeServiceDto(
                         Id: $"{project.Name}_{serviceName}",
@@ -141,7 +141,7 @@ public class ProjectMatchingService : IProjectMatchingService
                         Health: null
                     )).ToList();
 
-                var enrichedProject = project with
+                ComposeProjectDto enrichedProject = project with
                 {
                     ComposeFilePath = matchedFile.FilePath,
                     HasComposeFile = true,
@@ -162,7 +162,7 @@ public class ProjectMatchingService : IProjectMatchingService
                 if (project.ComposeFiles.Count > 0)
                 {
                     // Try to convert the Docker path to Linux path
-                    var linuxPath = ConvertHostPathToContainerPath(project.ComposeFiles[0]);
+                    string? linuxPath = ConvertHostPathToContainerPath(project.ComposeFiles[0]);
                     if (linuxPath != null && File.Exists(linuxPath))
                     {
                         composeFilePath = linuxPath;
@@ -184,7 +184,7 @@ public class ProjectMatchingService : IProjectMatchingService
                     );
                 }
 
-                var projectWithInfo = project with
+                ComposeProjectDto projectWithInfo = project with
                 {
                     ComposeFilePath = composeFilePath,
                     HasComposeFile = hasComposeFile,
@@ -197,7 +197,7 @@ public class ProjectMatchingService : IProjectMatchingService
         }
 
         // Step 7: Add "not-started" projects (files without Docker projects) - WITH PERMISSION FILTERING
-        foreach (var unmatchedFile in filesByProjectName.Values)
+        foreach (DiscoveredComposeFile? unmatchedFile in filesByProjectName.Values)
         {
             // Check if user has permission for this project
             bool hasProjectPermission = await _permissionService.HasPermissionAsync(
@@ -224,8 +224,8 @@ public class ProjectMatchingService : IProjectMatchingService
             );
 
             // Create services list from discovered file
-            var notStartedState = EntityState.NotStarted.ToStateString();
-            var services = unmatchedFile.Services.Select(serviceName => new ComposeServiceDto(
+            string notStartedState = EntityState.NotStarted.ToStateString();
+            List<ComposeServiceDto> services = unmatchedFile.Services.Select(serviceName => new ComposeServiceDto(
                 Id: $"{unmatchedFile.ProjectName}_{serviceName}",
                 Name: serviceName,
                 Image: null,
@@ -235,7 +235,7 @@ public class ProjectMatchingService : IProjectMatchingService
                 Health: null
             )).ToList();
 
-            var notStartedProject = new ComposeProjectDto(
+            ComposeProjectDto notStartedProject = new ComposeProjectDto(
                 Name: unmatchedFile.ProjectName,
                 Path: unmatchedFile.DirectoryPath,
                 State: notStartedState,
@@ -279,11 +279,11 @@ public class ProjectMatchingService : IProjectMatchingService
     private Dictionary<string, bool> ComputeAvailableActions(bool hasFile, string state)
     {
         // Convert state string to EntityState for comparison
-        var entityState = state.ToEntityState();
+        EntityState entityState = state.ToEntityState();
 
-        var isNotStarted = entityState == EntityState.NotStarted;
-        var isRunning = entityState == EntityState.Running;
-        var hasContainers = !isNotStarted;
+        bool isNotStarted = entityState == EntityState.NotStarted;
+        bool isRunning = entityState == EntityState.Running;
+        bool hasContainers = !isNotStarted;
 
         return new Dictionary<string, bool>
         {
@@ -332,9 +332,16 @@ public class ProjectMatchingService : IProjectMatchingService
         if (string.IsNullOrEmpty(hostPath))
             return null;
 
+        string rootPath = _options.RootPath;
+
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+        {
+            rootPath = _options.HostPathMapping;
+        }
+
         // Normalize the path for cross-platform comparison
-        var normalizedHostPath = NormalizePath(hostPath);
-        var normalizedRootPath = NormalizePath(_options.RootPath);
+        string normalizedHostPath = NormalizePath(hostPath);
+        string normalizedRootPath = NormalizePath(rootPath);
 
         // If the path is already within RootPath (same filesystem), return as-is
         if (normalizedHostPath.StartsWith(normalizedRootPath, StringComparison.OrdinalIgnoreCase))
@@ -345,15 +352,15 @@ public class ProjectMatchingService : IProjectMatchingService
         // Check if we have a host path mapping configured
         if (!string.IsNullOrEmpty(_options.HostPathMapping))
         {
-            var normalizedMapping = NormalizePath(_options.HostPathMapping);
+            string normalizedMapping = NormalizePath(_options.HostPathMapping);
 
             if (normalizedHostPath.StartsWith(normalizedMapping, StringComparison.OrdinalIgnoreCase))
             {
                 // Extract relative path from host mapping
-                var relativePath = normalizedHostPath.Substring(normalizedMapping.Length).TrimStart('/');
+                string relativePath = normalizedHostPath.Substring(normalizedMapping.Length).TrimStart('/');
 
                 // Combine with container's RootPath
-                var containerPath = CombinePaths(_options.RootPath, relativePath);
+                string containerPath = CombinePaths(rootPath, relativePath);
 
                 _logger.LogDebug(
                     "Converted host path to container path: {HostPath} -> {ContainerPath}",
@@ -367,12 +374,12 @@ public class ProjectMatchingService : IProjectMatchingService
 
         // Fallback: Try automatic detection by progressively removing path segments
         // and checking if the file exists in RootPath
-        var pathParts = normalizedHostPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        string[] pathParts = normalizedHostPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
         for (int startIdx = 1; startIdx < pathParts.Length; startIdx++)
         {
-            var relativePath = string.Join("/", pathParts.Skip(startIdx));
-            var potentialContainerPath = CombinePaths(_options.RootPath, relativePath);
+            string relativePath = string.Join("/", pathParts.Skip(startIdx));
+            string potentialContainerPath = CombinePaths(rootPath, relativePath);
 
             if (File.Exists(potentialContainerPath))
             {
@@ -403,7 +410,7 @@ public class ProjectMatchingService : IProjectMatchingService
             return string.Empty;
 
         // Replace backslashes with forward slashes
-        var normalized = path.Replace('\\', '/');
+        string normalized = path.Replace('\\', '/');
 
         // Remove trailing slash
         return normalized.TrimEnd('/');
@@ -414,8 +421,8 @@ public class ProjectMatchingService : IProjectMatchingService
     /// </summary>
     private static string CombinePaths(string basePath, string relativePath)
     {
-        var normalizedBase = NormalizePath(basePath);
-        var normalizedRelative = relativePath.TrimStart('/').TrimStart('\\');
+        string normalizedBase = NormalizePath(basePath);
+        string normalizedRelative = relativePath.TrimStart('/').TrimStart('\\');
 
         if (string.IsNullOrEmpty(normalizedRelative))
             return normalizedBase;
@@ -432,14 +439,14 @@ public class ProjectMatchingService : IProjectMatchingService
             return null;
 
         // Normalize separators
-        var normalizedPath = path.Replace('\\', '/').TrimEnd('/');
-        var lastSepIndex = normalizedPath.LastIndexOf('/');
+        string normalizedPath = path.Replace('\\', '/').TrimEnd('/');
+        int lastSepIndex = normalizedPath.LastIndexOf('/');
 
         if (lastSepIndex <= 0)
             return null;
 
-        var dirPath = normalizedPath.Substring(0, lastSepIndex);
-        var lastDirSepIndex = dirPath.LastIndexOf('/');
+        string dirPath = normalizedPath.Substring(0, lastSepIndex);
+        int lastDirSepIndex = dirPath.LastIndexOf('/');
 
         return lastDirSepIndex >= 0
             ? dirPath.Substring(lastDirSepIndex + 1)

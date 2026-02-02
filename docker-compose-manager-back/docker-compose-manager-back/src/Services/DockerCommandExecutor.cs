@@ -149,4 +149,65 @@ public class DockerCommandExecutor
 
         return (process.ExitCode, outputStr, errorStr);
     }
+
+    /// <summary>
+    /// Executes a generic command (docker or any other CLI command)
+    /// </summary>
+    public async Task<(int ExitCode, string Output, string Error)> ExecuteAsync(
+        string command,
+        string arguments,
+        CancellationToken cancellationToken = default)
+    {
+        ProcessStartInfo psi = new()
+        {
+            FileName = command,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        StringBuilder output = new();
+        StringBuilder error = new();
+
+        using Process? process = Process.Start(psi);
+        if (process == null)
+        {
+            return (-1, "", $"Failed to start process: {command}");
+        }
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                error.AppendLine(e.Data);
+            }
+        };
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        string outputStr = output.ToString();
+        string errorStr = error.ToString();
+
+        _logger.LogDebug(
+            "Command executed: {Command} {Arguments}, Exit Code: {ExitCode}",
+            command,
+            arguments,
+            process.ExitCode
+        );
+
+        return (process.ExitCode, outputStr, errorStr);
+    }
 }
