@@ -239,6 +239,19 @@
       </CardHeader>
       <CardContent>
         <div class="space-y-6">
+          <!-- Dev Version Notice -->
+          {#if updateState.updateInfo?.isDevVersion}
+            <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+              <div class="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <AlertTriangle class="w-4 h-4" />
+                <span class="font-medium">{$t('update.devVersionNotice')}</span>
+              </div>
+              <p class="text-sm text-amber-600 dark:text-amber-500 mt-1">
+                {$t('update.devUpdateInfo')}
+              </p>
+            </div>
+          {/if}
+
           <!-- Version Info -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
@@ -273,27 +286,37 @@
           <!-- Update Available Section -->
           {#if updateState.updateInfo?.updateAvailable}
             <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                  {$t('update.changelog')}
-                </h3>
-                {#if updateState.updateInfo.releaseUrl}
-                  <a
-                    href={updateState.updateInfo.releaseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                  >
-                    {$t('update.viewOnGitHub')}
-                    <ExternalLink class="w-3 h-3" />
-                  </a>
-                {/if}
-              </div>
+              {#if updateState.updateInfo.isDevVersion}
+                <!-- Dev version update: show digest-based info -->
+                <div class="mb-4">
+                  <p class="text-gray-700 dark:text-gray-300">
+                    {$t('update.newerImageAvailable')}
+                  </p>
+                </div>
+              {:else}
+                <!-- Release version: show changelog -->
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {$t('update.changelog')}
+                  </h3>
+                  {#if updateState.updateInfo.releaseUrl}
+                    <a
+                      href={updateState.updateInfo.releaseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                    >
+                      {$t('update.viewOnGitHub')}
+                      <ExternalLink class="w-3 h-3" />
+                    </a>
+                  {/if}
+                </div>
 
-              <ChangelogDisplay
-                changelog={updateState.updateInfo.changelog}
-                summary={updateState.updateInfo.summary}
-              />
+                <ChangelogDisplay
+                  changelog={updateState.updateInfo.changelog}
+                  summary={updateState.updateInfo.summary}
+                />
+              {/if}
 
               <!-- Update Button -->
               <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">

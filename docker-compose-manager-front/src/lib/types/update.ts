@@ -32,6 +32,12 @@ export interface AppUpdateCheckResponse {
   releaseUrl: string | null;
   changelog: ReleaseInfo[];
   summary: ChangelogSummary;
+  // Fields for dev version update checks
+  isDevVersion?: boolean;
+  localDigest?: string | null;
+  remoteDigest?: string | null;
+  localCreatedAt?: string | null;
+  remoteCreatedAt?: string | null;
 }
 
 /**

@@ -20,6 +20,7 @@ public partial class GitHubReleaseService : IGitHubReleaseService
 {
     private readonly HttpClient _httpClient;
     private readonly SelfUpdateOptions _options;
+    private readonly IImageDigestService _imageDigestService;
     private readonly ILogger<GitHubReleaseService> _logger;
 
     private List<GitHubRelease>? _cachedReleases;
@@ -29,10 +30,12 @@ public partial class GitHubReleaseService : IGitHubReleaseService
     public GitHubReleaseService(
         HttpClient httpClient,
         IOptions<SelfUpdateOptions> options,
+        IImageDigestService imageDigestService,
         ILogger<GitHubReleaseService> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _imageDigestService = imageDigestService;
         _logger = logger;
 
         // Configure HttpClient for GitHub API
@@ -52,6 +55,14 @@ public partial class GitHubReleaseService : IGitHubReleaseService
         try
         {
             string currentVersion = GetCurrentVersion();
+
+            // Check if this is a dev version (e.g., "1.2.6-Test-dev-fix")
+            if (IsDevVersion(currentVersion))
+            {
+                return await CheckDevVersionUpdateAsync(currentVersion, cancellationToken);
+            }
+
+            // Standard release version update check
             List<GitHubRelease> releases = await GetReleasesAsync(cancellationToken);
 
             GitHubRelease? latestRelease = releases
@@ -106,6 +117,102 @@ public partial class GitHubReleaseService : IGitHubReleaseService
         {
             _logger.LogError(ex, "Error checking for updates from GitHub");
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Determines if a version is a development version (contains branch name suffix).
+    /// Examples: "1.2.6-Test-dev-fix" is dev, "1.2.6" is release
+    /// </summary>
+    private static bool IsDevVersion(string version)
+    {
+        string normalized = NormalizeVersion(version);
+        int dashIndex = normalized.IndexOf('-');
+        if (dashIndex <= 0) return false;
+
+        string suffix = normalized.Substring(dashIndex + 1);
+        // Dev versions have non-numeric suffixes (branch names)
+        // Release pre-releases like "1.0.0-rc.1" are still considered releases
+        return !string.IsNullOrEmpty(suffix) &&
+               !suffix.StartsWith("rc", StringComparison.OrdinalIgnoreCase) &&
+               !suffix.StartsWith("beta", StringComparison.OrdinalIgnoreCase) &&
+               !suffix.StartsWith("alpha", StringComparison.OrdinalIgnoreCase) &&
+               suffix.Any(c => char.IsLetter(c) && !char.IsDigit(c));
+    }
+
+    /// <summary>
+    /// Extracts the image tag from the current version for dev versions.
+    /// The image tag is the same as the version (e.g., "1.2.6-Test-dev-fix")
+    /// </summary>
+    private static string GetImageTagFromVersion(string version)
+    {
+        return NormalizeVersion(version);
+    }
+
+    /// <summary>
+    /// Checks for updates for dev versions using Docker image digest comparison.
+    /// </summary>
+    private async Task<AppUpdateCheckResponse> CheckDevVersionUpdateAsync(
+        string currentVersion,
+        CancellationToken cancellationToken)
+    {
+        string imageTag = GetImageTagFromVersion(currentVersion);
+        string fullImageName = $"{_options.DockerImageName}:{imageTag}";
+
+        _logger.LogDebug("Checking dev version update for {Image}", fullImageName);
+
+        try
+        {
+            // Get host architecture
+            string hostArch = await _imageDigestService.GetHostArchitectureAsync(cancellationToken);
+
+            // Get local digest
+            ImageDigestInfo localInfo = await _imageDigestService.GetLocalDigestAsync(fullImageName, cancellationToken);
+
+            // Get remote digest
+            ImageDigestInfo remoteInfo = await _imageDigestService.GetRemoteDigestAsync(fullImageName, hostArch, cancellationToken);
+
+            // Compare digests
+            bool updateAvailable = false;
+            if (localInfo.Digest != null && remoteInfo.Digest != null)
+            {
+                updateAvailable = !string.Equals(localInfo.Digest, remoteInfo.Digest, StringComparison.OrdinalIgnoreCase);
+            }
+
+            _logger.LogDebug(
+                "Dev version update check: LocalDigest={LocalDigest}, RemoteDigest={RemoteDigest}, UpdateAvailable={UpdateAvailable}",
+                localInfo.Digest ?? "null", remoteInfo.Digest ?? "null", updateAvailable);
+
+            return new AppUpdateCheckResponse(
+                CurrentVersion: currentVersion,
+                LatestVersion: currentVersion, // Same version, just newer image
+                UpdateAvailable: updateAvailable,
+                ReleaseUrl: null,
+                Changelog: new List<ReleaseInfo>(),
+                Summary: new ChangelogSummary(0, false, false, false),
+                IsDevVersion: true,
+                LocalDigest: localInfo.Digest,
+                RemoteDigest: remoteInfo.Digest,
+                LocalCreatedAt: localInfo.CreatedAt,
+                RemoteCreatedAt: remoteInfo.CreatedAt
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking dev version update for {Version}", currentVersion);
+            return new AppUpdateCheckResponse(
+                CurrentVersion: currentVersion,
+                LatestVersion: currentVersion,
+                UpdateAvailable: false,
+                ReleaseUrl: null,
+                Changelog: new List<ReleaseInfo>(),
+                Summary: new ChangelogSummary(0, false, false, false),
+                IsDevVersion: true,
+                LocalDigest: null,
+                RemoteDigest: null,
+                LocalCreatedAt: null,
+                RemoteCreatedAt: null
+            );
         }
     }
 

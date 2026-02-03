@@ -49,6 +49,12 @@ public class SelfUpdateOptions
     /// Optional GitHub personal access token for higher rate limits.
     /// </summary>
     public string? GitHubAccessToken { get; set; }
+
+    /// <summary>
+    /// Docker image name for self-update digest checks on dev versions.
+    /// Defaults to GHCR path derived from GitHubRepo setting.
+    /// </summary>
+    public string DockerImageName { get; set; } = "ghcr.io/jordanolivet/docker-compose-manager";
 }
 
 /// <summary>

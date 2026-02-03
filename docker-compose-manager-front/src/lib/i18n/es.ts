@@ -451,6 +451,10 @@ const es = {
     bulkUpdateSuccess: '{count} proyectos actualizados correctamente',
     bulkUpdatePartial: '{success} proyectos actualizados, {failed} fallidos',
     bulkUpdateFailed: 'Error al actualizar los proyectos',
+    // Dev version keys
+    devVersionNotice: 'Versión de desarrollo',
+    newerImageAvailable: 'Una imagen más reciente está disponible para esta versión de desarrollo.',
+    devUpdateInfo: 'Las versiones dev se actualizan comparando los digests de imágenes Docker.',
   },
 };
 

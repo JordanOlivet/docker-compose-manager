@@ -124,7 +124,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.image.outputs.name }}:${{ steps.branch.outputs.tag }}
+          tags: ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.version }}-${{ steps.branch.outputs.tag }}
           cache-from: type=gha,scope=pr-${{ steps.branch.outputs.tag }}
           cache-to: type=gha,scope=pr-${{ steps.branch.outputs.tag }},mode=max
           provenance: false
@@ -143,12 +143,14 @@ jobs:
         with:
           script: |
             const imageName = `${{ steps.image.outputs.name }}`;
-            const tag = `${{ steps.branch.outputs.tag }}`;
+            const version = `${{ needs.prepare.outputs.version }}`;
+            const branch = `${{ steps.branch.outputs.tag }}`;
+            const tag = `${version}-${branch}`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🐳 **Docker image built and pushed!**\n\n\`\`\`bash\ndocker pull ${imageName}:${tag}\n\`\`\`\n\n_This image is for development/testing only and will be replaced on each commit._`
+              body: `🐳 **Docker image built and pushed!**\n\n\`\`\`bash\ndocker pull ${imageName}:${tag}\n\`\`\`\n\n**Version:** \`${tag}\`\n\n_This image is for development/testing only and will be replaced on each commit._`
             });
 
   summary:

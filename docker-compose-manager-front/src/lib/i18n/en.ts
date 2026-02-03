@@ -451,5 +451,9 @@ export default {
     bulkUpdateSuccess: 'Successfully updated {count} projects',
     bulkUpdatePartial: 'Updated {success} projects, {failed} failed',
     bulkUpdateFailed: 'Failed to update projects',
+    // Dev version keys
+    devVersionNotice: 'Development Version',
+    newerImageAvailable: 'A newer image is available for this development version.',
+    devUpdateInfo: 'Dev versions are updated by comparing Docker image digests.',
   },
 } as const;

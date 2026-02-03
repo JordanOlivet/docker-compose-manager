@@ -9,7 +9,13 @@ public record AppUpdateCheckResponse(
     bool UpdateAvailable,
     string? ReleaseUrl,
     List<ReleaseInfo> Changelog,
-    ChangelogSummary Summary
+    ChangelogSummary Summary,
+    // Fields for dev version update checks
+    bool IsDevVersion = false,
+    string? LocalDigest = null,
+    string? RemoteDigest = null,
+    DateTime? LocalCreatedAt = null,
+    DateTime? RemoteCreatedAt = null
 );
 
 /// <summary>
