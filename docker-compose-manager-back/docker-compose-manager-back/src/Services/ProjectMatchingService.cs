@@ -251,7 +251,7 @@ public class ProjectMatchingService : IProjectMatchingService
             enrichedProjects.Add(notStartedProject);
         }
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Unified project list complete: {TotalCount} projects ({DockerCount} from Docker, {NotStartedCount} not-started)",
             enrichedProjects.Count,
             dockerProjects.Count,

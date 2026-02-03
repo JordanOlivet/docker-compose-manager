@@ -47,7 +47,7 @@ public class OperationService
             _context.Operations.Add(operation);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Created operation: {OperationId}, Type: {Type}, User: {UserId}",
                 operation.OperationId,
                 type,
@@ -111,7 +111,7 @@ public class OperationService
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Updated operation {OperationId}: Status={Status}, Progress={Progress}",
                 operationId,
                 status,
@@ -132,7 +132,7 @@ public class OperationService
                     projectPath = operation.ProjectPath
                 };
 
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Sending SignalR notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
                     operationId, operation.Type, status, operation.ProjectName
                 );
@@ -143,7 +143,7 @@ public class OperationService
                 string groupName = $"operation-{operationId}";
                 await _hubContext.Clients.Group(groupName).SendAsync("OperationUpdate", notification);
 
-                _logger.LogInformation("SignalR notification sent successfully for operation {OperationId}", operationId);
+                _logger.LogDebug("SignalR notification sent successfully for operation {OperationId}", operationId);
             }
             catch (Exception signalREx)
             {
@@ -307,7 +307,7 @@ public class OperationService
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Cancelled operation: {OperationId}", operationId);
+            _logger.LogDebug("Cancelled operation: {OperationId}", operationId);
 
             return true;
         }
@@ -336,7 +336,7 @@ public class OperationService
                 _context.Operations.RemoveRange(oldOperations);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Cleaned up {Count} old operations before {Date}", count, beforeDate);
+                _logger.LogDebug("Cleaned up {Count} old operations before {Date}", count, beforeDate);
             }
 
             return count;

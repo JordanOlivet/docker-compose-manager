@@ -124,7 +124,7 @@ public class AuditService : IAuditService
             _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Audit log created: User={UserId}, Action={Action}, Resource={ResourceType}/{ResourceId}",
                 userId,
                 action,
@@ -286,7 +286,7 @@ public class AuditService : IAuditService
                 _context.AuditLogs.RemoveRange(oldLogs);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Purged {Count} old audit logs before {Date}", count, beforeDate);
+                _logger.LogDebug("Purged {Count} old audit logs before {Date}", count, beforeDate);
             }
 
             return count;

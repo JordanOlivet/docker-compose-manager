@@ -68,7 +68,7 @@ public class SelfUpdateService : ISelfUpdateService
 
         try
         {
-            _logger.LogInformation("Checking for application updates");
+            _logger.LogDebug("Checking for application updates");
             return await _gitHubReleaseService.CheckForUpdateAsync(cancellationToken);
         }
         catch (Exception ex)
@@ -132,7 +132,7 @@ public class SelfUpdateService : ISelfUpdateService
             );
 
             // Notify all clients about maintenance mode
-            _logger.LogInformation("Broadcasting maintenance mode notification");
+            _logger.LogDebug("Broadcasting maintenance mode notification");
             var notification = new MaintenanceModeNotification(
                 IsActive: true,
                 Message: $"Application is updating to version {updateInfo.LatestVersion}. Please wait...",
@@ -167,17 +167,17 @@ public class SelfUpdateService : ISelfUpdateService
         // Priority 1: Configuration (environment variable or appsettings)
         if (!string.IsNullOrWhiteSpace(_selfUpdateOptions.ComposeFilePath))
         {
-            _logger.LogInformation("Using configured compose file path: {Path}", _selfUpdateOptions.ComposeFilePath);
+            _logger.LogDebug("Using configured compose file path: {Path}", _selfUpdateOptions.ComposeFilePath);
             return _selfUpdateOptions.ComposeFilePath;
         }
 
         // Priority 2: Auto-detection from Docker labels
-        _logger.LogInformation("Compose file path not configured, attempting auto-detection...");
+        _logger.LogDebug("Compose file path not configured, attempting auto-detection...");
         ComposeDetectionResult detection = await _composeFileDetector.GetComposeDetectionResultAsync();
 
         if (detection.IsRunningViaCompose && !string.IsNullOrEmpty(detection.ComposeFilePath))
         {
-            _logger.LogInformation("Auto-detected compose file path: {Path} (Project: {Project})",
+            _logger.LogDebug("Auto-detected compose file path: {Path} (Project: {Project})",
                 detection.ComposeFilePath, detection.ProjectName);
             return detection.ComposeFilePath;
         }
@@ -203,7 +203,7 @@ public class SelfUpdateService : ISelfUpdateService
             string workingDirectory = Path.GetDirectoryName(composeFilePath) ?? "/app";
             string composeFileName = Path.GetFileName(composeFilePath);
 
-            _logger.LogInformation("Executing docker compose pull for update, compose file: {ComposeFile}", composeFilePath);
+            _logger.LogDebug("Executing docker compose pull for update, compose file: {ComposeFile}", composeFilePath);
 
             // Pull the latest image
             (int pullExitCode, string pullOutput, string pullError) = await _dockerCommandExecutor.ExecuteComposeCommandAsync(
@@ -229,10 +229,10 @@ public class SelfUpdateService : ISelfUpdateService
                 return;
             }
 
-            _logger.LogInformation("Docker compose pull succeeded, output: {Output}", pullOutput);
+            _logger.LogDebug("Docker compose pull succeeded, output: {Output}", pullOutput);
 
             // Recreate containers with new image
-            _logger.LogInformation("Executing docker compose up -d for update");
+            _logger.LogDebug("Executing docker compose up -d for update");
 
             (int upExitCode, string upOutput, string upError) = await _dockerCommandExecutor.ExecuteComposeCommandAsync(
                 workingDirectory: workingDirectory,
@@ -248,7 +248,7 @@ public class SelfUpdateService : ISelfUpdateService
             }
             else
             {
-                _logger.LogInformation("Docker compose up succeeded, output: {Output}", upOutput);
+                _logger.LogDebug("Docker compose up succeeded, output: {Output}", upOutput);
             }
 
             // The application should restart here due to container recreation

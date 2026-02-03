@@ -108,7 +108,7 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                 return _cachedResult;
             }
 
-            _logger.LogInformation("Detected container ID: {ContainerId}", containerId);
+            _logger.LogDebug("Detected container ID: {ContainerId}", containerId);
 
             // Inspect the container to get labels
             ContainerInspectResponse inspection = await _dockerClient.Containers.InspectContainerAsync(containerId);
@@ -151,7 +151,7 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
             // config_files can contain multiple files separated by comma, take the first one
             string composeFilePath = configFiles.Split(',')[0].Trim();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Detected compose file: {ComposeFile}, Working dir: {WorkingDir}, Project: {Project}",
                 composeFilePath, workingDir, projectName);
 

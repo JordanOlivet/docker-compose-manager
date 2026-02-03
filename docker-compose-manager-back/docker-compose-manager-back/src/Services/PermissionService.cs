@@ -215,7 +215,7 @@ public class PermissionService : IPermissionService
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Copied {Count} permissions from {SourceType} {SourceId} to {TargetType} {TargetId}",
             sourcePermissions.Count,
             sourceUserId.HasValue ? "User" : "UserGroup",

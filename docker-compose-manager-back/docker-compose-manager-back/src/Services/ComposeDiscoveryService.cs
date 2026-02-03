@@ -79,7 +79,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
     public void InvalidateCache()
     {
         _cache.Remove(CACHE_KEY);
-        _logger.LogInformation("Compose projects cache invalidated");
+        _logger.LogDebug("Compose projects cache invalidated");
     }
 
     public async Task<List<ComposeProjectDto>> GetAllProjectsAsync(bool bypassCache = false)
@@ -179,7 +179,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
                 }
             }
 
-            _logger.LogInformation("Discovered {Count} compose projects from Docker", projects.Count);
+            _logger.LogDebug("Discovered {Count} compose projects from Docker", projects.Count);
         }
         catch (Exception ex)
         {

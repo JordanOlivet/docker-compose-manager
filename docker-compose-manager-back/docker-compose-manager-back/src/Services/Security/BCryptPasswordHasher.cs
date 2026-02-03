@@ -26,7 +26,7 @@ public class BCryptPasswordHasher : IPasswordHasher
                 $"BCrypt work factor must be between 4 and 31. Current value: {_options.WorkFactor}");
         }
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "BCryptPasswordHasher initialized with work factor {WorkFactor}",
             _options.WorkFactor);
     }
@@ -102,7 +102,7 @@ public class BCryptPasswordHasher : IPasswordHasher
                 var needsRehash = hashWorkFactor < _options.WorkFactor;
                 if (needsRehash)
                 {
-                    _logger.LogInformation(
+                    _logger.LogDebug(
                         "Hash with work factor {OldWorkFactor} needs rehashing to {NewWorkFactor}",
                         hashWorkFactor,
                         _options.WorkFactor);

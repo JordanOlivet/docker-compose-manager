@@ -30,7 +30,7 @@ public class ComposeFileScanner : IComposeFileScanner
     public async Task<List<DiscoveredComposeFile>> ScanComposeFilesAsync()
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
-        _logger.LogInformation("Starting compose file scan in root path: {RootPath}", _options.RootPath);
+        _logger.LogDebug("Starting compose file scan in root path: {RootPath}", _options.RootPath);
 
         string path = _options.RootPath;
 
@@ -45,7 +45,7 @@ public class ComposeFileScanner : IComposeFileScanner
         var validCount = discoveredFiles.Count(f => f.IsValid);
         var totalScanned = discoveredFiles.Count;
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Compose file scan completed in {Duration}ms. Total files: {Total}, Valid: {Valid}, Invalid: {Invalid}",
             stopwatch.ElapsedMilliseconds,
             totalScanned,

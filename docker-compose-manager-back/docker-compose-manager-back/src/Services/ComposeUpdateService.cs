@@ -114,7 +114,7 @@ public class ComposeUpdateService : IComposeUpdateService
                 return cached;
             }
 
-            _logger.LogInformation("Checking updates for project {ProjectName}", projectName);
+            _logger.LogDebug("Checking updates for project {ProjectName}", projectName);
 
             // Use ProjectMatchingService to find the compose file path
             // This uses the same sophisticated matching logic as the projects list
@@ -134,13 +134,13 @@ public class ComposeUpdateService : IComposeUpdateService
             _logger.LogDebug("Found compose file for project {ProjectName}: {FilePath}", projectName, composeFilePath);
 
             // Parse compose file to get services and images
-            var serviceImages = await ParseServiceImagesAsync(composeFilePath, ct);
+            Dictionary<string, ServiceImageInfo> serviceImages = await ParseServiceImagesAsync(composeFilePath, ct);
 
             // Check each image for updates (with concurrency limit)
             var semaphore = new SemaphoreSlim(_options.MaxConcurrentChecks);
             var tasks = new List<Task<ImageUpdateStatus>>();
 
-            foreach (var (serviceName, imageInfo) in serviceImages)
+            foreach ((string? serviceName, ServiceImageInfo? imageInfo) in serviceImages)
             {
                 if (string.IsNullOrEmpty(imageInfo.Image))
                 {
@@ -175,7 +175,7 @@ public class ComposeUpdateService : IComposeUpdateService
             // Cache the result
             _cacheService.SetCachedCheck(projectName, response);
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Update check complete for {ProjectName}: {UpdateCount} updates available out of {TotalCount} images",
                 projectName,
                 results.Count(r => r.UpdateAvailable),
@@ -199,7 +199,7 @@ public class ComposeUpdateService : IComposeUpdateService
         await semaphore.WaitAsync(ct);
         try
         {
-            var status = await _imageDigestService.CheckImageUpdateAsync(image, serviceName, ct);
+            ImageUpdateStatus status = await _imageDigestService.CheckImageUpdateAsync(image, serviceName, ct);
 
             // Apply update policy from compose file
             return status with { UpdatePolicy = updatePolicy };
@@ -220,7 +220,7 @@ public class ComposeUpdateService : IComposeUpdateService
     {
         try
         {
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Updating project {ProjectName} - Services: {Services}, UpdateAll: {UpdateAll}",
                 projectName,
                 services != null ? string.Join(", ", services) : "all",
@@ -245,7 +245,7 @@ public class ComposeUpdateService : IComposeUpdateService
             if (updateAll || services == null || services.Count == 0)
             {
                 // Update all services with available updates
-                var updateCheck = await CheckProjectUpdatesAsync(projectName, ct);
+                ProjectUpdateCheckResponse updateCheck = await CheckProjectUpdatesAsync(projectName, ct);
                 servicesToUpdate = updateCheck.Images
                     .Where(i => i.UpdateAvailable && i.UpdatePolicy != "disabled")
                     .Select(i => i.ServiceName)
@@ -269,7 +269,7 @@ public class ComposeUpdateService : IComposeUpdateService
             string operationId = Guid.NewGuid().ToString();
 
             // Pull new images
-            _logger.LogInformation("Pulling images for services: {Services}", servicesArg);
+            _logger.LogDebug("Pulling images for services: {Services}", servicesArg);
             (int pullExitCode, string pullOutput, string pullError) = await _dockerExecutor.ExecuteAsync(
                 "docker",
                 $"compose -f \"{composeFilePath}\" pull {servicesArg}",
@@ -286,7 +286,7 @@ public class ComposeUpdateService : IComposeUpdateService
             }
 
             // Recreate containers with new images
-            _logger.LogInformation("Recreating containers for services: {Services}", servicesArg);
+            _logger.LogDebug("Recreating containers for services: {Services}", servicesArg);
             (int upExitCode, string upOutput, string upError) = await _dockerExecutor.ExecuteAsync(
                 "docker",
                 $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}",
@@ -315,7 +315,7 @@ public class ComposeUpdateService : IComposeUpdateService
                 resourceId: projectName
             );
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Successfully updated {Count} services in project {ProjectName}",
                 servicesToUpdate.Count,
                 projectName);
@@ -347,7 +347,7 @@ public class ComposeUpdateService : IComposeUpdateService
         string ipAddress,
         CancellationToken ct = default)
     {
-        var summaries = _cacheService.GetAllCachedSummaries();
+        List<ProjectUpdateSummary> summaries = _cacheService.GetAllCachedSummaries();
         var projectsWithUpdates = summaries
             .Where(s => s.ServicesWithUpdates > 0)
             .Select(s => s.ProjectName)
@@ -399,35 +399,35 @@ public class ComposeUpdateService : IComposeUpdateService
     public void ClearCache()
     {
         _cacheService.InvalidateAll();
-        _logger.LogInformation("Update check cache cleared");
+        _logger.LogDebug("Update check cache cleared");
     }
 
     public async Task<CheckAllUpdatesResponse> CheckAllProjectsUpdatesAsync(
         int userId,
         CancellationToken ct = default)
     {
-        _logger.LogInformation("Checking updates for all projects (user: {UserId})", userId);
+        _logger.LogDebug("Checking updates for all projects (user: {UserId})", userId);
 
         // Get all projects with compose files
-        var allProjects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
+        List<ComposeProjectDto> allProjects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
         var projectsWithFiles = allProjects
             .Where(p => p.HasComposeFile && !string.IsNullOrEmpty(p.ComposeFilePath))
             .ToList();
 
-        _logger.LogInformation("Found {Count} projects with compose files to check", projectsWithFiles.Count);
+        _logger.LogDebug("Found {Count} projects with compose files to check", projectsWithFiles.Count);
 
         var summaries = new List<ProjectUpdateSummary>();
         int totalServicesWithUpdates = 0;
 
         // Check each project sequentially to avoid rate limiting
-        foreach (var project in projectsWithFiles)
+        foreach (ComposeProjectDto? project in projectsWithFiles)
         {
             if (ct.IsCancellationRequested)
                 break;
 
             try
             {
-                var checkResult = await CheckProjectUpdatesAsync(project.Name, ct);
+                ProjectUpdateCheckResponse checkResult = await CheckProjectUpdatesAsync(project.Name, ct);
 
                 int servicesWithUpdates = checkResult.Images
                     .Count(i => i.UpdateAvailable && i.UpdatePolicy != "disabled");
@@ -459,7 +459,7 @@ public class ComposeUpdateService : IComposeUpdateService
 
         int projectsWithUpdates = summaries.Count(s => s.ServicesWithUpdates > 0);
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Bulk update check complete: {ProjectsChecked} projects checked, {ProjectsWithUpdates} with updates, {TotalServices} total services",
             summaries.Count,
             projectsWithUpdates,
@@ -484,11 +484,11 @@ public class ComposeUpdateService : IComposeUpdateService
         {
             string content = await File.ReadAllTextAsync(composeFilePath, ct);
 
-            var deserializer = new DeserializerBuilder()
+            IDeserializer deserializer = new DeserializerBuilder()
                 .IgnoreUnmatchedProperties()
                 .Build();
 
-            var composeData = deserializer.Deserialize<Dictionary<string, object>>(content);
+            Dictionary<string, object> composeData = deserializer.Deserialize<Dictionary<string, object>>(content);
 
             if (composeData == null ||
                 !composeData.TryGetValue("services", out object? servicesObj) ||
@@ -497,7 +497,7 @@ public class ComposeUpdateService : IComposeUpdateService
                 return result;
             }
 
-            foreach (var (serviceKey, serviceValue) in services)
+            foreach ((object? serviceKey, object? serviceValue) in services)
             {
                 string serviceName = serviceKey.ToString() ?? "";
                 if (serviceValue is not Dictionary<object, object> serviceData)
@@ -577,10 +577,10 @@ public class ComposeUpdateService : IComposeUpdateService
             // This uses the same matching strategies (by name, by path, by filename+directory)
             // We use userId 1 (default admin) since this is only called from admin endpoints
             const int systemAdminUserId = 1;
-            var projects = await _projectMatchingService.GetUnifiedProjectListAsync(systemAdminUserId);
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(systemAdminUserId);
 
             // Find the project by name (case-insensitive)
-            var matchedProject = projects.FirstOrDefault(p =>
+            ComposeProjectDto? matchedProject = projects.FirstOrDefault(p =>
                 p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
             if (matchedProject != null && matchedProject.HasComposeFile)

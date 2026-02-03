@@ -116,7 +116,7 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
             _cachedProjects.Remove(projectName);
         }
 
-        _logger.LogInformation("Invalidated cache for project {ProjectName}", projectName);
+        _logger.LogDebug("Invalidated cache for project {ProjectName}", projectName);
     }
 
     public void InvalidateAll()
@@ -134,7 +134,7 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
             _cache.Remove(cacheKey);
         }
 
-        _logger.LogInformation("Invalidated all cached update checks ({Count} projects)", projects.Count);
+        _logger.LogDebug("Invalidated all cached update checks ({Count} projects)", projects.Count);
     }
 
     public List<ProjectUpdateSummary> GetAllCachedSummaries()

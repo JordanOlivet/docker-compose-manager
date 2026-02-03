@@ -7,7 +7,6 @@ using docker_compose_manager_back.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Core;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -91,7 +90,7 @@ public class ComposeController : BaseController
     {
         try
         {
-            var files = await _cacheService.GetOrScanAsync();
+            List<DiscoveredComposeFile> files = await _cacheService.GetOrScanAsync();
             var dtos = files.Select(f => new DiscoveredComposeFileDto(
                 FilePath: f.FilePath,
                 ProjectName: f.ProjectName,
@@ -123,7 +122,7 @@ public class ComposeController : BaseController
     {
         try
         {
-            var conflicts = _conflictService.GetConflictErrors();
+            List<ConflictErrorDto> conflicts = _conflictService.GetConflictErrors();
             var response = new ConflictsResponse(conflicts, conflicts.Any());
             return Ok(ApiResponse.Ok(response));
         }
@@ -362,7 +361,7 @@ public class ComposeController : BaseController
         _cacheService.Invalidate();
 
         // Trigger fresh scan
-        var files = await _cacheService.GetOrScanAsync(bypassCache: true);
+        List<DiscoveredComposeFile> files = await _cacheService.GetOrScanAsync(bypassCache: true);
 
         await _auditService.LogActionAsync(
             userId.Value,
@@ -432,7 +431,7 @@ public class ComposeController : BaseController
                 "Listed compose projects"
             );
 
-            _logger.LogInformation("User {UserId} listed {Count} compose projects", userId.Value, projects.Count);
+            _logger.LogDebug("User {UserId} listed {Count} compose projects", userId.Value, projects.Count);
 
             return Ok(ApiResponse.Ok(projects));
         }
@@ -624,8 +623,8 @@ public class ComposeController : BaseController
             }
 
             // Get project info to check if compose file exists
-            var projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
-            var project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+            ComposeProjectDto? project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
             if (project == null)
             {
@@ -1646,7 +1645,7 @@ volumes:
                 return Unauthorized(ApiResponse.Fail<ProjectUpdateCheckResponse>("User not authenticated"));
             }
 
-            _logger.LogInformation("User {UserId} checking updates for project {ProjectName}", userId.Value, projectName);
+            _logger.LogDebug("User {UserId} checking updates for project {ProjectName}", userId.Value, projectName);
 
             ProjectUpdateCheckResponse result = await _composeUpdateService.CheckProjectUpdatesAsync(projectName, ct);
 

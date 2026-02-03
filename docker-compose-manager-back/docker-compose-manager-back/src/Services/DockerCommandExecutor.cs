@@ -47,7 +47,7 @@ public class DockerCommandExecutor
                 if (process.ExitCode == 0)
                 {
                     _isComposeV2 = true;
-                    _logger.LogInformation("Docker Compose v2 detected");
+                    _logger.LogDebug("Docker Compose v2 detected");
                     return true;
                 }
             }
@@ -63,7 +63,7 @@ public class DockerCommandExecutor
                 if (processV1.ExitCode == 0)
                 {
                     _isComposeV2 = false;
-                    _logger.LogInformation("Docker Compose v1 detected");
+                    _logger.LogDebug("Docker Compose v1 detected");
                     return false;
                 }
             }

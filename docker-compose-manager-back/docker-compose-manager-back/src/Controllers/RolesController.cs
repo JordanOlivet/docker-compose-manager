@@ -60,7 +60,7 @@ public class RolesController : BaseController
                 r.UpdatedAt
             )).ToList();
 
-            _logger.LogInformation("Retrieved {Count} roles", roleDtos.Count);
+            _logger.LogDebug("Retrieved {Count} roles", roleDtos.Count);
 
             return Ok(ApiResponse.Ok(roleDtos, "Roles retrieved successfully"));
         }

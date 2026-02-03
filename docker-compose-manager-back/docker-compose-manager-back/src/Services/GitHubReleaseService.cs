@@ -162,7 +162,7 @@ public partial class GitHubReleaseService : IGitHubReleaseService
     {
         _cacheExpiration = DateTime.MinValue;
         _cachedReleases = null;
-        _logger.LogInformation("GitHub releases cache invalidated");
+        _logger.LogDebug("GitHub releases cache invalidated");
     }
 
     private async Task<List<GitHubRelease>> GetReleasesAsync(CancellationToken cancellationToken)
@@ -177,7 +177,7 @@ public partial class GitHubReleaseService : IGitHubReleaseService
             }
 
             string url = $"/repos/{_options.GitHubRepo}/releases";
-            _logger.LogInformation("Fetching releases from GitHub: {Url}", url);
+            _logger.LogDebug("Fetching releases from GitHub: {Url}", url);
 
             HttpResponseMessage response = await _httpClient.GetAsync(url, cancellationToken);
 
@@ -210,7 +210,7 @@ public partial class GitHubReleaseService : IGitHubReleaseService
             _cachedReleases = releases;
             _cacheExpiration = DateTime.UtcNow.AddSeconds(_options.CacheDurationSeconds);
 
-            _logger.LogInformation("Fetched {Count} releases from GitHub, cached until {Expiration}", releases.Count, _cacheExpiration);
+            _logger.LogDebug("Fetched {Count} releases from GitHub, cached until {Expiration}", releases.Count, _cacheExpiration);
 
             return releases;
         }

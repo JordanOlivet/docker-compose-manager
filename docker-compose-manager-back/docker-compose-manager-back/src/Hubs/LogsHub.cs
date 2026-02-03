@@ -99,7 +99,7 @@ public class LogsHub : Hub
             CancellationTokenSource cts = new();
             _activeStreams[connectionId] = cts;
 
-            _logger.LogInformation("Starting container log stream for {ContainerId}", containerId);
+            _logger.LogDebug("Starting container log stream for {ContainerId}", containerId);
 
             // Get container logs
             List<string> logs = await _dockerService.GetContainerLogsAsync(containerId, tail, timestamps: true);
@@ -120,7 +120,7 @@ public class LogsHub : Hub
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Log stream cancelled for container {ContainerId}", containerId);
+            _logger.LogDebug("Log stream cancelled for container {ContainerId}", containerId);
         }
         catch (Exception ex)
         {
@@ -156,7 +156,7 @@ public class LogsHub : Hub
     {
         string groupName = $"operation-{operationId}";
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-        _logger.LogInformation("Client {ConnectionId} subscribed to operation {OperationId}", Context.ConnectionId, operationId);
+        _logger.LogDebug("Client {ConnectionId} subscribed to operation {OperationId}", Context.ConnectionId, operationId);
     }
 
     /// <summary>
@@ -166,6 +166,6 @@ public class LogsHub : Hub
     {
         string groupName = $"operation-{operationId}";
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-        _logger.LogInformation("Client {ConnectionId} unsubscribed from operation {OperationId}", Context.ConnectionId, operationId);
+        _logger.LogDebug("Client {ConnectionId} unsubscribed from operation {OperationId}", Context.ConnectionId, operationId);
     }
 }
