@@ -389,7 +389,7 @@ const fr = {
   },
 
   update: {
-    title: 'Mise à jour de l\'application',
+    title: 'Mise à jour de l\'application (uniquement pour les déploiements Docker)',
     subtitle: 'Vérifier les mises à jour et gérer les versions',
     currentVersion: 'Version actuelle',
     latestVersion: 'Dernière version',

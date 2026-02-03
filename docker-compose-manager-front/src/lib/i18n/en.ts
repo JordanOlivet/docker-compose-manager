@@ -389,7 +389,7 @@ export default {
   },
 
   update: {
-    title: 'Application Update',
+    title: 'Application Update (only for docker deployments)',
     subtitle: 'Check for updates and manage application versions',
     currentVersion: 'Current Version',
     latestVersion: 'Latest Version',
