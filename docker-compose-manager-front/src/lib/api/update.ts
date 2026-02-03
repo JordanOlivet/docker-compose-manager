@@ -7,7 +7,8 @@ import type {
   ProjectUpdateCheckResponse,
   ProjectUpdateRequest,
   ProjectUpdateSummary,
-  UpdateAllResponse
+  UpdateAllResponse,
+  CheckAllUpdatesResponse
 } from '$lib/types/update';
 
 /**
@@ -77,6 +78,14 @@ export const clearUpdateCache = async (): Promise<void> => {
   await apiClient.post('/compose/clear-update-cache');
 };
 
+/**
+ * Check for updates across all projects with compose files
+ */
+export const checkAllProjectUpdates = async (): Promise<CheckAllUpdatesResponse> => {
+  const response = await apiClient.post('/compose/check-all-updates');
+  return response.data.data;
+};
+
 export const updateApi = {
   // App update methods
   checkAppUpdate,
@@ -87,5 +96,6 @@ export const updateApi = {
   updateProject,
   getProjectUpdateStatus,
   updateAllProjects,
-  clearUpdateCache
+  clearUpdateCache,
+  checkAllProjectUpdates
 };

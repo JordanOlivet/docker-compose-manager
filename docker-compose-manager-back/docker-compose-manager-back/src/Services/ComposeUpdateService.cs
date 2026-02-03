@@ -45,6 +45,13 @@ public interface IComposeUpdateService
     /// Clears the update check cache.
     /// </summary>
     void ClearCache();
+
+    /// <summary>
+    /// Checks for updates across all projects that have compose files.
+    /// </summary>
+    Task<CheckAllUpdatesResponse> CheckAllProjectsUpdatesAsync(
+        int userId,
+        CancellationToken ct = default);
 }
 
 public class ComposeUpdateService : IComposeUpdateService
@@ -393,6 +400,78 @@ public class ComposeUpdateService : IComposeUpdateService
     {
         _cacheService.InvalidateAll();
         _logger.LogInformation("Update check cache cleared");
+    }
+
+    public async Task<CheckAllUpdatesResponse> CheckAllProjectsUpdatesAsync(
+        int userId,
+        CancellationToken ct = default)
+    {
+        _logger.LogInformation("Checking updates for all projects (user: {UserId})", userId);
+
+        // Get all projects with compose files
+        var allProjects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
+        var projectsWithFiles = allProjects
+            .Where(p => p.HasComposeFile && !string.IsNullOrEmpty(p.ComposeFilePath))
+            .ToList();
+
+        _logger.LogInformation("Found {Count} projects with compose files to check", projectsWithFiles.Count);
+
+        var summaries = new List<ProjectUpdateSummary>();
+        int totalServicesWithUpdates = 0;
+
+        // Check each project sequentially to avoid rate limiting
+        foreach (var project in projectsWithFiles)
+        {
+            if (ct.IsCancellationRequested)
+                break;
+
+            try
+            {
+                var checkResult = await CheckProjectUpdatesAsync(project.Name, ct);
+
+                int servicesWithUpdates = checkResult.Images
+                    .Count(i => i.UpdateAvailable && i.UpdatePolicy != "disabled");
+
+                summaries.Add(new ProjectUpdateSummary(
+                    ProjectName: project.Name,
+                    ServicesWithUpdates: servicesWithUpdates,
+                    LastChecked: checkResult.LastChecked
+                ));
+
+                totalServicesWithUpdates += servicesWithUpdates;
+
+                _logger.LogDebug(
+                    "Project {ProjectName}: {UpdateCount} services with updates",
+                    project.Name,
+                    servicesWithUpdates);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error checking updates for project {ProjectName}", project.Name);
+                // Add project with 0 updates on error so it still appears in the list
+                summaries.Add(new ProjectUpdateSummary(
+                    ProjectName: project.Name,
+                    ServicesWithUpdates: 0,
+                    LastChecked: null
+                ));
+            }
+        }
+
+        int projectsWithUpdates = summaries.Count(s => s.ServicesWithUpdates > 0);
+
+        _logger.LogInformation(
+            "Bulk update check complete: {ProjectsChecked} projects checked, {ProjectsWithUpdates} with updates, {TotalServices} total services",
+            summaries.Count,
+            projectsWithUpdates,
+            totalServicesWithUpdates);
+
+        return new CheckAllUpdatesResponse(
+            Projects: summaries,
+            ProjectsChecked: summaries.Count,
+            ProjectsWithUpdates: projectsWithUpdates,
+            TotalServicesWithUpdates: totalServicesWithUpdates,
+            CheckedAt: DateTime.UtcNow
+        );
     }
 
     private async Task<Dictionary<string, ServiceImageInfo>> ParseServiceImagesAsync(

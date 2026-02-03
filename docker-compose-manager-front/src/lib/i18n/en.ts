@@ -324,6 +324,11 @@ export default {
     pathAdded: 'Path added successfully',
     pathRemoved: 'Path removed successfully',
     filesDiscovered: 'Files discovered successfully',
+    // Project update check settings
+    projectUpdateCheck: 'Project Update Checking',
+    projectUpdateCheckDescription: 'Configure how often the system checks for container image updates across all compose projects.',
+    checkInterval: 'Check Interval',
+    intervalSaved: 'Check interval saved',
   },
   
   audit: {
@@ -436,5 +441,15 @@ export default {
     servicesSelected: 'services selected',
     updateSelected: 'Update Selected',
     updateSuccess: 'Successfully updated {count} services',
+    // Bulk update keys
+    updateAll: 'Update All',
+    updateAllProjects: 'Update All Projects',
+    projectsHaveUpdates: 'projects have updates',
+    allProjectsUpToDate: 'All projects are up to date',
+    servicesNeedUpdate: 'services need update',
+    projectsSelected: 'projects selected',
+    bulkUpdateSuccess: 'Successfully updated {count} projects',
+    bulkUpdatePartial: 'Updated {success} projects, {failed} failed',
+    bulkUpdateFailed: 'Failed to update projects',
   },
 } as const;

@@ -324,6 +324,11 @@ const fr = {
     pathAdded: 'Chemin ajouté avec succès',
     pathRemoved: 'Chemin supprimé avec succès',
     filesDiscovered: 'Fichiers découverts avec succès',
+    // Project update check settings
+    projectUpdateCheck: 'Vérification des mises à jour des projets',
+    projectUpdateCheckDescription: 'Configurez la fréquence de vérification des mises à jour des images de conteneurs pour tous les projets compose.',
+    checkInterval: 'Intervalle de vérification',
+    intervalSaved: 'Intervalle de vérification enregistré',
   },
   
   audit: {
@@ -436,6 +441,16 @@ const fr = {
     servicesSelected: 'services sélectionnés',
     updateSelected: 'Mettre à jour la sélection',
     updateSuccess: '{count} services mis à jour avec succès',
+    // Bulk update keys
+    updateAll: 'Tout mettre à jour',
+    updateAllProjects: 'Mettre à jour tous les projets',
+    projectsHaveUpdates: 'projets ont des mises à jour',
+    allProjectsUpToDate: 'Tous les projets sont à jour',
+    servicesNeedUpdate: 'services à mettre à jour',
+    projectsSelected: 'projets sélectionnés',
+    bulkUpdateSuccess: '{count} projets mis à jour avec succès',
+    bulkUpdatePartial: '{success} projets mis à jour, {failed} échoués',
+    bulkUpdateFailed: 'Échec de la mise à jour des projets',
   },
 };
 

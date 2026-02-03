@@ -7,6 +7,7 @@
 	import { authApi } from '$lib/api';
 	import { initializeGlobalConnection, stopGlobalConnection, onMaintenanceMode } from '$lib/stores/signalr.svelte';
 	import { enterMaintenanceMode, startPeriodicCheck, stopPeriodicCheck } from '$lib/stores/update.svelte';
+	import { startPeriodicProjectCheck, stopPeriodicProjectCheck, loadIntervalFromSettings } from '$lib/stores/projectUpdate.svelte';
 	import { setupSignalRQueryBridge } from '$lib/services/signalrQueryBridge';
 	import { getQueryClient } from '$lib/queryClient';
 
@@ -46,6 +47,10 @@
 		// Start periodic update checking for admin users
 		if (isAdmin.current) {
 			startPeriodicCheck();
+
+			// Start periodic project update checking
+			await loadIntervalFromSettings();
+			startPeriodicProjectCheck();
 		}
 
 		isLoading = false;
@@ -62,6 +67,8 @@
 		}
 		// Stop periodic update checking
 		stopPeriodicCheck();
+		// Stop periodic project update checking
+		stopPeriodicProjectCheck();
 	});
 </script>
 

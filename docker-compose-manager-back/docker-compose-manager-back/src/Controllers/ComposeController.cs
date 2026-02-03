@@ -1823,6 +1823,51 @@ volumes:
             return StatusCode(500, ApiResponse.Fail<object>("Error clearing cache", "SERVER_ERROR"));
         }
     }
+
+    /// <summary>
+    /// Checks for available updates across all projects with compose files.
+    /// </summary>
+    /// <remarks>
+    /// Iterates through all projects that have associated compose files and checks
+    /// each one for available image updates. Results are aggregated into a summary.
+    /// This operation may take some time depending on the number of projects.
+    /// </remarks>
+    [HttpPost("check-all-updates")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<CheckAllUpdatesResponse>>> CheckAllProjectUpdates(CancellationToken ct)
+    {
+        try
+        {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<CheckAllUpdatesResponse>("User not authenticated"));
+            }
+
+            _logger.LogInformation("User {UserId} triggered check-all-updates", userId.Value);
+
+            CheckAllUpdatesResponse result = await _composeUpdateService.CheckAllProjectsUpdatesAsync(
+                userId.Value,
+                ct
+            );
+
+            await _auditService.LogActionAsync(
+                userId.Value,
+                "compose.check_all_updates",
+                GetUserIpAddress(),
+                $"Checked updates for {result.ProjectsChecked} projects - {result.ProjectsWithUpdates} with updates",
+                resourceType: "System",
+                resourceId: "BulkUpdateCheck"
+            );
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking all project updates");
+            return StatusCode(500, ApiResponse.Fail<CheckAllUpdatesResponse>("Error checking updates", "SERVER_ERROR"));
+        }
+    }
 }
 
 public record ComposeTemplateDto(string Id, string Name, string Description, string Content);

@@ -138,3 +138,14 @@ public record ImageReference(
     string? Digest,
     string FullName
 );
+
+/// <summary>
+/// Response containing bulk update check results for all projects.
+/// </summary>
+public record CheckAllUpdatesResponse(
+    List<ProjectUpdateSummary> Projects,
+    int ProjectsChecked,
+    int ProjectsWithUpdates,
+    int TotalServicesWithUpdates,
+    DateTime CheckedAt
+);

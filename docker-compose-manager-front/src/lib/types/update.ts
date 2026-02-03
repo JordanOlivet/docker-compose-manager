@@ -125,3 +125,14 @@ export interface UpdateAllResponse {
   projectsToUpdate: string[];
   status: string;
 }
+
+/**
+ * Response containing bulk update check results for all projects
+ */
+export interface CheckAllUpdatesResponse {
+  projects: ProjectUpdateSummary[];
+  projectsChecked: number;
+  projectsWithUpdates: number;
+  totalServicesWithUpdates: number;
+  checkedAt: string;
+}

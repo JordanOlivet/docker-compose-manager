@@ -22,11 +22,13 @@
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
+  import BulkUpdateDialog from '$lib/components/update/BulkUpdateDialog.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { isAdmin } from '$lib/stores/auth.svelte';
+  import { projectHasUpdates, hasAnyUpdates, projectsWithUpdatesCount } from '$lib/stores/projectUpdate.svelte';
 
   let searchQuery = $state('');
   let openProjects = $state<Record<string, boolean>>({});
@@ -42,6 +44,9 @@
   let selectedProjectForUpdate = $state<string | null>(null);
   let projectUpdateCheck = $state<ProjectUpdateCheckResponse | null>(null);
   let checkingUpdatesFor = $state<string | null>(null);
+
+  // Bulk update dialog state
+  let bulkUpdateDialogOpen = $state(false);
 
   const queryClient = useQueryClient();
 
@@ -214,13 +219,24 @@
           {$t('compose.subtitle')}
         </p>
       </div>
-      <button
-        onclick={() => projectsQuery.refetch()}
-        class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-      >
-        <RefreshCw class="w-3 h-3" />
-        {$t('common.refresh')}
-      </button>
+      <div class="flex items-center gap-2">
+        {#if isAdmin.current && hasAnyUpdates.current}
+          <button
+            onclick={() => bulkUpdateDialogOpen = true}
+            class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+          >
+            <Download class="w-3 h-3" />
+            {$t('update.updateAll')} ({projectsWithUpdatesCount.current})
+          </button>
+        {/if}
+        <button
+          onclick={() => projectsQuery.refetch()}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <RefreshCw class="w-3 h-3" />
+          {$t('common.refresh')}
+        </button>
+      </div>
     </div>
   </div>
 
@@ -315,21 +331,26 @@
               <div class="flex gap-1">
                 <!-- Check Updates Button (admin only, when compose file exists) -->
                 {#if isAdmin.current && project.hasComposeFile}
-                  <button
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      handleCheckUpdates(project.name);
-                    }}
-                    disabled={checkingUpdatesFor === project.name}
-                    class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={$t('update.checkUpdates')}
-                  >
-                    {#if checkingUpdatesFor === project.name}
-                      <Loader2 class="w-4 h-4 animate-spin" />
-                    {:else}
-                      <Download class="w-4 h-4" />
+                  <div class="relative">
+                    <button
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        handleCheckUpdates(project.name);
+                      }}
+                      disabled={checkingUpdatesFor === project.name}
+                      class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={$t('update.checkUpdates')}
+                    >
+                      {#if checkingUpdatesFor === project.name}
+                        <Loader2 class="w-4 h-4 animate-spin" />
+                      {:else}
+                        <Download class="w-4 h-4" />
+                      {/if}
+                    </button>
+                    {#if projectHasUpdates(project.name)}
+                      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
                     {/if}
-                  </button>
+                  </div>
                 {/if}
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
                   {#if project.availableActions?.up}
@@ -540,4 +561,10 @@
   description={confirmDialog.description}
   onconfirm={confirmDialog.onConfirm}
   oncancel={() => confirmDialog.open = false}
+/>
+
+<!-- Bulk Update Dialog -->
+<BulkUpdateDialog
+  open={bulkUpdateDialogOpen}
+  onClose={() => bulkUpdateDialogOpen = false}
 />

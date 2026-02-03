@@ -21,6 +21,7 @@
   import { FEATURES } from '$lib/config/features';
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { updateState, checkForUpdates } from '$lib/stores/update.svelte';
+  import { projectUpdateState, saveIntervalToSettings } from '$lib/stores/projectUpdate.svelte';
 
   let confirmDialog = $state<{ open: boolean; title: string; description: string; onConfirm: () => void }>({
     open: false,
@@ -130,6 +131,38 @@
 
   // Update-related state
   let updateConfirmDialog = $state({ open: false });
+
+  // Project update check interval options (in minutes)
+  const intervalOptions = [
+    { value: 15, label: '15 min' },
+    { value: 30, label: '30 min' },
+    { value: 60, label: '1 hour' },
+    { value: 120, label: '2 hours' },
+    { value: 360, label: '6 hours' },
+    { value: 720, label: '12 hours' },
+    { value: 1440, label: '24 hours' },
+  ];
+
+  let isSavingInterval = $state(false);
+
+  async function handleIntervalChange(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    const newInterval = parseInt(select.value, 10);
+
+    isSavingInterval = true;
+    try {
+      const success = await saveIntervalToSettings(newInterval);
+      if (success) {
+        toast.success($t('settings.intervalSaved'));
+      } else {
+        toast.error($t('errors.generic'));
+      }
+    } catch {
+      toast.error($t('errors.generic'));
+    } finally {
+      isSavingInterval = false;
+    }
+  }
 
   // Trigger update mutation
   const triggerUpdateMutation = createMutation(() => ({
@@ -285,6 +318,38 @@
               <p>{$t('update.subtitle')}</p>
               <p class="text-sm mt-2">Click "{$t('update.checkForUpdates')}" to get started</p>
             </div>
+          {/if}
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Project Update Check Settings -->
+    <Card>
+      <CardHeader>
+        <CardTitle>{$t('settings.projectUpdateCheck')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {$t('settings.projectUpdateCheckDescription')}
+        </p>
+
+        <div class="flex items-center gap-4">
+          <label for="check-interval" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {$t('settings.checkInterval')}
+          </label>
+          <select
+            id="check-interval"
+            value={projectUpdateState.checkIntervalMinutes}
+            onchange={handleIntervalChange}
+            disabled={isSavingInterval}
+            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+          >
+            {#each intervalOptions as option (option.value)}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+          {#if isSavingInterval}
+            <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
           {/if}
         </div>
       </CardContent>
