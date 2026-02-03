@@ -7,6 +7,7 @@
   import Badge from '$lib/components/ui/badge.svelte';
   import Checkbox from '$lib/components/ui/checkbox.svelte';
   import type { ProjectUpdateCheckResponse, ImageUpdateStatus } from '$lib/types/update';
+import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
 
   interface Props {
     open: boolean;
@@ -43,6 +44,7 @@
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      markProjectAsUpdated(projectName);
       toast.success($t('update.updateSuccess').replace('{count}', selectedServices.size.toString()));
       onClose();
     },
