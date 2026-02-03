@@ -37,15 +37,11 @@ public class SystemController : BaseController
     {
         try
         {
-            Assembly assembly = Assembly.GetExecutingAssembly();
-            var version = assembly.GetName().Version?.ToString() ?? "unknown";
-            var informationalVersion = assembly
-                .GetCustomAttribute<AssemblyVersionAttribute>()?
-                .Version ?? version;
+            string version = GetCurrentVersion();
 
             VersionInfo versionInfo = new VersionInfo
             {
-                Version = informationalVersion,
+                Version = version,
                 BuildDate = Environment.GetEnvironmentVariable("BUILD_DATE") ?? "unknown",
                 GitCommit = Environment.GetEnvironmentVariable("GIT_COMMIT") ?? "unknown",
                 Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"
@@ -58,6 +54,34 @@ public class SystemController : BaseController
             _logger.LogError(ex, "Error retrieving version information");
             return StatusCode(500, ApiResponse.Fail<VersionInfo>("Failed to retrieve version information"));
         }
+    }
+
+    /// <summary>
+    /// Gets the current application version from VERSION file, environment variable, or assembly.
+    /// Same logic as GitHubReleaseService.GetCurrentVersion() for consistency.
+    /// </summary>
+    private static string GetCurrentVersion()
+    {
+        // Try to read from VERSION file first (preferred)
+        string versionFile = Path.Combine(AppContext.BaseDirectory, "VERSION");
+        if (System.IO.File.Exists(versionFile))
+        {
+            string version = System.IO.File.ReadAllText(versionFile).Trim();
+            if (!string.IsNullOrEmpty(version))
+            {
+                return version.TrimStart('v', 'V');
+            }
+        }
+
+        // Fallback to APP_VERSION environment variable
+        string? envVersion = Environment.GetEnvironmentVariable("APP_VERSION");
+        if (!string.IsNullOrEmpty(envVersion))
+        {
+            return envVersion.TrimStart('v', 'V');
+        }
+
+        // Last fallback to assembly version
+        return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
     }
 
     /// <summary>

@@ -17,7 +17,8 @@ ARG VCS_REF
 RUN dotnet publish -c Release -o /app/backend \
     /p:Version=${VERSION} \
     /p:AssemblyVersion=${ASSEMBLY_VERSION} \
-    /p:InformationalVersion=${VERSION}+${VCS_REF}
+    /p:InformationalVersion=${VERSION}+${VCS_REF} && \
+    echo "${VERSION}" > /app/backend/VERSION
 
 # Stage 2: Build Frontend
 FROM node:20-alpine AS frontend-build
