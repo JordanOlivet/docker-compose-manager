@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      base_version: ${{ steps.version.outputs.base_version }}
       assembly_version: ${{ steps.version.outputs.assembly_version }}
       build_date: ${{ steps.version.outputs.build_date }}
       vcs_ref: ${{ steps.version.outputs.vcs_ref }}
@@ -124,17 +125,17 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.version }}-${{ steps.branch.outputs.tag }}
+          tags: ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
           cache-from: type=gha,scope=pr-${{ steps.branch.outputs.tag }}
           cache-to: type=gha,scope=pr-${{ steps.branch.outputs.tag }},mode=max
           provenance: false
           sbom: false
           build-args: |
-            VERSION=${{ needs.prepare.outputs.version }}-${{ steps.branch.outputs.tag }}
+            VERSION=${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
             ASSEMBLY_VERSION=${{ needs.prepare.outputs.assembly_version }}
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
             VCS_REF=${{ needs.prepare.outputs.vcs_ref }}
-            VITE_APP_VERSION=${{ needs.prepare.outputs.version }}-${{ steps.branch.outputs.tag }}
+            VITE_APP_VERSION=${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
             VITE_BUILD_DATE=${{ needs.prepare.outputs.build_date }}
             VITE_GIT_COMMIT=${{ needs.prepare.outputs.vcs_ref }}
 
@@ -143,7 +144,7 @@ jobs:
         with:
           script: |
             const imageName = `${{ steps.image.outputs.name }}`;
-            const version = `${{ needs.prepare.outputs.version }}`;
+            const version = `${{ needs.prepare.outputs.base_version }}`;
             const branch = `${{ steps.branch.outputs.tag }}`;
             const tag = `${version}-${branch}`;
             github.rest.issues.createComment({
