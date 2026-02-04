@@ -181,6 +181,7 @@ builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
 builder.Services.AddScoped<IComposeFileScanner, ComposeFileScanner>();
 builder.Services.AddScoped<IPathValidator, PathValidator>();
 builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
+builder.Services.AddScoped<IPathMappingService, PathMappingService>();
 builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
 builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
 // Note: ComposeCommandClassifier is static, no DI registration needed

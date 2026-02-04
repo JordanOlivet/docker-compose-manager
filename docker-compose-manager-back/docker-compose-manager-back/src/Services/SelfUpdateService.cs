@@ -17,6 +17,7 @@ public class SelfUpdateService : ISelfUpdateService
 {
     private readonly IGitHubReleaseService _gitHubReleaseService;
     private readonly IComposeFileDetectorService _composeFileDetector;
+    private readonly IPathMappingService _pathMappingService;
     private readonly DockerCommandExecutor _dockerCommandExecutor;
     private readonly IAuditService _auditService;
     private readonly IHubContext<OperationsHub> _hubContext;
@@ -41,6 +42,7 @@ public class SelfUpdateService : ISelfUpdateService
     public SelfUpdateService(
         IGitHubReleaseService gitHubReleaseService,
         IComposeFileDetectorService composeFileDetector,
+        IPathMappingService pathMappingService,
         DockerCommandExecutor dockerCommandExecutor,
         IAuditService auditService,
         IHubContext<OperationsHub> hubContext,
@@ -50,6 +52,7 @@ public class SelfUpdateService : ISelfUpdateService
     {
         _gitHubReleaseService = gitHubReleaseService;
         _composeFileDetector = composeFileDetector;
+        _pathMappingService = pathMappingService;
         _dockerCommandExecutor = dockerCommandExecutor;
         _auditService = auditService;
         _hubContext = hubContext;
@@ -161,6 +164,7 @@ public class SelfUpdateService : ISelfUpdateService
 
     /// <summary>
     /// Resolves the compose file path using configuration (priority) or auto-detection.
+    /// When auto-detecting, converts host paths to container paths using PathMappingService.
     /// </summary>
     private async Task<string?> ResolveComposeFilePathAsync()
     {
@@ -177,9 +181,22 @@ public class SelfUpdateService : ISelfUpdateService
 
         if (detection.IsRunningViaCompose && !string.IsNullOrEmpty(detection.ComposeFilePath))
         {
-            _logger.LogDebug("Auto-detected compose file path: {Path} (Project: {Project})",
-                detection.ComposeFilePath, detection.ProjectName);
-            return detection.ComposeFilePath;
+            // The detected path is a host path (from Docker labels), convert it to container path
+            string hostPath = detection.ComposeFilePath;
+            string? containerPath = _pathMappingService.ConvertHostPathToContainerPath(hostPath);
+
+            if (!string.IsNullOrEmpty(containerPath))
+            {
+                _logger.LogDebug("Auto-detected compose file path: {HostPath} -> {ContainerPath} (Project: {Project})",
+                    hostPath, containerPath, detection.ProjectName);
+                return containerPath;
+            }
+
+            _logger.LogWarning(
+                "Auto-detection found compose file at host path {HostPath}, but could not convert to container path. " +
+                "Consider setting ComposeDiscovery:HostPathMapping in configuration.",
+                hostPath);
+            return null;
         }
 
         // Auto-detection failed

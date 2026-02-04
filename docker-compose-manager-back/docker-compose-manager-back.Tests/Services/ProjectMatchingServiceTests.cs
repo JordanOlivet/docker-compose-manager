@@ -1,10 +1,8 @@
-using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace docker_compose_manager_back.Tests.Services;
@@ -19,6 +17,7 @@ public class ProjectMatchingServiceTests
     private readonly Mock<IComposeFileCacheService> _mockCacheService;
     private readonly Mock<IConflictResolutionService> _mockConflictService;
     private readonly Mock<IPermissionService> _mockPermissionService;
+    private readonly Mock<IPathMappingService> _mockPathMappingService;
     private readonly ProjectMatchingService _service;
 
     public ProjectMatchingServiceTests()
@@ -27,6 +26,7 @@ public class ProjectMatchingServiceTests
         _mockCacheService = new Mock<IComposeFileCacheService>();
         _mockConflictService = new Mock<IConflictResolutionService>();
         _mockPermissionService = new Mock<IPermissionService>();
+        _mockPathMappingService = new Mock<IPathMappingService>();
 
         // Default behavior: ResolveConflicts returns the same list (no conflicts)
         _mockConflictService
@@ -38,18 +38,20 @@ public class ProjectMatchingServiceTests
             .Setup(s => s.IsAdminAsync(It.IsAny<int>()))
             .ReturnsAsync(true);
 
-        var options = Options.Create(new ComposeDiscoveryOptions
-        {
-            RootPath = "/app/compose-files",
-            HostPathMapping = null // No host path mapping in tests
-        });
+        // Default behavior: Path mapping returns null (no conversion needed in most tests)
+        _mockPathMappingService
+            .Setup(s => s.ConvertHostPathToContainerPath(It.IsAny<string>()))
+            .Returns((string path) => null);
+        _mockPathMappingService
+            .Setup(s => s.RootPath)
+            .Returns("/app/compose-files");
 
         _service = new ProjectMatchingService(
             _mockDiscoveryService.Object,
             _mockCacheService.Object,
             _mockConflictService.Object,
             _mockPermissionService.Object,
-            options,
+            _mockPathMappingService.Object,
             new NullLogger<ProjectMatchingService>()
         );
     }
