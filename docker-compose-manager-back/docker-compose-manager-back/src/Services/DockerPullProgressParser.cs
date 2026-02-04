@@ -62,21 +62,35 @@ public partial class DockerPullProgressParser
     [GeneratedRegex(@"^(\S+)\s+Pulled\s*$", RegexOptions.Compiled)]
     private static partial Regex ServiceCompletedNonTtyRegex();
 
-    // Layer downloading: abc123: Downloading [====>    ] 50% or with size info
+    // Layer downloading with colon: abc123: Downloading [====>    ] 50%
     [GeneratedRegex(@"^\s*\S+:\s*Downloading\s+(?:\[.*?\])?\s*(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
-    private static partial Regex LayerDownloadingNonTtyRegex();
+    private static partial Regex LayerDownloadingWithColonRegex();
 
-    // Layer extracting: abc123: Extracting [====>    ] 50%
+    // Layer extracting with colon: abc123: Extracting [====>    ] 50%
     [GeneratedRegex(@"^\s*\S+:\s*Extracting\s+(?:\[.*?\])?\s*(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
-    private static partial Regex LayerExtractingNonTtyRegex();
+    private static partial Regex LayerExtractingWithColonRegex();
 
-    // Layer already exists: abc123: Already exists
-    [GeneratedRegex(@"^\s*\S+:\s*Already exists", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    // Layer downloading without colon (Docker Compose v2 format):
+    // 95e3a87cd9d9 Downloading [=========>  ] 2.596GB/3.193GB
+    [GeneratedRegex(@"^([a-f0-9]+)\s+Downloading\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex LayerDownloadingSizeRegex();
+
+    // Layer extracting without colon (Docker Compose v2 format):
+    // 95e3a87cd9d9 Extracting [=========>  ] 100MB/3.193GB
+    [GeneratedRegex(@"^([a-f0-9]+)\s+Extracting\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex LayerExtractingSizeRegex();
+
+    // Layer already exists: abc123: Already exists OR abc123 Already exists
+    [GeneratedRegex(@"^\s*\S+[:\s]+Already exists", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex LayerExistsNonTtyRegex();
 
-    // Layer download/pull complete: abc123: Download complete or abc123: Pull complete
-    [GeneratedRegex(@"^\s*\S+:\s*(Download|Pull) complete", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    // Layer download/pull complete: abc123: Download complete OR abc123 Download complete
+    [GeneratedRegex(@"^\s*\S+[:\s]+(Download|Pull) complete", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex LayerCompleteNonTtyRegex();
+
+    // Verifying Checksum line: abc123 Verifying Checksum
+    [GeneratedRegex(@"^[a-f0-9]+\s+Verifying Checksum", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex VerifyingChecksumRegex();
 
     // ========== TTY patterns for layers (when visible) ==========
 
@@ -178,30 +192,60 @@ public partial class DockerPullProgressParser
             if (changed) return changed;
         }
 
-        // ========== Check for layer downloading (TTY and non-TTY) ==========
-        Match downloadTtyMatch = LayerDownloadingTtyRegex().Match(line);
-        Match downloadNonTtyMatch = LayerDownloadingNonTtyRegex().Match(line);
-        Match downloadMatch = downloadTtyMatch.Success ? downloadTtyMatch : downloadNonTtyMatch;
-
-        if (downloadMatch.Success && double.TryParse(downloadMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double downloadPercent))
+        // ========== Check for layer downloading with size format (Docker Compose v2) ==========
+        // Format: 95e3a87cd9d9 Downloading [====>  ] 2.596GB/3.193GB
+        Match downloadSizeMatch = LayerDownloadingSizeRegex().Match(line);
+        if (downloadSizeMatch.Success)
         {
+            double currentSize = ParseSizeToBytes(downloadSizeMatch.Groups[2].Value, downloadSizeMatch.Groups[3].Value);
+            double totalSize = ParseSizeToBytes(downloadSizeMatch.Groups[4].Value, downloadSizeMatch.Groups[5].Value);
+            double downloadPercent = totalSize > 0 ? (currentSize / totalSize) * 100 : 0;
+
+            _logger.LogTrace("Parsed download size: {Current}/{Total} = {Percent}%", currentSize, totalSize, downloadPercent);
+
             changed = UpdateDownloadProgress(downloadPercent, trimmedLine, serviceProgress);
             if (changed) return changed;
         }
 
-        // ========== Check for layer extracting (TTY and non-TTY) ==========
-        Match extractTtyMatch = LayerExtractingTtyRegex().Match(line);
-        Match extractNonTtyMatch = LayerExtractingNonTtyRegex().Match(line);
-        Match extractMatch = extractTtyMatch.Success ? extractTtyMatch : extractNonTtyMatch;
+        // ========== Check for layer downloading (TTY and with colon formats) ==========
+        Match downloadTtyMatch = LayerDownloadingTtyRegex().Match(line);
+        Match downloadColonMatch = LayerDownloadingWithColonRegex().Match(line);
+        Match downloadMatch = downloadTtyMatch.Success ? downloadTtyMatch : downloadColonMatch;
 
-        if (extractMatch.Success && double.TryParse(extractMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double extractPercent))
+        if (downloadMatch.Success && double.TryParse(downloadMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double downloadPercentParsed))
         {
+            changed = UpdateDownloadProgress(downloadPercentParsed, trimmedLine, serviceProgress);
+            if (changed) return changed;
+        }
+
+        // ========== Check for layer extracting with size format (Docker Compose v2) ==========
+        // Format: 95e3a87cd9d9 Extracting [====>  ] 100MB/3.193GB
+        Match extractSizeMatch = LayerExtractingSizeRegex().Match(line);
+        if (extractSizeMatch.Success)
+        {
+            double currentSize = ParseSizeToBytes(extractSizeMatch.Groups[2].Value, extractSizeMatch.Groups[3].Value);
+            double totalSize = ParseSizeToBytes(extractSizeMatch.Groups[4].Value, extractSizeMatch.Groups[5].Value);
+            double extractPercent = totalSize > 0 ? (currentSize / totalSize) * 100 : 0;
+
+            _logger.LogTrace("Parsed extract size: {Current}/{Total} = {Percent}%", currentSize, totalSize, extractPercent);
+
             changed = UpdateExtractProgress(extractPercent, trimmedLine, serviceProgress);
             if (changed) return changed;
         }
 
-        // ========== Check for layer already exists (non-TTY) ==========
-        if (LayerExistsNonTtyRegex().IsMatch(line) || LayerCompleteNonTtyRegex().IsMatch(line))
+        // ========== Check for layer extracting (TTY and with colon formats) ==========
+        Match extractTtyMatch = LayerExtractingTtyRegex().Match(line);
+        Match extractColonMatch = LayerExtractingWithColonRegex().Match(line);
+        Match extractMatch = extractTtyMatch.Success ? extractTtyMatch : extractColonMatch;
+
+        if (extractMatch.Success && double.TryParse(extractMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double extractPercentParsed))
+        {
+            changed = UpdateExtractProgress(extractPercentParsed, trimmedLine, serviceProgress);
+            if (changed) return changed;
+        }
+
+        // ========== Check for layer already exists or complete ==========
+        if (LayerExistsNonTtyRegex().IsMatch(line) || LayerCompleteNonTtyRegex().IsMatch(line) || VerifyingChecksumRegex().IsMatch(line))
         {
             // Layer progress info - if we have a current service, show some progress
             if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var current))
@@ -217,6 +261,27 @@ public partial class DockerPullProgressParser
                         Message = trimmedLine
                     };
                     changed = true;
+                }
+            }
+            else
+            {
+                // If we don't have a current service, try to update all waiting/pulling services
+                // This handles cases where Docker doesn't output "service Pulling" line
+                foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "waiting" || s.Value.Status == "pulling").ToList())
+                {
+                    int newProgress = Math.Min(90, kvp.Value.ProgressPercent + 2);
+                    serviceProgress[kvp.Key] = kvp.Value with
+                    {
+                        Status = "downloading",
+                        ProgressPercent = newProgress,
+                        Message = trimmedLine
+                    };
+                    changed = true;
+                    // Set current service to the first one we update
+                    if (_currentPullingService == null)
+                    {
+                        _currentPullingService = kvp.Key;
+                    }
                 }
             }
             return changed;
@@ -293,6 +358,28 @@ public partial class DockerPullProgressParser
         return false;
     }
 
+    /// <summary>
+    /// Parses a size string with unit to bytes.
+    /// Handles formats like "2.596GB", "100MB", "500KB", "1024B"
+    /// </summary>
+    private static double ParseSizeToBytes(string sizeValue, string unit)
+    {
+        if (!double.TryParse(sizeValue, System.Globalization.CultureInfo.InvariantCulture, out double size))
+        {
+            return 0;
+        }
+
+        return unit.ToUpperInvariant() switch
+        {
+            "B" => size,
+            "KB" => size * 1024,
+            "MB" => size * 1024 * 1024,
+            "GB" => size * 1024 * 1024 * 1024,
+            "TB" => size * 1024 * 1024 * 1024 * 1024,
+            _ => size // Assume bytes if unknown unit
+        };
+    }
+
     private bool UpdateDownloadProgress(double percent, string message, Dictionary<string, ServicePullProgress> serviceProgress)
     {
         bool changed = false;
@@ -300,7 +387,7 @@ public partial class DockerPullProgressParser
         // If we know the current pulling service, update only that one
         if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
         {
-            if (currentService.Status == "pulling" || currentService.Status == "downloading")
+            if (currentService.Status == "waiting" || currentService.Status == "pulling" || currentService.Status == "downloading")
             {
                 int progressInt = Math.Min(90, (int)Math.Round(percent * 0.7)); // Downloads are ~70% of the work
                 serviceProgress[_currentPullingService] = currentService with
@@ -314,8 +401,9 @@ public partial class DockerPullProgressParser
         }
         else
         {
-            // Fallback: update all services in pulling state
-            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "pulling" || s.Value.Status == "downloading").ToList())
+            // Fallback: update all services in waiting/pulling/downloading state
+            // This handles cases where Docker doesn't output "service Pulling" line explicitly
+            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "waiting" || s.Value.Status == "pulling" || s.Value.Status == "downloading").ToList())
             {
                 int progressInt = Math.Min(90, (int)Math.Round(percent * 0.7));
                 serviceProgress[kvp.Key] = kvp.Value with
@@ -325,6 +413,12 @@ public partial class DockerPullProgressParser
                     Message = message
                 };
                 changed = true;
+
+                // Set the first service as current pulling service
+                if (_currentPullingService == null)
+                {
+                    _currentPullingService = kvp.Key;
+                }
             }
         }
 
@@ -338,7 +432,7 @@ public partial class DockerPullProgressParser
         // If we know the current pulling service, update only that one
         if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
         {
-            if (currentService.Status == "downloading" || currentService.Status == "extracting")
+            if (currentService.Status == "waiting" || currentService.Status == "pulling" || currentService.Status == "downloading" || currentService.Status == "extracting")
             {
                 int progressInt = Math.Min(99, 70 + (int)Math.Round(percent * 0.3)); // Extracting is ~30% of the work
                 serviceProgress[_currentPullingService] = currentService with
@@ -352,8 +446,8 @@ public partial class DockerPullProgressParser
         }
         else
         {
-            // Fallback: update all services in downloading/extracting state
-            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "downloading" || s.Value.Status == "extracting").ToList())
+            // Fallback: update all services in waiting/pulling/downloading/extracting state
+            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "waiting" || s.Value.Status == "pulling" || s.Value.Status == "downloading" || s.Value.Status == "extracting").ToList())
             {
                 int progressInt = Math.Min(99, 70 + (int)Math.Round(percent * 0.3));
                 serviceProgress[kvp.Key] = kvp.Value with
@@ -363,6 +457,12 @@ public partial class DockerPullProgressParser
                     Message = message
                 };
                 changed = true;
+
+                // Set the first service as current pulling service
+                if (_currentPullingService == null)
+                {
+                    _currentPullingService = kvp.Key;
+                }
             }
         }
 

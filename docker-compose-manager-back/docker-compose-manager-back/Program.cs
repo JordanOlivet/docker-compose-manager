@@ -223,6 +223,9 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 // Add SignalR
 builder.Services.AddSignalR();
 
+// Add Request Timeouts (allows [RequestTimeout] attribute on endpoints)
+builder.Services.AddRequestTimeouts();
+
 // Add controllers with validation filter
 builder.Services.AddControllers(options =>
 {
@@ -323,6 +326,9 @@ app.UseCors();
 
 // Add Security Headers
 app.UseSecurityHeaders();
+
+// Add Request Timeouts (enables [RequestTimeout] attribute on endpoints)
+app.UseRequestTimeouts();
 
 // Add Rate Limiting
 //app.UseRateLimiter();

@@ -5,6 +5,7 @@ using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -1673,9 +1674,11 @@ volumes:
     /// <remarks>
     /// This endpoint performs a pull + up --force-recreate for the specified services.
     /// If no services are specified and updateAll is true, all services with available updates are updated.
+    /// This operation may take a long time for large images (up to 30 minutes timeout).
     /// </remarks>
     [HttpPost("projects/{projectName}/update")]
     [Authorize(Roles = "admin")]
+    [RequestTimeout(1800000)] // 30 minutes timeout for large image pulls
     public async Task<ActionResult<ApiResponse<UpdateTriggerResponse>>> UpdateProject(
         string projectName,
         [FromBody] ProjectUpdateRequest request,
