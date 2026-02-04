@@ -11,6 +11,9 @@ const MIN_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes minimum between checks
 let checkIntervalId: ReturnType<typeof setInterval> | null = null;
 let isPeriodicCheckRunning = false;
 
+// Generation counter to prevent stale responses from overwriting cleared state
+let stateGeneration = 0;
+
 // Svelte 5 pattern: export state object with properties
 export const updateState = $state({
   // Update check results
@@ -89,6 +92,11 @@ export function enterMaintenanceMode(notification: MaintenanceModeNotification) 
   updateState.gracePeriodSeconds = notification.gracePeriodSeconds;
   updateState.reconnectAttempt = 0;
   updateState.reconnectCountdown = 0;
+
+  // Stop periodic checking during maintenance to prevent race conditions
+  if (notification.isActive) {
+    stopPeriodicCheck();
+  }
 }
 
 export function exitMaintenanceMode() {
@@ -106,6 +114,8 @@ export function updateReconnectState(attempt: number, countdown: number) {
 }
 
 export function clearUpdateInfo() {
+  // Increment generation to invalidate any in-flight requests
+  stateGeneration++;
   updateState.updateInfo = null;
   updateState.lastChecked = null;
   updateState.checkError = null;
@@ -119,6 +129,12 @@ export function clearUpdateInfo() {
  */
 export async function checkForUpdates(force = false): Promise<AppUpdateCheckResponse | null> {
   if (!browser) return null;
+
+  // Don't check during maintenance mode
+  if (updateState.isInMaintenance) {
+    logger.log('[Update Store] In maintenance mode, skipping check');
+    return null;
+  }
 
   // Don't check if already checking
   if (updateState.isCheckingUpdate) {
@@ -135,12 +151,21 @@ export async function checkForUpdates(force = false): Promise<AppUpdateCheckResp
     }
   }
 
+  // Capture generation to detect if state was cleared during the async operation
+  const currentGeneration = stateGeneration;
+
   updateState.isCheckingUpdate = true;
   updateState.checkError = null;
 
   try {
     logger.log('[Update Store] Checking for updates...');
     const result = await updateApi.checkAppUpdate();
+
+    // Check if state was cleared while we were fetching (e.g., during maintenance/update)
+    if (stateGeneration !== currentGeneration) {
+      logger.log('[Update Store] State was cleared during check, discarding result');
+      return null;
+    }
 
     updateState.updateInfo = result;
     updateState.lastChecked = new Date();
@@ -153,6 +178,12 @@ export async function checkForUpdates(force = false): Promise<AppUpdateCheckResp
 
     return result;
   } catch (error: unknown) {
+    // Check if state was cleared while we were fetching
+    if (stateGeneration !== currentGeneration) {
+      logger.log('[Update Store] State was cleared during check, ignoring error');
+      return null;
+    }
+
     // Don't log 403 errors as they're expected for non-admin users
     if (error && typeof error === 'object' && 'response' in error) {
       const axiosError = error as { response?: { status?: number } };
