@@ -249,24 +249,23 @@ public class SelfUpdateService : ISelfUpdateService
             _logger.LogDebug("Docker compose pull succeeded, output: {Output}", pullOutput);
 
             // Recreate containers with new image
+            // IMPORTANT: Use CancellationToken.None because this command will restart the current container,
+            // which will cancel the HTTP request and its associated cancellation token.
+            // We expect the application to be stopped and restarted, so we don't want to cancel this operation.
             _logger.LogDebug("Executing docker compose up -d for update");
 
-            (int upExitCode, string upOutput, string upError) = await _dockerCommandExecutor.ExecuteComposeCommandAsync(
+            // Fire and forget - we won't be able to check the result because the container will restart
+            _ = _dockerCommandExecutor.ExecuteComposeCommandAsync(
                 workingDirectory: workingDirectory,
                 arguments: "up -d --force-recreate",
                 composeFile: composeFileName,
-                cancellationToken: cancellationToken
+                cancellationToken: CancellationToken.None
             );
 
-            if (upExitCode != 0)
-            {
-                _logger.LogError("Docker compose up failed: {Error}", upError);
-                // At this point we might still restart, log the error
-            }
-            else
-            {
-                _logger.LogDebug("Docker compose up succeeded, output: {Output}", upOutput);
-            }
+            // Give Docker a moment to start the recreate process
+            await Task.Delay(1000);
+
+            _logger.LogInformation("Docker compose up command issued. Container will restart shortly.");
 
             // The application should restart here due to container recreation
             // If we reach this point, something might be wrong
