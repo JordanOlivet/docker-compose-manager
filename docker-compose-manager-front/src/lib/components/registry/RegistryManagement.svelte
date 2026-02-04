@@ -12,16 +12,18 @@
   import { AlertCircle } from 'lucide-svelte';
 
   // Query for configured registries
+  // No refetchInterval needed - data is invalidated on login/logout mutations
   const configuredQuery = createQuery(() => ({
     queryKey: ['registry', 'configured'],
     queryFn: () => registryApi.getConfiguredRegistries(),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   }));
 
-  // Query for known registries
+  // Query for known registries (static data, rarely changes)
   const knownQuery = createQuery(() => ({
     queryKey: ['registry', 'known'],
     queryFn: () => registryApi.getKnownRegistries(),
+    staleTime: 30 * 60 * 1000, // Consider data fresh for 30 minutes
   }));
 
   // Find configured info for a known registry
