@@ -203,6 +203,9 @@ builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
 builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
 builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
 
+// Register Registry Credential service
+builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
+
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery
 // builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();

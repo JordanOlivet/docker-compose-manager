@@ -210,4 +210,72 @@ public class DockerCommandExecutor
 
         return (process.ExitCode, outputStr, errorStr);
     }
+
+    /// <summary>
+    /// Executes a command with input provided via stdin (useful for secure password passing)
+    /// </summary>
+    public async Task<(int ExitCode, string Output, string Error)> ExecuteWithStdinAsync(
+        string command,
+        string arguments,
+        string stdinInput,
+        CancellationToken cancellationToken = default)
+    {
+        ProcessStartInfo psi = new()
+        {
+            FileName = command,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        StringBuilder output = new();
+        StringBuilder error = new();
+
+        using Process? process = Process.Start(psi);
+        if (process == null)
+        {
+            return (-1, "", $"Failed to start process: {command}");
+        }
+
+        // Write to stdin and close it
+        await process.StandardInput.WriteAsync(stdinInput);
+        process.StandardInput.Close();
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                error.AppendLine(e.Data);
+            }
+        };
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        string outputStr = output.ToString();
+        string errorStr = error.ToString();
+
+        // Don't log sensitive data like passwords
+        _logger.LogDebug(
+            "Command with stdin executed: {Command} {Arguments}, Exit Code: {ExitCode}",
+            command,
+            arguments,
+            process.ExitCode
+        );
+
+        return (process.ExitCode, outputStr, errorStr);
+    }
 }
