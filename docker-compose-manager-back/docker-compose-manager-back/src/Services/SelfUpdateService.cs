@@ -1,3 +1,5 @@
+using Docker.DotNet;
+using Docker.DotNet.Models;
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Hubs;
@@ -15,10 +17,13 @@ public interface ISelfUpdateService
 
 public class SelfUpdateService : ISelfUpdateService
 {
+    private const string UpdaterImage = "docker:cli";
+
     private readonly IGitHubReleaseService _gitHubReleaseService;
     private readonly IComposeFileDetectorService _composeFileDetector;
     private readonly IPathMappingService _pathMappingService;
     private readonly DockerCommandExecutor _dockerCommandExecutor;
+    private readonly DockerClient? _dockerClient;
     private readonly IAuditService _auditService;
     private readonly IHubContext<OperationsHub> _hubContext;
     private readonly SelfUpdateOptions _selfUpdateOptions;
@@ -44,6 +49,7 @@ public class SelfUpdateService : ISelfUpdateService
         IComposeFileDetectorService composeFileDetector,
         IPathMappingService pathMappingService,
         DockerCommandExecutor dockerCommandExecutor,
+        IConfiguration configuration,
         IAuditService auditService,
         IHubContext<OperationsHub> hubContext,
         IOptions<SelfUpdateOptions> selfUpdateOptions,
@@ -59,6 +65,22 @@ public class SelfUpdateService : ISelfUpdateService
         _selfUpdateOptions = selfUpdateOptions.Value;
         _maintenanceOptions = maintenanceOptions.Value;
         _logger = logger;
+
+        // Initialize Docker client for launching updater container
+        string? dockerHost = configuration["Docker:Host"];
+        if (!string.IsNullOrEmpty(dockerHost))
+        {
+            try
+            {
+                _dockerClient = new DockerClientConfiguration(new Uri(dockerHost)).CreateClient();
+                _logger.LogDebug("SelfUpdateService Docker client initialized with host: {DockerHost}", dockerHost);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to initialize Docker client for self-update. Update via updater container will not be available.");
+                _dockerClient = null;
+            }
+        }
     }
 
     public async Task<AppUpdateCheckResponse> CheckUpdateAsync(CancellationToken cancellationToken = default)
@@ -100,9 +122,9 @@ public class SelfUpdateService : ISelfUpdateService
 
         try
         {
-            // Resolve compose file path: configuration takes priority, then auto-detection
-            string? composeFilePath = await ResolveComposeFilePathAsync();
-            if (string.IsNullOrEmpty(composeFilePath))
+            // Resolve compose file paths: configuration takes priority, then auto-detection
+            ComposeFilePaths? paths = await ResolveComposeFilePathsAsync();
+            if (paths == null)
             {
                 lock (_updateLock) { _updateInProgress = false; }
                 return new UpdateTriggerResponse(false,
@@ -119,8 +141,8 @@ public class SelfUpdateService : ISelfUpdateService
                 return new UpdateTriggerResponse(false, "No update available. Current version is already the latest.", null);
             }
 
-            _logger.LogInformation("Starting application update from {Current} to {Latest} using compose file: {ComposeFile}",
-                updateInfo.CurrentVersion, updateInfo.LatestVersion, composeFilePath);
+            _logger.LogInformation("Starting application update from {Current} to {Latest} using compose file: {ComposeFile} (Host: {HostPath})",
+                updateInfo.CurrentVersion, updateInfo.LatestVersion, paths.ContainerPath, paths.HostPath);
 
             // Log the update action
             await _auditService.LogActionAsync(
@@ -150,7 +172,7 @@ public class SelfUpdateService : ISelfUpdateService
 
             // Execute the update
             string operationId = Guid.NewGuid().ToString();
-            _ = ExecuteUpdateAsync(operationId, composeFilePath, cancellationToken);
+            _ = ExecuteUpdateAsync(operationId, paths, cancellationToken);
 
             return new UpdateTriggerResponse(true, "Update started. The application will restart shortly.", operationId);
         }
@@ -163,33 +185,42 @@ public class SelfUpdateService : ISelfUpdateService
     }
 
     /// <summary>
-    /// Resolves the compose file path using configuration (priority) or auto-detection.
-    /// When auto-detecting, converts host paths to container paths using PathMappingService.
+    /// Contains resolved compose file paths for both container and host.
     /// </summary>
-    private async Task<string?> ResolveComposeFilePathAsync()
+    private record ComposeFilePaths(string ContainerPath, string HostPath, string? HostWorkingDirectory);
+
+    /// <summary>
+    /// Resolves the compose file path using configuration (priority) or auto-detection.
+    /// Returns both container path (for pull) and host path (for updater container).
+    /// </summary>
+    private async Task<ComposeFilePaths?> ResolveComposeFilePathsAsync()
     {
         // Priority 1: Configuration (environment variable or appsettings)
         if (!string.IsNullOrWhiteSpace(_selfUpdateOptions.ComposeFilePath))
         {
             _logger.LogDebug("Using configured compose file path: {Path}", _selfUpdateOptions.ComposeFilePath);
-            return _selfUpdateOptions.ComposeFilePath;
+            // When configured, assume it's the container path and we need to detect host path
+            ComposeDetectionResult detection = await _composeFileDetector.GetComposeDetectionResultAsync();
+            string hostPath = detection.ComposeFilePath ?? _selfUpdateOptions.ComposeFilePath;
+            string? hostWorkingDir = detection.WorkingDirectory ?? Path.GetDirectoryName(hostPath);
+            return new ComposeFilePaths(_selfUpdateOptions.ComposeFilePath, hostPath, hostWorkingDir);
         }
 
         // Priority 2: Auto-detection from Docker labels
         _logger.LogDebug("Compose file path not configured, attempting auto-detection...");
-        ComposeDetectionResult detection = await _composeFileDetector.GetComposeDetectionResultAsync();
+        ComposeDetectionResult detectionResult = await _composeFileDetector.GetComposeDetectionResultAsync();
 
-        if (detection.IsRunningViaCompose && !string.IsNullOrEmpty(detection.ComposeFilePath))
+        if (detectionResult.IsRunningViaCompose && !string.IsNullOrEmpty(detectionResult.ComposeFilePath))
         {
             // The detected path is a host path (from Docker labels), convert it to container path
-            string hostPath = detection.ComposeFilePath;
+            string hostPath = detectionResult.ComposeFilePath;
             string? containerPath = _pathMappingService.ConvertHostPathToContainerPath(hostPath);
 
             if (!string.IsNullOrEmpty(containerPath))
             {
-                _logger.LogDebug("Auto-detected compose file path: {HostPath} -> {ContainerPath} (Project: {Project})",
-                    hostPath, containerPath, detection.ProjectName);
-                return containerPath;
+                _logger.LogDebug("Auto-detected compose file paths: Host={HostPath}, Container={ContainerPath} (Project: {Project})",
+                    hostPath, containerPath, detectionResult.ProjectName);
+                return new ComposeFilePaths(containerPath, hostPath, detectionResult.WorkingDirectory);
             }
 
             _logger.LogWarning(
@@ -200,31 +231,31 @@ public class SelfUpdateService : ISelfUpdateService
         }
 
         // Auto-detection failed
-        if (!detection.IsRunningInDocker)
+        if (!detectionResult.IsRunningInDocker)
         {
             _logger.LogWarning("Auto-detection failed: Application is not running in a Docker container");
         }
-        else if (!detection.IsRunningViaCompose)
+        else if (!detectionResult.IsRunningViaCompose)
         {
             _logger.LogWarning("Auto-detection failed: Container was not started via docker-compose. Error: {Error}",
-                detection.DetectionError);
+                detectionResult.DetectionError);
         }
 
         return null;
     }
 
-    private async Task ExecuteUpdateAsync(string operationId, string composeFilePath, CancellationToken cancellationToken)
+    private async Task ExecuteUpdateAsync(string operationId, ComposeFilePaths paths, CancellationToken cancellationToken)
     {
         try
         {
-            string workingDirectory = Path.GetDirectoryName(composeFilePath) ?? "/app";
-            string composeFileName = Path.GetFileName(composeFilePath);
+            string containerWorkingDirectory = Path.GetDirectoryName(paths.ContainerPath) ?? "/app";
+            string composeFileName = Path.GetFileName(paths.ContainerPath);
 
-            _logger.LogDebug("Executing docker compose pull for update, compose file: {ComposeFile}", composeFilePath);
+            _logger.LogDebug("Executing docker compose pull for update, compose file: {ComposeFile}", paths.ContainerPath);
 
-            // Pull the latest image
+            // Step 1: Pull the latest image (from current container - this doesn't restart anything)
             (int pullExitCode, string pullOutput, string pullError) = await _dockerCommandExecutor.ExecuteComposeCommandAsync(
-                workingDirectory: workingDirectory,
+                workingDirectory: containerWorkingDirectory,
                 arguments: "pull",
                 composeFile: composeFileName,
                 cancellationToken: cancellationToken
@@ -248,33 +279,101 @@ public class SelfUpdateService : ISelfUpdateService
 
             _logger.LogDebug("Docker compose pull succeeded, output: {Output}", pullOutput);
 
-            // Recreate containers with new image
-            // IMPORTANT: Use CancellationToken.None because this command will restart the current container,
-            // which will cancel the HTTP request and its associated cancellation token.
-            // We expect the application to be stopped and restarted, so we don't want to cancel this operation.
-            _logger.LogDebug("Executing docker compose up -d for update");
+            // Step 2: Launch an updater container to run docker compose up
+            // This is necessary because the current container will be killed during the update,
+            // which would also kill any child process running docker compose.
+            // By running it in a separate container, the update process survives.
+            _logger.LogInformation("Launching updater container to recreate application");
 
-            // Fire and forget - we won't be able to check the result because the container will restart
-            _ = _dockerCommandExecutor.ExecuteComposeCommandAsync(
-                workingDirectory: workingDirectory,
-                arguments: "up -d --force-recreate",
-                composeFile: composeFileName,
-                cancellationToken: CancellationToken.None
-            );
+            await LaunchUpdaterContainerAsync(paths);
 
-            // Give Docker a moment to start the recreate process
-            await Task.Delay(1000);
-
-            _logger.LogInformation("Docker compose up command issued. Container will restart shortly.");
-
-            // The application should restart here due to container recreation
-            // If we reach this point, something might be wrong
-            _logger.LogWarning("Update command completed but application did not restart. This may indicate an issue.");
+            _logger.LogInformation("Updater container launched. Application will restart shortly.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during update execution");
             lock (_updateLock) { _updateInProgress = false; }
+        }
+    }
+
+    /// <summary>
+    /// Launches an ephemeral Docker container that runs docker compose up to update this application.
+    /// The container runs on the host via Docker socket and survives the restart of this container.
+    /// </summary>
+    private async Task LaunchUpdaterContainerAsync(ComposeFilePaths paths)
+    {
+        if (_dockerClient == null)
+        {
+            throw new InvalidOperationException("Docker client is not available. Cannot launch updater container.");
+        }
+
+        string hostWorkingDirectory = paths.HostWorkingDirectory ?? Path.GetDirectoryName(paths.HostPath) ?? "/";
+        string composeFileName = Path.GetFileName(paths.HostPath);
+
+        _logger.LogDebug("Launching updater container with working directory: {WorkingDir}, compose file: {ComposeFile}",
+            hostWorkingDirectory, composeFileName);
+
+        // Ensure the updater image is available
+        try
+        {
+            await _dockerClient.Images.CreateImageAsync(
+                new ImagesCreateParameters { FromImage = UpdaterImage, Tag = "latest" },
+                null,
+                new Progress<JSONMessage>(msg =>
+                {
+                    if (!string.IsNullOrEmpty(msg.Status))
+                    {
+                        _logger.LogDebug("Pulling updater image: {Status}", msg.Status);
+                    }
+                })
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to pull updater image {Image}. Attempting to use existing image.", UpdaterImage);
+        }
+
+        // Create the updater container
+        CreateContainerResponse container = await _dockerClient.Containers.CreateContainerAsync(new CreateContainerParameters
+        {
+            Image = UpdaterImage,
+            Name = $"dcm-updater-{Guid.NewGuid():N}",
+            WorkingDir = hostWorkingDirectory,
+            Cmd = new[]
+            {
+                "docker", "compose", "-f", composeFileName, "up", "-d", "--force-recreate"
+            },
+            HostConfig = new HostConfig
+            {
+                // Mount Docker socket so the container can communicate with Docker daemon
+                Binds = new[]
+                {
+                    "/var/run/docker.sock:/var/run/docker.sock",
+                    $"{hostWorkingDirectory}:{hostWorkingDirectory}"
+                },
+                // Automatically remove the container when it exits
+                AutoRemove = true
+            },
+            Labels = new Dictionary<string, string>
+            {
+                ["docker-compose-manager.updater"] = "true",
+                ["docker-compose-manager.update-target"] = paths.HostPath
+            }
+        });
+
+        _logger.LogInformation("Created updater container {ContainerId}", container.ID);
+
+        // Start the container
+        bool started = await _dockerClient.Containers.StartContainerAsync(container.ID, null);
+
+        if (started)
+        {
+            _logger.LogInformation("Updater container started successfully. Container will restart shortly.");
+        }
+        else
+        {
+            _logger.LogError("Failed to start updater container");
+            throw new InvalidOperationException("Failed to start updater container");
         }
     }
 }
