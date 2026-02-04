@@ -158,3 +158,39 @@ public record CheckAllUpdatesResponse(
     int TotalServicesWithUpdates,
     DateTime CheckedAt
 );
+
+// ============================================
+// Pull Progress DTOs (for real-time updates)
+// ============================================
+
+/// <summary>
+/// Progress information for a single service during pull operation.
+/// </summary>
+/// <param name="ServiceName">Name of the service being pulled</param>
+/// <param name="Status">Current status: waiting, pulling, downloading, extracting, pulled, error</param>
+/// <param name="ProgressPercent">Progress percentage (0-100)</param>
+/// <param name="Message">Raw log message or status description</param>
+public record ServicePullProgress(
+    string ServiceName,
+    string Status,
+    int ProgressPercent,
+    string? Message
+);
+
+/// <summary>
+/// Real-time update progress event sent via SignalR.
+/// </summary>
+/// <param name="OperationId">Unique operation identifier</param>
+/// <param name="ProjectName">Name of the project being updated</param>
+/// <param name="Phase">Current phase: pull or recreate</param>
+/// <param name="OverallProgress">Overall progress percentage (0-100)</param>
+/// <param name="Services">Per-service progress information</param>
+/// <param name="CurrentLog">Most recent log line</param>
+public record UpdateProgressEvent(
+    string OperationId,
+    string ProjectName,
+    string Phase,
+    int OverallProgress,
+    List<ServicePullProgress> Services,
+    string? CurrentLog
+);

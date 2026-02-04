@@ -492,6 +492,25 @@ const fr = {
     devVersionNotice: 'Version de développement',
     newerImageAvailable: 'Une nouvelle image est disponible pour cette version de développement.',
     devUpdateInfo: 'Les versions dev sont mises à jour par comparaison des digests Docker.',
+    // Progress tracking keys
+    overallProgress: 'Progression globale',
+    serviceProgress: 'Progression par service',
+    logs: 'Logs',
+    pleaseWait: 'Veuillez patienter...',
+    phase: {
+      pull: 'Téléchargement des images',
+      recreate: 'Recréation des conteneurs',
+    },
+    progress: {
+      waiting: 'En attente',
+      pulling: 'Téléchargement',
+      downloading: 'Téléchargement',
+      extracting: 'Extraction',
+      pulled: 'Téléchargé',
+      recreating: 'Recréation',
+      completed: 'Terminé',
+      error: 'Erreur',
+    },
   },
 };
 

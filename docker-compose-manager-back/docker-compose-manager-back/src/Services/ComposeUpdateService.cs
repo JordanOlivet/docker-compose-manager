@@ -64,6 +64,8 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly IProjectMatchingService _projectMatchingService;
     private readonly IAuditService _auditService;
     private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerPullProgressParser _progressParser;
+    private readonly OperationService _operationServiceDb;
     private readonly ILogger<ComposeUpdateService> _logger;
     private readonly UpdateCheckOptions _options;
 
@@ -78,6 +80,8 @@ public class ComposeUpdateService : IComposeUpdateService
         IProjectMatchingService projectMatchingService,
         IAuditService auditService,
         DockerCommandExecutor dockerExecutor,
+        DockerPullProgressParser progressParser,
+        OperationService operationServiceDb,
         IOptions<UpdateCheckOptions> options,
         ILogger<ComposeUpdateService> logger)
     {
@@ -89,6 +93,8 @@ public class ComposeUpdateService : IComposeUpdateService
         _projectMatchingService = projectMatchingService;
         _auditService = auditService;
         _dockerExecutor = dockerExecutor;
+        _progressParser = progressParser;
+        _operationServiceDb = operationServiceDb;
         _options = options.Value;
         _logger = logger;
     }
@@ -218,6 +224,8 @@ public class ComposeUpdateService : IComposeUpdateService
         string ipAddress,
         CancellationToken ct = default)
     {
+        string operationId = Guid.NewGuid().ToString();
+
         try
         {
             _logger.LogDebug(
@@ -266,18 +274,58 @@ public class ComposeUpdateService : IComposeUpdateService
             }
 
             string servicesArg = string.Join(" ", servicesToUpdate);
-            string operationId = Guid.NewGuid().ToString();
 
-            // Pull new images
+            // Initialize progress tracking for all services
+            Dictionary<string, ServicePullProgress> serviceProgress = _progressParser.InitializeProgress(servicesToUpdate);
+            string? lastLogLine = null;
+            DateTime lastProgressSent = DateTime.MinValue;
+            TimeSpan minProgressInterval = TimeSpan.FromMilliseconds(100); // Throttle to max 10 updates per second
+
+            // Send initial progress event
+            await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, null);
+
+            // Pull new images with streaming output
             _logger.LogDebug("Pulling images for services: {Services}", servicesArg);
-            (int pullExitCode, string pullOutput, string pullError) = await _dockerExecutor.ExecuteAsync(
+
+            void OnPullOutput(string line)
+            {
+                lastLogLine = line;
+                bool changed = _progressParser.ParseLine(line, serviceProgress);
+
+                // Send progress update if state changed or enough time has passed
+                if (changed || DateTime.UtcNow - lastProgressSent > minProgressInterval)
+                {
+                    lastProgressSent = DateTime.UtcNow;
+                    // Fire and forget - don't block the output processing
+                    _ = SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, line);
+                }
+            }
+
+            (int pullExitCode, string pullOutput, string pullError) = await _dockerExecutor.ExecuteWithStreamingAsync(
                 "docker",
                 $"compose -f \"{composeFilePath}\" pull {servicesArg}",
+                OnPullOutput,
+                OnPullOutput, // Also capture stderr as it may contain progress info
                 ct);
 
             if (pullExitCode != 0)
             {
                 _logger.LogError("Pull failed for {ProjectName}: {Error}", projectName, pullError);
+
+                // Mark all services as error
+                foreach (string serviceName in servicesToUpdate)
+                {
+                    if (serviceProgress.ContainsKey(serviceName) && serviceProgress[serviceName].Status != "pulled")
+                    {
+                        serviceProgress[serviceName] = serviceProgress[serviceName] with
+                        {
+                            Status = "error",
+                            Message = "Pull failed"
+                        };
+                    }
+                }
+                await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, pullError);
+
                 return new UpdateTriggerResponse(
                     Success: false,
                     Message: $"Failed to pull images: {pullError}",
@@ -285,22 +333,82 @@ public class ComposeUpdateService : IComposeUpdateService
                 );
             }
 
+            // Mark all services as pulled after successful pull
+            foreach (string serviceName in servicesToUpdate)
+            {
+                serviceProgress[serviceName] = serviceProgress[serviceName] with
+                {
+                    Status = "pulled",
+                    ProgressPercent = 100
+                };
+            }
+            await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, "Pull completed");
+
+            // Reset progress for recreate phase
+            foreach (string serviceName in servicesToUpdate)
+            {
+                serviceProgress[serviceName] = new ServicePullProgress(
+                    ServiceName: serviceName,
+                    Status: "recreating",
+                    ProgressPercent: 0,
+                    Message: null
+                );
+            }
+            await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Recreating containers...");
+
             // Recreate containers with new images
             _logger.LogDebug("Recreating containers for services: {Services}", servicesArg);
-            (int upExitCode, string upOutput, string upError) = await _dockerExecutor.ExecuteAsync(
+
+            void OnRecreateOutput(string line)
+            {
+                lastLogLine = line;
+                // For recreate, we just stream the logs without detailed parsing
+                if (DateTime.UtcNow - lastProgressSent > minProgressInterval)
+                {
+                    lastProgressSent = DateTime.UtcNow;
+                    _ = SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, line);
+                }
+            }
+
+            (int upExitCode, string upOutput, string upError) = await _dockerExecutor.ExecuteWithStreamingAsync(
                 "docker",
                 $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}",
+                OnRecreateOutput,
+                OnRecreateOutput,
                 ct);
 
             if (upExitCode != 0)
             {
                 _logger.LogError("Up failed for {ProjectName}: {Error}", projectName, upError);
+
+                // Mark all services as error
+                foreach (string serviceName in servicesToUpdate)
+                {
+                    serviceProgress[serviceName] = serviceProgress[serviceName] with
+                    {
+                        Status = "error",
+                        Message = "Recreate failed"
+                    };
+                }
+                await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, upError);
+
                 return new UpdateTriggerResponse(
                     Success: false,
                     Message: $"Failed to recreate containers: {upError}",
                     OperationId: operationId
                 );
             }
+
+            // Mark all services as completed
+            foreach (string serviceName in servicesToUpdate)
+            {
+                serviceProgress[serviceName] = serviceProgress[serviceName] with
+                {
+                    Status = "completed",
+                    ProgressPercent = 100
+                };
+            }
+            await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Update completed");
 
             // Invalidate cache for this project
             _cacheService.InvalidateProject(projectName);
@@ -332,8 +440,48 @@ public class ComposeUpdateService : IComposeUpdateService
             return new UpdateTriggerResponse(
                 Success: false,
                 Message: $"Error updating project: {ex.Message}",
-                OperationId: null
+                OperationId: operationId
             );
+        }
+    }
+
+    private async Task SendProgressUpdateAsync(
+        string operationId,
+        string projectName,
+        string phase,
+        Dictionary<string, ServicePullProgress> serviceProgress,
+        string? currentLog)
+    {
+        try
+        {
+            int overallProgress = _progressParser.CalculateOverallProgress(serviceProgress);
+
+            // During recreate phase, add 50% base since pull is complete
+            if (phase == "recreate")
+            {
+                overallProgress = 50 + (overallProgress / 2);
+            }
+            else
+            {
+                // Pull phase is first 50%
+                overallProgress = overallProgress / 2;
+            }
+
+            var progressEvent = new UpdateProgressEvent(
+                OperationId: operationId,
+                ProjectName: projectName,
+                Phase: phase,
+                OverallProgress: overallProgress,
+                Services: serviceProgress.Values.ToList(),
+                CurrentLog: currentLog
+            );
+
+            await _operationServiceDb.SendPullProgressAsync(progressEvent);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send progress update for operation {OperationId}", operationId);
+            // Don't fail the operation if SignalR notification fails
         }
     }
 

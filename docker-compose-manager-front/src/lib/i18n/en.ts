@@ -492,5 +492,24 @@ export default {
     devVersionNotice: 'Development Version',
     newerImageAvailable: 'A newer image is available for this development version.',
     devUpdateInfo: 'Dev versions are updated by comparing Docker image digests.',
+    // Progress tracking keys
+    overallProgress: 'Overall Progress',
+    serviceProgress: 'Service Progress',
+    logs: 'Logs',
+    pleaseWait: 'Please wait...',
+    phase: {
+      pull: 'Pulling images',
+      recreate: 'Recreating containers',
+    },
+    progress: {
+      waiting: 'Waiting',
+      pulling: 'Pulling',
+      downloading: 'Downloading',
+      extracting: 'Extracting',
+      pulled: 'Pulled',
+      recreating: 'Recreating',
+      completed: 'Completed',
+      error: 'Error',
+    },
   },
 } as const;

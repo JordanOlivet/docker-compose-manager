@@ -201,6 +201,7 @@ builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegist
 builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClientFactory, docker_compose_manager_back.Services.Registry.RegistryClientFactory>();
 builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
 builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
+builder.Services.AddSingleton<DockerPullProgressParser>();
 builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
 
 // Register Registry Credential service

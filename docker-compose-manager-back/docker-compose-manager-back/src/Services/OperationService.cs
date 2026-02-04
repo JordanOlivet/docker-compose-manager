@@ -1,4 +1,5 @@
 using docker_compose_manager_back.Data;
+using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Hubs;
 using docker_compose_manager_back.Models;
 using Microsoft.AspNetCore.SignalR;
@@ -362,6 +363,35 @@ public class OperationService
         {
             _logger.LogError(ex, "Error getting active operations count");
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// Sends a pull progress update via SignalR for real-time UI updates.
+    /// </summary>
+    public async Task SendPullProgressAsync(UpdateProgressEvent progress)
+    {
+        try
+        {
+            _logger.LogDebug(
+                "Sending pull progress - Operation: {OperationId}, Project: {ProjectName}, Phase: {Phase}, Progress: {Progress}%",
+                progress.OperationId,
+                progress.ProjectName,
+                progress.Phase,
+                progress.OverallProgress
+            );
+
+            // Send to all connected clients
+            await _hubContext.Clients.All.SendAsync("PullProgressUpdate", progress);
+
+            // Also send to operation-specific group
+            string groupName = $"operation-{progress.OperationId}";
+            await _hubContext.Clients.Group(groupName).SendAsync("PullProgressUpdate", progress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send pull progress update for operation {OperationId}", progress.OperationId);
+            // Don't fail the operation if SignalR notification fails
         }
     }
 }

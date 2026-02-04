@@ -1,13 +1,15 @@
 <script lang="ts">
   import { createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { X, Download, AlertCircle, CheckCircle2, Package, HardDrive, Pin, Loader2, Copy, Check } from 'lucide-svelte';
+  import { X, Download, AlertCircle, CheckCircle2, Package, HardDrive, Pin, Loader2, Copy, Check, ChevronDown, ChevronUp, Clock, ArrowDownToLine, Archive, RotateCw } from 'lucide-svelte';
   import { toast } from 'svelte-sonner';
   import { t } from '$lib/i18n';
   import { updateApi } from '$lib/api/update';
   import Badge from '$lib/components/ui/badge.svelte';
   import Checkbox from '$lib/components/ui/checkbox.svelte';
-  import type { ProjectUpdateCheckResponse, ImageUpdateStatus } from '$lib/types/update';
-import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
+  import type { ProjectUpdateCheckResponse, ImageUpdateStatus, UpdateProgressEvent, ServicePullProgress, ServicePullStatus } from '$lib/types/update';
+  import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
+  import { onPullProgressUpdate, startConnection } from '$lib/services/signalr';
+  import { onMount } from 'svelte';
 
   interface Props {
     open: boolean;
@@ -26,6 +28,29 @@ import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
   // State for tracking copied digests (to show checkmark temporarily)
   let copiedDigests = $state<Set<string>>(new Set());
 
+  // State for update progress tracking
+  let isUpdating = $state(false);
+  let updateProgress = $state<UpdateProgressEvent | null>(null);
+  let updateLogs = $state<string[]>([]);
+  let logsExpanded = $state(false);
+  let logsContainer = $state<HTMLDivElement | null>(null);
+
+  // Unsubscribe function for SignalR
+  let unsubscribePullProgress: (() => void) | null = null;
+
+  // Ensure SignalR is connected on mount
+  onMount(() => {
+    startConnection();
+
+    return () => {
+      // Cleanup on unmount
+      if (unsubscribePullProgress) {
+        unsubscribePullProgress();
+        unsubscribePullProgress = null;
+      }
+    };
+  });
+
   // Initialize with services that have updates when updateCheck changes
   $effect(() => {
     if (updateCheck) {
@@ -37,19 +62,68 @@ import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
     }
   });
 
+  // Reset progress state when dialog closes
+  $effect(() => {
+    if (!open) {
+      isUpdating = false;
+      updateProgress = null;
+      updateLogs = [];
+      logsExpanded = false;
+      if (unsubscribePullProgress) {
+        unsubscribePullProgress();
+        unsubscribePullProgress = null;
+      }
+    }
+  });
+
+  // Auto-scroll logs when new entries are added
+  $effect(() => {
+    if (logsContainer && updateLogs.length > 0) {
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+  });
+
   // Mutation for updating services
   const updateMutation = createMutation(() => ({
     mutationFn: () => updateApi.updateProject(projectName, {
       services: Array.from(selectedServices)
     }),
+    onMutate: () => {
+      // Start tracking progress
+      isUpdating = true;
+      updateProgress = null;
+      updateLogs = [];
+
+      // Subscribe to SignalR progress updates
+      unsubscribePullProgress = onPullProgressUpdate((event) => {
+        if (event.projectName === projectName) {
+          updateProgress = event;
+          if (event.currentLog) {
+            updateLogs = [...updateLogs, event.currentLog].slice(-100); // Keep last 100 lines
+          }
+        }
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
       markProjectAsUpdated(projectName);
       toast.success($t('update.updateSuccess').replace('{count}', selectedServices.size.toString()));
-      onClose();
+
+      // Keep showing progress for a moment before closing
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     },
     onError: (error: Error) => {
       toast.error($t('update.updateFailed') + ': ' + error.message);
+      isUpdating = false;
+    },
+    onSettled: () => {
+      // Cleanup subscription
+      if (unsubscribePullProgress) {
+        unsubscribePullProgress();
+        unsubscribePullProgress = null;
+      }
     }
   }));
 
@@ -128,19 +202,119 @@ import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && open) {
+    if (e.key === 'Escape' && open && !isUpdating) {
       onClose();
     }
   }
 
   function handleBackdropClick(e: MouseEvent) {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isUpdating) {
       onClose();
     }
   }
 
   function handleUpdate() {
     updateMutation.mutate();
+  }
+
+  function getStatusIcon(status: ServicePullStatus) {
+    switch (status) {
+      case 'waiting':
+        return Clock;
+      case 'pulling':
+        return Loader2;
+      case 'downloading':
+        return ArrowDownToLine;
+      case 'extracting':
+        return Archive;
+      case 'pulled':
+        return CheckCircle2;
+      case 'recreating':
+        return RotateCw;
+      case 'completed':
+        return CheckCircle2;
+      case 'error':
+        return AlertCircle;
+      default:
+        return Clock;
+    }
+  }
+
+  function getStatusColor(status: ServicePullStatus): string {
+    switch (status) {
+      case 'waiting':
+        return 'text-gray-400 dark:text-gray-500';
+      case 'pulling':
+      case 'downloading':
+      case 'extracting':
+        return 'text-blue-500 dark:text-blue-400';
+      case 'pulled':
+      case 'completed':
+        return 'text-green-500 dark:text-green-400';
+      case 'recreating':
+        return 'text-amber-500 dark:text-amber-400';
+      case 'error':
+        return 'text-red-500 dark:text-red-400';
+      default:
+        return 'text-gray-400 dark:text-gray-500';
+    }
+  }
+
+  function getStatusBgColor(status: ServicePullStatus): string {
+    switch (status) {
+      case 'waiting':
+        return 'bg-gray-100 dark:bg-gray-700';
+      case 'pulling':
+      case 'downloading':
+      case 'extracting':
+        return 'bg-blue-100 dark:bg-blue-900/30';
+      case 'pulled':
+      case 'completed':
+        return 'bg-green-100 dark:bg-green-900/30';
+      case 'recreating':
+        return 'bg-amber-100 dark:bg-amber-900/30';
+      case 'error':
+        return 'bg-red-100 dark:bg-red-900/30';
+      default:
+        return 'bg-gray-100 dark:bg-gray-700';
+    }
+  }
+
+  function getStatusLabel(status: ServicePullStatus): string {
+    switch (status) {
+      case 'waiting':
+        return $t('update.progress.waiting');
+      case 'pulling':
+        return $t('update.progress.pulling');
+      case 'downloading':
+        return $t('update.progress.downloading');
+      case 'extracting':
+        return $t('update.progress.extracting');
+      case 'pulled':
+        return $t('update.progress.pulled');
+      case 'recreating':
+        return $t('update.progress.recreating');
+      case 'completed':
+        return $t('update.progress.completed');
+      case 'error':
+        return $t('update.progress.error');
+      default:
+        return status;
+    }
+  }
+
+  function getProgressBarColor(status: ServicePullStatus): string {
+    switch (status) {
+      case 'error':
+        return 'bg-red-500';
+      case 'pulled':
+      case 'completed':
+        return 'bg-green-500';
+      case 'recreating':
+        return 'bg-amber-500';
+      default:
+        return 'bg-blue-500';
+    }
   }
 </script>
 
@@ -158,23 +332,152 @@ import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {$t('update.checkUpdates')} - {projectName}
+            {#if isUpdating}
+              {$t('update.updating')} - {projectName}
+            {:else}
+              {$t('update.checkUpdates')} - {projectName}
+            {/if}
           </h2>
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {updatableServices.length} {$t('update.updatesAvailable')}
+            {#if isUpdating && updateProgress}
+              {updateProgress.phase === 'pull' ? $t('update.phase.pull') : $t('update.phase.recreate')}
+            {:else}
+              {updatableServices.length} {$t('update.updatesAvailable')}
+            {/if}
           </p>
         </div>
-        <button
-          class="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          onclick={onClose}
-        >
-          <X class="w-5 h-5" />
-        </button>
+        {#if !isUpdating}
+          <button
+            class="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            onclick={onClose}
+          >
+            <X class="w-5 h-5" />
+          </button>
+        {/if}
       </div>
 
       <!-- Content -->
       <div class="flex-1 overflow-y-auto p-6">
-        {#if updateCheck.images.length === 0}
+        {#if isUpdating}
+          <!-- Progress View -->
+          <div class="space-y-4">
+            <!-- Overall Progress Bar -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600 dark:text-gray-400">{$t('update.overallProgress')}</span>
+                <span class="font-medium text-gray-900 dark:text-white">
+                  {updateProgress?.overallProgress ?? 0}%
+                </span>
+              </div>
+              <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                  style="width: {updateProgress?.overallProgress ?? 0}%"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Per-Service Progress -->
+            <div class="space-y-3 mt-6">
+              <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {$t('update.serviceProgress')}
+              </h3>
+
+              {#if updateProgress?.services}
+                {#each updateProgress.services as service (service.serviceName)}
+                  {@const StatusIcon = getStatusIcon(service.status)}
+                  <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                    <div class="flex items-center gap-3">
+                      <!-- Status Icon -->
+                      <div class="flex-shrink-0 {getStatusColor(service.status)}">
+                        <StatusIcon class="w-5 h-5 {service.status === 'pulling' || service.status === 'downloading' || service.status === 'extracting' || service.status === 'recreating' ? 'animate-spin' : ''}" />
+                      </div>
+
+                      <!-- Service Name and Status -->
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="font-medium text-gray-900 dark:text-white truncate">
+                            {service.serviceName}
+                          </span>
+                          <Badge class="{getStatusBgColor(service.status)} {getStatusColor(service.status)} text-xs">
+                            {getStatusLabel(service.status)}
+                          </Badge>
+                        </div>
+
+                        <!-- Progress Bar for active downloads -->
+                        {#if service.status === 'downloading' || service.status === 'extracting' || service.status === 'pulling'}
+                          <div class="mt-2">
+                            <div class="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                class="h-full {getProgressBarColor(service.status)} rounded-full transition-all duration-200"
+                                style="width: {service.progressPercent}%"
+                              ></div>
+                            </div>
+                          </div>
+                        {/if}
+
+                        <!-- Last log message for this service -->
+                        {#if service.message}
+                          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={service.message}>
+                            {service.message}
+                          </p>
+                        {/if}
+                      </div>
+
+                      <!-- Progress Percentage -->
+                      <div class="flex-shrink-0 text-sm font-medium {getStatusColor(service.status)}">
+                        {service.progressPercent}%
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              {:else}
+                <!-- Fallback: show selected services as waiting -->
+                {#each Array.from(selectedServices) as serviceName (serviceName)}
+                  <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                    <div class="flex items-center gap-3">
+                      <Loader2 class="w-5 h-5 text-gray-400 animate-spin" />
+                      <span class="font-medium text-gray-900 dark:text-white">{serviceName}</span>
+                      <Badge class="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs">
+                        {$t('update.progress.waiting')}
+                      </Badge>
+                    </div>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+
+            <!-- Logs Section (Expandable) -->
+            {#if updateLogs.length > 0}
+              <div class="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button
+                  class="w-full px-4 py-2 flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-150 dark:hover:bg-gray-700 transition-colors"
+                  onclick={() => logsExpanded = !logsExpanded}
+                >
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {$t('update.logs')} ({updateLogs.length})
+                  </span>
+                  {#if logsExpanded}
+                    <ChevronUp class="w-4 h-4 text-gray-500" />
+                  {:else}
+                    <ChevronDown class="w-4 h-4 text-gray-500" />
+                  {/if}
+                </button>
+
+                {#if logsExpanded}
+                  <div
+                    bind:this={logsContainer}
+                    class="max-h-48 overflow-y-auto p-3 bg-gray-900 text-gray-100 font-mono text-xs"
+                  >
+                    {#each updateLogs as log, i (i)}
+                      <div class="whitespace-pre-wrap break-all">{log}</div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {:else if updateCheck.images.length === 0}
           <div class="text-center py-8 text-gray-500 dark:text-gray-400">
             <Package class="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>{$t('update.noImages')}</p>
@@ -334,29 +637,39 @@ import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
 
       <!-- Footer -->
       <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {selectedServices.size} {$t('update.servicesSelected')}
-        </p>
-        <div class="flex gap-3">
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            onclick={onClose}
-          >
-            {$t('common.cancel')}
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            onclick={handleUpdate}
-            disabled={noneSelected || updateMutation.isPending}
-          >
-            {#if updateMutation.isPending}
-              <Loader2 class="w-4 h-4 animate-spin" />
-            {:else}
-              <Download class="w-4 h-4" />
-            {/if}
-            {$t('update.updateSelected')} ({selectedServices.size})
-          </button>
-        </div>
+        {#if isUpdating}
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {$t('update.pleaseWait')}
+          </p>
+          <div class="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+            <Loader2 class="w-4 h-4 animate-spin" />
+            {updateProgress?.overallProgress ?? 0}%
+          </div>
+        {:else}
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {selectedServices.size} {$t('update.servicesSelected')}
+          </p>
+          <div class="flex gap-3">
+            <button
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              onclick={onClose}
+            >
+              {$t('common.cancel')}
+            </button>
+            <button
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onclick={handleUpdate}
+              disabled={noneSelected || updateMutation.isPending}
+            >
+              {#if updateMutation.isPending}
+                <Loader2 class="w-4 h-4 animate-spin" />
+              {:else}
+                <Download class="w-4 h-4" />
+              {/if}
+              {$t('update.updateSelected')} ({selectedServices.size})
+            </button>
+          </div>
+        {/if}
       </div>
     </div>
   </div>

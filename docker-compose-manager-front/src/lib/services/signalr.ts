@@ -1,6 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
+import type { UpdateProgressEvent } from '$lib/types/update';
 import { logger } from '$lib/utils/logger';
 
 let connection: signalR.HubConnection | null = null;
@@ -12,6 +13,7 @@ let isLogsConnecting = false;
 const operationUpdateCallbacks = new Set<(event: OperationUpdateEvent) => void>();
 const containerStateChangedCallbacks = new Set<(event: ContainerStateChangedEvent) => void>();
 const composeProjectStateChangedCallbacks = new Set<(event: ComposeProjectStateChangedEvent) => void>();
+const pullProgressUpdateCallbacks = new Set<(event: UpdateProgressEvent) => void>();
 const connectedCallbacks = new Set<() => void>();
 const disconnectedCallbacks = new Set<(error?: Error) => void>();
 const reconnectingCallbacks = new Set<(error?: Error) => void>();
@@ -91,6 +93,10 @@ function initializeConnection() {
 
   connection.on('ComposeProjectStateChanged', (event: ComposeProjectStateChangedEvent) => {
     composeProjectStateChangedCallbacks.forEach(cb => cb(event));
+  });
+
+  connection.on('PullProgressUpdate', (event: UpdateProgressEvent) => {
+    pullProgressUpdateCallbacks.forEach(cb => cb(event));
   });
 
   connection.onclose((error) => {
@@ -401,4 +407,26 @@ export function isLogsConnected(): boolean {
 
 export function getLogsConnectionState(): signalR.HubConnectionState {
   return logsConnection?.state ?? signalR.HubConnectionState.Disconnected;
+}
+
+// ============== PULL PROGRESS SUBSCRIPTIONS ==============
+
+/**
+ * Subscribe to pull progress updates for real-time update tracking.
+ * @param callback Function to call when a pull progress event is received
+ * @returns Unsubscribe function
+ */
+export function onPullProgressUpdate(callback: (event: UpdateProgressEvent) => void): () => void {
+  pullProgressUpdateCallbacks.add(callback);
+  return () => {
+    pullProgressUpdateCallbacks.delete(callback);
+  };
+}
+
+/**
+ * Unsubscribe from pull progress updates.
+ * @param callback The callback function to remove
+ */
+export function offPullProgressUpdate(callback: (event: UpdateProgressEvent) => void): void {
+  pullProgressUpdateCallbacks.delete(callback);
 }

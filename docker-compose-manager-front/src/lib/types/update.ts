@@ -145,3 +145,34 @@ export interface CheckAllUpdatesResponse {
   totalServicesWithUpdates: number;
   checkedAt: string;
 }
+
+// ============================================
+// Pull Progress Types (for real-time updates)
+// ============================================
+
+/**
+ * Progress status for a single service during pull operation
+ */
+export type ServicePullStatus = 'waiting' | 'pulling' | 'downloading' | 'extracting' | 'pulled' | 'recreating' | 'completed' | 'error';
+
+/**
+ * Progress information for a single service during pull operation
+ */
+export interface ServicePullProgress {
+  serviceName: string;
+  status: ServicePullStatus;
+  progressPercent: number;
+  message?: string | null;
+}
+
+/**
+ * Real-time update progress event received via SignalR
+ */
+export interface UpdateProgressEvent {
+  operationId: string;
+  projectName: string;
+  phase: 'pull' | 'recreate';
+  overallProgress: number;
+  services: ServicePullProgress[];
+  currentLog?: string | null;
+}
