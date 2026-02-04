@@ -9,6 +9,7 @@
   import type { ProjectUpdateCheckResponse, ImageUpdateStatus, UpdateProgressEvent, ServicePullProgress, ServicePullStatus } from '$lib/types/update';
   import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
   import { onPullProgressUpdate, startConnection } from '$lib/services/signalr';
+  import { startBatchOperation } from '$lib/stores/batchOperation.svelte';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -37,6 +38,9 @@
 
   // Unsubscribe function for SignalR
   let unsubscribePullProgress: (() => void) | null = null;
+
+  // Cleanup function for batch operation
+  let endBatchOp: (() => void) | null = null;
 
   // Ensure SignalR is connected on mount
   onMount(() => {
@@ -73,6 +77,10 @@
         unsubscribePullProgress();
         unsubscribePullProgress = null;
       }
+      if (endBatchOp) {
+        endBatchOp();
+        endBatchOp = null;
+      }
     }
   });
 
@@ -93,6 +101,10 @@
       isUpdating = true;
       updateProgress = null;
       updateLogs = [];
+
+      // Start batch operation to suppress SignalR-triggered refreshes during update
+      const operationId = `update-${projectName}-${Date.now()}`;
+      endBatchOp = startBatchOperation(operationId, projectName);
 
       // Subscribe to SignalR progress updates
       unsubscribePullProgress = onPullProgressUpdate((event) => {
@@ -119,6 +131,12 @@
       isUpdating = false;
     },
     onSettled: () => {
+      // End batch operation to allow normal SignalR event handling
+      if (endBatchOp) {
+        endBatchOp();
+        endBatchOp = null;
+      }
+
       // Cleanup subscription
       if (unsubscribePullProgress) {
         unsubscribePullProgress();

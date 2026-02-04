@@ -7,6 +7,7 @@
   import Badge from '$lib/components/ui/badge.svelte';
   import Checkbox from '$lib/components/ui/checkbox.svelte';
   import { projectUpdateState, markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
+  import { startBatchOperation } from '$lib/stores/batchOperation.svelte';
   import type { ProjectUpdateSummary } from '$lib/types/update';
 
   interface Props {
@@ -80,30 +81,40 @@
 
     const projectsToUpdate = Array.from(selectedProjects);
 
-    // Update projects sequentially
-    for (const projectName of projectsToUpdate) {
-      updatingProjects.add(projectName);
-      updatingProjects = new Set(updatingProjects);
+    // Start a batch operation to suppress SignalR-triggered refreshes during updates
+    // This prevents the project list from being refreshed after each Docker command
+    const batchOperationId = `bulk-update-${Date.now()}`;
+    const endBatchOp = startBatchOperation(batchOperationId);
 
-      try {
-        await updateApi.updateProject(projectName, { updateAll: true });
-
-        completedProjects.add(projectName);
-        completedProjects = new Set(completedProjects);
-
-        // Mark as updated in the store
-        markProjectAsUpdated(projectName);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        failedProjects.set(projectName, errorMessage);
-        failedProjects = new Map(failedProjects);
-      } finally {
-        updatingProjects.delete(projectName);
+    try {
+      // Update projects sequentially
+      for (const projectName of projectsToUpdate) {
+        updatingProjects.add(projectName);
         updatingProjects = new Set(updatingProjects);
+
+        try {
+          await updateApi.updateProject(projectName, { updateAll: true });
+
+          completedProjects.add(projectName);
+          completedProjects = new Set(completedProjects);
+
+          // Mark as updated in the store
+          markProjectAsUpdated(projectName);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          failedProjects.set(projectName, errorMessage);
+          failedProjects = new Map(failedProjects);
+        } finally {
+          updatingProjects.delete(projectName);
+          updatingProjects = new Set(updatingProjects);
+        }
       }
+    } finally {
+      // End batch operation - this will allow normal SignalR event handling to resume
+      endBatchOp();
     }
 
-    // Invalidate queries to refresh project data
+    // Invalidate queries to refresh project data (only once at the end)
     queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
 
     // Show result toast
