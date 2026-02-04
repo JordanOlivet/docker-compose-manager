@@ -275,7 +275,8 @@ public class ComposeUpdateService : IComposeUpdateService
 
             string servicesArg = string.Join(" ", servicesToUpdate);
 
-            // Initialize progress tracking for all services
+            // Reset parser state and initialize progress tracking for all services
+            _progressParser.Reset();
             Dictionary<string, ServicePullProgress> serviceProgress = _progressParser.InitializeProgress(servicesToUpdate);
             string? lastLogLine = null;
             DateTime lastProgressSent = DateTime.MinValue;
@@ -289,13 +290,23 @@ public class ComposeUpdateService : IComposeUpdateService
 
             void OnPullOutput(string line)
             {
+                if (string.IsNullOrWhiteSpace(line))
+                    return;
+
                 lastLogLine = line;
+                _logger.LogDebug("Pull output: {Line}", line.Trim());
+
                 bool changed = _progressParser.ParseLine(line, serviceProgress);
 
                 // Send progress update if state changed or enough time has passed
                 if (changed || DateTime.UtcNow - lastProgressSent > minProgressInterval)
                 {
                     lastProgressSent = DateTime.UtcNow;
+                    int progress = _progressParser.CalculateOverallProgress(serviceProgress);
+                    _logger.LogDebug("Pull progress update - Changed: {Changed}, Overall: {Progress}%, Services: {Services}",
+                        changed, progress,
+                        string.Join(", ", serviceProgress.Select(s => $"{s.Key}:{s.Value.Status}({s.Value.ProgressPercent}%)")));
+
                     // Fire and forget - don't block the output processing
                     _ = SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, line);
                 }

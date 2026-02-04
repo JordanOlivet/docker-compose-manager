@@ -6,51 +6,105 @@ namespace docker_compose_manager_back.Services;
 /// <summary>
 /// Parses docker compose pull output to extract per-service progress information.
 ///
-/// Docker compose pull output format examples:
+/// Docker compose v2 output varies based on TTY mode:
+///
+/// Interactive (TTY) format:
 /// [+] Pulling 3/5
 ///  ✔ service1 Pulled                                                    2.1s
 ///  - service2 Pulling                                                   3.2s
 ///    ✔ abc123 Already exists                                            0.0s
 ///    ⠿ def456 Downloading [=====>        ]  45.3%                       1.2s
-///    ⠿ ghi789 Extracting [========>     ]  62.1%                        0.8s
-///  - service3 Waiting
+///
+/// Non-interactive (no TTY) format:
+/// [+] Pulling 1/1
+/// service1 Pulling
+/// abc123: Pulling from library/nginx
+/// abc123: Already exists
+/// def456: Downloading [====>    ] 50%
+/// service1 Pulled
+///
+/// Up-to-date format:
+/// [+] Pulling 1/0
+///  ✔ service1 image is up to date
 /// </summary>
 public partial class DockerPullProgressParser
 {
     private readonly ILogger<DockerPullProgressParser> _logger;
 
-    // Regex patterns for parsing docker compose pull output
+    // Track which service is currently being pulled in non-TTY mode
+    private string? _currentPullingService;
+
+    // ========== Interactive (TTY) patterns ==========
+
     // Overall progress: [+] Pulling 3/5
     [GeneratedRegex(@"^\[\+\]\s+Pulling\s+(\d+)/(\d+)", RegexOptions.Compiled)]
     private static partial Regex OverallProgressRegex();
 
-    // Service status with checkmark: ✔ service1 Pulled 2.1s
-    [GeneratedRegex(@"^\s*[✔✓]\s+(\S+)\s+(Pulled|Already exists)", RegexOptions.Compiled)]
-    private static partial Regex ServiceCompletedRegex();
+    // Service completed (TTY): ✔ service1 Pulled 2.1s
+    [GeneratedRegex(@"^\s*[✔✓]\s+(\S+)\s+(Pulled|pulled)", RegexOptions.Compiled)]
+    private static partial Regex ServiceCompletedTtyRegex();
 
-    // Service pulling: - service2 Pulling 3.2s
+    // Service up to date (TTY): ✔ service1 image is up to date
+    [GeneratedRegex(@"^\s*[✔✓]\s+(\S+)\s+image is up to date", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex ServiceUpToDateTtyRegex();
+
+    // Service pulling (TTY): - service2 Pulling 3.2s
     [GeneratedRegex(@"^\s*[-⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠿]\s+(\S+)\s+(Pulling|Waiting)", RegexOptions.Compiled)]
-    private static partial Regex ServicePullingRegex();
+    private static partial Regex ServicePullingTtyRegex();
 
-    // Layer downloading with progress: ⠿ abc123 Downloading [=====>        ] 45.3%
-    [GeneratedRegex(@"^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠿✔✓]\s+\S+\s+Downloading\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled)]
-    private static partial Regex LayerDownloadingRegex();
+    // ========== Non-interactive (no TTY) patterns ==========
 
-    // Layer extracting with progress: ⠿ abc123 Extracting [========>     ] 62.1%
-    [GeneratedRegex(@"^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠿✔✓]\s+\S+\s+Extracting\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled)]
-    private static partial Regex LayerExtractingRegex();
+    // Service pulling (non-TTY): "service1 Pulling" at start of line
+    [GeneratedRegex(@"^(\S+)\s+Pulling\s*$", RegexOptions.Compiled)]
+    private static partial Regex ServicePullingNonTtyRegex();
 
-    // Layer already exists: ✔ abc123 Already exists
-    [GeneratedRegex(@"^\s*[✔✓]\s+\S+\s+Already exists", RegexOptions.Compiled)]
-    private static partial Regex LayerExistsRegex();
+    // Service completed (non-TTY): "service1 Pulled" at start of line
+    [GeneratedRegex(@"^(\S+)\s+Pulled\s*$", RegexOptions.Compiled)]
+    private static partial Regex ServiceCompletedNonTtyRegex();
+
+    // Layer downloading: abc123: Downloading [====>    ] 50% or with size info
+    [GeneratedRegex(@"^\s*\S+:\s*Downloading\s+(?:\[.*?\])?\s*(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex LayerDownloadingNonTtyRegex();
+
+    // Layer extracting: abc123: Extracting [====>    ] 50%
+    [GeneratedRegex(@"^\s*\S+:\s*Extracting\s+(?:\[.*?\])?\s*(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex LayerExtractingNonTtyRegex();
+
+    // Layer already exists: abc123: Already exists
+    [GeneratedRegex(@"^\s*\S+:\s*Already exists", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex LayerExistsNonTtyRegex();
+
+    // Layer download/pull complete: abc123: Download complete or abc123: Pull complete
+    [GeneratedRegex(@"^\s*\S+:\s*(Download|Pull) complete", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex LayerCompleteNonTtyRegex();
+
+    // ========== TTY patterns for layers (when visible) ==========
+
+    // Layer downloading (TTY): ⠿ abc123 Downloading [=====>        ] 45.3%
+    [GeneratedRegex(@"^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠿✔✓-]\s+\S+\s+Downloading\s+(?:\[.*?\])?\s*(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled)]
+    private static partial Regex LayerDownloadingTtyRegex();
+
+    // Layer extracting (TTY): ⠿ abc123 Extracting [========>     ] 62.1%
+    [GeneratedRegex(@"^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠿✔✓-]\s+\S+\s+Extracting\s+(?:\[.*?\])?\s*(\d+(?:\.\d+)?)\s*%?", RegexOptions.Compiled)]
+    private static partial Regex LayerExtractingTtyRegex();
+
+    // ========== Common patterns ==========
 
     // Error pattern
-    [GeneratedRegex(@"error|failed|Error|Failed", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(error|failed)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex ErrorRegex();
 
     public DockerPullProgressParser(ILogger<DockerPullProgressParser> logger)
     {
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Resets parser state for a new pull operation.
+    /// </summary>
+    public void Reset()
+    {
+        _currentPullingService = null;
     }
 
     /// <summary>
@@ -65,65 +119,102 @@ public partial class DockerPullProgressParser
             return false;
 
         bool changed = false;
+        string trimmedLine = line.Trim();
 
-        // Check for service completed
-        Match completedMatch = ServiceCompletedRegex().Match(line);
-        if (completedMatch.Success)
+        _logger.LogTrace("Parsing pull line: {Line}", trimmedLine);
+
+        // ========== Check for service completed (TTY format) ==========
+        Match completedTtyMatch = ServiceCompletedTtyRegex().Match(line);
+        if (completedTtyMatch.Success)
         {
-            string serviceName = completedMatch.Groups[1].Value;
-            if (serviceProgress.ContainsKey(serviceName))
-            {
-                serviceProgress[serviceName] = serviceProgress[serviceName] with
-                {
-                    Status = "pulled",
-                    ProgressPercent = 100,
-                    Message = line.Trim()
-                };
-                changed = true;
-            }
-            return changed;
+            string serviceName = completedTtyMatch.Groups[1].Value;
+            changed = TryMarkServicePulled(serviceName, trimmedLine, serviceProgress);
+            if (changed) return changed;
         }
 
-        // Check for service pulling/waiting
-        Match pullingMatch = ServicePullingRegex().Match(line);
-        if (pullingMatch.Success)
+        // ========== Check for service up to date (TTY format) ==========
+        Match upToDateTtyMatch = ServiceUpToDateTtyRegex().Match(line);
+        if (upToDateTtyMatch.Success)
         {
-            string serviceName = pullingMatch.Groups[1].Value;
-            string status = pullingMatch.Groups[2].Value.ToLowerInvariant();
-
-            if (serviceProgress.ContainsKey(serviceName))
+            string serviceName = upToDateTtyMatch.Groups[1].Value;
+            changed = TryMarkServicePulled(serviceName, trimmedLine, serviceProgress);
+            if (changed)
             {
-                var current = serviceProgress[serviceName];
-                // Only update if not already in a more advanced state
-                if (current.Status == "waiting" || (current.Status == "pulling" && status == "pulling"))
-                {
-                    serviceProgress[serviceName] = current with
-                    {
-                        Status = status == "waiting" ? "waiting" : "pulling",
-                        Message = line.Trim()
-                    };
-                    changed = true;
-                }
+                _logger.LogDebug("Service {ServiceName} is up to date", serviceName);
+                return changed;
             }
-            return changed;
         }
 
-        // Check for layer downloading progress - aggregate for all services in pulling state
-        Match downloadMatch = LayerDownloadingRegex().Match(line);
-        if (downloadMatch.Success)
+        // ========== Check for service completed (non-TTY format) ==========
+        Match completedNonTtyMatch = ServiceCompletedNonTtyRegex().Match(line);
+        if (completedNonTtyMatch.Success)
         {
-            if (double.TryParse(downloadMatch.Groups[1].Value, out double percent))
+            string serviceName = completedNonTtyMatch.Groups[1].Value;
+            changed = TryMarkServicePulled(serviceName, trimmedLine, serviceProgress);
+            if (changed)
             {
-                // Find services that are in pulling state and update their progress
-                foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "pulling" || s.Value.Status == "downloading"))
+                _currentPullingService = null;
+                return changed;
+            }
+        }
+
+        // ========== Check for service pulling (TTY format) ==========
+        Match pullingTtyMatch = ServicePullingTtyRegex().Match(line);
+        if (pullingTtyMatch.Success)
+        {
+            string serviceName = pullingTtyMatch.Groups[1].Value;
+            string status = pullingTtyMatch.Groups[2].Value.ToLowerInvariant();
+            changed = TryMarkServicePulling(serviceName, status, trimmedLine, serviceProgress);
+            if (changed) return changed;
+        }
+
+        // ========== Check for service pulling (non-TTY format) ==========
+        Match pullingNonTtyMatch = ServicePullingNonTtyRegex().Match(line);
+        if (pullingNonTtyMatch.Success)
+        {
+            string serviceName = pullingNonTtyMatch.Groups[1].Value;
+            _currentPullingService = serviceName;
+            changed = TryMarkServicePulling(serviceName, "pulling", trimmedLine, serviceProgress);
+            if (changed) return changed;
+        }
+
+        // ========== Check for layer downloading (TTY and non-TTY) ==========
+        Match downloadTtyMatch = LayerDownloadingTtyRegex().Match(line);
+        Match downloadNonTtyMatch = LayerDownloadingNonTtyRegex().Match(line);
+        Match downloadMatch = downloadTtyMatch.Success ? downloadTtyMatch : downloadNonTtyMatch;
+
+        if (downloadMatch.Success && double.TryParse(downloadMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double downloadPercent))
+        {
+            changed = UpdateDownloadProgress(downloadPercent, trimmedLine, serviceProgress);
+            if (changed) return changed;
+        }
+
+        // ========== Check for layer extracting (TTY and non-TTY) ==========
+        Match extractTtyMatch = LayerExtractingTtyRegex().Match(line);
+        Match extractNonTtyMatch = LayerExtractingNonTtyRegex().Match(line);
+        Match extractMatch = extractTtyMatch.Success ? extractTtyMatch : extractNonTtyMatch;
+
+        if (extractMatch.Success && double.TryParse(extractMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double extractPercent))
+        {
+            changed = UpdateExtractProgress(extractPercent, trimmedLine, serviceProgress);
+            if (changed) return changed;
+        }
+
+        // ========== Check for layer already exists (non-TTY) ==========
+        if (LayerExistsNonTtyRegex().IsMatch(line) || LayerCompleteNonTtyRegex().IsMatch(line))
+        {
+            // Layer progress info - if we have a current service, show some progress
+            if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var current))
+            {
+                if (current.Status == "pulling" || current.Status == "downloading")
                 {
-                    // Update to downloading state with progress
-                    int progressInt = Math.Min(99, (int)Math.Round(percent * 0.7)); // Downloads are ~70% of the work
-                    serviceProgress[kvp.Key] = kvp.Value with
+                    // Increment progress slightly for each layer
+                    int newProgress = Math.Min(90, current.ProgressPercent + 5);
+                    serviceProgress[_currentPullingService] = current with
                     {
                         Status = "downloading",
-                        ProgressPercent = progressInt,
-                        Message = line.Trim()
+                        ProgressPercent = newProgress,
+                        Message = trimmedLine
                     };
                     changed = true;
                 }
@@ -131,43 +222,148 @@ public partial class DockerPullProgressParser
             return changed;
         }
 
-        // Check for layer extracting progress
-        Match extractMatch = LayerExtractingRegex().Match(line);
-        if (extractMatch.Success)
+        // ========== Check for errors ==========
+        // Only match actual errors, not things like "error handling" in normal output
+        if (ErrorRegex().IsMatch(line) &&
+            (line.Contains("error pulling", StringComparison.OrdinalIgnoreCase) ||
+             line.Contains("failed to", StringComparison.OrdinalIgnoreCase) ||
+             line.Contains("error:", StringComparison.OrdinalIgnoreCase)))
         {
-            if (double.TryParse(extractMatch.Groups[1].Value, out double percent))
+            // Mark the current pulling service or all non-completed services as errored
+            if (_currentPullingService != null && serviceProgress.ContainsKey(_currentPullingService))
             {
-                // Find services that are in downloading/extracting state and update their progress
-                foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "downloading" || s.Value.Status == "extracting"))
-                {
-                    // Extracting is the remaining ~30% of the work
-                    int progressInt = Math.Min(99, 70 + (int)Math.Round(percent * 0.3));
-                    serviceProgress[kvp.Key] = kvp.Value with
-                    {
-                        Status = "extracting",
-                        ProgressPercent = progressInt,
-                        Message = line.Trim()
-                    };
-                    changed = true;
-                }
-            }
-            return changed;
-        }
-
-        // Check for errors
-        if (ErrorRegex().IsMatch(line))
-        {
-            // Mark all non-completed services as potentially errored
-            foreach (var kvp in serviceProgress.Where(s => s.Value.Status != "pulled"))
-            {
-                serviceProgress[kvp.Key] = kvp.Value with
+                serviceProgress[_currentPullingService] = serviceProgress[_currentPullingService] with
                 {
                     Status = "error",
-                    Message = line.Trim()
+                    Message = trimmedLine
                 };
                 changed = true;
             }
+            else
+            {
+                foreach (var kvp in serviceProgress.Where(s => s.Value.Status != "pulled"))
+                {
+                    serviceProgress[kvp.Key] = kvp.Value with
+                    {
+                        Status = "error",
+                        Message = trimmedLine
+                    };
+                    changed = true;
+                }
+            }
             return changed;
+        }
+
+        return changed;
+    }
+
+    private bool TryMarkServicePulled(string serviceName, string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    {
+        if (serviceProgress.TryGetValue(serviceName, out var current))
+        {
+            serviceProgress[serviceName] = current with
+            {
+                Status = "pulled",
+                ProgressPercent = 100,
+                Message = message
+            };
+            _logger.LogDebug("Service {ServiceName} marked as pulled", serviceName);
+            return true;
+        }
+        return false;
+    }
+
+    private bool TryMarkServicePulling(string serviceName, string status, string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    {
+        if (serviceProgress.TryGetValue(serviceName, out var current))
+        {
+            // Only update if not already in a more advanced state
+            if (current.Status == "waiting" || current.Status == "pulling")
+            {
+                serviceProgress[serviceName] = current with
+                {
+                    Status = status == "waiting" ? "waiting" : "pulling",
+                    ProgressPercent = status == "pulling" ? 5 : 0, // Show some progress when pulling starts
+                    Message = message
+                };
+                _logger.LogDebug("Service {ServiceName} marked as {Status}", serviceName, status);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private bool UpdateDownloadProgress(double percent, string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    {
+        bool changed = false;
+
+        // If we know the current pulling service, update only that one
+        if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
+        {
+            if (currentService.Status == "pulling" || currentService.Status == "downloading")
+            {
+                int progressInt = Math.Min(90, (int)Math.Round(percent * 0.7)); // Downloads are ~70% of the work
+                serviceProgress[_currentPullingService] = currentService with
+                {
+                    Status = "downloading",
+                    ProgressPercent = progressInt,
+                    Message = message
+                };
+                changed = true;
+            }
+        }
+        else
+        {
+            // Fallback: update all services in pulling state
+            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "pulling" || s.Value.Status == "downloading").ToList())
+            {
+                int progressInt = Math.Min(90, (int)Math.Round(percent * 0.7));
+                serviceProgress[kvp.Key] = kvp.Value with
+                {
+                    Status = "downloading",
+                    ProgressPercent = progressInt,
+                    Message = message
+                };
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private bool UpdateExtractProgress(double percent, string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    {
+        bool changed = false;
+
+        // If we know the current pulling service, update only that one
+        if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
+        {
+            if (currentService.Status == "downloading" || currentService.Status == "extracting")
+            {
+                int progressInt = Math.Min(99, 70 + (int)Math.Round(percent * 0.3)); // Extracting is ~30% of the work
+                serviceProgress[_currentPullingService] = currentService with
+                {
+                    Status = "extracting",
+                    ProgressPercent = progressInt,
+                    Message = message
+                };
+                changed = true;
+            }
+        }
+        else
+        {
+            // Fallback: update all services in downloading/extracting state
+            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "downloading" || s.Value.Status == "extracting").ToList())
+            {
+                int progressInt = Math.Min(99, 70 + (int)Math.Round(percent * 0.3));
+                serviceProgress[kvp.Key] = kvp.Value with
+                {
+                    Status = "extracting",
+                    ProgressPercent = progressInt,
+                    Message = message
+                };
+                changed = true;
+            }
         }
 
         return changed;
