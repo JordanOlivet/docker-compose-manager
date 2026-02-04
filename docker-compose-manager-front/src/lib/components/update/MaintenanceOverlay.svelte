@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { Loader2, RefreshCw, Wrench, CheckCircle, XCircle } from 'lucide-svelte';
   import { t } from '$lib/i18n';
-  import { updateState, updateReconnectState, exitMaintenanceMode } from '$lib/stores/update.svelte';
+  import { updateState, updateReconnectState, exitMaintenanceMode, clearUpdateInfo } from '$lib/stores/update.svelte';
 
   interface Props {
     initialIntervalMs?: number;
@@ -76,6 +76,8 @@
         // Server is back up
         reconnectionSucceeded = true;
         exitMaintenanceMode();
+        // Clear update info so the settings page shows fresh state after login
+        clearUpdateInfo();
 
         // Give a moment for the success message to show, then redirect
         setTimeout(() => {
