@@ -73,13 +73,20 @@ public partial class GitHubReleaseService : IGitHubReleaseService
 
             if (latestRelease == null)
             {
+                // Try to find the current version's release for its published date
+                GitHubRelease? currentRel = releases
+                    .FirstOrDefault(r => NormalizeVersion(r.TagName) == currentVersion);
+                DateTime? currentPubAt = currentRel?.PublishedAt ?? currentRel?.CreatedAt;
+
                 return new AppUpdateCheckResponse(
                     CurrentVersion: currentVersion,
                     LatestVersion: currentVersion,
                     UpdateAvailable: false,
                     ReleaseUrl: null,
                     Changelog: new List<ReleaseInfo>(),
-                    Summary: new ChangelogSummary(0, false, false, false)
+                    Summary: new ChangelogSummary(0, false, false, false),
+                    CurrentVersionPublishedAt: currentPubAt,
+                    LatestVersionPublishedAt: currentPubAt
                 );
             }
 
@@ -104,13 +111,23 @@ public partial class GitHubReleaseService : IGitHubReleaseService
                 summary = new ChangelogSummary(0, false, false, false);
             }
 
+            // Find the current version's release to get its published date
+            GitHubRelease? currentRelease = releases
+                .FirstOrDefault(r => NormalizeVersion(r.TagName) == currentVersion);
+            DateTime? currentVersionPublishedAt = currentRelease?.PublishedAt ?? currentRelease?.CreatedAt;
+
+            // Get the latest version's published date
+            DateTime? latestVersionPublishedAt = latestRelease.PublishedAt ?? latestRelease.CreatedAt;
+
             return new AppUpdateCheckResponse(
                 CurrentVersion: currentVersion,
                 LatestVersion: latestVersion,
                 UpdateAvailable: updateAvailable,
                 ReleaseUrl: latestRelease.HtmlUrl,
                 Changelog: changelog,
-                Summary: summary
+                Summary: summary,
+                CurrentVersionPublishedAt: currentVersionPublishedAt,
+                LatestVersionPublishedAt: latestVersionPublishedAt
             );
         }
         catch (Exception ex)

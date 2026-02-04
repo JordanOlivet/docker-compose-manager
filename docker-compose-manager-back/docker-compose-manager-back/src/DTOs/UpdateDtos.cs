@@ -10,6 +10,9 @@ public record AppUpdateCheckResponse(
     string? ReleaseUrl,
     List<ReleaseInfo> Changelog,
     ChangelogSummary Summary,
+    // Published dates for release versions
+    DateTime? CurrentVersionPublishedAt = null,
+    DateTime? LatestVersionPublishedAt = null,
     // Fields for dev version update checks
     bool IsDevVersion = false,
     string? LocalDigest = null,

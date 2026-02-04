@@ -206,6 +206,37 @@
     if (!date) return $t('update.never');
     return date.toLocaleString();
   }
+
+  function formatVersionDate(dateStr: string | null | undefined): string | null {
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  // Get the appropriate dates based on version type
+  let currentVersionDate = $derived.by(() => {
+    if (!updateState.updateInfo) return null;
+    if (updateState.updateInfo.isDevVersion) {
+      return formatVersionDate(updateState.updateInfo.localCreatedAt);
+    }
+    return formatVersionDate(updateState.updateInfo.currentVersionPublishedAt);
+  });
+
+  let latestVersionDate = $derived.by(() => {
+    if (!updateState.updateInfo) return null;
+    if (updateState.updateInfo.isDevVersion) {
+      return formatVersionDate(updateState.updateInfo.remoteCreatedAt);
+    }
+    return formatVersionDate(updateState.updateInfo.latestVersionPublishedAt);
+  });
 </script>
 
 <div class="space-y-6">
@@ -256,16 +287,24 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{$t('update.currentVersion')}</p>
-              <p class="text-lg font-semibold text-gray-900 dark:text-white">
-                {updateState.updateInfo?.currentVersion ?? '-'}
-              </p>
+              <div class="flex items-center gap-2">
+                <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {updateState.updateInfo?.currentVersion ?? '-'}
+                </p>
+                {#if currentVersionDate}
+                  <span class="text-xs text-gray-400 dark:text-gray-500">({currentVersionDate})</span>
+                {/if}
+              </div>
             </div>
             <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{$t('update.latestVersion')}</p>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <p class="text-lg font-semibold text-gray-900 dark:text-white">
                   {updateState.updateInfo?.latestVersion ?? '-'}
                 </p>
+                {#if latestVersionDate}
+                  <span class="text-xs text-gray-400 dark:text-gray-500">({latestVersionDate})</span>
+                {/if}
                 {#if updateState.updateInfo?.updateAvailable}
                   <Badge variant="success">{$t('update.updateAvailable')}</Badge>
                 {:else if updateState.updateInfo && !updateState.updateInfo.updateAvailable}
