@@ -314,10 +314,11 @@ public class SelfUpdateService : ISelfUpdateService
             hostWorkingDirectory, composeFileName);
 
         // Ensure the updater image is available
+        // Note: FromImage should be "docker" and Tag should be "cli" for docker:cli
         try
         {
             await _dockerClient.Images.CreateImageAsync(
-                new ImagesCreateParameters { FromImage = UpdaterImage, Tag = "latest" },
+                new ImagesCreateParameters { FromImage = "docker", Tag = "cli" },
                 null,
                 new Progress<JSONMessage>(msg =>
                 {
