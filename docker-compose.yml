@@ -20,6 +20,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Windows Docker socket (uncomment if on Windows and comment the line above):
       # - //./pipe/docker_engine://./pipe/docker_engine
+      # Docker config for registry credentials (uses host's Docker login)
+      # This allows the app to use existing host credentials and persist new logins
+      # Linux/Mac:
+      - ${HOME}/.docker:/root/.docker
+      # Windows (uncomment and adjust path if needed):
+      # - ${USERPROFILE}/.docker:/root/.docker
       # Logs persistence
       - ./logs:/app/logs
       # Compose files directory
