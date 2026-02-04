@@ -12,18 +12,20 @@
   import { AlertCircle } from 'lucide-svelte';
 
   // Query for configured registries
-  // No refetchInterval needed - data is invalidated on login/logout mutations
+  // Refetch each time the tab is accessed (staleTime: 0)
+  // No polling interval - only refetch on mount or manual invalidation
   const configuredQuery = createQuery(() => ({
     queryKey: ['registry', 'configured'],
     queryFn: () => registryApi.getConfiguredRegistries(),
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 0, // Always refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   }));
 
-  // Query for known registries (static data, rarely changes)
+  // Query for known registries (static data, cache indefinitely)
   const knownQuery = createQuery(() => ({
     queryKey: ['registry', 'known'],
     queryFn: () => registryApi.getKnownRegistries(),
-    staleTime: 30 * 60 * 1000, // Consider data fresh for 30 minutes
+    staleTime: Infinity, // Never consider stale (static list)
   }));
 
   // Find configured info for a known registry
