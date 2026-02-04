@@ -11,6 +11,8 @@ Docker Compose Manager provides a modern web UI for managing your Docker infrast
 - Edit compose files with syntax highlighting
 - Monitor container logs and statistics in real-time
 - Manage users with role-based access control
+- Manage Docker registry credentials (Docker Hub, GHCR, custom registries)
+- Self-update capability with maintenance mode
 
 **Current Version**: See [VERSION](VERSION) file or [Releases](../../releases)
 
@@ -46,6 +48,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Windows Docker socket (uncomment if on Windows and comment the line above):
       # - //./pipe/docker_engine://./pipe/docker_engine
+      # Docker config for registry credentials (optional)
+      # IMPORTANT: Use explicit path, not ${HOME} if running with sudo
+      - /home/your-user/.docker:/root/.docker
       # Logs persistence
       - ./logs:/app/logs
       # Compose files directory
@@ -93,12 +98,35 @@ For Windows hosts, replace the Docker socket volume with:
 - Execute compose commands (up, down, start, stop, restart)
 - View project status and service health
 - Edit compose files with Monaco editor (syntax highlighting)
+- **Image update detection** - Automatic checking for newer Docker images
+- One-click service updates with automatic container recreation
 
 ### User Management (Admin)
 - Create and manage user accounts
 - Role-based access control
 - Activity audit logging
 - Session management
+
+### Registry Credentials Management (Admin)
+- Manage Docker registry authentication from the Settings page
+- **Known Registries**: Pre-configured support for Docker Hub and GitHub Container Registry (GHCR)
+- **Custom Registries**: Add any private registry (Harbor, GitLab, AWS ECR, etc.)
+- **Authentication Types**: Username/Password or Access Token
+- Uses Docker's native credential system (`docker login`/`docker logout`)
+- Credentials persist on the host via volume mount
+
+### Application Updates (Admin)
+- Check for new versions from the Settings page
+- One-click update with automatic container recreation
+- Maintenance mode with automatic reconnection
+- Support for both release versions and development builds
+
+### Compose Project Updates (Admin)
+- **Automatic image update detection** - Compares local and remote image digests
+- **Configurable check interval** - From 15 minutes to 24 hours (Settings > Project Update)
+- **Per-project update status** - See which projects have available updates
+- **Selective updates** - Update individual services or all services at once
+- **Update policy support** - Control updates per-service via `x-update-policy` in compose files
 
 ### Real-Time Updates
 - Live container status via SignalR WebSockets
@@ -154,6 +182,56 @@ openssl rand -base64 32
 | `/var/run/docker.sock` | Docker socket (required) |
 | `/app/compose-files` | Your compose files to manage |
 | `/app/logs` | Application logs (optional) |
+| `/root/.docker` | Docker config for registry credentials (optional) |
+
+### Compose Project Update Checking
+
+The application can automatically check if newer versions of Docker images are available for your compose projects.
+
+**Configuration:**
+- Go to **Settings > Project Update** to configure the check interval (15 min to 24 hours)
+- Updates are detected by comparing local image digests with remote registry digests
+
+**Update Policy:**
+
+You can control update behavior per-service using the `x-update-policy` extension in your compose files:
+
+```yaml
+services:
+  web:
+    image: nginx:latest
+    x-update-policy: auto  # or "disabled" to skip this service
+
+  database:
+    image: postgres:15
+    x-update-policy: disabled  # Never check for updates
+```
+
+**Available policies:**
+- `auto` (default) - Check for updates normally
+- `disabled` - Skip this service during update checks
+
+**How updates work:**
+1. The application periodically checks each service's image digest against the remote registry
+2. Projects with available updates are highlighted in the dashboard
+3. Click on a project to see which services have updates
+4. Update individual services or all services with one click
+5. Updates are performed via `docker compose pull` + `docker compose up -d --force-recreate`
+
+### Docker Registry Credentials
+
+To persist Docker registry credentials across container restarts, mount your host's Docker config directory:
+
+```yaml
+volumes:
+  - /home/your-user/.docker:/root/.docker
+```
+
+**Important Notes:**
+- Replace `/home/your-user` with your actual home directory path
+- **Do NOT use `${HOME}`** in docker-compose.yml if you run `docker compose` with `sudo`, as it will expand to `/root` instead of your user's home directory
+- After configuring this volume, you can manage registry credentials from **Settings > Registry Management**
+- The application uses Docker's native `docker login` command, so credentials are stored in the standard Docker config format
 
 ## Development Setup
 
@@ -249,6 +327,14 @@ Recommendations:
 - Change default credentials immediately
 - Use strong JWT secrets (generate with `openssl rand -base64 32`)
 - Consider Docker API over TLS for remote deployments
+
+### Registry Credentials
+
+When using the registry management feature:
+- Credentials are stored using Docker's native credential system
+- Passwords are passed securely via stdin (never logged or stored in command history)
+- Only admin users can manage registry credentials
+- All login/logout operations are recorded in the audit log
 
 ### Default Credentials
 
