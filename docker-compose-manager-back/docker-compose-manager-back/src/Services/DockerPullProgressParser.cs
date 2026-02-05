@@ -71,12 +71,14 @@ public partial class DockerPullProgressParser
     private static partial Regex LayerExtractingWithColonRegex();
 
     // Layer downloading without colon (Docker Compose v2 format):
-    // 95e3a87cd9d9 Downloading [=========>  ] 2.596GB/3.193GB
+    // 95e3a87cd9d9 Downloading [=========>  ]  2.596GB/3.193GB
+    // Note: Multiple spaces after ] and size can be attached to unit (2.596GB) or not (2.596 GB)
     [GeneratedRegex(@"^([a-f0-9]+)\s+Downloading\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex LayerDownloadingSizeRegex();
 
     // Layer extracting without colon (Docker Compose v2 format):
-    // 95e3a87cd9d9 Extracting [=========>  ] 100MB/3.193GB
+    // 95e3a87cd9d9 Extracting [=========>  ]  479.1MB/3.193GB
+    // Note: Multiple spaces after ] and size can be attached to unit (479.1MB) or not (479.1 MB)
     [GeneratedRegex(@"^([a-f0-9]+)\s+Extracting\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex LayerExtractingSizeRegex();
 
@@ -201,7 +203,7 @@ public partial class DockerPullProgressParser
             double totalSize = ParseSizeToBytes(downloadSizeMatch.Groups[4].Value, downloadSizeMatch.Groups[5].Value);
             double downloadPercent = totalSize > 0 ? (currentSize / totalSize) * 100 : 0;
 
-            _logger.LogTrace("Parsed download size: {Current}/{Total} = {Percent}%", currentSize, totalSize, downloadPercent);
+            _logger.LogDebug("Parsed download size: {Current}/{Total} = {Percent:F1}%", currentSize, totalSize, downloadPercent);
 
             changed = UpdateDownloadProgress(downloadPercent, trimmedLine, serviceProgress);
             if (changed) return changed;
@@ -227,10 +229,23 @@ public partial class DockerPullProgressParser
             double totalSize = ParseSizeToBytes(extractSizeMatch.Groups[4].Value, extractSizeMatch.Groups[5].Value);
             double extractPercent = totalSize > 0 ? (currentSize / totalSize) * 100 : 0;
 
-            _logger.LogTrace("Parsed extract size: {Current}/{Total} = {Percent}%", currentSize, totalSize, extractPercent);
+            _logger.LogDebug("Parsed extract size: {Current}/{Total} = {Percent:F1}%", currentSize, totalSize, extractPercent);
 
             changed = UpdateExtractProgress(extractPercent, trimmedLine, serviceProgress);
             if (changed) return changed;
+        }
+        else if (line.Contains("Extracting", StringComparison.OrdinalIgnoreCase))
+        {
+            // Fallback: Try to parse extracting line manually for debugging
+            _logger.LogDebug("Extracting line not matched by regex: {Line}", trimmedLine);
+
+            // Try a simple extraction progress update based on the progress bar
+            // This handles cases where the regex doesn't match exactly
+            if (_currentPullingService != null || serviceProgress.Count > 0)
+            {
+                changed = UpdateExtractProgressFallback(trimmedLine, serviceProgress);
+                if (changed) return changed;
+            }
         }
 
         // ========== Check for layer extracting (TTY and with colon formats) ==========
@@ -459,6 +474,67 @@ public partial class DockerPullProgressParser
                 changed = true;
 
                 // Set the first service as current pulling service
+                if (_currentPullingService == null)
+                {
+                    _currentPullingService = kvp.Key;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Fallback method for updating extract progress when the regex doesn't match.
+    /// Parses the progress bar to estimate percentage.
+    /// </summary>
+    private bool UpdateExtractProgressFallback(string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    {
+        bool changed = false;
+
+        // Try to find a progress bar pattern like [======>    ]
+        int startBracket = message.IndexOf('[');
+        int endBracket = message.IndexOf(']');
+
+        if (startBracket >= 0 && endBracket > startBracket)
+        {
+            string progressBar = message.Substring(startBracket + 1, endBracket - startBracket - 1);
+            int filledChars = progressBar.Count(c => c == '=' || c == '>');
+            int totalChars = progressBar.Length;
+            double percent = totalChars > 0 ? (filledChars * 100.0 / totalChars) : 50;
+
+            return UpdateExtractProgress(percent, message, serviceProgress);
+        }
+
+        // If no progress bar found, just update status to extracting with incremental progress
+        if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
+        {
+            if (currentService.Status == "downloading" || currentService.Status == "extracting")
+            {
+                int newProgress = Math.Min(95, currentService.ProgressPercent + 2);
+                serviceProgress[_currentPullingService] = currentService with
+                {
+                    Status = "extracting",
+                    ProgressPercent = newProgress,
+                    Message = message
+                };
+                changed = true;
+            }
+        }
+        else
+        {
+            // Update all services in downloading/extracting state
+            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "downloading" || s.Value.Status == "extracting").ToList())
+            {
+                int newProgress = Math.Min(95, kvp.Value.ProgressPercent + 2);
+                serviceProgress[kvp.Key] = kvp.Value with
+                {
+                    Status = "extracting",
+                    ProgressPercent = newProgress,
+                    Message = message
+                };
+                changed = true;
+
                 if (_currentPullingService == null)
                 {
                     _currentPullingService = kvp.Key;
