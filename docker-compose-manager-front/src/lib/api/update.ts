@@ -49,9 +49,14 @@ export const checkProjectUpdates = async (projectName: string): Promise<ProjectU
 
 /**
  * Update selected services in a project
+ * Note: Long timeout (30 min) to allow large image pulls
  */
 export const updateProject = async (projectName: string, request: ProjectUpdateRequest): Promise<UpdateTriggerResponse> => {
-  const response = await apiClient.post(`/compose/projects/${encodeURIComponent(projectName)}/update`, request);
+  const response = await apiClient.post(
+    `/compose/projects/${encodeURIComponent(projectName)}/update`,
+    request,
+    { timeout: 1800000 } // 30 minutes timeout for large image pulls
+  );
   return response.data.data;
 };
 

@@ -220,8 +220,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 // Add Rate Limiting
 //builder.Services.ConfigureRateLimiting();
 
-// Add SignalR
-builder.Services.AddSignalR();
+// Add SignalR with camelCase JSON serialization to match frontend TypeScript conventions
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
 // Add Request Timeouts (allows [RequestTimeout] attribute on endpoints)
 builder.Services.AddRequestTimeouts();

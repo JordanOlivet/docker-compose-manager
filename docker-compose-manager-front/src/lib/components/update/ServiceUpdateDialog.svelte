@@ -108,7 +108,9 @@
 
       // Subscribe to SignalR progress updates
       unsubscribePullProgress = onPullProgressUpdate((event) => {
+        console.log('ServiceUpdateDialog received progress event:', event, 'Expected projectName:', projectName);
         if (event.projectName === projectName) {
+          console.log('Progress event matches project, updating UI');
           updateProgress = event;
           if (event.currentLog) {
             updateLogs = [...updateLogs, event.currentLog].slice(-100); // Keep last 100 lines

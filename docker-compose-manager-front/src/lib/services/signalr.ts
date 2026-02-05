@@ -96,6 +96,7 @@ function initializeConnection() {
   });
 
   connection.on('PullProgressUpdate', (event: UpdateProgressEvent) => {
+    logger.log('SignalR PullProgressUpdate received:', event);
     pullProgressUpdateCallbacks.forEach(cb => cb(event));
   });
 
