@@ -10,6 +10,7 @@ import {
 import type { OperationUpdateEvent } from '$lib/types';
 import { composeApi } from '$lib/api/compose';
 import { logger } from '$lib/utils/logger';
+import { isBatchOperationActive, isProjectUpdating } from '$lib/stores/batchOperation.svelte';
 
 // Configuration
 const DEBOUNCE_DELAY_MS = 50; // Minimal debounce to batch truly simultaneous events
@@ -21,9 +22,12 @@ const DEDUPE_WINDOW_MS = 1000;
 // - 'create': container created
 // - 'destroy': container removed
 // - 'pause'/'unpause': container paused/resumed
+// - 'restart': container restarted (stop + start)
+// - 'recreate': compose-specific event when a container is recreated (e.g., during pull/up)
+// - 'pull': compose-specific event when an image is pulled (affects project state)
 // Ignored events: 'kill', 'stop' (signals, not state changes)
 const STATE_CHANGING_EVENTS = new Set([
-  'start', 'die', 'create', 'destroy', 'pause', 'unpause', 'restart'
+  'start', 'die', 'create', 'destroy', 'pause', 'unpause', 'restart', 'recreate', 'pull'
 ]);
 
 // Track recent compose events to avoid double invalidation
@@ -180,6 +184,19 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
       return;
     }
 
+    // Skip if a batch operation is in progress (e.g., during updates)
+    // This prevents excessive refreshes during docker compose pull/up operations
+    if (isBatchOperationActive() && (action !== 'recreate' && action !== 'pull')) {
+      logger.log(`[Bridge] Skipping compose event (batch operation active): ${event.projectName} - ${event.action}`);
+      return;
+    }
+
+    // Also skip if this specific project is being updated
+    if (isProjectUpdating(event.projectName) && (action !== 'recreate' && action !== 'pull')) {
+      logger.log(`[Bridge] Skipping compose event (project updating): ${event.projectName} - ${event.action}`);
+      return;
+    }
+
     logger.log(`[Bridge] Compose event (state-changing): ${event.projectName} - ${event.action}`);
 
     // Mark this container+action as handled via compose to prevent double invalidation
@@ -201,6 +218,13 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
     // Only react to state-changing events, ignore signals like 'kill', 'stop'
     if (!STATE_CHANGING_EVENTS.has(action)) {
       logger.log(`[Bridge] Ignoring container event (not state-changing): ${event.containerName} - ${event.action}`);
+      return;
+    }
+
+    // Skip if a batch operation is in progress (e.g., during updates)
+    // This prevents excessive refreshes during docker compose pull/up operations
+    if (isBatchOperationActive()) {
+      logger.log(`[Bridge] Skipping container event (batch operation active): ${event.containerName} - ${event.action}`);
       return;
     }
 

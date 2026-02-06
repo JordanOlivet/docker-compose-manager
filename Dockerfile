@@ -17,7 +17,8 @@ ARG VCS_REF
 RUN dotnet publish -c Release -o /app/backend \
     /p:Version=${VERSION} \
     /p:AssemblyVersion=${ASSEMBLY_VERSION} \
-    /p:InformationalVersion=${VERSION}+${VCS_REF}
+    /p:InformationalVersion=${VERSION}+${VCS_REF} && \
+    echo "${VERSION}" > /app/backend/VERSION
 
 # Stage 2: Build Frontend
 FROM node:20-alpine AS frontend-build
@@ -85,12 +86,16 @@ COPY nginx-unified.conf /etc/nginx/sites-available/default
 COPY supervisord.conf /etc/supervisor/conf.d/app.conf
 
 # Create required directories
-RUN mkdir -p /app/data /app/logs /app/compose-files && \
+RUN mkdir -p /app/data /app/logs /app/compose-files /root/.docker && \
     chown -R www-data:www-data /app/wwwroot && \
     # Ensure nginx directories exist
     mkdir -p /var/log/nginx /var/lib/nginx && \
     # Ensure supervisor directories exist
     mkdir -p /var/log/supervisor
+
+# Set environment variables for Docker config (used by docker login and the app)
+ENV HOME=/root
+ENV DOCKER_CONFIG=/root/.docker
 
 # Expose HTTP port
 EXPOSE 80

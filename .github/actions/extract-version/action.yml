@@ -2,8 +2,11 @@ name: 'Extract Version Information'
 description: 'Extracts version information from git tags or VERSION file'
 outputs:
   version:
-    description: 'Application version'
+    description: 'Application version (may include -dev-{commit} suffix for non-tag builds)'
     value: ${{ steps.version.outputs.version }}
+  base_version:
+    description: 'Base version without dev suffix (from tag or VERSION file)'
+    value: ${{ steps.version.outputs.base_version }}
   assembly_version:
     description: 'Assembly version (for .NET)'
     value: ${{ steps.version.outputs.assembly_version }}
@@ -22,23 +25,26 @@ runs:
       shell: bash
       run: |
         if git describe --tags --exact-match 2>/dev/null; then
-          VERSION=$(git describe --tags --exact-match | sed 's/^v//')
-          ASSEMBLY_VERSION="${VERSION}.0"
+          BASE_VERSION=$(git describe --tags --exact-match | sed 's/^v//')
+          VERSION="${BASE_VERSION}"
+          ASSEMBLY_VERSION="${BASE_VERSION}.0"
         else
           if [ -f VERSION ]; then
-            VERSION=$(cat VERSION | tr -d '\n\r')
-            ASSEMBLY_VERSION="${VERSION}.0"
+            BASE_VERSION=$(cat VERSION | tr -d '\n\r')
+            ASSEMBLY_VERSION="${BASE_VERSION}.0"
           else
-            VERSION="0.1.0"
+            BASE_VERSION="0.1.0"
             ASSEMBLY_VERSION="0.1.0.0"
           fi
-          VERSION="${VERSION}-dev-$(git rev-parse --short HEAD)"
+          VERSION="${BASE_VERSION}-dev-$(git rev-parse --short HEAD)"
         fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
         echo "assembly_version=${ASSEMBLY_VERSION}" >> $GITHUB_OUTPUT
         echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
         echo "vcs_ref=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
         echo "Version: ${VERSION}"
+        echo "Base Version: ${BASE_VERSION}"
         echo "Assembly Version: ${ASSEMBLY_VERSION}"
         echo "Build Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
         echo "VCS Ref: $(git rev-parse --short HEAD)"

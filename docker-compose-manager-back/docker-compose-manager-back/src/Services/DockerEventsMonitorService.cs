@@ -50,7 +50,7 @@ public class DockerEventsMonitorService : BackgroundService
         try
         {
             _dockerClient = new DockerClientConfiguration(new Uri(dockerHost)).CreateClient();
-            _logger.LogInformation("DockerEventsMonitorService initialized with host: {DockerHost}", dockerHost);
+            _logger.LogDebug("DockerEventsMonitorService initialized with host: {DockerHost}", dockerHost);
         }
         catch (Exception ex)
         {
@@ -61,7 +61,7 @@ public class DockerEventsMonitorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("DockerEventsMonitorService is starting");
+        _logger.LogDebug("DockerEventsMonitorService is starting");
 
         // Wait a bit before starting to ensure all services are initialized
         await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
@@ -74,7 +74,7 @@ public class DockerEventsMonitorService : BackgroundService
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("DockerEventsMonitorService is stopping");
+                _logger.LogDebug("DockerEventsMonitorService is stopping");
                 break;
             }
             catch (Exception ex)
@@ -84,12 +84,12 @@ public class DockerEventsMonitorService : BackgroundService
             }
         }
 
-        _logger.LogInformation("DockerEventsMonitorService has stopped");
+        _logger.LogDebug("DockerEventsMonitorService has stopped");
     }
 
     private async Task MonitorDockerEventsAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Starting to monitor Docker events...");
+        _logger.LogDebug("Starting to monitor Docker events...");
 
         var parameters = new ContainerEventsParameters
         {
@@ -143,7 +143,7 @@ public class DockerEventsMonitorService : BackgroundService
             ? name
             : "unknown";
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Container event detected - Action: {Action}, Container: {ContainerName} ({ContainerId})",
             message.Action,
             containerName,
@@ -170,7 +170,7 @@ public class DockerEventsMonitorService : BackgroundService
         if (message.Actor?.Attributes != null &&
             message.Actor.Attributes.TryGetValue("com.docker.compose.project", out string? projectName))
         {
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Compose project event detected - Project: {ProjectName}, Action: {Action}, Service: {ServiceName}",
                 projectName,
                 message.Action,

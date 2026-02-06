@@ -151,6 +151,16 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>(
     builder.Configuration.GetSection("ComposeDiscovery"));
 
+// Configure Self-Update Options
+builder.Services.Configure<SelfUpdateOptions>(
+    builder.Configuration.GetSection("SelfUpdate"));
+builder.Services.Configure<MaintenanceOptions>(
+    builder.Configuration.GetSection("Maintenance"));
+
+// Configure Update Check Options (for compose project updates)
+builder.Services.Configure<UpdateCheckOptions>(
+    builder.Configuration.GetSection("UpdateCheck"));
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -171,9 +181,31 @@ builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
 builder.Services.AddScoped<IComposeFileScanner, ComposeFileScanner>();
 builder.Services.AddScoped<IPathValidator, PathValidator>();
 builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
+builder.Services.AddScoped<IPathMappingService, PathMappingService>();
 builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
 builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
 // Note: ComposeCommandClassifier is static, no DI registration needed
+
+// Register Self-Update services
+builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
+builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
+builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
+
+// Register Compose Update services (for project updates)
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.DockerHubRegistryClient>();
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.DockerHubRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClientFactory, docker_compose_manager_back.Services.Registry.RegistryClientFactory>();
+builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
+builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
+builder.Services.AddSingleton<DockerPullProgressParser>();
+builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
+
+// Register Registry Credential service
+builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
 
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery
@@ -188,8 +220,15 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 // Add Rate Limiting
 //builder.Services.ConfigureRateLimiting();
 
-// Add SignalR
-builder.Services.AddSignalR();
+// Add SignalR with camelCase JSON serialization to match frontend TypeScript conventions
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
+
+// Add Request Timeouts (allows [RequestTimeout] attribute on endpoints)
+builder.Services.AddRequestTimeouts();
 
 // Add controllers with validation filter
 builder.Services.AddControllers(options =>
@@ -291,6 +330,9 @@ app.UseCors();
 
 // Add Security Headers
 app.UseSecurityHeaders();
+
+// Add Request Timeouts (enables [RequestTimeout] attribute on endpoints)
+app.UseRequestTimeouts();
 
 // Add Rate Limiting
 //app.UseRateLimiter();

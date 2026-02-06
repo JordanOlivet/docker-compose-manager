@@ -15,13 +15,13 @@ public class OperationsHub : Hub
 
     public override async Task OnConnectedAsync()
     {
-        _logger.LogInformation("Client connected to OperationsHub: {ConnectionId}", Context.ConnectionId);
+        _logger.LogDebug("Client connected to OperationsHub: {ConnectionId}", Context.ConnectionId);
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogInformation("Client disconnected from OperationsHub: {ConnectionId}", Context.ConnectionId);
+        _logger.LogDebug("Client disconnected from OperationsHub: {ConnectionId}", Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -32,7 +32,7 @@ public class OperationsHub : Hub
     {
         string groupName = $"operation-{operationId}";
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-        _logger.LogInformation("Client {ConnectionId} subscribed to operation {OperationId}", Context.ConnectionId, operationId);
+        _logger.LogDebug("Client {ConnectionId} subscribed to operation {OperationId}", Context.ConnectionId, operationId);
     }
 
     /// <summary>
@@ -42,6 +42,17 @@ public class OperationsHub : Hub
     {
         string groupName = $"operation-{operationId}";
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-        _logger.LogInformation("Client {ConnectionId} unsubscribed from operation {OperationId}", Context.ConnectionId, operationId);
+        _logger.LogDebug("Client {ConnectionId} unsubscribed from operation {OperationId}", Context.ConnectionId, operationId);
+    }
+
+    /// <summary>
+    /// Subscribe to maintenance mode updates (all clients receive maintenance updates by default)
+    /// </summary>
+    public Task SubscribeToMaintenanceUpdates()
+    {
+        // All clients automatically receive MaintenanceMode broadcasts via Clients.All
+        // This method exists for explicitness and future extensibility
+        _logger.LogDebug("Client {ConnectionId} subscribed to maintenance updates", Context.ConnectionId);
+        return Task.CompletedTask;
     }
 }

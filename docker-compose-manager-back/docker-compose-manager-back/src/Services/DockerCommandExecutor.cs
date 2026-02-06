@@ -47,7 +47,7 @@ public class DockerCommandExecutor
                 if (process.ExitCode == 0)
                 {
                     _isComposeV2 = true;
-                    _logger.LogInformation("Docker Compose v2 detected");
+                    _logger.LogDebug("Docker Compose v2 detected");
                     return true;
                 }
             }
@@ -63,7 +63,7 @@ public class DockerCommandExecutor
                 if (processV1.ExitCode == 0)
                 {
                     _isComposeV2 = false;
-                    _logger.LogInformation("Docker Compose v1 detected");
+                    _logger.LogDebug("Docker Compose v1 detected");
                     return false;
                 }
             }
@@ -145,6 +145,215 @@ public class DockerCommandExecutor
             process.ExitCode,
             outputStr,
             errorStr
+        );
+
+        return (process.ExitCode, outputStr, errorStr);
+    }
+
+    /// <summary>
+    /// Executes a generic command (docker or any other CLI command)
+    /// </summary>
+    public async Task<(int ExitCode, string Output, string Error)> ExecuteAsync(
+        string command,
+        string arguments,
+        CancellationToken cancellationToken = default)
+    {
+        ProcessStartInfo psi = new()
+        {
+            FileName = command,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        StringBuilder output = new();
+        StringBuilder error = new();
+
+        using Process? process = Process.Start(psi);
+        if (process == null)
+        {
+            return (-1, "", $"Failed to start process: {command}");
+        }
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                error.AppendLine(e.Data);
+            }
+        };
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        string outputStr = output.ToString();
+        string errorStr = error.ToString();
+
+        _logger.LogDebug(
+            "Command executed: {Command} {Arguments}, Exit Code: {ExitCode}",
+            command,
+            arguments,
+            process.ExitCode
+        );
+
+        return (process.ExitCode, outputStr, errorStr);
+    }
+
+    /// <summary>
+    /// Executes a command with streaming output callbacks for real-time progress updates.
+    /// Each line of stdout/stderr is passed to the respective callback as it arrives.
+    /// </summary>
+    public async Task<(int ExitCode, string Output, string Error)> ExecuteWithStreamingAsync(
+        string command,
+        string arguments,
+        Action<string>? onOutputLine,
+        Action<string>? onErrorLine,
+        CancellationToken cancellationToken = default)
+    {
+        ProcessStartInfo psi = new()
+        {
+            FileName = command,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        StringBuilder output = new();
+        StringBuilder error = new();
+
+        using Process? process = Process.Start(psi);
+        if (process == null)
+        {
+            return (-1, "", $"Failed to start process: {command}");
+        }
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+                try
+                {
+                    onOutputLine?.Invoke(e.Data);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error in output callback for command: {Command}", command);
+                }
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                error.AppendLine(e.Data);
+                try
+                {
+                    onErrorLine?.Invoke(e.Data);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error in error callback for command: {Command}", command);
+                }
+            }
+        };
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        string outputStr = output.ToString();
+        string errorStr = error.ToString();
+
+        _logger.LogDebug(
+            "Streaming command executed: {Command} {Arguments}, Exit Code: {ExitCode}",
+            command,
+            arguments,
+            process.ExitCode
+        );
+
+        return (process.ExitCode, outputStr, errorStr);
+    }
+
+    /// <summary>
+    /// Executes a command with input provided via stdin (useful for secure password passing)
+    /// </summary>
+    public async Task<(int ExitCode, string Output, string Error)> ExecuteWithStdinAsync(
+        string command,
+        string arguments,
+        string stdinInput,
+        CancellationToken cancellationToken = default)
+    {
+        ProcessStartInfo psi = new()
+        {
+            FileName = command,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        StringBuilder output = new();
+        StringBuilder error = new();
+
+        using Process? process = Process.Start(psi);
+        if (process == null)
+        {
+            return (-1, "", $"Failed to start process: {command}");
+        }
+
+        // Write to stdin and close it
+        await process.StandardInput.WriteAsync(stdinInput);
+        process.StandardInput.Close();
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                error.AppendLine(e.Data);
+            }
+        };
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        string outputStr = output.ToString();
+        string errorStr = error.ToString();
+
+        // Don't log sensitive data like passwords
+        _logger.LogDebug(
+            "Command with stdin executed: {Command} {Arguments}, Exit Code: {ExitCode}",
+            command,
+            arguments,
+            process.ExitCode
         );
 
         return (process.ExitCode, outputStr, errorStr);

@@ -100,7 +100,7 @@ public class ComposeDiscoveryInitializer : IHostedService
         {
             try
             {
-                _logger.LogInformation("Starting initial compose files scan...");
+                _logger.LogDebug("Starting initial compose files scan...");
 
                 // Create scope to resolve scoped services
                 // (IComposeFileCacheService is scoped, IHostedService is singleton)
@@ -110,7 +110,7 @@ public class ComposeDiscoveryInitializer : IHostedService
                 // Perform initial scan with cache bypass to force fresh discovery
                 var files = await cacheService.GetOrScanAsync(bypassCache: true);
 
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Initial compose files scan completed. Found {Count} files.",
                     files.Count);
             }
@@ -137,7 +137,7 @@ public class ComposeDiscoveryInitializer : IHostedService
     /// </remarks>
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("ComposeDiscoveryInitializer stopping");
+        _logger.LogDebug("ComposeDiscoveryInitializer stopping");
         return Task.CompletedTask;
     }
 }

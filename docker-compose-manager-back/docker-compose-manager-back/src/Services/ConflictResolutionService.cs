@@ -55,7 +55,7 @@ public class ConflictResolutionService : IConflictResolutionService
             if (activeFiles.Count == 1)
             {
                 // Case A: One active file - conflict resolved ✅
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Project '{Project}' has {Total} files ({Active} active, {Disabled} disabled). Using: {File}",
                     projectName, files.Count, activeFiles.Count, disabledFiles.Count, activeFiles[0].FilePath);
                 resolvedFiles.Add(activeFiles[0]);

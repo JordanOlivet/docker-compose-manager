@@ -52,7 +52,7 @@ public class ComposeOperationService : IComposeOperationService
     {
         try
         {
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Creating/starting compose project with 'up': {ProjectName}, ComposeFile: {ComposeFile}, Build: {Build}",
                 projectName, composeFilePath ?? "none", build);
 
@@ -105,7 +105,7 @@ public class ComposeOperationService : IComposeOperationService
 
             if (success)
             {
-                _logger.LogInformation("Project {ProjectName} up successful", projectName);
+                _logger.LogDebug("Project {ProjectName} up successful", projectName);
             }
             else
             {
@@ -137,7 +137,7 @@ public class ComposeOperationService : IComposeOperationService
     {
         try
         {
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Stopping compose project: {ProjectName}, Remove volumes: {RemoveVolumes}",
                 projectName,
                 removeVolumes
@@ -172,7 +172,7 @@ public class ComposeOperationService : IComposeOperationService
 
             if (success)
             {
-                _logger.LogInformation("Project {ProjectName} stopped successfully", projectName);
+                _logger.LogDebug("Project {ProjectName} stopped successfully", projectName);
             }
             else
             {
@@ -209,7 +209,7 @@ public class ComposeOperationService : IComposeOperationService
     {
         try
         {
-            _logger.LogInformation("Restarting compose project: {ProjectName}", projectName);
+            _logger.LogDebug("Restarting compose project: {ProjectName}", projectName);
 
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
@@ -239,7 +239,7 @@ public class ComposeOperationService : IComposeOperationService
 
             if (success)
             {
-                _logger.LogInformation("Project {ProjectName} restarted successfully", projectName);
+                _logger.LogDebug("Project {ProjectName} restarted successfully", projectName);
             }
             else
             {
@@ -276,7 +276,7 @@ public class ComposeOperationService : IComposeOperationService
     {
         try
         {
-            _logger.LogInformation("Stopping compose project (without removing): {ProjectName}", projectName);
+            _logger.LogDebug("Stopping compose project (without removing): {ProjectName}", projectName);
 
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
@@ -306,7 +306,7 @@ public class ComposeOperationService : IComposeOperationService
 
             if (success)
             {
-                _logger.LogInformation("Project {ProjectName} stopped successfully (containers not removed)", projectName);
+                _logger.LogDebug("Project {ProjectName} stopped successfully (containers not removed)", projectName);
             }
             else
             {
@@ -343,7 +343,7 @@ public class ComposeOperationService : IComposeOperationService
     {
         try
         {
-            _logger.LogInformation("Starting previously stopped project: {ProjectName}", projectName);
+            _logger.LogDebug("Starting previously stopped project: {ProjectName}", projectName);
 
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
@@ -373,7 +373,7 @@ public class ComposeOperationService : IComposeOperationService
 
             if (success)
             {
-                _logger.LogInformation("Project {ProjectName} started successfully", projectName);
+                _logger.LogDebug("Project {ProjectName} started successfully", projectName);
             }
             else
             {

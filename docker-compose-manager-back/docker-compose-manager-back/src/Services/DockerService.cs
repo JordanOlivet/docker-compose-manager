@@ -24,7 +24,7 @@ public class DockerService
         try
         {
             _dockerClient = new DockerClientConfiguration(new Uri(dockerHost)).CreateClient();
-            _logger.LogInformation("Docker client initialized with host: {DockerHost}", dockerHost);
+            _logger.LogDebug("Docker client initialized with host: {DockerHost}", dockerHost);
         }
         catch (Exception ex)
         {
@@ -110,7 +110,7 @@ public class DockerService
         try
         {
             await _dockerClient.Containers.StartContainerAsync(containerId, new ContainerStartParameters());
-            _logger.LogInformation("Container {ContainerId} started", containerId);
+            _logger.LogDebug("Container {ContainerId} started", containerId);
             return true;
         }
         catch (Exception ex)
@@ -125,7 +125,7 @@ public class DockerService
         try
         {
             await _dockerClient.Containers.StopContainerAsync(containerId, new ContainerStopParameters());
-            _logger.LogInformation("Container {ContainerId} stopped", containerId);
+            _logger.LogDebug("Container {ContainerId} stopped", containerId);
             return true;
         }
         catch (Exception ex)
@@ -140,7 +140,7 @@ public class DockerService
         try
         {
             await _dockerClient.Containers.RestartContainerAsync(containerId, new ContainerRestartParameters());
-            _logger.LogInformation("Container {ContainerId} restarted", containerId);
+            _logger.LogDebug("Container {ContainerId} restarted", containerId);
             return true;
         }
         catch (Exception ex)
@@ -155,7 +155,7 @@ public class DockerService
         try
         {
             await _dockerClient.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters { Force = force });
-            _logger.LogInformation("Container {ContainerId} removed", containerId);
+            _logger.LogDebug("Container {ContainerId} removed", containerId);
             return true;
         }
         catch (Exception ex)
