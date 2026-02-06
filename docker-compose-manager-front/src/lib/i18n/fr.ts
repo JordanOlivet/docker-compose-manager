@@ -15,6 +15,7 @@ const fr = {
     edit: 'Modifier',
     create: 'Créer',
     refresh: 'Actualiser',
+    forceRefresh: 'Actualiser de force',
     back: 'Retour',
     close: 'Fermer',
     search: 'Rechercher',

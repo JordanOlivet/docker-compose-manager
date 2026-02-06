@@ -409,7 +409,7 @@
                   <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
                     <div class="flex items-center gap-3">
                       <!-- Status Icon -->
-                      <div class="flex-shrink-0 {getStatusColor(service.status)}">
+                      <div class="shrink-0 {getStatusColor(service.status)}">
                         <StatusIcon class="w-5 h-5 {service.status === 'pulling' || service.status === 'downloading' || service.status === 'extracting' || service.status === 'recreating' ? 'animate-spin' : ''}" />
                       </div>
 
@@ -445,7 +445,7 @@
                       </div>
 
                       <!-- Progress Percentage -->
-                      <div class="flex-shrink-0 text-sm font-medium {getStatusColor(service.status)}">
+                      <div class="shrink-0 text-sm font-medium {getStatusColor(service.status)}">
                         {service.progressPercent}%
                       </div>
                     </div>

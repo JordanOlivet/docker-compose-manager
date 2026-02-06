@@ -15,6 +15,7 @@ export default {
     edit: 'Edit',
     create: 'Create',
     refresh: 'Refresh',
+    forceRefresh: 'Force Refresh',
     back: 'Back',
     close: 'Close',
     search: 'Search',
