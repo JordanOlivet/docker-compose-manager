@@ -57,7 +57,7 @@ public interface IComposeUpdateService
 public class ComposeUpdateService : IComposeUpdateService
 {
     private readonly IComposeDiscoveryService _discoveryService;
-    private readonly IComposeOperationService _operationService;
+    private readonly IComposeOperationService _composeOperationService;
     private readonly IImageDigestService _imageDigestService;
     private readonly IImageUpdateCacheService _cacheService;
     private readonly IComposeFileCacheService _fileCacheService;
@@ -65,7 +65,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly IAuditService _auditService;
     private readonly DockerCommandExecutor _dockerExecutor;
     private readonly DockerPullProgressParser _progressParser;
-    private readonly OperationService _operationServiceDb;
+    private readonly OperationService _operationService;
     private readonly ILogger<ComposeUpdateService> _logger;
     private readonly UpdateCheckOptions _options;
 
@@ -86,7 +86,7 @@ public class ComposeUpdateService : IComposeUpdateService
         ILogger<ComposeUpdateService> logger)
     {
         _discoveryService = discoveryService;
-        _operationService = operationService;
+        _composeOperationService = operationService;
         _imageDigestService = imageDigestService;
         _cacheService = cacheService;
         _fileCacheService = fileCacheService;
@@ -94,7 +94,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _auditService = auditService;
         _dockerExecutor = dockerExecutor;
         _progressParser = progressParser;
-        _operationServiceDb = operationServiceDb;
+        _operationService = operationServiceDb;
         _options = options.Value;
         _logger = logger;
     }
@@ -143,8 +143,8 @@ public class ComposeUpdateService : IComposeUpdateService
             Dictionary<string, ServiceImageInfo> serviceImages = await ParseServiceImagesAsync(composeFilePath, ct);
 
             // Check each image for updates (with concurrency limit)
-            var semaphore = new SemaphoreSlim(_options.MaxConcurrentChecks);
-            var tasks = new List<Task<ImageUpdateStatus>>();
+            SemaphoreSlim semaphore = new SemaphoreSlim(_options.MaxConcurrentChecks);
+            List<Task<ImageUpdateStatus>> tasks = new List<Task<ImageUpdateStatus>>();
 
             foreach ((string? serviceName, ServiceImageInfo? imageInfo) in serviceImages)
             {
@@ -171,7 +171,7 @@ public class ComposeUpdateService : IComposeUpdateService
 
             ImageUpdateStatus[] results = await Task.WhenAll(tasks);
 
-            var response = new ProjectUpdateCheckResponse(
+            ProjectUpdateCheckResponse response = new ProjectUpdateCheckResponse(
                 ProjectName: projectName,
                 Images: results.ToList(),
                 HasUpdates: results.Any(r => r.UpdateAvailable && r.UpdatePolicy != "disabled"),
@@ -478,7 +478,7 @@ public class ComposeUpdateService : IComposeUpdateService
                 overallProgress = overallProgress / 2;
             }
 
-            var progressEvent = new UpdateProgressEvent(
+            UpdateProgressEvent progressEvent = new UpdateProgressEvent(
                 OperationId: operationId,
                 ProjectName: projectName,
                 Phase: phase,
@@ -487,7 +487,7 @@ public class ComposeUpdateService : IComposeUpdateService
                 CurrentLog: currentLog
             );
 
-            await _operationServiceDb.SendPullProgressAsync(progressEvent);
+            await _operationService.SendPullProgressAsync(progressEvent);
         }
         catch (Exception ex)
         {
@@ -507,7 +507,7 @@ public class ComposeUpdateService : IComposeUpdateService
         CancellationToken ct = default)
     {
         List<ProjectUpdateSummary> summaries = _cacheService.GetAllCachedSummaries();
-        var projectsWithUpdates = summaries
+        List<string> projectsWithUpdates = summaries
             .Where(s => s.ServicesWithUpdates > 0)
             .Select(s => s.ProjectName)
             .ToList();
@@ -569,13 +569,13 @@ public class ComposeUpdateService : IComposeUpdateService
 
         // Get all projects with compose files
         List<ComposeProjectDto> allProjects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
-        var projectsWithFiles = allProjects
+        List<ComposeProjectDto> projectsWithFiles = allProjects
             .Where(p => p.HasComposeFile && !string.IsNullOrEmpty(p.ComposeFilePath))
             .ToList();
 
         _logger.LogDebug("Found {Count} projects with compose files to check", projectsWithFiles.Count);
 
-        var summaries = new List<ProjectUpdateSummary>();
+        List<ProjectUpdateSummary> summaries = new List<ProjectUpdateSummary>();
         int totalServicesWithUpdates = 0;
 
         // Check each project sequentially to avoid rate limiting
@@ -637,7 +637,7 @@ public class ComposeUpdateService : IComposeUpdateService
         string composeFilePath,
         CancellationToken ct)
     {
-        var result = new Dictionary<string, ServiceImageInfo>();
+        Dictionary<string, ServiceImageInfo> result = new Dictionary<string, ServiceImageInfo>();
 
         try
         {

@@ -27,7 +27,8 @@ public class ComposeController : BaseController
     private readonly ILogger<ComposeController> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IProjectMatchingService _projectMatchingService;
-    private readonly IComposeFileCacheService _cacheService;
+    private readonly IComposeFileCacheService _composeFileCacheService;
+    private readonly IImageUpdateCacheService _imageUpdateCacheService;
     private readonly IConflictResolutionService _conflictService;
     private readonly IPathValidator _pathValidator;
     private readonly IOptions<ComposeDiscoveryOptions> _composeOptions;
@@ -46,7 +47,8 @@ public class ComposeController : BaseController
         ILogger<ComposeController> logger,
         IServiceScopeFactory serviceScopeFactory,
         IProjectMatchingService projectMatchingService,
-        IComposeFileCacheService cacheService,
+        IComposeFileCacheService composeFileCacheService,
+        IImageUpdateCacheService imageUpdateCacheService,
         IConflictResolutionService conflictService,
         IPathValidator pathValidator,
         IOptions<ComposeDiscoveryOptions> composeOptions,
@@ -64,7 +66,8 @@ public class ComposeController : BaseController
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
         _projectMatchingService = projectMatchingService;
-        _cacheService = cacheService;
+        _composeFileCacheService = composeFileCacheService;
+        _imageUpdateCacheService = imageUpdateCacheService;
         _conflictService = conflictService;
         _pathValidator = pathValidator;
         _composeOptions = composeOptions;
@@ -91,8 +94,8 @@ public class ComposeController : BaseController
     {
         try
         {
-            List<DiscoveredComposeFile> files = await _cacheService.GetOrScanAsync();
-            var dtos = files.Select(f => new DiscoveredComposeFileDto(
+            List<DiscoveredComposeFile> files = await _composeFileCacheService.GetOrScanAsync();
+            List<DiscoveredComposeFileDto> dtos = files.Select(f => new DiscoveredComposeFileDto(
                 FilePath: f.FilePath,
                 ProjectName: f.ProjectName,
                 DirectoryPath: f.DirectoryPath,
@@ -124,7 +127,7 @@ public class ComposeController : BaseController
         try
         {
             List<ConflictErrorDto> conflicts = _conflictService.GetConflictErrors();
-            var response = new ConflictsResponse(conflicts, conflicts.Any());
+            ConflictsResponse response = new ConflictsResponse(conflicts, conflicts.Any());
             return Ok(ApiResponse.Ok(response));
         }
         catch (Exception ex)
@@ -273,7 +276,7 @@ public class ComposeController : BaseController
     public async Task<ActionResult<ApiResponse<ComposeHealthDto>>> GetHealth()
     {
         // Check compose discovery directory
-        var rootPath = _composeOptions.Value.RootPath;
+        string rootPath = _composeOptions.Value.RootPath;
         bool dirExists = Directory.Exists(rootPath);
         bool dirAccessible = false;
 
@@ -315,7 +318,7 @@ public class ComposeController : BaseController
         else
             overallStatus = "healthy";
 
-        var healthDto = new ComposeHealthDto(
+        ComposeHealthDto healthDto = new ComposeHealthDto(
             Status: overallStatus,
             ComposeDiscovery: new ComposeHealthStatusDto(
                 Status: dirAccessible ? "healthy" : "degraded",
@@ -359,10 +362,10 @@ public class ComposeController : BaseController
         _logger.LogInformation("Admin user {UserId} triggered manual cache refresh", userId.Value);
 
         // Invalidate cache
-        _cacheService.Invalidate();
+        _composeFileCacheService.Invalidate();
 
         // Trigger fresh scan
-        List<DiscoveredComposeFile> files = await _cacheService.GetOrScanAsync(bypassCache: true);
+        List<DiscoveredComposeFile> files = await _composeFileCacheService.GetOrScanAsync(bypassCache: true);
 
         await _auditService.LogActionAsync(
             userId.Value,
@@ -414,8 +417,9 @@ public class ComposeController : BaseController
             // - refreshState: only invalidate Docker cache (use for container state changes - much faster)
             if (refresh)
             {
-                _cacheService.Invalidate();  // Compose file cache (triggers slow filesystem scan)
+                _composeFileCacheService.Invalidate();  // Compose file cache (triggers slow filesystem scan)
                 _discoveryService.InvalidateCache();  // Docker projects cache
+                _imageUpdateCacheService.InvalidateAll(); // Docker image cache
             }
             else if (refreshState)
             {

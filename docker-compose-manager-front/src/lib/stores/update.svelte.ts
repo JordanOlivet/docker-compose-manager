@@ -212,8 +212,8 @@ export function startPeriodicCheck(): void {
   isPeriodicCheckRunning = true;
   logger.log('[Update Store] Starting periodic update check (interval:', CHECK_INTERVAL_MS / 1000 / 60, 'minutes)');
 
-  // Do an initial check
-  checkForUpdates();
+  // // Do an initial check
+  // checkForUpdates();
 
   // Set up periodic checking
   checkIntervalId = setInterval(() => {

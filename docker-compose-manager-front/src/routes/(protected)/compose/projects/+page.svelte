@@ -229,7 +229,15 @@
         </p>
       </div>
       <div class="flex items-center gap-2">
-        {#if isAdmin.current && hasAnyUpdates.current}
+        {#if isAdmin.current}
+        <button
+          onclick={() => updateApi.checkAllProjectUpdates()}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <Download class="w-3 h-3" />
+          {$t('update.checkForUpdates')}
+        </button>
+        {#if hasAnyUpdates.current}
           <button
             onclick={() => bulkUpdateDialogOpen = true}
             class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
@@ -237,6 +245,7 @@
             <Download class="w-3 h-3" />
             {$t('update.updateAll')} ({projectsWithUpdatesCount.current})
           </button>
+          {/if}
         {/if}
         <button
           onclick={() => projectsQuery.refetch()}
