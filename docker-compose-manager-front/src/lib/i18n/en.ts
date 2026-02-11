@@ -460,6 +460,7 @@ export default {
     applicationUpdating: 'The application is being updated. Please wait...',
     reconnectingIn: 'Reconnecting in {seconds}s...',
     attemptingReconnection: 'Attempting to reconnect...',
+    verifyingStability: 'Verifying system stability...',
     attemptCount: 'Attempt {current} of {max}',
     reconnectionSucceeded: 'Reconnection Successful',
     redirectingToLogin: 'Redirecting to login...',

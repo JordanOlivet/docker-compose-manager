@@ -423,6 +423,7 @@ const es = {
     applicationUpdating: 'La aplicación se está actualizando. Por favor espere...',
     reconnectingIn: 'Reconectando en {seconds}s...',
     attemptingReconnection: 'Intentando reconectar...',
+    verifyingStability: 'Verificando estabilidad del sistema...',
     attemptCount: 'Intento {current} de {max}',
     reconnectionSucceeded: 'Reconexión exitosa',
     redirectingToLogin: 'Redirigiendo al inicio de sesión...',

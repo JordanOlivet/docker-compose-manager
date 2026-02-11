@@ -25,6 +25,7 @@
   let isReconnecting = $state(false);
   let reconnectionFailed = $state(false);
   let reconnectionSucceeded = $state(false);
+  let isVerifyingStability = $state(false);
   let countdownTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -73,17 +74,25 @@
       });
 
       if (response.ok) {
-        // Server is back up
-        reconnectionSucceeded = true;
-        exitMaintenanceMode();
-        // Clear update info so the settings page shows fresh state after login
-        clearUpdateInfo();
+        // Server responded, but let's verify it's fully stable with multiple checks
+        isVerifyingStability = true;
+        const isStable = await verifyServerStability();
+        isVerifyingStability = false;
 
-        // Give a moment for the success message to show, then redirect
-        setTimeout(() => {
-          goto('/login');
-        }, 2000);
-        return;
+        if (isStable) {
+          // Server is fully operational
+          reconnectionSucceeded = true;
+          exitMaintenanceMode();
+          // Clear update info so the settings page shows fresh state after login
+          clearUpdateInfo();
+
+          // Give a moment for the success message to show, then redirect
+          setTimeout(() => {
+            goto('/login');
+          }, 3000);
+          return;
+        }
+        // If not stable yet, continue reconnecting
       }
     } catch {
       // Server still down, continue reconnecting
@@ -103,6 +112,50 @@
     );
 
     scheduleReconnect(nextInterval);
+  }
+
+  async function verifyServerStability(): Promise<boolean> {
+    // Perform multiple consecutive health checks to ensure server is stable
+    const checksNeeded = 3;
+    const delayBetweenChecks = 1000; // 1 second
+
+    for (let i = 0; i < checksNeeded; i++) {
+      try {
+        // Wait between checks (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
+        }
+
+        // Try both health and version endpoints to ensure full initialization
+        const [healthResponse, versionResponse] = await Promise.all([
+          fetch('/api/system/health', {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          }),
+          fetch('/api/system/version', {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          })
+        ]);
+
+        // Both endpoints must respond successfully
+        if (!healthResponse.ok || !versionResponse.ok) {
+          return false;
+        }
+
+        // Parse version response to ensure JSON processing works
+        await versionResponse.json();
+
+      } catch {
+        // Any failure means server isn't stable yet
+        return false;
+      }
+    }
+
+    // All checks passed - server is stable
+    return true;
   }
 
   function retryManually() {
@@ -170,7 +223,12 @@
         <div class="space-y-4">
           <!-- Spinner and status -->
           <div class="flex items-center justify-center gap-3">
-            {#if countdown > 0}
+            {#if isVerifyingStability}
+              <Loader2 class="w-5 h-5 text-green-600 animate-spin" />
+              <span class="text-sm text-green-600 dark:text-green-400 font-medium">
+                {$t('update.verifyingStability')}
+              </span>
+            {:else if countdown > 0}
               <RefreshCw class="w-5 h-5 text-gray-500 dark:text-gray-400" />
               <span class="text-sm text-gray-600 dark:text-gray-400">
                 {$t('update.reconnectingIn', { seconds: countdown })}

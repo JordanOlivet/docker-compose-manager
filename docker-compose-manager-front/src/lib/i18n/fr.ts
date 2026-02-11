@@ -460,6 +460,7 @@ const fr = {
     applicationUpdating: 'L\'application est en cours de mise à jour. Veuillez patienter...',
     reconnectingIn: 'Reconnexion dans {seconds}s...',
     attemptingReconnection: 'Tentative de reconnexion...',
+    verifyingStability: 'Vérification de la stabilité du système...',
     attemptCount: 'Tentative {current} sur {max}',
     reconnectionSucceeded: 'Reconnexion réussie',
     redirectingToLogin: 'Redirection vers la connexion...',
