@@ -21,7 +21,7 @@ public class ComposeCommandClassifierTests
     public void RequiresComposeFile_CommandsRequiringFile_ReturnsTrue(string command, bool expected)
     {
         // Act
-        var result = ComposeCommandClassifier.RequiresComposeFile(command);
+        var result = ComposeCommandClassifierService.RequiresComposeFile(command);
 
         // Assert
         result.Should().Be(expected);
@@ -42,7 +42,7 @@ public class ComposeCommandClassifierTests
     public void RequiresComposeFile_CommandsWorkingWithoutFile_ReturnsFalse(string command, bool expected)
     {
         // Act
-        var result = ComposeCommandClassifier.RequiresComposeFile(command);
+        var result = ComposeCommandClassifierService.RequiresComposeFile(command);
 
         // Assert
         result.Should().Be(expected);
@@ -55,7 +55,7 @@ public class ComposeCommandClassifierTests
     public void RequiresComposeFile_CaseInsensitive_ReturnsTrue(string command)
     {
         // Act
-        var result = ComposeCommandClassifier.RequiresComposeFile(command);
+        var result = ComposeCommandClassifierService.RequiresComposeFile(command);
 
         // Assert
         result.Should().BeTrue();
@@ -69,7 +69,7 @@ public class ComposeCommandClassifierTests
         var state = "running";
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert - File-dependent actions
         actions["up"].Should().BeTrue();
@@ -101,7 +101,7 @@ public class ComposeCommandClassifierTests
         var state = "running";
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert - File-dependent actions should be false
         actions["up"].Should().BeFalse();
@@ -126,7 +126,7 @@ public class ComposeCommandClassifierTests
         var state = "stopped";
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert
         actions["up"].Should().BeTrue();
@@ -147,7 +147,7 @@ public class ComposeCommandClassifierTests
         var state = "not-started";
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert - Can create/up
         actions["up"].Should().BeTrue();
@@ -174,7 +174,7 @@ public class ComposeCommandClassifierTests
         var state = "not-started";
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert - Nothing should be available
         foreach (var action in actions.Values)
@@ -191,7 +191,7 @@ public class ComposeCommandClassifierTests
         var state = "paused";
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert
         actions["unpause"].Should().BeTrue(); // Can unpause
@@ -210,7 +210,7 @@ public class ComposeCommandClassifierTests
         var state = "degraded"; // Some containers running, some stopped
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert - Should be treated like "running"
         actions["stop"].Should().BeTrue();
@@ -227,7 +227,7 @@ public class ComposeCommandClassifierTests
         string? state = null;
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert
         actions["create"].Should().BeTrue();
@@ -244,7 +244,7 @@ public class ComposeCommandClassifierTests
         var state = string.Empty;
 
         // Act
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(hasFile, state);
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, state);
 
         // Assert
         actions["create"].Should().BeTrue();
@@ -259,13 +259,13 @@ public class ComposeCommandClassifierTests
         var hasFile = true;
 
         // Act & Assert - Different case variations
-        var actions1 = ComposeCommandClassifier.ComputeAvailableActions(hasFile, "RUNNING");
+        var actions1 = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, "RUNNING");
         actions1["stop"].Should().BeTrue();
 
-        var actions2 = ComposeCommandClassifier.ComputeAvailableActions(hasFile, "Running");
+        var actions2 = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, "Running");
         actions2["stop"].Should().BeTrue();
 
-        var actions3 = ComposeCommandClassifier.ComputeAvailableActions(hasFile, "rUnNiNg");
+        var actions3 = ComposeCommandClassifierService.ComputeAvailableActions(hasFile, "rUnNiNg");
         actions3["stop"].Should().BeTrue();
     }
 
@@ -273,10 +273,10 @@ public class ComposeCommandClassifierTests
     public void ComputeAvailableActions_DownAction_AlwaysAvailableWithContainers()
     {
         // Arrange & Act
-        var runningActions = ComposeCommandClassifier.ComputeAvailableActions(true, "running");
-        var stoppedActions = ComposeCommandClassifier.ComputeAvailableActions(true, "stopped");
-        var pausedActions = ComposeCommandClassifier.ComputeAvailableActions(true, "paused");
-        var notStartedActions = ComposeCommandClassifier.ComputeAvailableActions(true, "not-started");
+        var runningActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "running");
+        var stoppedActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "stopped");
+        var pausedActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "paused");
+        var notStartedActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "not-started");
 
         // Assert
         runningActions["down"].Should().BeTrue();
@@ -289,10 +289,10 @@ public class ComposeCommandClassifierTests
     public void ComputeAvailableActions_BuildAction_DependsOnlyOnFile()
     {
         // Arrange & Act - Build should be available regardless of state if file exists
-        var runningActions = ComposeCommandClassifier.ComputeAvailableActions(true, "running");
-        var stoppedActions = ComposeCommandClassifier.ComputeAvailableActions(true, "stopped");
-        var notStartedActions = ComposeCommandClassifier.ComputeAvailableActions(true, "not-started");
-        var noFileActions = ComposeCommandClassifier.ComputeAvailableActions(false, "running");
+        var runningActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "running");
+        var stoppedActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "stopped");
+        var notStartedActions = ComposeCommandClassifierService.ComputeAvailableActions(true, "not-started");
+        var noFileActions = ComposeCommandClassifierService.ComputeAvailableActions(false, "running");
 
         // Assert
         runningActions["build"].Should().BeTrue();
@@ -305,8 +305,8 @@ public class ComposeCommandClassifierTests
     public void ComputeAvailableActions_PushAction_DependsOnlyOnFile()
     {
         // Arrange & Act
-        var withFile = ComposeCommandClassifier.ComputeAvailableActions(true, "running");
-        var withoutFile = ComposeCommandClassifier.ComputeAvailableActions(false, "running");
+        var withFile = ComposeCommandClassifierService.ComputeAvailableActions(true, "running");
+        var withoutFile = ComposeCommandClassifierService.ComputeAvailableActions(false, "running");
 
         // Assert
         withFile["push"].Should().BeTrue();
@@ -317,7 +317,7 @@ public class ComposeCommandClassifierTests
     public void RequiresFile_ContainsAllExpectedCommands()
     {
         // Assert
-        ComposeCommandClassifier.RequiresFile.Should().Contain(new[]
+        ComposeCommandClassifierService.RequiresFile.Should().Contain(new[]
         {
             "up", "create", "run", "build", "pull", "push", "config", "convert"
         });
@@ -327,7 +327,7 @@ public class ComposeCommandClassifierTests
     public void WorksWithoutFile_ContainsAllExpectedCommands()
     {
         // Assert
-        ComposeCommandClassifier.WorksWithoutFile.Should().Contain(new[]
+        ComposeCommandClassifierService.WorksWithoutFile.Should().Contain(new[]
         {
             "start", "stop", "restart", "pause", "unpause",
             "ps", "logs", "top", "down", "rm", "kill"
@@ -338,7 +338,7 @@ public class ComposeCommandClassifierTests
     public void ComputeAvailableActions_ReturnsAllExpectedActions()
     {
         // Arrange
-        var actions = ComposeCommandClassifier.ComputeAvailableActions(true, "running");
+        var actions = ComposeCommandClassifierService.ComputeAvailableActions(true, "running");
 
         // Assert - Should contain all known actions
         actions.Should().ContainKeys(

@@ -5,10 +5,10 @@
 	import * as auth from '$lib/stores/auth.svelte';
 	import { isAdmin } from '$lib/stores/auth.svelte';
 	import { authApi } from '$lib/api';
-	import { initializeGlobalConnection, stopGlobalConnection, onMaintenanceMode } from '$lib/stores/signalr.svelte';
+	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode } from '$lib/stores/sse.svelte';
+	import { setupSSEQueryBridge } from '$lib/services/sseQueryBridge';
 	import { enterMaintenanceMode, startPeriodicCheck, stopPeriodicCheck } from '$lib/stores/update.svelte';
 	import { startPeriodicProjectCheck, stopPeriodicProjectCheck, loadIntervalFromSettings } from '$lib/stores/projectUpdate.svelte';
-	import { setupSignalRQueryBridge } from '$lib/services/signalrQueryBridge';
 	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
@@ -33,11 +33,11 @@
 			}
 		}
 
-		// Initialize global SignalR connection
-		await initializeGlobalConnection();
+		// Initialize global SSE connection
+		await initializeSSEConnection();
 
-		// Set up the SignalR-Query bridge for automatic cache invalidation
-		cleanupBridge = setupSignalRQueryBridge(queryClient);
+		// Set up the SSE-Query bridge for automatic cache invalidation
+		cleanupBridge = setupSSEQueryBridge(queryClient);
 
 		// Subscribe to maintenance mode notifications
 		cleanupMaintenanceListener = onMaintenanceMode((notification) => {

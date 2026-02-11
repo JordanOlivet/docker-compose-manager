@@ -653,7 +653,7 @@ public class ComposeController : BaseController
                 request?.Build ?? false
             );
 
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // and compose files themselves haven't changed
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
@@ -733,7 +733,7 @@ public class ComposeController : BaseController
                 request?.RemoveVolumes ?? false
             );
 
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // and compose files themselves haven't changed
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
@@ -1371,7 +1371,7 @@ volumes:
             }
 
             OperationResult result = await _operationService.StartAsync(projectName);
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
 
@@ -1433,7 +1433,7 @@ volumes:
             }
 
             OperationResult result = await _operationService.StopAsync(projectName);
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
 
@@ -1495,7 +1495,7 @@ volumes:
             }
 
             OperationResult result = await _operationService.RestartAsync(projectName);
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
 

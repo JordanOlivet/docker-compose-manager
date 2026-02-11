@@ -2,8 +2,6 @@ using Docker.DotNet;
 using Docker.DotNet.Models;
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
-using docker_compose_manager_back.Hubs;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 
 namespace docker_compose_manager_back.Services;
@@ -22,13 +20,13 @@ public class SelfUpdateService : ISelfUpdateService
     private readonly IGitHubReleaseService _gitHubReleaseService;
     private readonly IComposeFileDetectorService _composeFileDetector;
     private readonly IPathMappingService _pathMappingService;
-    private readonly DockerCommandExecutor _dockerCommandExecutor;
+    private readonly DockerCommandExecutorService _dockerCommandExecutor;
     private readonly DockerClient? _dockerClient;
     private readonly IAuditService _auditService;
-    private readonly IHubContext<OperationsHub> _hubContext;
     private readonly SelfUpdateOptions _selfUpdateOptions;
     private readonly MaintenanceOptions _maintenanceOptions;
     private readonly ILogger<SelfUpdateService> _logger;
+    private readonly SseConnectionManagerService _seConnectionManagerService;
 
     private bool _updateInProgress;
     private readonly object _updateLock = new();
@@ -48,23 +46,23 @@ public class SelfUpdateService : ISelfUpdateService
         IGitHubReleaseService gitHubReleaseService,
         IComposeFileDetectorService composeFileDetector,
         IPathMappingService pathMappingService,
-        DockerCommandExecutor dockerCommandExecutor,
+        DockerCommandExecutorService dockerCommandExecutor,
         IConfiguration configuration,
         IAuditService auditService,
-        IHubContext<OperationsHub> hubContext,
         IOptions<SelfUpdateOptions> selfUpdateOptions,
         IOptions<MaintenanceOptions> maintenanceOptions,
-        ILogger<SelfUpdateService> logger)
+        ILogger<SelfUpdateService> logger,
+        SseConnectionManagerService sseConnectionManagerService)
     {
         _gitHubReleaseService = gitHubReleaseService;
         _composeFileDetector = composeFileDetector;
         _pathMappingService = pathMappingService;
         _dockerCommandExecutor = dockerCommandExecutor;
         _auditService = auditService;
-        _hubContext = hubContext;
         _selfUpdateOptions = selfUpdateOptions.Value;
         _maintenanceOptions = maintenanceOptions.Value;
         _logger = logger;
+        _seConnectionManagerService = sseConnectionManagerService;
 
         // Initialize Docker client for launching updater container
         string? dockerHost = configuration["Docker:Host"];
@@ -165,7 +163,7 @@ public class SelfUpdateService : ISelfUpdateService
                 GracePeriodSeconds: _maintenanceOptions.GracePeriodSeconds
             );
 
-            await _hubContext.Clients.All.SendAsync("MaintenanceMode", notification, cancellationToken);
+            await _seConnectionManagerService.BroadcastAsync("MaintenanceMode", notification);
 
             // Wait for grace period to allow clients to prepare
             await Task.Delay(_maintenanceOptions.GracePeriodSeconds * 1000, cancellationToken);
@@ -267,12 +265,12 @@ public class SelfUpdateService : ISelfUpdateService
                 lock (_updateLock) { _updateInProgress = false; }
 
                 // Notify clients that update failed
-                await _hubContext.Clients.All.SendAsync("MaintenanceMode", new MaintenanceModeNotification(
+                await _seConnectionManagerService.BroadcastAsync("MaintenanceMode", new MaintenanceModeNotification(
                     IsActive: false,
                     Message: "Update failed. Please try again later.",
                     EstimatedEndTime: null,
                     GracePeriodSeconds: 0
-                ), cancellationToken);
+                ));
 
                 return;
             }

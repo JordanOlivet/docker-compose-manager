@@ -13,7 +13,7 @@ namespace docker_compose_manager_back.Tests.Services;
 public class PathValidatorTests : IDisposable
 {
     private readonly string _testRoot;
-    private readonly PathValidator _validator;
+    private readonly PathValidatorService _validator;
 
     public PathValidatorTests()
     {
@@ -26,7 +26,7 @@ public class PathValidatorTests : IDisposable
             RootPath = _testRoot
         });
 
-        _validator = new PathValidator(options, new NullLogger<PathValidator>());
+        _validator = new PathValidatorService(options, new NullLogger<PathValidatorService>());
     }
 
     public void Dispose()

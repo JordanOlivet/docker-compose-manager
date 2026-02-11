@@ -11,14 +11,14 @@ namespace docker_compose_manager_back.Services;
 /// Service responsible for scanning the filesystem to discover Docker Compose files.
 /// Implements recursive directory scanning with depth limiting and YAML validation.
 /// </summary>
-public class ComposeFileScanner : IComposeFileScanner
+public class ComposeFileScannerService : IComposeFileScanner
 {
     private readonly ComposeDiscoveryOptions _options;
-    private readonly ILogger<ComposeFileScanner> _logger;
+    private readonly ILogger<ComposeFileScannerService> _logger;
 
-    public ComposeFileScanner(
+    public ComposeFileScannerService(
         IOptions<ComposeDiscoveryOptions> options,
-        ILogger<ComposeFileScanner> logger)
+        ILogger<ComposeFileScannerService> logger)
     {
         _options = options.Value;
         _logger = logger;
@@ -111,6 +111,12 @@ public class ComposeFileScanner : IComposeFileScanner
 
         try
         {
+            if (!Path.Exists(rootPath))
+            {
+                _logger.LogWarning("Root path does not exist: {Path}", rootPath);
+                return discoveredFiles; 
+            }
+
             // Use EnumerateFiles for better performance (streaming instead of loading all at once)
             // Single enumeration with filter instead of 4 separate GetFiles calls
             IEnumerable<string> ymlFiles = Directory.EnumerateFiles(rootPath)

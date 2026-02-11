@@ -44,7 +44,7 @@ public interface IRegistryCredentialService
 /// </summary>
 public class RegistryCredentialService : IRegistryCredentialService
 {
-    private readonly DockerCommandExecutor _executor;
+    private readonly DockerCommandExecutorService _executor;
     private readonly ILogger<RegistryCredentialService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -60,7 +60,7 @@ public class RegistryCredentialService : IRegistryCredentialService
     };
 
     public RegistryCredentialService(
-        DockerCommandExecutor executor,
+        DockerCommandExecutorService executor,
         ILogger<RegistryCredentialService> logger,
         IHttpClientFactory httpClientFactory)
     {

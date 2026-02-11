@@ -88,7 +88,7 @@ export const OperationStatus = {
 
 export type OperationStatus = typeof OperationStatus[keyof typeof OperationStatus];
 
-// SignalR Operation Update Event
+// SSE Operation Update Event
 export interface OperationUpdateEvent {
   operationId: string;
   status: OperationStatus;

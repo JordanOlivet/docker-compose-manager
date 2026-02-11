@@ -47,7 +47,7 @@ public record ImageDigestInfo(
 
 public class ImageDigestService : IImageDigestService
 {
-    private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly IRegistryClientFactory _registryClientFactory;
     private readonly ILogger<ImageDigestService> _logger;
     private readonly UpdateCheckOptions _options;
@@ -55,7 +55,7 @@ public class ImageDigestService : IImageDigestService
     private string? _cachedHostArchitecture;
 
     public ImageDigestService(
-        DockerCommandExecutor dockerExecutor,
+        DockerCommandExecutorService dockerExecutor,
         IRegistryClientFactory registryClientFactory,
         IOptions<UpdateCheckOptions> options,
         ILogger<ImageDigestService> logger)

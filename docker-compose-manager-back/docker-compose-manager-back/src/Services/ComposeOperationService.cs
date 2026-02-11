@@ -7,12 +7,12 @@ namespace docker_compose_manager_back.Services;
 /// </summary>
 public class ComposeOperationService : IComposeOperationService
 {
-    private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly ILogger<ComposeOperationService> _logger;
 
     public ComposeOperationService(
-        DockerCommandExecutor dockerExecutor,
+        DockerCommandExecutorService dockerExecutor,
         IComposeDiscoveryService discoveryService,
         ILogger<ComposeOperationService> logger)
     {

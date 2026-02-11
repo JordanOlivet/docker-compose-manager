@@ -14,19 +14,19 @@ namespace docker_compose_manager_back.Services;
 /// by resolving paths to their absolute form and checking they are within bounds.
 /// All validation failures are logged as warnings for security monitoring.
 /// </remarks>
-public class PathValidator : IPathValidator
+public class PathValidatorService : IPathValidator
 {
     private readonly ComposeDiscoveryOptions _options;
-    private readonly ILogger<PathValidator> _logger;
+    private readonly ILogger<PathValidatorService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the PathValidator service
     /// </summary>
     /// <param name="options">Compose discovery configuration containing the root path</param>
     /// <param name="logger">Logger for recording validation failures and security events</param>
-    public PathValidator(
+    public PathValidatorService(
         IOptions<ComposeDiscoveryOptions> options,
-        ILogger<PathValidator> logger)
+        ILogger<PathValidatorService> logger)
     {
         _options = options.Value;
         _logger = logger;

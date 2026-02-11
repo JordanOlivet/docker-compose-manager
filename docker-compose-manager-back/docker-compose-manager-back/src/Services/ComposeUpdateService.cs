@@ -63,7 +63,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly IComposeFileCacheService _fileCacheService;
     private readonly IProjectMatchingService _projectMatchingService;
     private readonly IAuditService _auditService;
-    private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly DockerPullProgressParser _progressParser;
     private readonly OperationService _operationService;
     private readonly ILogger<ComposeUpdateService> _logger;
@@ -79,7 +79,7 @@ public class ComposeUpdateService : IComposeUpdateService
         IComposeFileCacheService fileCacheService,
         IProjectMatchingService projectMatchingService,
         IAuditService auditService,
-        DockerCommandExecutor dockerExecutor,
+        DockerCommandExecutorService dockerExecutor,
         DockerPullProgressParser progressParser,
         OperationService operationServiceDb,
         IOptions<UpdateCheckOptions> options,

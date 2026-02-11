@@ -8,9 +8,8 @@
   import Checkbox from '$lib/components/ui/checkbox.svelte';
   import type { ProjectUpdateCheckResponse, ImageUpdateStatus, UpdateProgressEvent, ServicePullProgress, ServicePullStatus } from '$lib/types/update';
   import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
-  import { onPullProgressUpdate, startConnection } from '$lib/services/signalr';
+  import { onPullProgressUpdate } from '$lib/stores/sse.svelte';
   import { startBatchOperation } from '$lib/stores/batchOperation.svelte';
-  import { onMount } from 'svelte';
 
   interface Props {
     open: boolean;
@@ -36,24 +35,11 @@
   let logsExpanded = $state(false);
   let logsContainer = $state<HTMLDivElement | null>(null);
 
-  // Unsubscribe function for SignalR
+  // Unsubscribe function for SSE pull progress updates
   let unsubscribePullProgress: (() => void) | null = null;
 
   // Cleanup function for batch operation
   let endBatchOp: (() => void) | null = null;
-
-  // Ensure SignalR is connected on mount
-  onMount(() => {
-    startConnection();
-
-    return () => {
-      // Cleanup on unmount
-      if (unsubscribePullProgress) {
-        unsubscribePullProgress();
-        unsubscribePullProgress = null;
-      }
-    };
-  });
 
   // Initialize with services that have updates when updateCheck changes
   $effect(() => {
@@ -102,11 +88,11 @@
       updateProgress = null;
       updateLogs = [];
 
-      // Start batch operation to suppress SignalR-triggered refreshes during update
+      // Start batch operation to suppress SSE-triggered refreshes during update
       const operationId = `update-${projectName}-${Date.now()}`;
       endBatchOp = startBatchOperation(operationId, projectName);
 
-      // Subscribe to SignalR progress updates
+      // Subscribe to SSE pull progress updates
       unsubscribePullProgress = onPullProgressUpdate((event) => {
         console.log('ServiceUpdateDialog received progress event:', event, 'Expected projectName:', projectName);
         if (event.projectName === projectName) {
@@ -133,7 +119,7 @@
       isUpdating = false;
     },
     onSettled: () => {
-      // End batch operation to allow normal SignalR event handling
+      // End batch operation to allow normal SSE event handling
       if (endBatchOp) {
         endBatchOp();
         endBatchOp = null;

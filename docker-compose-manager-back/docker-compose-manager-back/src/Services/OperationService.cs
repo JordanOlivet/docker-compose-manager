@@ -1,8 +1,6 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
-using docker_compose_manager_back.Hubs;
 using docker_compose_manager_back.Models;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace docker_compose_manager_back.Services;
@@ -11,16 +9,16 @@ public class OperationService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<OperationService> _logger;
-    private readonly IHubContext<OperationsHub> _hubContext;
+    private readonly SseConnectionManagerService _sseManager;
 
     public OperationService(
         AppDbContext context,
         ILogger<OperationService> logger,
-        IHubContext<OperationsHub> hubContext)
+        SseConnectionManagerService sseManager)
     {
         _context = context;
         _logger = logger;
-        _hubContext = hubContext;
+        _sseManager = sseManager;
     }
 
     /// <summary>
@@ -119,7 +117,7 @@ public class OperationService
                 progress
             );
 
-            // Send SignalR notification
+            // Send SSE notification
             try
             {
                 var notification = new
@@ -134,22 +132,18 @@ public class OperationService
                 };
 
                 _logger.LogDebug(
-                    "Sending SignalR notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
+                    "Sending SSE notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
                     operationId, operation.Type, status, operation.ProjectName
                 );
 
-                await _hubContext.Clients.All.SendAsync("OperationUpdate", notification);
+                await _sseManager.BroadcastAsync("OperationUpdate", notification);
 
-                // Also send to specific operation group
-                string groupName = $"operation-{operationId}";
-                await _hubContext.Clients.Group(groupName).SendAsync("OperationUpdate", notification);
-
-                _logger.LogDebug("SignalR notification sent successfully for operation {OperationId}", operationId);
+                _logger.LogDebug("SSE notification sent successfully for operation {OperationId}", operationId);
             }
-            catch (Exception signalREx)
+            catch (Exception sseEx)
             {
-                _logger.LogWarning(signalREx, "Failed to send SignalR notification for operation {OperationId}", operationId);
-                // Don't fail the operation if SignalR notification fails
+                _logger.LogWarning(sseEx, "Failed to send SSE notification for operation {OperationId}", operationId);
+                // Don't fail the operation if SSE notification fails
             }
 
             return true;
@@ -382,11 +376,7 @@ public class OperationService
             );
 
             // Send to all connected clients
-            await _hubContext.Clients.All.SendAsync("PullProgressUpdate", progress);
-
-            // Also send to operation-specific group
-            string groupName = $"operation-{progress.OperationId}";
-            await _hubContext.Clients.Group(groupName).SendAsync("PullProgressUpdate", progress);
+            await _sseManager.BroadcastAsync("PullProgressUpdate", progress);
         }
         catch (Exception ex)
         {

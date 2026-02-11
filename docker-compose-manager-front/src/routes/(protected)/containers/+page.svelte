@@ -32,8 +32,8 @@
 
   const queryClient = useQueryClient();
 
-  // SignalR is now handled globally in the protected layout
-  // The SignalR-Query bridge automatically invalidates queries on events
+  // SSE is now handled globally in the protected layout
+  // The SSE-Query bridge automatically invalidates queries on events
   const containersQuery = createQuery(() => ({
     queryKey: ['containers', { all: filters.showAll }],
     queryFn: () => containersApi.list(filters.showAll),
@@ -44,7 +44,7 @@
   }));
 
   // Container Mutations
-  // Note: The SignalR-Query bridge handles cache invalidation automatically
+  // Note: The SSE-Query bridge handles cache invalidation automatically
   const startMutation = createMutation(() => ({
     mutationFn: (id: string) => containersApi.start(id),
     onSuccess: () => toast.success($t('containers.startSuccess')),

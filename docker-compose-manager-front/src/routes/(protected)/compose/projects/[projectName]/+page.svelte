@@ -34,8 +34,8 @@
 
 	const queryClient = useQueryClient();
 
-	// SignalR is now handled globally in the protected layout
-	// The SignalR-Query bridge automatically invalidates queries on events
+	// SSE is now handled globally in the protected layout
+	// The SSE-Query bridge automatically invalidates queries on events
 	const projectQuery = createQuery(() => ({
 		queryKey: ['compose', 'project', projectName],
 		queryFn: () => composeApi.getProjectDetails(projectName),
@@ -47,7 +47,7 @@
 	}));
 
 	// Project mutations
-	// Note: The SignalR-Query bridge handles cache invalidation automatically
+	// Note: The SSE-Query bridge handles cache invalidation automatically
 	const upMutation = createMutation(() => ({
 		mutationFn: ({ detach, forceRecreate }: { detach?: boolean; forceRecreate?: boolean }) =>
 			composeApi.upProject(projectName, { detach, forceRecreate }),

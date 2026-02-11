@@ -385,6 +385,57 @@ public class ContainersController : BaseController
     }
 
     /// <summary>
+    /// Stream container logs in real-time via SSE.
+    /// Sends historical logs first, then follows new logs.
+    /// </summary>
+    /// <param name="id">Container ID</param>
+    /// <param name="tail">Number of historical lines (default 100)</param>
+    [HttpGet("{id}/logs/stream")]
+    public async Task StreamContainerLogs(string id, [FromQuery] int tail = 100, CancellationToken cancellationToken = default)
+    {
+        Response.Headers.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+
+        // Only set Connection header for HTTP/1.1 (not valid for HTTP/2+)
+        if (Request.Protocol == "HTTP/1.1")
+        {
+            Response.Headers.Connection = "keep-alive";
+        }
+
+        try
+        {
+            await _dockerService.StreamContainerLogsAsync(
+                id,
+                tail,
+                async (line) =>
+                {
+                    string escaped = line.Replace("\\", "\\\\").Replace("\n", "\\n").Replace("\r", "");
+                    await Response.WriteAsync($"event: log\ndata: {escaped}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+                },
+                cancellationToken
+            );
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected — normal behavior
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error streaming logs for container {ContainerId}", id);
+            try
+            {
+                await Response.WriteAsync($"event: error\ndata: Failed to stream logs\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+            catch
+            {
+                // Client already disconnected
+            }
+        }
+    }
+
+    /// <summary>
     /// Get container statistics
     /// </summary>
     /// <param name="id">Container ID</param>

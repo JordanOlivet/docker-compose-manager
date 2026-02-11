@@ -13,7 +13,7 @@ namespace docker_compose_manager_back.Services;
 /// </summary>
 public class ComposeDiscoveryService : IComposeDiscoveryService
 {
-    private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly DockerService _dockerService;
     private readonly IMemoryCache _cache;
     private readonly IPermissionService _permissionService;
@@ -23,7 +23,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
     private const int CACHE_SECONDS = 10;
 
     public ComposeDiscoveryService(
-        DockerCommandExecutor dockerExecutor,
+        DockerCommandExecutorService dockerExecutor,
         DockerService dockerService,
         IMemoryCache cache,
         IPermissionService permissionService,

@@ -374,6 +374,50 @@ public class DockerService
     }
 
     /// <summary>
+    /// Streams container logs in real-time using Docker's follow mode.
+    /// Calls onLogLine for each log line received.
+    /// </summary>
+    public async Task StreamContainerLogsAsync(
+        string containerId,
+        int tail,
+        Func<string, Task> onLogLine,
+        CancellationToken cancellationToken)
+    {
+        ContainerLogsParameters parameters = new()
+        {
+            ShowStdout = true,
+            ShowStderr = true,
+            Tail = tail.ToString(),
+            Timestamps = true,
+            Follow = true
+        };
+
+        MultiplexedStream stream = await _dockerClient.Containers.GetContainerLogsAsync(
+            containerId,
+            true,
+            parameters,
+            cancellationToken
+        );
+
+        byte[] buffer = new byte[8192];
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            MultiplexedStream.ReadResult result = await stream.ReadOutputAsync(buffer, 0, buffer.Length, cancellationToken);
+
+            if (result.Count == 0)
+                break;
+
+            string text = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+            string[] lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string line in lines)
+            {
+                await onLogLine(line);
+            }
+        }
+    }
+
+    /// <summary>
     /// Normalizes a docker container name by removing the leading '/' that the Docker API returns.
     /// Returns "unknown" if the provided name is null or whitespace.
     /// </summary>

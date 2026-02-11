@@ -6,12 +6,12 @@ namespace docker_compose_manager_back.Services;
 /// <summary>
 /// Centralizes Docker Compose command execution
 /// </summary>
-public class DockerCommandExecutor
+public class DockerCommandExecutorService
 {
-    private readonly ILogger<DockerCommandExecutor> _logger;
+    private readonly ILogger<DockerCommandExecutorService> _logger;
     private bool? _isComposeV2;
 
-    public DockerCommandExecutor(ILogger<DockerCommandExecutor> logger)
+    public DockerCommandExecutorService(ILogger<DockerCommandExecutorService> logger)
     {
         _logger = logger;
     }
