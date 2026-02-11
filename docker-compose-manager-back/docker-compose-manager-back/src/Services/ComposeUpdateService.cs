@@ -99,8 +99,16 @@ public class ComposeUpdateService : IComposeUpdateService
         _logger = logger;
     }
 
-    public async Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
+    public Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
         string projectName,
+        CancellationToken ct = default)
+    {
+        return CheckProjectUpdatesInternalAsync(projectName, null, ct);
+    }
+
+    private async Task<ProjectUpdateCheckResponse> CheckProjectUpdatesInternalAsync(
+        string projectName,
+        string? knownComposeFilePath,
         CancellationToken ct = default)
     {
         // Check cache first
@@ -122,9 +130,8 @@ public class ComposeUpdateService : IComposeUpdateService
 
             _logger.LogDebug("Checking updates for project {ProjectName}", projectName);
 
-            // Use ProjectMatchingService to find the compose file path
-            // This uses the same sophisticated matching logic as the projects list
-            string? composeFilePath = await FindComposeFilePathAsync(projectName);
+            // Use pre-resolved path if available, otherwise look it up
+            string? composeFilePath = knownComposeFilePath ?? await FindComposeFilePathAsync(projectName);
 
             if (composeFilePath == null)
             {
@@ -586,7 +593,7 @@ public class ComposeUpdateService : IComposeUpdateService
 
             try
             {
-                ProjectUpdateCheckResponse checkResult = await CheckProjectUpdatesAsync(project.Name, ct);
+                ProjectUpdateCheckResponse checkResult = await CheckProjectUpdatesInternalAsync(project.Name, project.ComposeFilePath, ct);
 
                 int servicesWithUpdates = checkResult.Images
                     .Count(i => i.UpdateAvailable && i.UpdatePolicy != "disabled");
