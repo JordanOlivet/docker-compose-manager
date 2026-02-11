@@ -10,6 +10,7 @@
   import { markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
   import { onPullProgressUpdate } from '$lib/stores/sse.svelte';
   import { startBatchOperation } from '$lib/stores/batchOperation.svelte';
+  import { logger } from '$lib/utils/logger';
 
   interface Props {
     open: boolean;
@@ -94,9 +95,9 @@
 
       // Subscribe to SSE pull progress updates
       unsubscribePullProgress = onPullProgressUpdate((event) => {
-        console.log('ServiceUpdateDialog received progress event:', event, 'Expected projectName:', projectName);
+        logger.debug('ServiceUpdateDialog received progress event:', event, 'Expected projectName:', projectName);
         if (event.projectName === projectName) {
-          console.log('Progress event matches project, updating UI');
+          logger.debug('Progress event matches project, updating UI');
           updateProgress = event;
           if (event.currentLog) {
             updateLogs = [...updateLogs, event.currentLog].slice(-100); // Keep last 100 lines
