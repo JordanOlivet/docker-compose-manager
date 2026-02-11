@@ -19,7 +19,7 @@ export const projectUpdateState = $state({
   lastChecked: null as Date | null,
 
   // Per-project update status (projectName -> hasUpdates)
-  projectsWithUpdates: new Map<string, boolean>(),
+  projectsWithUpdates: {} as Record<string, boolean>,
 
   // Loading states
   isCheckingAll: false,
@@ -52,7 +52,7 @@ export const totalServicesWithUpdates = {
 
 // Check if a specific project has updates
 export function projectHasUpdates(projectName: string): boolean {
-  return projectUpdateState.projectsWithUpdates.get(projectName) ?? false;
+  return projectUpdateState.projectsWithUpdates[projectName] ?? false;
 }
 
 // Get project update summary
@@ -66,16 +66,14 @@ export function setCheckResult(result: CheckAllUpdatesResponse | null) {
   projectUpdateState.lastChecked = new Date();
   projectUpdateState.checkError = null;
 
-  // Update per-project map
-  projectUpdateState.projectsWithUpdates.clear();
+  // Update per-project record
+  const updates: Record<string, boolean> = {};
   if (result) {
     for (const project of result.projects) {
-      projectUpdateState.projectsWithUpdates.set(
-        project.projectName,
-        project.servicesWithUpdates > 0
-      );
+      updates[project.projectName] = project.servicesWithUpdates > 0;
     }
   }
+  projectUpdateState.projectsWithUpdates = updates;
 }
 
 export function setCheckingAll(checking: boolean) {
@@ -90,7 +88,7 @@ export function clearProjectUpdateState() {
   projectUpdateState.checkResult = null;
   projectUpdateState.lastChecked = null;
   projectUpdateState.checkError = null;
-  projectUpdateState.projectsWithUpdates.clear();
+  projectUpdateState.projectsWithUpdates = {};
 }
 
 /**
@@ -243,7 +241,7 @@ export function isPeriodicProjectCheckActive(): boolean {
  * Called after successfully updating a project.
  */
 export function markProjectAsUpdated(projectName: string): void {
-  projectUpdateState.projectsWithUpdates.set(projectName, false);
+  projectUpdateState.projectsWithUpdates = { ...projectUpdateState.projectsWithUpdates, [projectName]: false };
 
   // Also update the check result if it exists
   if (projectUpdateState.checkResult) {
