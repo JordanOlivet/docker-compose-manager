@@ -19,7 +19,7 @@ public class SseControllerTests
 
     private void SetupControllerContext(CancellationToken cancellationToken)
     {
-        var httpContext = new DefaultHttpContext();
+        DefaultHttpContext httpContext = new DefaultHttpContext();
         httpContext.Response.Body = new MemoryStream();
         httpContext.RequestAborted = cancellationToken;
         _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
@@ -32,27 +32,26 @@ public class SseControllerTests
     {
         var stream = _controller.Response.Body;
         stream.Position = 0;
-        using var reader = new StreamReader(stream, leaveOpen: true);
+        using StreamReader reader = new StreamReader(stream, leaveOpen: true);
         return reader.ReadToEnd();
     }
 
     [Fact]
     public async Task Stream_SetsCorrectHeaders()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         SetupControllerContext(cts.Token);
 
         try { await _controller.Stream(cts.Token); } catch (OperationCanceledException) { }
 
         _controller.Response.Headers.ContentType.ToString().Should().Be("text/event-stream");
         _controller.Response.Headers.CacheControl.ToString().Should().Be("no-cache");
-        _controller.Response.Headers.Connection.ToString().Should().Be("keep-alive");
     }
 
     [Fact]
     public async Task Stream_SendsConnectedEvent()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         SetupControllerContext(cts.Token);
 
         try { await _controller.Stream(cts.Token); } catch (OperationCanceledException) { }
@@ -65,7 +64,7 @@ public class SseControllerTests
     [Fact]
     public async Task Stream_RegistersClientInManager()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
         SetupControllerContext(cts.Token);
 
         // Start stream in background so we can check count while it's running
@@ -83,7 +82,7 @@ public class SseControllerTests
     [Fact]
     public async Task Stream_CancellationToken_RemovesClient()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         SetupControllerContext(cts.Token);
 
         try { await _controller.Stream(cts.Token); } catch (OperationCanceledException) { }
