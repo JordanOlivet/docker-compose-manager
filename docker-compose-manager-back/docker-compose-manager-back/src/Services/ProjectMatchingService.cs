@@ -16,6 +16,7 @@ public class ProjectMatchingService : IProjectMatchingService
     private readonly IPermissionService _permissionService;
     private readonly IPathMappingService _pathMappingService;
     private readonly IImageUpdateCacheService _updateCacheService;
+    private readonly ISelfFilterService _selfFilterService;
     private readonly ILogger<ProjectMatchingService> _logger;
 
     public ProjectMatchingService(
@@ -25,6 +26,7 @@ public class ProjectMatchingService : IProjectMatchingService
         IPermissionService permissionService,
         IPathMappingService pathMappingService,
         IImageUpdateCacheService updateCacheService,
+        ISelfFilterService selfFilterService,
         ILogger<ProjectMatchingService> logger)
     {
         _discoveryService = discoveryService;
@@ -33,6 +35,7 @@ public class ProjectMatchingService : IProjectMatchingService
         _permissionService = permissionService;
         _pathMappingService = pathMappingService;
         _updateCacheService = updateCacheService;
+        _selfFilterService = selfFilterService;
         _logger = logger;
     }
 
@@ -198,8 +201,18 @@ public class ProjectMatchingService : IProjectMatchingService
         }
 
         // Step 7: Add "not-started" projects (files without Docker projects) - WITH PERMISSION FILTERING
+        // Filter out the application's own compose file from unmatched files
+        string? selfProject = await _selfFilterService.GetSelfProjectNameAsync();
+
         foreach (DiscoveredComposeFile? unmatchedFile in filesByProjectName.Values)
         {
+            // Skip the application's own compose project
+            if (selfProject != null && unmatchedFile.ProjectName.Equals(selfProject, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("Self-filter: skipping own project '{ProjectName}' from not-started list", unmatchedFile.ProjectName);
+                continue;
+            }
+
             // Check if user has permission for this project
             bool hasProjectPermission = await _permissionService.HasPermissionAsync(
                 userId,
