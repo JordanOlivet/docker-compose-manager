@@ -17,6 +17,7 @@ public class SseClient
 public class SseConnectionManagerService
 {
     private readonly ConcurrentDictionary<string, SseClient> _clients = new();
+    private readonly SemaphoreSlim _broadcastLock = new(1, 1);
     private readonly ILogger<SseConnectionManagerService> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -58,30 +59,41 @@ public class SseConnectionManagerService
         string json = JsonSerializer.Serialize(data, JsonOptions);
         string sseMessage = $"event: {eventType}\ndata: {json}\n\n";
 
-        List<string> disconnected = [];
-
-        foreach (var (connectionId, client) in _clients)
+        // Serialize broadcasts to prevent concurrent writes to the same HttpResponse streams.
+        // Fire-and-forget callers (e.g. pull progress) can trigger overlapping broadcasts,
+        // and HttpResponse.WriteAsync is not thread-safe.
+        await _broadcastLock.WaitAsync();
+        try
         {
-            try
+            List<string> disconnected = [];
+
+            foreach (var (connectionId, client) in _clients)
             {
-                if (client.CancellationToken.IsCancellationRequested)
+                try
+                {
+                    if (client.CancellationToken.IsCancellationRequested)
+                    {
+                        disconnected.Add(connectionId);
+                        continue;
+                    }
+
+                    await client.Response.WriteAsync(sseMessage, client.CancellationToken);
+                    await client.Response.Body.FlushAsync(client.CancellationToken);
+                }
+                catch (Exception)
                 {
                     disconnected.Add(connectionId);
-                    continue;
                 }
-
-                await client.Response.WriteAsync(sseMessage, client.CancellationToken);
-                await client.Response.Body.FlushAsync(client.CancellationToken);
             }
-            catch (Exception)
+
+            foreach (string id in disconnected)
             {
-                disconnected.Add(connectionId);
+                RemoveClient(id);
             }
         }
-
-        foreach (string id in disconnected)
+        finally
         {
-            RemoveClient(id);
+            _broadcastLock.Release();
         }
     }
 

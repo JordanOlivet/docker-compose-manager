@@ -34,6 +34,11 @@ public partial class DockerPullProgressParser
     // Track which service is currently being pulled in non-TTY mode
     private string? _currentPullingService;
 
+    // Regex to strip ANSI escape sequences (cursor movement, colors, erase) from Docker output.
+    // Docker Compose v2 may emit these even in non-TTY mode for progress bar updates.
+    [GeneratedRegex(@"\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07|\r", RegexOptions.Compiled)]
+    private static partial Regex AnsiEscapeRegex();
+
     // ========== Interactive (TTY) patterns ==========
 
     // Overall progress: [+] Pulling 3/5
@@ -131,6 +136,14 @@ public partial class DockerPullProgressParser
     /// <returns>True if the line was parsed and resulted in a state change</returns>
     public bool ParseLine(string line, Dictionary<string, ServicePullProgress> serviceProgress)
     {
+        if (string.IsNullOrWhiteSpace(line))
+            return false;
+
+        // Strip ANSI escape sequences and carriage returns that Docker Compose v2
+        // may emit for progress bar updates (cursor repositioning, line erasing).
+        // Without this, the ^-anchored regexes fail on lines starting with \x1b[...
+        line = AnsiEscapeRegex().Replace(line, "");
+
         if (string.IsNullOrWhiteSpace(line))
             return false;
 
