@@ -257,7 +257,7 @@
       {:else if reconnectionFailed}
         <button
           type="button"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
           onclick={retryManually}
         >
           <RefreshCw class="w-4 h-4" />

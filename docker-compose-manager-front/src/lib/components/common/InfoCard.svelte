@@ -51,7 +51,7 @@
 				<button
 					type="button"
 					onclick={() => toggle(section.id)}
-					class="flex items-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+					class="flex items-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left cursor-pointer"
 				>
 					<!-- Chevron -->
 					{#if openStates[section.id]}

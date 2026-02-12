@@ -234,7 +234,7 @@
 				<button
 					onclick={clearLogs}
 					disabled={logs.length === 0}
-					class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
 					title="Clear logs"
 				>
 					<Trash2 class="h-4 w-4" />
@@ -242,7 +242,7 @@
 				{#if isStreaming}
 					<button
 						onclick={() => stopStreaming()}
-						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors"
+						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors cursor-pointer"
 						title="Pause streaming (logs will be kept)"
 					>
 						<Pause class="h-4 w-4" />
@@ -251,7 +251,7 @@
 				{:else}
 					<button
 						onclick={() => startStreaming(true)}
-						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors cursor-pointer"
 						title="Resume streaming"
 					>
 						<Play class="h-4 w-4" />

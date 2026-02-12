@@ -58,7 +58,7 @@
 
 <div class="relative group">
   <!-- Status indicator button -->
-  <button class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700" >
+  <button class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" >
 
     <!-- Animated dot indicator -->
     <span class="relative flex h-2.5 w-2.5">

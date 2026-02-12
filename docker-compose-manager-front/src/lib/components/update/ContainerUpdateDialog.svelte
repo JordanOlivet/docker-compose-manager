@@ -282,7 +282,7 @@
         </div>
         {#if !isUpdating}
           <button
-            class="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            class="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
             onclick={onClose}
           >
             <X class="w-5 h-5" />
@@ -383,7 +383,7 @@
             {#if updateLogs.length > 0}
               <div class="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <button
-                  class="w-full px-4 py-2 flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-150 dark:hover:bg-gray-700 transition-colors"
+                  class="w-full px-4 py-2 flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-150 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                   onclick={() => logsExpanded = !logsExpanded}
                 >
                   <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -459,7 +459,7 @@
                       {truncateDigest(checkResult.localDigest)}
                     </code>
                     <button
-                      class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                       onclick={() => copyToClipboard(checkResult!.localDigest!, 'local')}
                       title="Copy digest"
                     >

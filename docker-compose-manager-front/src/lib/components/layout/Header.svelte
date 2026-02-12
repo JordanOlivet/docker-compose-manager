@@ -41,7 +41,7 @@
     <div class="flex items-center gap-4">
       <button
         onclick={onToggleSidebar}
-        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer"
         aria-label={$t('common.toggleSidebar')}
       >
         <Menu class="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -57,7 +57,7 @@
       {#if isAdmin.current && hasUpdate.current}
         <button
           onclick={goToSettings}
-          class="relative p-2 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200 group"
+          class="relative p-2 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200 group cursor-pointer"
           title={$t('update.updateAvailable')}
         >
           <Download class="w-5 h-5 text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform" />
@@ -91,7 +91,7 @@
 
       <button
         onclick={handleLogout}
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105 group"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105 group cursor-pointer"
         aria-label={$t('auth.logout')}
       >
         <LogOut class="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
