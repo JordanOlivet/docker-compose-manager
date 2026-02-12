@@ -1,3 +1,14 @@
+## Changes in v1.2.0
+
+**Merged Pull Requests:**
+- Add update mecanism (#38)
+
+**Commits:**
+- Implement application self check/update and compose project/container check/update mecanism (#38) (dd55dbc)
+- Add docker image dev build and push for PR commits (#51) (34404dd)
+- docs: update CHANGELOG for v1.1.1 [skip ci] (855ac7e)
+- chore: bump version to v1.1.1 [skip ci] (d6b508f)
+
 ## Changes in v1.1.1
 
 **Merged Pull Requests:**
