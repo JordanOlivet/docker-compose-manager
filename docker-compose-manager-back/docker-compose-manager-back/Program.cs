@@ -202,8 +202,10 @@ builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegist
 builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClientFactory, docker_compose_manager_back.Services.Registry.RegistryClientFactory>();
 builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
 builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
+builder.Services.AddSingleton<IContainerUpdateCacheService, ContainerUpdateCacheService>();
 builder.Services.AddSingleton<DockerPullProgressParser>();
 builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
+builder.Services.AddScoped<IContainerUpdateService, ContainerUpdateService>();
 
 // Register Registry Credential service
 builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
@@ -213,6 +215,7 @@ builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService
 // builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
+builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();

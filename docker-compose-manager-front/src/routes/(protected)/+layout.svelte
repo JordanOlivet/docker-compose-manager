@@ -5,16 +5,19 @@
 	import * as auth from '$lib/stores/auth.svelte';
 	import { isAdmin } from '$lib/stores/auth.svelte';
 	import { authApi } from '$lib/api';
-	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode } from '$lib/stores/sse.svelte';
+	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode, onProjectUpdatesChecked, onContainerUpdatesChecked } from '$lib/stores/sse.svelte';
 	import { setupSSEQueryBridge } from '$lib/services/sseQueryBridge';
 	import { enterMaintenanceMode, startPeriodicCheck, stopPeriodicCheck } from '$lib/stores/update.svelte';
-	import { startPeriodicProjectCheck, stopPeriodicProjectCheck, loadIntervalFromSettings } from '$lib/stores/projectUpdate.svelte';
+	import { handleProjectUpdatesCheckedEvent, loadCachedUpdateStatus } from '$lib/stores/projectUpdate.svelte';
+	import { handleContainerUpdatesCheckedEvent, loadCachedContainerUpdateStatus } from '$lib/stores/containerUpdate.svelte';
 	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
 	let isLoading = $state(true);
 	let cleanupBridge: (() => void) | null = null;
 	let cleanupMaintenanceListener: (() => void) | null = null;
+	let cleanupProjectUpdatesListener: (() => void) | null = null;
+	let cleanupContainerUpdatesListener: (() => void) | null = null;
 
 	// Use the singleton QueryClient - same instance used by all components
 	const queryClient = getQueryClient();
@@ -48,9 +51,19 @@
 		if (isAdmin.current) {
 			startPeriodicCheck();
 
-			// Start periodic project update checking
-			await loadIntervalFromSettings();
-			startPeriodicProjectCheck();
+			// Subscribe to project updates SSE events (backend-driven periodic checks)
+			cleanupProjectUpdatesListener = onProjectUpdatesChecked((event) => {
+				handleProjectUpdatesCheckedEvent(event);
+			});
+
+			// Subscribe to container updates SSE events
+			cleanupContainerUpdatesListener = onContainerUpdatesChecked((event) => {
+				handleContainerUpdatesCheckedEvent(event);
+			});
+
+			// Load cached update status from backend on initial load
+			await loadCachedUpdateStatus();
+			await loadCachedContainerUpdateStatus();
 		}
 
 		isLoading = false;
@@ -65,10 +78,16 @@
 		if (cleanupMaintenanceListener) {
 			cleanupMaintenanceListener();
 		}
+		// Clean up project updates listener
+		if (cleanupProjectUpdatesListener) {
+			cleanupProjectUpdatesListener();
+		}
+		// Clean up container updates listener
+		if (cleanupContainerUpdatesListener) {
+			cleanupContainerUpdatesListener();
+		}
 		// Stop periodic update checking
 		stopPeriodicCheck();
-		// Stop periodic project update checking
-		stopPeriodicProjectCheck();
 	});
 </script>
 

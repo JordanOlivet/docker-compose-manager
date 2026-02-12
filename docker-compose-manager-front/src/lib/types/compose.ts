@@ -70,6 +70,10 @@ export interface ComposeProject {
   warning?: string | null;
   /** Dictionary of available actions and whether they can be performed */
   availableActions?: Record<string, boolean> | null;
+  /** Number of services with available updates (from cache, null if not checked) */
+  servicesWithUpdates?: number | null;
+  /** When the last update check was performed (from cache, null if not checked) */
+  lastUpdateCheck?: string | null;
 }
 
 export interface ComposeService {

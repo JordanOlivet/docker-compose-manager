@@ -41,3 +41,19 @@ public record ContainerStatsDto(
     long DiskRead,
     long DiskWrite
 );
+
+/// <summary>
+/// Response for individual container update check.
+/// </summary>
+public record ContainerUpdateCheckResponse(
+    string ContainerId,
+    string ContainerName,
+    string Image,
+    bool UpdateAvailable,
+    bool IsComposeManaged,
+    string? ProjectName,
+    string? LocalDigest,
+    string? RemoteDigest,
+    bool RequiredPull,
+    string? Error
+);

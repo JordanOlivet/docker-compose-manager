@@ -42,4 +42,15 @@ public class UpdateCheckOptions
     /// Supports wildcards (*) for pattern matching.
     /// </summary>
     public List<string> ExcludedImages { get; set; } = new();
+
+    /// <summary>
+    /// Interval in minutes between automatic update checks.
+    /// Can be overridden via AppSettings key "ProjectUpdateCheckIntervalMinutes".
+    /// </summary>
+    public int CheckIntervalMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// Delay in seconds before the first automatic update check after startup.
+    /// </summary>
+    public int StartupDelaySeconds { get; set; } = 10;
 }

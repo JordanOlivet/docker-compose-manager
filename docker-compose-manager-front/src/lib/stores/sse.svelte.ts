@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
-import type { MaintenanceModeNotification, UpdateProgressEvent } from '$lib/types/update';
+import type { MaintenanceModeNotification, UpdateProgressEvent, ProjectUpdatesCheckedEvent, ContainerUpdatesCheckedEvent } from '$lib/types/update';
 import { logger } from '$lib/utils/logger';
 
 // Types for SSE events
@@ -45,6 +45,8 @@ const composeProjectCallbacks = new Set<(event: ComposeProjectStateChangedEvent)
 const operationCallbacks = new Set<(event: OperationUpdateEvent) => void>();
 const maintenanceModeCallbacks = new Set<(notification: MaintenanceModeNotification) => void>();
 const pullProgressCallbacks = new Set<(event: UpdateProgressEvent) => void>();
+const projectUpdatesCheckedCallbacks = new Set<(event: ProjectUpdatesCheckedEvent) => void>();
+const containerUpdatesCheckedCallbacks = new Set<(event: ContainerUpdatesCheckedEvent) => void>();
 const reconnectedCallbacks = new Set<() => void>();
 const connectedCallbacks = new Set<() => void>();
 const disconnectedCallbacks = new Set<(error?: Error) => void>();
@@ -209,6 +211,28 @@ export async function initializeSSEConnection(): Promise<void> {
       }
     });
 
+    eventSource.addEventListener('ProjectUpdatesChecked', (e: MessageEvent) => {
+      resetHeartbeatTimer();
+      try {
+        const event: ProjectUpdatesCheckedEvent = JSON.parse(e.data);
+        logger.log('[SSE Store] ProjectUpdatesChecked:', event.trigger, event.projectsWithUpdates, 'projects with updates');
+        projectUpdatesCheckedCallbacks.forEach(cb => cb(event));
+      } catch (err) {
+        logger.error('[SSE Store] Failed to parse ProjectUpdatesChecked:', err);
+      }
+    });
+
+    eventSource.addEventListener('ContainerUpdatesChecked', (e: MessageEvent) => {
+      resetHeartbeatTimer();
+      try {
+        const event: ContainerUpdatesCheckedEvent = JSON.parse(e.data);
+        logger.log('[SSE Store] ContainerUpdatesChecked:', event.containersWithUpdates, 'containers with updates');
+        containerUpdatesCheckedCallbacks.forEach(cb => cb(event));
+      } catch (err) {
+        logger.error('[SSE Store] Failed to parse ContainerUpdatesChecked:', err);
+      }
+    });
+
     eventSource.onopen = () => {
       resetHeartbeatTimer();
     };
@@ -322,6 +346,30 @@ export function onPullProgressUpdate(callback: (event: UpdateProgressEvent) => v
   return () => {
     pullProgressCallbacks.delete(callback);
     logger.log('[SSE Store] Pull progress callback unregistered, total:', pullProgressCallbacks.size);
+  };
+}
+
+/**
+ * Subscribe to project updates checked events (periodic or manual)
+ */
+export function onProjectUpdatesChecked(callback: (event: ProjectUpdatesCheckedEvent) => void): () => void {
+  projectUpdatesCheckedCallbacks.add(callback);
+  logger.log('[SSE Store] ProjectUpdatesChecked callback registered, total:', projectUpdatesCheckedCallbacks.size);
+  return () => {
+    projectUpdatesCheckedCallbacks.delete(callback);
+    logger.log('[SSE Store] ProjectUpdatesChecked callback unregistered, total:', projectUpdatesCheckedCallbacks.size);
+  };
+}
+
+/**
+ * Subscribe to container updates checked events
+ */
+export function onContainerUpdatesChecked(callback: (event: ContainerUpdatesCheckedEvent) => void): () => void {
+  containerUpdatesCheckedCallbacks.add(callback);
+  logger.log('[SSE Store] ContainerUpdatesChecked callback registered, total:', containerUpdatesCheckedCallbacks.size);
+  return () => {
+    containerUpdatesCheckedCallbacks.delete(callback);
+    logger.log('[SSE Store] ContainerUpdatesChecked callback unregistered, total:', containerUpdatesCheckedCallbacks.size);
   };
 }
 

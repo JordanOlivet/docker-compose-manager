@@ -476,6 +476,18 @@ const es = {
       completed: 'Completado',
       error: 'Error',
     },
+    // Container update keys
+    containerUpdateSuccess: 'Contenedor actualizado con éxito',
+    containerUpdateFailed: 'Error al actualizar el contenedor',
+    standaloneWarning: 'Este contenedor no está gestionado por un archivo compose. La actualización recreará el contenedor con la misma configuración (puertos, volúmenes, entorno, redes).',
+    checkContainerUpdates: 'Verificar actualizaciones de contenedores',
+    updateAllContainers: 'Actualizar todos los contenedores',
+    containersHaveUpdates: 'contenedores tienen actualizaciones',
+    allContainersUpToDate: 'Todos los contenedores están al día',
+    containersSelected: 'contenedores seleccionados',
+    bulkContainerUpdateSuccess: '{count} contenedores actualizados correctamente',
+    bulkContainerUpdatePartial: '{success} contenedores actualizados, {failed} fallidos',
+    bulkContainerUpdateFailed: 'Error al actualizar los contenedores',
   },
 };
 

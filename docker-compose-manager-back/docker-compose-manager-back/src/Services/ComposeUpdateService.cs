@@ -66,6 +66,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly DockerPullProgressParser _progressParser;
     private readonly OperationService _operationService;
+    private readonly SseConnectionManagerService _sseManager;
     private readonly ILogger<ComposeUpdateService> _logger;
     private readonly UpdateCheckOptions _options;
 
@@ -82,6 +83,7 @@ public class ComposeUpdateService : IComposeUpdateService
         DockerCommandExecutorService dockerExecutor,
         DockerPullProgressParser progressParser,
         OperationService operationServiceDb,
+        SseConnectionManagerService sseManager,
         IOptions<UpdateCheckOptions> options,
         ILogger<ComposeUpdateService> logger)
     {
@@ -95,6 +97,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _dockerExecutor = dockerExecutor;
         _progressParser = progressParser;
         _operationService = operationServiceDb;
+        _sseManager = sseManager;
         _options = options.Value;
         _logger = logger;
     }
@@ -631,13 +634,33 @@ public class ComposeUpdateService : IComposeUpdateService
             projectsWithUpdates,
             totalServicesWithUpdates);
 
-        return new CheckAllUpdatesResponse(
+        CheckAllUpdatesResponse response = new CheckAllUpdatesResponse(
             Projects: summaries,
             ProjectsChecked: summaries.Count,
             ProjectsWithUpdates: projectsWithUpdates,
             TotalServicesWithUpdates: totalServicesWithUpdates,
             CheckedAt: DateTime.UtcNow
         );
+
+        // Broadcast SSE event for manual check
+        try
+        {
+            ProjectUpdatesCheckedEvent sseEvent = new(
+                Projects: response.Projects,
+                ProjectsChecked: response.ProjectsChecked,
+                ProjectsWithUpdates: response.ProjectsWithUpdates,
+                TotalServicesWithUpdates: response.TotalServicesWithUpdates,
+                CheckedAt: response.CheckedAt,
+                Trigger: "manual"
+            );
+            await _sseManager.BroadcastAsync("ProjectUpdatesChecked", sseEvent);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast ProjectUpdatesChecked SSE event");
+        }
+
+        return response;
     }
 
     private async Task<Dictionary<string, ServiceImageInfo>> ParseServiceImagesAsync(

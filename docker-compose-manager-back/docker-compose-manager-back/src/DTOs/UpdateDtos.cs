@@ -160,6 +160,44 @@ public record CheckAllUpdatesResponse(
 );
 
 // ============================================
+// SSE Broadcast Events
+// ============================================
+
+/// <summary>
+/// SSE event broadcast after completing a bulk update check (periodic or manual).
+/// </summary>
+public record ProjectUpdatesCheckedEvent(
+    List<ProjectUpdateSummary> Projects,
+    int ProjectsChecked,
+    int ProjectsWithUpdates,
+    int TotalServicesWithUpdates,
+    DateTime CheckedAt,
+    string Trigger  // "periodic" | "manual"
+);
+
+/// <summary>
+/// SSE event broadcast after checking container updates.
+/// </summary>
+public record ContainerUpdatesCheckedEvent(
+    List<ContainerUpdateSummary> Containers,
+    int ContainersChecked,
+    int ContainersWithUpdates,
+    DateTime CheckedAt
+);
+
+/// <summary>
+/// Summary of a container's update status.
+/// </summary>
+public record ContainerUpdateSummary(
+    string ContainerId,
+    string ContainerName,
+    string Image,
+    bool UpdateAvailable,
+    bool IsComposeManaged,
+    string? ProjectName
+);
+
+// ============================================
 // Pull Progress DTOs (for real-time updates)
 // ============================================
 

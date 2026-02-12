@@ -147,6 +147,60 @@ export interface CheckAllUpdatesResponse {
 }
 
 // ============================================
+// SSE Broadcast Events
+// ============================================
+
+/**
+ * SSE event broadcast after completing a bulk project update check
+ */
+export interface ProjectUpdatesCheckedEvent {
+  projects: ProjectUpdateSummary[];
+  projectsChecked: number;
+  projectsWithUpdates: number;
+  totalServicesWithUpdates: number;
+  checkedAt: string;
+  trigger: 'periodic' | 'manual';
+}
+
+/**
+ * SSE event broadcast after checking container updates
+ */
+export interface ContainerUpdatesCheckedEvent {
+  containers: ContainerUpdateSummary[];
+  containersChecked: number;
+  containersWithUpdates: number;
+  checkedAt: string;
+}
+
+/**
+ * Summary of a container's update status
+ */
+export interface ContainerUpdateSummary {
+  containerId: string;
+  containerName: string;
+  image: string;
+  updateAvailable: boolean;
+  isComposeManaged: boolean;
+  projectName: string | null;
+}
+
+/**
+ * Response for individual container update check
+ */
+export interface ContainerUpdateCheckResponse {
+  containerId: string;
+  containerName: string;
+  image: string;
+  updateAvailable: boolean;
+  isComposeManaged: boolean;
+  projectName: string | null;
+  localDigest: string | null;
+  remoteDigest: string | null;
+  requiredPull: boolean;
+  error: string | null;
+}
+
+// ============================================
 // Pull Progress Types (for real-time updates)
 // ============================================
 

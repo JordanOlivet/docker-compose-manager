@@ -15,6 +15,7 @@ public class ProjectMatchingService : IProjectMatchingService
     private readonly IConflictResolutionService _conflictService;
     private readonly IPermissionService _permissionService;
     private readonly IPathMappingService _pathMappingService;
+    private readonly IImageUpdateCacheService _updateCacheService;
     private readonly ILogger<ProjectMatchingService> _logger;
 
     public ProjectMatchingService(
@@ -23,6 +24,7 @@ public class ProjectMatchingService : IProjectMatchingService
         IConflictResolutionService conflictService,
         IPermissionService permissionService,
         IPathMappingService pathMappingService,
+        IImageUpdateCacheService updateCacheService,
         ILogger<ProjectMatchingService> logger)
     {
         _discoveryService = discoveryService;
@@ -30,6 +32,7 @@ public class ProjectMatchingService : IProjectMatchingService
         _conflictService = conflictService;
         _permissionService = permissionService;
         _pathMappingService = pathMappingService;
+        _updateCacheService = updateCacheService;
         _logger = logger;
     }
 
@@ -247,6 +250,26 @@ public class ProjectMatchingService : IProjectMatchingService
             );
 
             enrichedProjects.Add(notStartedProject);
+        }
+
+        // Step 8: Enrich projects with update info from cache
+        List<ProjectUpdateSummary>? updateSummaries = _updateCacheService.GetAllCachedSummaries();
+        if (updateSummaries != null && updateSummaries.Count > 0)
+        {
+            Dictionary<string, ProjectUpdateSummary> summaryByName = updateSummaries
+                .ToDictionary(s => s.ProjectName, s => s, StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < enrichedProjects.Count; i++)
+            {
+                if (summaryByName.TryGetValue(enrichedProjects[i].Name, out ProjectUpdateSummary? summary))
+                {
+                    enrichedProjects[i] = enrichedProjects[i] with
+                    {
+                        ServicesWithUpdates = summary.ServicesWithUpdates,
+                        LastUpdateCheck = summary.LastChecked
+                    };
+                }
+            }
         }
 
         _logger.LogDebug(

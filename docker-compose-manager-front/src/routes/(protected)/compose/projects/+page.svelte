@@ -372,7 +372,7 @@
                         <Download class="w-4 h-4" />
                       {/if}
                     </button>
-                    {#if projectHasUpdates(project.name)}
+                    {#if projectHasUpdates(project.name) || (project.servicesWithUpdates != null && project.servicesWithUpdates > 0)}
                       <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
                     {/if}
                   </div>

@@ -513,5 +513,17 @@ export default {
       completed: 'Completed',
       error: 'Error',
     },
+    // Container update keys
+    containerUpdateSuccess: 'Container updated successfully',
+    containerUpdateFailed: 'Failed to update container',
+    standaloneWarning: 'This container is not managed by a compose file. The update will recreate the container with the same configuration (ports, volumes, environment, networks).',
+    checkContainerUpdates: 'Check Container Updates',
+    updateAllContainers: 'Update All Containers',
+    containersHaveUpdates: 'containers have updates',
+    allContainersUpToDate: 'All containers are up to date',
+    containersSelected: 'containers selected',
+    bulkContainerUpdateSuccess: 'Successfully updated {count} containers',
+    bulkContainerUpdatePartial: 'Updated {success} containers, {failed} failed',
+    bulkContainerUpdateFailed: 'Failed to update containers',
   },
 } as const;

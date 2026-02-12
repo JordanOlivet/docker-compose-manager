@@ -513,6 +513,18 @@ const fr = {
       completed: 'Terminé',
       error: 'Erreur',
     },
+    // Container update keys
+    containerUpdateSuccess: 'Conteneur mis à jour avec succès',
+    containerUpdateFailed: 'Échec de la mise à jour du conteneur',
+    standaloneWarning: "Ce conteneur n'est pas géré par un fichier compose. La mise à jour recréera le conteneur avec la même configuration (ports, volumes, environnement, réseaux).",
+    checkContainerUpdates: 'Vérifier les mises à jour des conteneurs',
+    updateAllContainers: 'Mettre à jour tous les conteneurs',
+    containersHaveUpdates: 'conteneurs ont des mises à jour',
+    allContainersUpToDate: 'Tous les conteneurs sont à jour',
+    containersSelected: 'conteneurs sélectionnés',
+    bulkContainerUpdateSuccess: '{count} conteneurs mis à jour avec succès',
+    bulkContainerUpdatePartial: '{success} conteneurs mis à jour, {failed} échoués',
+    bulkContainerUpdateFailed: 'Échec de la mise à jour des conteneurs',
   },
 };
 

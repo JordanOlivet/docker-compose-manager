@@ -1,15 +1,21 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Container, Play, Square, RotateCw, Trash2, Search } from 'lucide-svelte';
+  import { Container, Play, Square, RotateCw, Trash2, Search, Download, Loader2 } from 'lucide-svelte';
   import { containersApi } from '$lib/api';
+  import { updateApi } from '$lib/api/update';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import ContainerUpdateDialog from '$lib/components/update/ContainerUpdateDialog.svelte';
+  import BulkContainerUpdateDialog from '$lib/components/update/BulkContainerUpdateDialog.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { EntityState } from '$lib/types';
+  import { isAdmin } from '$lib/stores/auth.svelte';
+  import { containerHasUpdate, setContainerUpdateResult, handleContainerUpdatesCheckedEvent, hasAnyContainerUpdates, containersWithUpdatesCount, reconcileContainerUpdateState } from '$lib/stores/containerUpdate.svelte';
+  import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
 
   // Grouped filter state
   type SortKey = 'name' | 'image' | 'state' | 'status';
@@ -30,6 +36,12 @@
     isRunning: false
   });
 
+  // Update dialog state
+  let updateDialogOpen = $state(false);
+  let containerUpdateCheck = $state<ContainerUpdateCheckResponse | null>(null);
+  let checkingUpdateFor = $state<string | null>(null);
+  let bulkUpdateDialogOpen = $state(false);
+
   const queryClient = useQueryClient();
 
   // SSE is now handled globally in the protected layout
@@ -42,6 +54,15 @@
     refetchOnReconnect: false,
     staleTime: 0,
   }));
+
+  // Reconcile container update state when the container list changes
+  // This removes stale entries for containers that were destroyed/recreated
+  $effect(() => {
+    const data = containersQuery.data;
+    if (data && data.length > 0) {
+      reconcileContainerUpdateState(new Set(data.map((c: any) => c.id)));
+    }
+  });
 
   // Container Mutations
   // Note: The SSE-Query bridge handles cache invalidation automatically
@@ -79,6 +100,43 @@
       toast.error(error.response?.data?.message || $t('containers.removeFailed'));
     },
   }));
+
+  // Check update mutation
+  const checkUpdateMutation = createMutation(() => ({
+    mutationFn: (containerId: string) => updateApi.checkContainerUpdate(containerId),
+    onSuccess: (data: ContainerUpdateCheckResponse) => {
+      containerUpdateCheck = data;
+      setContainerUpdateResult(data.containerId, data.updateAvailable);
+      updateDialogOpen = true;
+      checkingUpdateFor = null;
+    },
+    onError: (error: Error) => {
+      toast.error($t('update.checkFailed') + ': ' + error.message);
+      checkingUpdateFor = null;
+    },
+  }));
+
+  // Check all container updates mutation
+  const checkAllUpdatesMutation = createMutation(() => ({
+    mutationFn: () => updateApi.checkAllContainerUpdates(),
+    onSuccess: (data: ContainerUpdatesCheckedEvent) => {
+      handleContainerUpdatesCheckedEvent(data);
+      toast.success($t('update.checkForUpdates') + ' - OK');
+    },
+    onError: (error: Error) => {
+      toast.error($t('update.checkFailed') + ': ' + error.message);
+    },
+  }));
+
+  function handleCheckUpdate(containerId: string) {
+    checkingUpdateFor = containerId;
+    checkUpdateMutation.mutate(containerId);
+  }
+
+  function closeUpdateDialog() {
+    updateDialogOpen = false;
+    containerUpdateCheck = null;
+  }
 
   const filteredAndSortedContainers = $derived.by(() => {
     // First filter
@@ -156,9 +214,34 @@
             {$t('containers.subtitle')}
           </p>
         </div>
-        <Button variant={filters.showAll ? 'default' : 'outline'} onclick={() => filters.showAll = !filters.showAll}>
-          {filters.showAll ? $t('containers.showRunning') : $t('containers.showAll')}
-        </Button>
+        <div class="flex items-center gap-2">
+          {#if isAdmin.current}
+            <button
+              onclick={() => checkAllUpdatesMutation.mutate()}
+              disabled={checkAllUpdatesMutation.isPending}
+              class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {#if checkAllUpdatesMutation.isPending}
+                <Loader2 class="w-3 h-3 animate-spin" />
+              {:else}
+                <Download class="w-3 h-3" />
+              {/if}
+              {$t('update.checkContainerUpdates')}
+            </button>
+            {#if hasAnyContainerUpdates.current}
+              <button
+                onclick={() => bulkUpdateDialogOpen = true}
+                class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <Download class="w-3 h-3" />
+                {$t('update.updateAll')} ({containersWithUpdatesCount.current})
+              </button>
+            {/if}
+          {/if}
+          <Button variant={filters.showAll ? 'default' : 'outline'} onclick={() => filters.showAll = !filters.showAll}>
+            {filters.showAll ? $t('containers.showRunning') : $t('containers.showAll')}
+          </Button>
+        </div>
       </div>
     </div>
 
@@ -285,6 +368,25 @@
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap text-xs">
                     <div class="flex items-center gap-1">
+                      {#if isAdmin.current}
+                        <div class="relative">
+                          <button
+                            onclick={() => handleCheckUpdate(container.id)}
+                            disabled={checkingUpdateFor === container.id}
+                            class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={$t('update.checkUpdates')}
+                          >
+                            {#if checkingUpdateFor === container.id}
+                              <Loader2 class="w-3 h-3 animate-spin" />
+                            {:else}
+                              <Download class="w-3 h-3" />
+                            {/if}
+                          </button>
+                          {#if containerHasUpdate(container.id)}
+                            <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                          {/if}
+                        </div>
+                      {/if}
                       {#if isRunning}
                         <button
                           onclick={() => restartMutation.mutate(container.id)}
@@ -340,5 +442,19 @@
       : $t('containers.confirmRemoveWithName', { name: confirmDialog.containerName })}
     onconfirm={handleRemove}
     oncancel={() => confirmDialog.open = false}
+  />
+
+  <!-- Container Update Dialog -->
+  <ContainerUpdateDialog
+    open={updateDialogOpen}
+    checkResult={containerUpdateCheck}
+    onClose={closeUpdateDialog}
+  />
+
+  <!-- Bulk Container Update Dialog -->
+  <BulkContainerUpdateDialog
+    open={bulkUpdateDialogOpen}
+    containers={containersQuery.data ?? []}
+    onClose={() => bulkUpdateDialogOpen = false}
   />
 </div>

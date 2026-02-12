@@ -18,6 +18,7 @@ public class ProjectMatchingServiceTests
     private readonly Mock<IConflictResolutionService> _mockConflictService;
     private readonly Mock<IPermissionService> _mockPermissionService;
     private readonly Mock<IPathMappingService> _mockPathMappingService;
+    private readonly Mock<IImageUpdateCacheService> _mockUpdateCacheService;
     private readonly ProjectMatchingService _service;
 
     public ProjectMatchingServiceTests()
@@ -27,6 +28,7 @@ public class ProjectMatchingServiceTests
         _mockConflictService = new Mock<IConflictResolutionService>();
         _mockPermissionService = new Mock<IPermissionService>();
         _mockPathMappingService = new Mock<IPathMappingService>();
+        _mockUpdateCacheService = new Mock<IImageUpdateCacheService>();
 
         // Default behavior: ResolveConflicts returns the same list (no conflicts)
         _mockConflictService
@@ -52,6 +54,7 @@ public class ProjectMatchingServiceTests
             _mockConflictService.Object,
             _mockPermissionService.Object,
             _mockPathMappingService.Object,
+            _mockUpdateCacheService.Object,
             new NullLogger<ProjectMatchingService>()
         );
     }

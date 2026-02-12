@@ -1,16 +1,11 @@
 import { browser } from '$app/environment';
-import type { CheckAllUpdatesResponse, ProjectUpdateSummary } from '$lib/types/update';
+import type { CheckAllUpdatesResponse, ProjectUpdateSummary, ProjectUpdatesCheckedEvent } from '$lib/types/update';
 import { updateApi } from '$lib/api/update';
 import configApi from '$lib/api/config';
 import { logger } from '$lib/utils/logger';
 
 // Configuration
-const DEFAULT_CHECK_INTERVAL_MINUTES = 60; // 1 hour default
-const MIN_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes minimum between checks
-
-// Internal state for periodic checking
-let checkIntervalId: ReturnType<typeof setInterval> | null = null;
-let isPeriodicCheckRunning = false;
+const MIN_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes minimum between manual checks
 
 // Svelte 5 pattern: export state object with properties
 export const projectUpdateState = $state({
@@ -25,7 +20,7 @@ export const projectUpdateState = $state({
   isCheckingAll: false,
 
   // Configuration
-  checkIntervalMinutes: DEFAULT_CHECK_INTERVAL_MINUTES,
+  checkIntervalMinutes: 60,
 
   // Errors
   checkError: null as string | null
@@ -92,7 +87,69 @@ export function clearProjectUpdateState() {
 }
 
 /**
- * Check for updates across all projects.
+ * Handle SSE ProjectUpdatesChecked event (from backend periodic or manual check).
+ * Updates the store with the latest results without triggering a new API call.
+ */
+export function handleProjectUpdatesCheckedEvent(event: ProjectUpdatesCheckedEvent): void {
+  logger.log(`[Project Update Store] Received SSE update (trigger: ${event.trigger}): ${event.projectsWithUpdates} projects with updates`);
+
+  const result: CheckAllUpdatesResponse = {
+    projects: event.projects,
+    projectsChecked: event.projectsChecked,
+    projectsWithUpdates: event.projectsWithUpdates,
+    totalServicesWithUpdates: event.totalServicesWithUpdates,
+    checkedAt: event.checkedAt
+  };
+
+  setCheckResult(result);
+}
+
+/**
+ * Load cached update status from the backend (for initial page load).
+ * Uses the global status endpoint which reads from cache.
+ */
+export async function loadCachedUpdateStatus(): Promise<void> {
+  if (!browser) return;
+
+  try {
+    const summaries = await updateApi.getProjectUpdateStatus();
+    if (summaries && summaries.length > 0) {
+      const updates: Record<string, boolean> = {};
+      let totalWithUpdates = 0;
+      let totalServices = 0;
+
+      for (const summary of summaries) {
+        updates[summary.projectName] = summary.servicesWithUpdates > 0;
+        if (summary.servicesWithUpdates > 0) totalWithUpdates++;
+        totalServices += summary.servicesWithUpdates;
+      }
+
+      projectUpdateState.projectsWithUpdates = updates;
+      projectUpdateState.checkResult = {
+        projects: summaries,
+        projectsChecked: summaries.length,
+        projectsWithUpdates: totalWithUpdates,
+        totalServicesWithUpdates: totalServices,
+        checkedAt: new Date().toISOString()
+      };
+      projectUpdateState.lastChecked = new Date();
+
+      logger.log(`[Project Update Store] Loaded cached status: ${totalWithUpdates} projects with updates`);
+    }
+  } catch (error: unknown) {
+    // Don't log 403 errors as they're expected for non-admin users
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 403) {
+        return;
+      }
+    }
+    logger.error('[Project Update Store] Failed to load cached update status:', error);
+  }
+}
+
+/**
+ * Check for updates across all projects (manual trigger).
  * @param force - If true, skip the minimum interval check
  */
 export async function checkAllProjectUpdates(force = false): Promise<CheckAllUpdatesResponse | null> {
@@ -120,6 +177,7 @@ export async function checkAllProjectUpdates(force = false): Promise<CheckAllUpd
     logger.log('[Project Update Store] Checking for updates across all projects...');
     const result = await updateApi.checkAllProjectUpdates();
 
+    // Note: SSE event will also be received, but we set immediately for responsiveness
     setCheckResult(result);
 
     if (result.projectsWithUpdates > 0) {
@@ -151,27 +209,6 @@ export async function checkAllProjectUpdates(force = false): Promise<CheckAllUpd
 }
 
 /**
- * Load check interval from settings (AppSettings).
- */
-export async function loadIntervalFromSettings(): Promise<void> {
-  if (!browser) return;
-
-  try {
-    const settings = await configApi.getSettings();
-    const intervalValue = settings['ProjectUpdateCheckIntervalMinutes'];
-    if (intervalValue) {
-      const interval = parseInt(intervalValue, 10);
-      if (!isNaN(interval) && interval >= 15) {
-        projectUpdateState.checkIntervalMinutes = interval;
-        logger.log(`[Project Update Store] Loaded check interval: ${interval} minutes`);
-      }
-    }
-  } catch (error) {
-    logger.error('[Project Update Store] Failed to load interval from settings:', error);
-  }
-}
-
-/**
  * Save check interval to settings (AppSettings).
  */
 export async function saveIntervalToSettings(intervalMinutes: number): Promise<boolean> {
@@ -181,59 +218,11 @@ export async function saveIntervalToSettings(intervalMinutes: number): Promise<b
     await configApi.updateSetting('ProjectUpdateCheckIntervalMinutes', { value: intervalMinutes.toString() });
     projectUpdateState.checkIntervalMinutes = intervalMinutes;
     logger.log(`[Project Update Store] Saved check interval: ${intervalMinutes} minutes`);
-
-    // Restart periodic check with new interval
-    if (isPeriodicCheckRunning) {
-      stopPeriodicProjectCheck();
-      startPeriodicProjectCheck();
-    }
-
     return true;
   } catch (error) {
     logger.error('[Project Update Store] Failed to save interval to settings:', error);
     return false;
   }
-}
-
-/**
- * Start periodic update checking for projects.
- * Should be called once when the app loads (for admin users).
- */
-export function startPeriodicProjectCheck(): void {
-  if (!browser || isPeriodicCheckRunning) return;
-
-  isPeriodicCheckRunning = true;
-  const intervalMs = projectUpdateState.checkIntervalMinutes * 60 * 1000;
-
-  logger.log(`[Project Update Store] Starting periodic project check (interval: ${projectUpdateState.checkIntervalMinutes} minutes)`);
-
-  // Do an initial check
-  checkAllProjectUpdates();
-
-  // Set up periodic checking
-  checkIntervalId = setInterval(() => {
-    checkAllProjectUpdates();
-  }, intervalMs);
-}
-
-/**
- * Stop periodic update checking.
- * Should be called when the user logs out.
- */
-export function stopPeriodicProjectCheck(): void {
-  if (checkIntervalId) {
-    clearInterval(checkIntervalId);
-    checkIntervalId = null;
-  }
-  isPeriodicCheckRunning = false;
-  logger.log('[Project Update Store] Stopped periodic project check');
-}
-
-/**
- * Check if periodic checking is running.
- */
-export function isPeriodicProjectCheckActive(): boolean {
-  return isPeriodicCheckRunning;
 }
 
 /**
