@@ -1,3 +1,14 @@
+## Changes in v1.3.0
+
+**Merged Pull Requests:**
+- Add app self filtering to prevent actions on it (#61)
+
+**Commits:**
+- Add app self filtering to prevent actions on it (#61) (fa54d0c)
+- Add latest-dev tag to the newest image from any PR (#60) (295e902)
+- docs: update CHANGELOG for v1.2.0 [skip ci] (e730ffc)
+- chore: bump version to v1.2.0 [skip ci] (c81357e)
+
 ## Changes in v1.2.0
 
 **Merged Pull Requests:**
