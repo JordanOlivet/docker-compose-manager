@@ -224,11 +224,13 @@ public record ServicePullProgress(
 /// <param name="OverallProgress">Overall progress percentage (0-100)</param>
 /// <param name="Services">Per-service progress information</param>
 /// <param name="CurrentLog">Most recent log line</param>
+/// <param name="ContainerId">Container ID for standalone container updates (null for compose project updates)</param>
 public record UpdateProgressEvent(
     string OperationId,
     string ProjectName,
     string Phase,
     int OverallProgress,
     List<ServicePullProgress> Services,
-    string? CurrentLog
+    string? CurrentLog,
+    string? ContainerId = null
 );

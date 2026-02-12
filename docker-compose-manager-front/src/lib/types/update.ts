@@ -229,4 +229,5 @@ export interface UpdateProgressEvent {
   overallProgress: number;
   services: ServicePullProgress[];
   currentLog?: string | null;
+  containerId?: string | null;
 }
