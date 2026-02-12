@@ -17,6 +17,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
     private readonly DockerService _dockerService;
     private readonly IMemoryCache _cache;
     private readonly IPermissionService _permissionService;
+    private readonly ISelfFilterService _selfFilterService;
     private readonly ILogger<ComposeDiscoveryService> _logger;
 
     private const string CACHE_KEY = "docker_compose_projects_all";
@@ -27,12 +28,14 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
         DockerService dockerService,
         IMemoryCache cache,
         IPermissionService permissionService,
+        ISelfFilterService selfFilterService,
         ILogger<ComposeDiscoveryService> logger)
     {
         _dockerExecutor = dockerExecutor;
         _dockerService = dockerService;
         _cache = cache;
         _permissionService = permissionService;
+        _selfFilterService = selfFilterService;
         _logger = logger;
     }
 
@@ -180,6 +183,18 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
             }
 
             _logger.LogDebug("Discovered {Count} compose projects from Docker", projects.Count);
+
+            // Filter out the application's own compose project
+            string? selfProject = await _selfFilterService.GetSelfProjectNameAsync();
+            if (selfProject != null)
+            {
+                int beforeCount = projects.Count;
+                projects = projects.Where(p => !p.Name.Equals(selfProject, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (projects.Count < beforeCount)
+                {
+                    _logger.LogDebug("Self-filter: removed own project '{SelfProject}' from compose projects list", selfProject);
+                }
+            }
         }
         catch (Exception ex)
         {
