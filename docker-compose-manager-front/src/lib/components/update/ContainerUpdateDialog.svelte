@@ -94,6 +94,9 @@
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['containers'] });
+      if (checkResult?.isComposeManaged) {
+        queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      }
       if (checkResult) {
         markContainerAsUpdated(checkResult.containerId);
       }

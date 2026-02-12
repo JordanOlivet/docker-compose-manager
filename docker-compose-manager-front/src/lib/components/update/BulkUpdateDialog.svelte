@@ -116,6 +116,7 @@
 
     // Invalidate queries to refresh project data (only once at the end)
     queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+    queryClient.invalidateQueries({ queryKey: ['containers'] });
 
     // Show result toast
     const successCount = completedProjects.size;

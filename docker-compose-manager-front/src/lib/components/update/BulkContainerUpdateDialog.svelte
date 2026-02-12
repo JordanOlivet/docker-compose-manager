@@ -97,6 +97,7 @@
     }
 
     queryClient.invalidateQueries({ queryKey: ['containers'] });
+    queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
 
     const successCount = completedContainers.size;
     const failedCount = failedContainers.size;

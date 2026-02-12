@@ -107,6 +107,7 @@
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compose', 'projects'] });
+      queryClient.invalidateQueries({ queryKey: ['containers'] });
       markProjectAsUpdated(projectName);
       toast.success($t('update.updateSuccess').replace('{count}', selectedServices.size.toString()));
 
