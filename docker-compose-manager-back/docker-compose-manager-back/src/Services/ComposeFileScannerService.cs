@@ -1,9 +1,9 @@
-using System.Diagnostics;
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.Models;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Serialization;
+using System.Diagnostics;
 using YamlDotNet.Core;
+using YamlDotNet.Serialization;
 
 namespace docker_compose_manager_back.Services;
 
@@ -11,14 +11,14 @@ namespace docker_compose_manager_back.Services;
 /// Service responsible for scanning the filesystem to discover Docker Compose files.
 /// Implements recursive directory scanning with depth limiting and YAML validation.
 /// </summary>
-public class ComposeFileScanner : IComposeFileScanner
+public class ComposeFileScannerService : IComposeFileScanner
 {
     private readonly ComposeDiscoveryOptions _options;
-    private readonly ILogger<ComposeFileScanner> _logger;
+    private readonly ILogger<ComposeFileScannerService> _logger;
 
-    public ComposeFileScanner(
+    public ComposeFileScannerService(
         IOptions<ComposeDiscoveryOptions> options,
-        ILogger<ComposeFileScanner> logger)
+        ILogger<ComposeFileScannerService> logger)
     {
         _options = options.Value;
         _logger = logger;
@@ -29,16 +29,23 @@ public class ComposeFileScanner : IComposeFileScanner
     /// </summary>
     public async Task<List<DiscoveredComposeFile>> ScanComposeFilesAsync()
     {
-        var stopwatch = Stopwatch.StartNew();
-        _logger.LogInformation("Starting compose file scan in root path: {RootPath}", _options.RootPath);
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        _logger.LogDebug("Starting compose file scan in root path: {RootPath}", _options.RootPath);
 
-        var discoveredFiles = await ScanComposeFilesRecursive(_options.RootPath, 0);
+        string path = _options.RootPath;
+
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+        {
+            path = _options.HostPathMapping;
+        }
+
+        List<DiscoveredComposeFile> discoveredFiles = await ScanComposeFilesRecursive(path, 0);
 
         stopwatch.Stop();
         var validCount = discoveredFiles.Count(f => f.IsValid);
         var totalScanned = discoveredFiles.Count;
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Compose file scan completed in {Duration}ms. Total files: {Total}, Valid: {Valid}, Invalid: {Invalid}",
             stopwatch.ElapsedMilliseconds,
             totalScanned,
@@ -93,7 +100,7 @@ public class ComposeFileScanner : IComposeFileScanner
     /// </summary>
     private async Task<List<DiscoveredComposeFile>> ScanComposeFilesRecursive(string rootPath, int currentDepth = 0)
     {
-        var discoveredFiles = new List<DiscoveredComposeFile>();
+        List<DiscoveredComposeFile> discoveredFiles = new List<DiscoveredComposeFile>();
         var maxDepth = _options.ScanDepthLimit; // Default: 5
 
         if (currentDepth > maxDepth)
@@ -104,9 +111,15 @@ public class ComposeFileScanner : IComposeFileScanner
 
         try
         {
+            if (!Path.Exists(rootPath))
+            {
+                _logger.LogWarning("Root path does not exist: {Path}", rootPath);
+                return discoveredFiles; 
+            }
+
             // Use EnumerateFiles for better performance (streaming instead of loading all at once)
             // Single enumeration with filter instead of 4 separate GetFiles calls
-            var ymlFiles = Directory.EnumerateFiles(rootPath)
+            IEnumerable<string> ymlFiles = Directory.EnumerateFiles(rootPath)
                 .Where(f =>
                 {
                     var ext = Path.GetExtension(f);
@@ -116,7 +129,7 @@ public class ComposeFileScanner : IComposeFileScanner
 
             foreach (var filePath in ymlFiles)
             {
-                var composeFile = await ValidateAndParseComposeFile(filePath);
+                DiscoveredComposeFile? composeFile = await ValidateAndParseComposeFile(filePath);
                 if (composeFile != null)
                 {
                     discoveredFiles.Add(composeFile);
@@ -135,7 +148,7 @@ public class ComposeFileScanner : IComposeFileScanner
                     continue;
                 }
 
-                var subFiles = await ScanComposeFilesRecursive(directory, currentDepth + 1);
+                List<DiscoveredComposeFile> subFiles = await ScanComposeFilesRecursive(directory, currentDepth + 1);
                 discoveredFiles.AddRange(subFiles);
             }
         }
@@ -158,7 +171,7 @@ public class ComposeFileScanner : IComposeFileScanner
     {
         try
         {
-            var fileInfo = new FileInfo(filePath);
+            FileInfo fileInfo = new FileInfo(filePath);
 
             // 1. Check file size (configurable, default 1 MB)
             var maxSizeBytes = _options.MaxFileSizeKB * 1024; // Config in KB, convert to bytes
@@ -178,12 +191,12 @@ public class ComposeFileScanner : IComposeFileScanner
 
             // 2. Parse the YAML
             var yamlContent = await File.ReadAllTextAsync(filePath);
-            var deserializer = new DeserializerBuilder()
+            IDeserializer deserializer = new DeserializerBuilder()
                 .Build();
 
             // Note: Parsing accepts unresolved environment variables (e.g., ${VERSION})
             // These variables will be resolved by Docker Compose at runtime
-            var composeContent = deserializer.Deserialize<Dictionary<string, object>>(yamlContent);
+            Dictionary<string, object> composeContent = deserializer.Deserialize<Dictionary<string, object>>(yamlContent);
 
             // 3. Validate structure: must contain 'services'
             if (composeContent == null || !composeContent.ContainsKey("services"))
@@ -193,7 +206,7 @@ public class ComposeFileScanner : IComposeFileScanner
             }
 
             // 4. Check that there is at least one service
-            var services = composeContent["services"] as Dictionary<object, object>;
+            Dictionary<object, object>? services = composeContent["services"] as Dictionary<object, object>;
             if (services == null || services.Count == 0)
             {
                 _logger.LogDebug("File {Path} has no services defined", filePath);
@@ -207,7 +220,7 @@ public class ComposeFileScanner : IComposeFileScanner
             var isDisabled = ExtractDisabledFlag(composeContent);
 
             // 7. Extract list of service names
-            var serviceNames = services.Keys.Select(k => k.ToString()).Where(s => s != null).ToList()!;
+            List<string?> serviceNames = services.Keys.Select(k => k.ToString()).Where(s => s != null).ToList()!;
 
             return new DiscoveredComposeFile
             {

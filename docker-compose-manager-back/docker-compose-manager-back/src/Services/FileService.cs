@@ -50,7 +50,7 @@ public class FileService
             }
 
             string content = await File.ReadAllTextAsync(filePath);
-            _logger.LogInformation("Successfully read file: {FilePath}", filePath);
+            _logger.LogDebug("Successfully read file: {FilePath}", filePath);
             return (true, content, null);
         }
         catch (Exception ex)
@@ -78,7 +78,7 @@ public class FileService
             }
 
             string content = await File.ReadAllTextAsync(filePath);
-            _logger.LogInformation("Successfully read external compose file: {FilePath}", filePath);
+            _logger.LogDebug("Successfully read external compose file: {FilePath}", filePath);
             return (true, content, null);
         }
         catch (Exception ex)
@@ -111,7 +111,7 @@ public class FileService
             {
                 string backupPath = $"{filePath}.bak";
                 File.Copy(filePath, backupPath, true);
-                _logger.LogInformation("Created backup: {BackupPath}", backupPath);
+                _logger.LogDebug("Created backup: {BackupPath}", backupPath);
             }
 
             // Ensure directory exists
@@ -123,7 +123,7 @@ public class FileService
 
             // Write file
             await File.WriteAllTextAsync(filePath, content);
-            _logger.LogInformation("Successfully wrote file: {FilePath}", filePath);
+            _logger.LogDebug("Successfully wrote file: {FilePath}", filePath);
             return (true, null);
         }
         catch (Exception ex)
@@ -157,7 +157,7 @@ public class FileService
             }
 
             File.Delete(filePath);
-            _logger.LogInformation("Successfully deleted file: {FilePath}", filePath);
+            _logger.LogDebug("Successfully deleted file: {FilePath}", filePath);
             return (true, null);
         }
         catch (Exception ex)

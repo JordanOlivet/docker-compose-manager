@@ -1,7 +1,6 @@
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Filters;
-using docker_compose_manager_back.Hubs;
 using docker_compose_manager_back.Middleware;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.Validators;
@@ -104,17 +103,19 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.FromMinutes(5)
     };
 
-    // Configure JWT authentication for SignalR
-    // SignalR sends the token in the query string (access_token parameter)
+    // Configure JWT authentication for SSE endpoints
+    // SSE sends the token in the query string (access_token parameter)
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
             Microsoft.Extensions.Primitives.StringValues accessToken = context.Request.Query["access_token"];
 
-            // If the request is for our SignalR hubs
+            // If the request is for our SSE endpoints
             PathString path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            if (!string.IsNullOrEmpty(accessToken) &&
+                (path.StartsWithSegments("/api/events") ||
+                 (path.Value != null && path.Value.Contains("/logs/stream"))))
             {
                 context.Token = accessToken;
             }
@@ -151,6 +152,16 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>(
     builder.Configuration.GetSection("ComposeDiscovery"));
 
+// Configure Self-Update Options
+builder.Services.Configure<SelfUpdateOptions>(
+    builder.Configuration.GetSection("SelfUpdate"));
+builder.Services.Configure<MaintenanceOptions>(
+    builder.Configuration.GetSection("Maintenance"));
+
+// Configure Update Check Options (for compose project updates)
+builder.Services.Configure<UpdateCheckOptions>(
+    builder.Configuration.GetSection("UpdateCheck"));
+
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -163,23 +174,48 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddSingleton<DockerService>();
 
 // Register Docker Compose services (new architecture)
-builder.Services.AddSingleton<DockerCommandExecutor>();
+builder.Services.AddSingleton<DockerCommandExecutorService>();
 builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
 builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
 
 // Register Compose Discovery services
-builder.Services.AddScoped<IComposeFileScanner, ComposeFileScanner>();
-builder.Services.AddScoped<IPathValidator, PathValidator>();
+builder.Services.AddScoped<IComposeFileScanner, ComposeFileScannerService>();
+builder.Services.AddScoped<IPathValidator, PathValidatorService>();
 builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
+builder.Services.AddScoped<IPathMappingService, PathMappingService>();
 builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
 builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
 // Note: ComposeCommandClassifier is static, no DI registration needed
+
+// Register Self-Update services
+builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
+builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
+builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
+
+// Register Compose Update services (for project updates)
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.DockerHubRegistryClient>();
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.DockerHubRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
+builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClientFactory, docker_compose_manager_back.Services.Registry.RegistryClientFactory>();
+builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
+builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
+builder.Services.AddSingleton<IContainerUpdateCacheService, ContainerUpdateCacheService>();
+builder.Services.AddSingleton<DockerPullProgressParser>();
+builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
+builder.Services.AddScoped<IContainerUpdateService, ContainerUpdateService>();
+
+// Register Registry Credential service
+builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
 
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery
 // builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
+builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -188,8 +224,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 // Add Rate Limiting
 //builder.Services.ConfigureRateLimiting();
 
-// Add SignalR
-builder.Services.AddSignalR();
+// Add Request Timeouts (required for UseRequestTimeouts middleware)
+builder.Services.AddRequestTimeouts();
+
+// Add SSE connection manager and event handler (singletons)
+builder.Services.AddSingleton<SseConnectionManagerService>();
+builder.Services.AddSingleton<DockerEventHandlerService>();
 
 // Add controllers with validation filter
 builder.Services.AddControllers(options =>
@@ -292,6 +332,9 @@ app.UseCors();
 // Add Security Headers
 app.UseSecurityHeaders();
 
+// Add Request Timeouts (enables [RequestTimeout] attribute on endpoints)
+app.UseRequestTimeouts();
+
 // Add Rate Limiting
 //app.UseRateLimiter();
 
@@ -376,10 +419,6 @@ app.MapGet("/health/detailed", async (AppDbContext dbContext, DockerService dock
    .AllowAnonymous();
 
 app.MapControllers();
-
-// Map SignalR Hubs
-app.MapHub<LogsHub>("/hubs/logs");
-app.MapHub<OperationsHub>("/hubs/operations");
 
 // Log when application is ready
 IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();

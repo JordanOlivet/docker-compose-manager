@@ -1,2 +1,1 @@
-export * from './signalr';
-export * from './signalrQueryBridge';
+export * from './sseQueryBridge';

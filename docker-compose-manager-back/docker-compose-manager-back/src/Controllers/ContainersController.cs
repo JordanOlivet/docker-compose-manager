@@ -14,15 +14,18 @@ public class ContainersController : BaseController
 {
     private readonly DockerService _dockerService;
     private readonly IPermissionService _permissionService;
+    private readonly IContainerUpdateService _containerUpdateService;
     private readonly ILogger<ContainersController> _logger;
 
     public ContainersController(
         DockerService dockerService,
         IPermissionService permissionService,
+        IContainerUpdateService containerUpdateService,
         ILogger<ContainersController> logger)
     {
         _dockerService = dockerService;
         _permissionService = permissionService;
+        _containerUpdateService = containerUpdateService;
         _logger = logger;
     }
 
@@ -385,6 +388,57 @@ public class ContainersController : BaseController
     }
 
     /// <summary>
+    /// Stream container logs in real-time via SSE.
+    /// Sends historical logs first, then follows new logs.
+    /// </summary>
+    /// <param name="id">Container ID</param>
+    /// <param name="tail">Number of historical lines (default 100)</param>
+    [HttpGet("{id}/logs/stream")]
+    public async Task StreamContainerLogs(string id, [FromQuery] int tail = 100, CancellationToken cancellationToken = default)
+    {
+        Response.Headers.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+
+        // Only set Connection header for HTTP/1.1 (not valid for HTTP/2+)
+        if (Request.Protocol == "HTTP/1.1")
+        {
+            Response.Headers.Connection = "keep-alive";
+        }
+
+        try
+        {
+            await _dockerService.StreamContainerLogsAsync(
+                id,
+                tail,
+                async (line) =>
+                {
+                    string escaped = line.Replace("\\", "\\\\").Replace("\n", "\\n").Replace("\r", "");
+                    await Response.WriteAsync($"event: log\ndata: {escaped}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+                },
+                cancellationToken
+            );
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected — normal behavior
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error streaming logs for container {ContainerId}", id);
+            try
+            {
+                await Response.WriteAsync($"event: error\ndata: Failed to stream logs\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+            catch
+            {
+                // Client already disconnected
+            }
+        }
+    }
+
+    /// <summary>
     /// Get container statistics
     /// </summary>
     /// <param name="id">Container ID</param>
@@ -437,6 +491,112 @@ public class ContainersController : BaseController
             _logger.LogError(ex, "Error retrieving stats for container {ContainerId}", id);
             return StatusCode(500, ApiResponse.Fail<ContainerStatsDto>(
                 "Failed to retrieve container stats", "DOCKER_OPERATION_FAILED"));
+        }
+    }
+
+    /// <summary>
+    /// Check if an update is available for a container's image.
+    /// </summary>
+    [HttpGet("{id}/check-update")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<ContainerUpdateCheckResponse>>> CheckContainerUpdate(string id, CancellationToken ct)
+    {
+        try
+        {
+            ContainerUpdateCheckResponse result = await _containerUpdateService.CheckContainerUpdateAsync(id, ct);
+
+            if (result.Error == "Container not found")
+            {
+                return NotFound(ApiResponse.Fail<ContainerUpdateCheckResponse>(
+                    "Container not found", "RESOURCE_NOT_FOUND"));
+            }
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking update for container {ContainerId}", id);
+            return StatusCode(500, ApiResponse.Fail<ContainerUpdateCheckResponse>(
+                "Failed to check container update", "DOCKER_OPERATION_FAILED"));
+        }
+    }
+
+    /// <summary>
+    /// Update a container (pull new image and recreate).
+    /// For compose-managed containers, delegates to compose update.
+    /// For standalone containers, pulls and recreates with the same config.
+    /// </summary>
+    [HttpPost("{id}/update")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<UpdateTriggerResponse>>> UpdateContainer(string id, CancellationToken ct)
+    {
+        try
+        {
+            int userId = GetCurrentUserIdRequired();
+            string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            UpdateTriggerResponse result = await _containerUpdateService.UpdateContainerAsync(
+                id, userId, ipAddress, ct);
+
+            if (result.Message.Contains("not found"))
+            {
+                return NotFound(ApiResponse.Fail<UpdateTriggerResponse>(
+                    result.Message, "RESOURCE_NOT_FOUND"));
+            }
+
+            if (!result.Success)
+            {
+                return BadRequest(ApiResponse.Fail<UpdateTriggerResponse>(
+                    result.Message, "DOCKER_OPERATION_FAILED"));
+            }
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating container {ContainerId}", id);
+            return StatusCode(500, ApiResponse.Fail<UpdateTriggerResponse>(
+                "Failed to update container", "DOCKER_OPERATION_FAILED"));
+        }
+    }
+
+    /// <summary>
+    /// Check all containers for available updates.
+    /// </summary>
+    [HttpPost("check-all-updates")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<ContainerUpdatesCheckedEvent>>> CheckAllContainerUpdates(CancellationToken ct)
+    {
+        try
+        {
+            ContainerUpdatesCheckedEvent result = await _containerUpdateService.CheckAllContainerUpdatesAsync(ct);
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking updates for all containers");
+            return StatusCode(500, ApiResponse.Fail<ContainerUpdatesCheckedEvent>(
+                "Failed to check container updates", "DOCKER_OPERATION_FAILED"));
+        }
+    }
+
+    /// <summary>
+    /// Get cached container update status (does not trigger new checks).
+    /// </summary>
+    [HttpGet("update-status")]
+    [Authorize(Roles = "admin")]
+    public ActionResult<ApiResponse<List<ContainerUpdateSummary>>> GetContainerUpdateStatus()
+    {
+        try
+        {
+            List<ContainerUpdateSummary> summaries = _containerUpdateService.GetCachedContainerUpdateStatus();
+            return Ok(ApiResponse.Ok(summaries));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting container update status");
+            return StatusCode(500, ApiResponse.Fail<List<ContainerUpdateSummary>>(
+                "Error getting container update status", "SERVER_ERROR"));
         }
     }
 }

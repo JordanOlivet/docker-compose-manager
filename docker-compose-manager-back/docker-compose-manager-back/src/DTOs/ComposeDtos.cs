@@ -83,7 +83,17 @@ public record ComposeProjectDto(
     /// Actions that require a compose file (up, build, recreate, pull) will be false if HasComposeFile is false.
     /// Actions that work with project name only (start, stop, restart, pause, logs, ps, down) are always true for running projects.
     /// </summary>
-    Dictionary<string, bool>? AvailableActions = null
+    Dictionary<string, bool>? AvailableActions = null,
+
+    /// <summary>
+    /// Number of services with available updates (from cache, null if not checked)
+    /// </summary>
+    int? ServicesWithUpdates = null,
+
+    /// <summary>
+    /// When the last update check was performed (from cache, null if not checked)
+    /// </summary>
+    DateTime? LastUpdateCheck = null
 );
 
 /// <summary>

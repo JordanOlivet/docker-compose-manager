@@ -8,19 +8,27 @@
     Zap,
     RefreshCw,
     Search,
-    ChevronRight
+    ChevronRight,
+    Download,
+    Loader2
   } from 'lucide-svelte';
   import { composeApi } from '$lib/api/compose';
   import { containersApi } from '$lib/api/containers';
+  import { updateApi } from '$lib/api/update';
   import type { ComposeProject, ComposeService } from '$lib/types';
+  import type { ProjectUpdateCheckResponse } from '$lib/types/update';
   import { EntityState } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
+  import BulkUpdateDialog from '$lib/components/update/BulkUpdateDialog.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
+  import { isAdmin } from '$lib/stores/auth.svelte';
+  import { projectHasUpdates, hasAnyUpdates, projectsWithUpdatesCount } from '$lib/stores/projectUpdate.svelte';
 
   let searchQuery = $state('');
   let openProjects = $state<Record<string, boolean>>({});
@@ -31,10 +39,19 @@
     onConfirm: () => {},
   });
 
+  // Update dialog state
+  let updateDialogOpen = $state(false);
+  let selectedProjectForUpdate = $state<string | null>(null);
+  let projectUpdateCheck = $state<ProjectUpdateCheckResponse | null>(null);
+  let checkingUpdatesFor = $state<string | null>(null);
+
+  // Bulk update dialog state
+  let bulkUpdateDialogOpen = $state(false);
+
   const queryClient = useQueryClient();
 
-  // SignalR is now handled globally in the protected layout
-  // The SignalR-Query bridge automatically invalidates queries on events
+  // SSE is now handled globally in the protected layout
+  // The SSE-Query bridge automatically invalidates queries on events
   const projectsQuery = createQuery(() => ({
     queryKey: ['compose', 'projects'],
     queryFn: () => composeApi.listProjects(),
@@ -44,8 +61,17 @@
     staleTime: 0,
   }));
 
+    const projectsQueryForceRefetch = createQuery(() => ({
+    queryKey: ['compose', 'projects'],
+    queryFn: () => composeApi.listProjects({ refresh: true }),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 0,
+  }));
+
   // Compose Project Mutations
-  // Note: The SignalR-Query bridge handles cache invalidation automatically
+  // Note: The SSE-Query bridge handles cache invalidation automatically
   const upMutation = createMutation(() => ({
     mutationFn: ({ projectName, forceRecreate }: { projectName: string; forceRecreate?: boolean }) =>
       composeApi.upProject(projectName, { detach: true, forceRecreate }),
@@ -96,6 +122,32 @@
     onSuccess: () => toast.success($t('containers.removeSuccess')),
     onError: () => toast.error($t('containers.failedToRemove')),
   }));
+
+  // Check updates mutation
+  const checkUpdatesMutation = createMutation(() => ({
+    mutationFn: (projectName: string) => updateApi.checkProjectUpdates(projectName),
+    onSuccess: (data: ProjectUpdateCheckResponse, projectName: string) => {
+      projectUpdateCheck = data;
+      selectedProjectForUpdate = projectName;
+      updateDialogOpen = true;
+      checkingUpdatesFor = null;
+    },
+    onError: (error: Error) => {
+      toast.error($t('update.checkFailed') + ': ' + error.message);
+      checkingUpdatesFor = null;
+    },
+  }));
+
+  function handleCheckUpdates(projectName: string) {
+    checkingUpdatesFor = projectName;
+    checkUpdatesMutation.mutate(projectName);
+  }
+
+  function closeUpdateDialog() {
+    updateDialogOpen = false;
+    selectedProjectForUpdate = null;
+    projectUpdateCheck = null;
+  }
 
   function toggleProjectOpen(projectName: string) {
     openProjects = {
@@ -176,13 +228,40 @@
           {$t('compose.subtitle')}
         </p>
       </div>
-      <button
-        onclick={() => projectsQuery.refetch()}
-        class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-      >
-        <RefreshCw class="w-3 h-3" />
-        {$t('common.refresh')}
-      </button>
+      <div class="flex items-center gap-2">
+        {#if isAdmin.current}
+        <button
+          onclick={() => updateApi.checkAllProjectUpdates()}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <Download class="w-3 h-3" />
+          {$t('update.checkForUpdates')}
+        </button>
+        {#if hasAnyUpdates.current}
+          <button
+            onclick={() => bulkUpdateDialogOpen = true}
+            class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+          >
+            <Download class="w-3 h-3" />
+            {$t('update.updateAll')} ({projectsWithUpdatesCount.current})
+          </button>
+          {/if}
+        {/if}
+        <button
+          onclick={() => projectsQuery.refetch()}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <RefreshCw class="w-3 h-3" />
+          {$t('common.refresh')}
+        </button>
+        <button
+          onclick={() => projectsQueryForceRefetch.refetch()}
+          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+        >
+          <RefreshCw class="w-3 h-3" />
+          {$t('common.forceRefresh')}
+        </button>
+      </div>
     </div>
   </div>
 
@@ -275,6 +354,29 @@
                 />
               </div>
               <div class="flex gap-1">
+                <!-- Check Updates Button (admin only, when compose file exists) -->
+                {#if isAdmin.current && project.hasComposeFile}
+                  <div class="relative">
+                    <button
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        handleCheckUpdates(project.name);
+                      }}
+                      disabled={checkingUpdatesFor === project.name}
+                      class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={$t('update.checkUpdates')}
+                    >
+                      {#if checkingUpdatesFor === project.name}
+                        <Loader2 class="w-4 h-4 animate-spin" />
+                      {:else}
+                        <Download class="w-4 h-4" />
+                      {/if}
+                    </button>
+                    {#if projectHasUpdates(project.name) || (project.servicesWithUpdates != null && project.servicesWithUpdates > 0)}
+                      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                    {/if}
+                  </div>
+                {/if}
                 {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
                   {#if project.availableActions?.up}
                     <button
@@ -470,10 +572,24 @@
   {/if}
 </div>
 
+<!-- Service Update Dialog -->
+<ServiceUpdateDialog
+  open={updateDialogOpen}
+  projectName={selectedProjectForUpdate ?? ''}
+  updateCheck={projectUpdateCheck}
+  onClose={closeUpdateDialog}
+/>
+
 <ConfirmDialog
   open={confirmDialog.open}
   title={confirmDialog.title}
   description={confirmDialog.description}
   onconfirm={confirmDialog.onConfirm}
   oncancel={() => confirmDialog.open = false}
+/>
+
+<!-- Bulk Update Dialog -->
+<BulkUpdateDialog
+  open={bulkUpdateDialogOpen}
+  onClose={() => bulkUpdateDialogOpen = false}
 />

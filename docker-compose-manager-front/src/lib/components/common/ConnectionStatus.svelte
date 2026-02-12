@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { signalrState, type ConnectionStatus } from '$lib/stores/signalr.svelte';
+  import { sseState, type ConnectionStatus } from '$lib/stores/sse.svelte';
   import { t } from '$lib/i18n';
   import { Wifi, WifiOff, Loader2 } from 'lucide-svelte';
 
@@ -48,7 +48,7 @@
     }
   }
 
-  const statusInfo = $derived(getStatusInfo(signalrState.connectionStatus));
+  const statusInfo = $derived(getStatusInfo(sseState.connectionStatus));
 
   function formatTime(date: Date | null): string {
     if (!date) return '';
@@ -58,8 +58,8 @@
 
 <div class="relative group">
   <!-- Status indicator button -->
-  <button class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700" >
-    
+  <button class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" >
+
     <!-- Animated dot indicator -->
     <span class="relative flex h-2.5 w-2.5">
       {#if statusInfo.pulse}
@@ -69,9 +69,9 @@
     </span>
 
     <!-- Icon -->
-    {#if signalrState.connectionStatus === 'connected'}
+    {#if sseState.connectionStatus === 'connected'}
       <Wifi class="w-4 h-4 {statusInfo.color}" />
-    {:else if signalrState.connectionStatus === 'connecting' || signalrState.connectionStatus === 'reconnecting'}
+    {:else if sseState.connectionStatus === 'connecting' || sseState.connectionStatus === 'reconnecting'}
       <Loader2 class="w-4 h-4 {statusInfo.color} animate-spin" />
     {:else}
       <WifiOff class="w-4 h-4 {statusInfo.color}" />
@@ -96,21 +96,21 @@
 
       <!-- Details -->
       <div class="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-        {#if signalrState.connectionStatus === 'reconnecting' && signalrState.reconnectAttempt > 0}
+        {#if sseState.connectionStatus === 'reconnecting' && sseState.reconnectAttempt > 0}
           <div>
-            {$t('connection.attempt')}: {signalrState.reconnectAttempt}
+            {$t('connection.attempt')}: {sseState.reconnectAttempt}
           </div>
         {/if}
 
-        {#if signalrState.lastConnected}
+        {#if sseState.lastConnected}
           <div>
-            {$t('connection.lastConnected')}: {formatTime(signalrState.lastConnected)}
+            {$t('connection.lastConnected')}: {formatTime(sseState.lastConnected)}
           </div>
         {/if}
 
-        {#if signalrState.error}
+        {#if sseState.error}
           <div class="text-red-500 dark:text-red-400">
-            {signalrState.error}
+            {sseState.error}
           </div>
         {/if}
       </div>

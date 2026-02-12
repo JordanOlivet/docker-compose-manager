@@ -13,7 +13,7 @@ namespace docker_compose_manager_back.Services;
 /// </summary>
 public class ComposeDiscoveryService : IComposeDiscoveryService
 {
-    private readonly DockerCommandExecutor _dockerExecutor;
+    private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly DockerService _dockerService;
     private readonly IMemoryCache _cache;
     private readonly IPermissionService _permissionService;
@@ -23,7 +23,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
     private const int CACHE_SECONDS = 10;
 
     public ComposeDiscoveryService(
-        DockerCommandExecutor dockerExecutor,
+        DockerCommandExecutorService dockerExecutor,
         DockerService dockerService,
         IMemoryCache cache,
         IPermissionService permissionService,
@@ -79,7 +79,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
     public void InvalidateCache()
     {
         _cache.Remove(CACHE_KEY);
-        _logger.LogInformation("Compose projects cache invalidated");
+        _logger.LogDebug("Compose projects cache invalidated");
     }
 
     public async Task<List<ComposeProjectDto>> GetAllProjectsAsync(bool bypassCache = false)
@@ -179,7 +179,7 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
                 }
             }
 
-            _logger.LogInformation("Discovered {Count} compose projects from Docker", projects.Count);
+            _logger.LogDebug("Discovered {Count} compose projects from Docker", projects.Count);
         }
         catch (Exception ex)
         {

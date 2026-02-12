@@ -136,7 +136,7 @@
 				<button
 					type="button"
 					onclick={onCopyClick}
-					class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hover:scale-105 transition-all duration-200 text-sm font-medium"
+					class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hover:scale-105 transition-all duration-200 text-sm font-medium cursor-pointer"
 				>
 					{$t('permissions.copyFrom')}
 				</button>
@@ -145,7 +145,7 @@
 				<button
 					type="button"
 					onclick={() => (isAdding = true)}
-					class="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium"
+					class="flex items-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm font-medium cursor-pointer"
 				>
 					<Plus class="h-4 w-4" />
 					{$t('permissions.addPermission')}
@@ -184,21 +184,21 @@
 								<button
 									type="button"
 									onclick={() => handleUpdatePermission(index, setPreset(perm.permissions, 'readonly'))}
-									class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+									class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
 								>
 									Read Only
 								</button>
 								<button
 									type="button"
 									onclick={() => handleUpdatePermission(index, setPreset(perm.permissions, 'standard'))}
-									class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+									class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
 								>
 									Standard
 								</button>
 								<button
 									type="button"
 									onclick={() => handleUpdatePermission(index, setPreset(perm.permissions, 'full'))}
-									class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+									class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
 								>
 									Full Access
 								</button>
@@ -237,7 +237,7 @@
 					<button
 						type="button"
 						onclick={() => handleRemovePermission(index)}
-						class="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+						class="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all cursor-pointer"
 					>
 						<Trash2 class="h-5 w-5" />
 					</button>
@@ -296,7 +296,7 @@
 						type="button"
 						onclick={() =>
 							(newPermission.permissions = setPreset(newPermission.permissions, 'readonly'))}
-						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
 					>
 						{$t('permissions.readOnly')}
 					</button>
@@ -304,14 +304,14 @@
 						type="button"
 						onclick={() =>
 							(newPermission.permissions = setPreset(newPermission.permissions, 'standard'))}
-						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
 					>
 						{$t('permissions.standard')}
 					</button>
 					<button
 						type="button"
 						onclick={() => (newPermission.permissions = setPreset(newPermission.permissions, 'full'))}
-						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+						class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium cursor-pointer"
 					>
 						Full Access
 					</button>
@@ -348,7 +348,7 @@
 							permissions: PermissionFlags.View
 						};
 					}}
-					class="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium"
+					class="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium cursor-pointer"
 				>
 					{$t('common.cancel')}
 				</button>
@@ -356,7 +356,7 @@
 					type="button"
 					onclick={handleAddPermission}
 					disabled={!newPermission.resourceName}
-					class="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+					class="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
 				>
 					{$t('permissions.addPermission')}
 				</button>

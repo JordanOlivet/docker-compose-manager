@@ -8,18 +8,25 @@
 		RotateCw,
 		Trash2,
 		Zap,
-		RefreshCw
+		RefreshCw,
+		Download,
+		Loader2
 	} from 'lucide-svelte';
 	import { composeApi, containersApi } from '$lib/api';
+	import { updateApi } from '$lib/api/update';
 	import { EntityState, type ComposeService } from '$lib/types';
+	import type { ProjectUpdateCheckResponse } from '$lib/types/update';
 	import StateBadge from '$lib/components/common/StateBadge.svelte';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ProjectInfoSection from '$lib/components/compose/ProjectInfoSection.svelte';
 	import StatsCard from '$lib/components/stats/StatsCard.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
+	import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
+	import { isAdmin } from '$lib/stores/auth.svelte';
+	import { projectHasUpdates } from '$lib/stores/projectUpdate.svelte';
 
 	const projectName = $derived(
 		$page.params.projectName ? decodeURIComponent($page.params.projectName) : ''
@@ -27,8 +34,8 @@
 
 	const queryClient = useQueryClient();
 
-	// SignalR is now handled globally in the protected layout
-	// The SignalR-Query bridge automatically invalidates queries on events
+	// SSE is now handled globally in the protected layout
+	// The SSE-Query bridge automatically invalidates queries on events
 	const projectQuery = createQuery(() => ({
 		queryKey: ['compose', 'project', projectName],
 		queryFn: () => composeApi.getProjectDetails(projectName),
@@ -40,7 +47,7 @@
 	}));
 
 	// Project mutations
-	// Note: The SignalR-Query bridge handles cache invalidation automatically
+	// Note: The SSE-Query bridge handles cache invalidation automatically
 	const upMutation = createMutation(() => ({
 		mutationFn: ({ detach, forceRecreate }: { detach?: boolean; forceRecreate?: boolean }) =>
 			composeApi.upProject(projectName, { detach, forceRecreate }),
@@ -97,6 +104,35 @@
 		onSuccess: () => toast.success($t('containers.removeSuccess')),
 		onError: () => toast.error($t('containers.failedToRemove'))
 	}));
+
+	// Update dialog state
+	let updateDialogOpen = $state(false);
+	let projectUpdateCheck = $state<ProjectUpdateCheckResponse | null>(null);
+	let checkingUpdates = $state(false);
+
+	// Check updates mutation
+	const checkUpdatesMutation = createMutation(() => ({
+		mutationFn: () => updateApi.checkProjectUpdates(projectName),
+		onSuccess: (data: ProjectUpdateCheckResponse) => {
+			projectUpdateCheck = data;
+			updateDialogOpen = true;
+			checkingUpdates = false;
+		},
+		onError: (error: Error) => {
+			toast.error($t('update.checkFailed') + ': ' + error.message);
+			checkingUpdates = false;
+		}
+	}));
+
+	function handleCheckUpdates() {
+		checkingUpdates = true;
+		checkUpdatesMutation.mutate();
+	}
+
+	function closeUpdateDialog() {
+		updateDialogOpen = false;
+		projectUpdateCheck = null;
+	}
 
 	function getStateColor(state: string) {
 		switch (state) {
@@ -211,6 +247,27 @@
 						{/if}
 					</div>
 					<div class="flex gap-2 flex-shrink-0">
+						<!-- Check Updates Button (admin only, when compose file exists) -->
+						{#if isAdmin.current && project.hasComposeFile}
+							<div class="relative">
+								<button
+									onclick={handleCheckUpdates}
+									disabled={checkingUpdates}
+									class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+									title={$t('update.checkUpdates')}
+								>
+									{#if checkingUpdates}
+										<Loader2 class="w-4 h-4 animate-spin" />
+									{:else}
+										<Download class="w-4 h-4" />
+									{/if}
+								</button>
+								{#if projectHasUpdates(projectName)}
+									<span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+								{/if}
+							</div>
+						{/if}
+
 						<!-- UP: For "Not Started" projects with compose file -->
 						{#if project.state === EntityState.NotStarted && project.availableActions?.up}
 							<button
@@ -413,3 +470,11 @@
 		{/if}
 	{/if}
 </div>
+
+<!-- Service Update Dialog -->
+<ServiceUpdateDialog
+	open={updateDialogOpen}
+	{projectName}
+	updateCheck={projectUpdateCheck}
+	onClose={closeUpdateDialog}
+/>

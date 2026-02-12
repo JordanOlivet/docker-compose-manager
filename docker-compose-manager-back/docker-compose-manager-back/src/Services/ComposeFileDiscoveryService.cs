@@ -18,15 +18,15 @@ public class ComposeFileDiscoveryService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Compose File Discovery Service started");
+        _logger.LogDebug("Compose File Discovery Service started");
 
-        _logger.LogInformation("Initial discovery scan started ...");
+        _logger.LogDebug("Initial discovery scan started ...");
 
         // Run initial scan
         await ScanFilesAsync(stoppingToken);
 
-        _logger.LogInformation("Initial discovery scan done");
-        _logger.LogInformation($"Recurring discovery scan starting. Scanning every {_interval.Minutes} minutes ...");
+        _logger.LogDebug("Initial discovery scan done");
+        _logger.LogDebug("Recurring discovery scan starting. Scanning every {IntervalMinutes} minutes ...", _interval.Minutes);
 
         // Then run periodic scans
         using PeriodicTimer timer = new(_interval);
@@ -40,7 +40,7 @@ public class ComposeFileDiscoveryService : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Compose File Discovery Service is stopping");
+            _logger.LogDebug("Compose File Discovery Service is stopping");
         }
     }
 
@@ -48,14 +48,14 @@ public class ComposeFileDiscoveryService : BackgroundService
     {
         try
         {
-            _logger.LogInformation("Starting compose file discovery scan");
+            _logger.LogDebug("Starting compose file discovery scan");
 
             using IServiceScope scope = _serviceProvider.CreateScope();
             FileService fileService = scope.ServiceProvider.GetRequiredService<FileService>();
 
             int syncedCount = await fileService.SyncDatabaseWithDiscoveredFilesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Compose file discovery scan completed. Synced {Count} files",
                 syncedCount
             );
@@ -68,7 +68,7 @@ public class ComposeFileDiscoveryService : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Compose File Discovery Service is stopping");
+        _logger.LogDebug("Compose File Discovery Service is stopping");
         await base.StopAsync(cancellationToken);
     }
 }

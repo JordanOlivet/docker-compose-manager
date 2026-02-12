@@ -5,9 +5,9 @@ using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Core;
 
 namespace docker_compose_manager_back.Controllers;
 
@@ -27,11 +27,13 @@ public class ComposeController : BaseController
     private readonly ILogger<ComposeController> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IProjectMatchingService _projectMatchingService;
-    private readonly IComposeFileCacheService _cacheService;
+    private readonly IComposeFileCacheService _composeFileCacheService;
+    private readonly IImageUpdateCacheService _imageUpdateCacheService;
     private readonly IConflictResolutionService _conflictService;
     private readonly IPathValidator _pathValidator;
     private readonly IOptions<ComposeDiscoveryOptions> _composeOptions;
     private readonly DockerService _dockerService;
+    private readonly IComposeUpdateService _composeUpdateService;
 
     public ComposeController(
         AppDbContext context,
@@ -45,11 +47,13 @@ public class ComposeController : BaseController
         ILogger<ComposeController> logger,
         IServiceScopeFactory serviceScopeFactory,
         IProjectMatchingService projectMatchingService,
-        IComposeFileCacheService cacheService,
+        IComposeFileCacheService composeFileCacheService,
+        IImageUpdateCacheService imageUpdateCacheService,
         IConflictResolutionService conflictService,
         IPathValidator pathValidator,
         IOptions<ComposeDiscoveryOptions> composeOptions,
-        DockerService dockerService)
+        DockerService dockerService,
+        IComposeUpdateService composeUpdateService)
     {
         _context = context;
         _fileService = fileService;
@@ -62,11 +66,13 @@ public class ComposeController : BaseController
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
         _projectMatchingService = projectMatchingService;
-        _cacheService = cacheService;
+        _composeFileCacheService = composeFileCacheService;
+        _imageUpdateCacheService = imageUpdateCacheService;
         _conflictService = conflictService;
         _pathValidator = pathValidator;
         _composeOptions = composeOptions;
         _dockerService = dockerService;
+        _composeUpdateService = composeUpdateService;
     }
 
     // ============================================
@@ -88,8 +94,8 @@ public class ComposeController : BaseController
     {
         try
         {
-            var files = await _cacheService.GetOrScanAsync();
-            var dtos = files.Select(f => new DiscoveredComposeFileDto(
+            List<DiscoveredComposeFile> files = await _composeFileCacheService.GetOrScanAsync();
+            List<DiscoveredComposeFileDto> dtos = files.Select(f => new DiscoveredComposeFileDto(
                 FilePath: f.FilePath,
                 ProjectName: f.ProjectName,
                 DirectoryPath: f.DirectoryPath,
@@ -120,8 +126,8 @@ public class ComposeController : BaseController
     {
         try
         {
-            var conflicts = _conflictService.GetConflictErrors();
-            var response = new ConflictsResponse(conflicts, conflicts.Any());
+            List<ConflictErrorDto> conflicts = _conflictService.GetConflictErrors();
+            ConflictsResponse response = new ConflictsResponse(conflicts, conflicts.Any());
             return Ok(ApiResponse.Ok(response));
         }
         catch (Exception ex)
@@ -270,7 +276,7 @@ public class ComposeController : BaseController
     public async Task<ActionResult<ApiResponse<ComposeHealthDto>>> GetHealth()
     {
         // Check compose discovery directory
-        var rootPath = _composeOptions.Value.RootPath;
+        string rootPath = _composeOptions.Value.RootPath;
         bool dirExists = Directory.Exists(rootPath);
         bool dirAccessible = false;
 
@@ -312,7 +318,7 @@ public class ComposeController : BaseController
         else
             overallStatus = "healthy";
 
-        var healthDto = new ComposeHealthDto(
+        ComposeHealthDto healthDto = new ComposeHealthDto(
             Status: overallStatus,
             ComposeDiscovery: new ComposeHealthStatusDto(
                 Status: dirAccessible ? "healthy" : "degraded",
@@ -344,7 +350,7 @@ public class ComposeController : BaseController
     /// </remarks>
     /// <returns>Scan results with file count and timestamp</returns>
     [HttpPost("refresh")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<ApiResponse<object>>> RefreshComposeFiles()
     {
         int? userId = GetCurrentUserId();
@@ -356,10 +362,10 @@ public class ComposeController : BaseController
         _logger.LogInformation("Admin user {UserId} triggered manual cache refresh", userId.Value);
 
         // Invalidate cache
-        _cacheService.Invalidate();
+        _composeFileCacheService.Invalidate();
 
         // Trigger fresh scan
-        var files = await _cacheService.GetOrScanAsync(bypassCache: true);
+        List<DiscoveredComposeFile> files = await _composeFileCacheService.GetOrScanAsync(bypassCache: true);
 
         await _auditService.LogActionAsync(
             userId.Value,
@@ -411,8 +417,9 @@ public class ComposeController : BaseController
             // - refreshState: only invalidate Docker cache (use for container state changes - much faster)
             if (refresh)
             {
-                _cacheService.Invalidate();  // Compose file cache (triggers slow filesystem scan)
+                _composeFileCacheService.Invalidate();  // Compose file cache (triggers slow filesystem scan)
                 _discoveryService.InvalidateCache();  // Docker projects cache
+                _imageUpdateCacheService.InvalidateAll(); // Docker image cache
             }
             else if (refreshState)
             {
@@ -429,7 +436,7 @@ public class ComposeController : BaseController
                 "Listed compose projects"
             );
 
-            _logger.LogInformation("User {UserId} listed {Count} compose projects", userId.Value, projects.Count);
+            _logger.LogDebug("User {UserId} listed {Count} compose projects", userId.Value, projects.Count);
 
             return Ok(ApiResponse.Ok(projects));
         }
@@ -621,8 +628,8 @@ public class ComposeController : BaseController
             }
 
             // Get project info to check if compose file exists
-            var projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
-            var project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+            ComposeProjectDto? project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
             if (project == null)
             {
@@ -646,7 +653,7 @@ public class ComposeController : BaseController
                 request?.Build ?? false
             );
 
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // and compose files themselves haven't changed
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
@@ -726,7 +733,7 @@ public class ComposeController : BaseController
                 request?.RemoveVolumes ?? false
             );
 
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // and compose files themselves haven't changed
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
@@ -1364,7 +1371,7 @@ volumes:
             }
 
             OperationResult result = await _operationService.StartAsync(projectName);
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
 
@@ -1426,7 +1433,7 @@ volumes:
             }
 
             OperationResult result = await _operationService.StopAsync(projectName);
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
 
@@ -1488,7 +1495,7 @@ volumes:
             }
 
             OperationResult result = await _operationService.RestartAsync(projectName);
-            // Don't invalidate cache - SignalR events will trigger frontend updates
+            // Don't invalidate cache - SSE events will trigger frontend updates
             // _discoveryService.InvalidateCache();
             // _cacheService.Invalidate();
 
@@ -1612,6 +1619,261 @@ volumes:
     //}
 
     #endregion
+
+    // ============================================
+    // Compose Project Update Endpoints
+    // ============================================
+
+    /// <summary>
+    /// Checks for available updates for a project's images.
+    /// </summary>
+    /// <remarks>
+    /// Compares local image digests with remote registry digests to determine
+    /// if newer versions are available. Results are cached for performance.
+    ///
+    /// Services with 'x-update-policy: disabled' are excluded from update checks.
+    /// Local builds and pinned digests (image@sha256:...) are skipped.
+    /// </remarks>
+    [HttpGet("projects/{projectName}/check-updates")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<ProjectUpdateCheckResponse>>> CheckProjectUpdates(
+        string projectName,
+        CancellationToken ct)
+    {
+        try
+        {
+            projectName = Uri.UnescapeDataString(projectName);
+
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<ProjectUpdateCheckResponse>("User not authenticated"));
+            }
+
+            _logger.LogDebug("User {UserId} checking updates for project {ProjectName}", userId.Value, projectName);
+
+            ProjectUpdateCheckResponse result = await _composeUpdateService.CheckProjectUpdatesAsync(projectName, ct);
+
+            await _auditService.LogActionAsync(
+                userId.Value,
+                "compose.check_updates",
+                GetUserIpAddress(),
+                $"Checked updates for project: {projectName} - {result.Images.Count(i => i.UpdateAvailable)} updates available",
+                resourceType: "compose_project",
+                resourceId: projectName
+            );
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking updates for project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<ProjectUpdateCheckResponse>("Error checking updates", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Updates selected services in a project by pulling new images and recreating containers.
+    /// </summary>
+    /// <remarks>
+    /// This endpoint performs a pull + up --force-recreate for the specified services.
+    /// If no services are specified and updateAll is true, all services with available updates are updated.
+    /// This operation may take a long time for large images (up to 30 minutes timeout).
+    /// </remarks>
+    [HttpPost("projects/{projectName}/update")]
+    [Authorize(Roles = "admin")]
+    [RequestTimeout(1800000)] // 30 minutes timeout for large image pulls
+    public async Task<ActionResult<ApiResponse<UpdateTriggerResponse>>> UpdateProject(
+        string projectName,
+        [FromBody] ProjectUpdateRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            projectName = Uri.UnescapeDataString(projectName);
+
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<UpdateTriggerResponse>("User not authenticated"));
+            }
+
+            _logger.LogInformation(
+                "User {UserId} updating project {ProjectName} - Services: {Services}, UpdateAll: {UpdateAll}",
+                userId.Value,
+                projectName,
+                request.Services != null ? string.Join(", ", request.Services) : "none specified",
+                request.UpdateAll);
+
+            UpdateTriggerResponse result = await _composeUpdateService.UpdateProjectAsync(
+                projectName,
+                request.Services,
+                request.UpdateAll,
+                userId.Value,
+                GetUserIpAddress(),
+                ct
+            );
+
+            if (result.Success)
+            {
+                return Ok(ApiResponse.Ok(result));
+            }
+            else
+            {
+                return BadRequest(ApiResponse.Fail<UpdateTriggerResponse>(result.Message, "UPDATE_FAILED"));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<UpdateTriggerResponse>("Error updating project", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Gets global update status summary for all cached projects.
+    /// </summary>
+    /// <remarks>
+    /// Returns a summary of cached update checks. Projects that haven't been
+    /// checked recently won't appear in this list.
+    /// </remarks>
+    [HttpGet("update-status")]
+    [Authorize(Roles = "admin")]
+    public ActionResult<ApiResponse<List<ProjectUpdateSummary>>> GetUpdateStatus()
+    {
+        try
+        {
+            List<ProjectUpdateSummary> summaries = _composeUpdateService.GetGlobalUpdateStatus();
+            return Ok(ApiResponse.Ok(summaries));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting update status");
+            return StatusCode(500, ApiResponse.Fail<List<ProjectUpdateSummary>>("Error getting update status", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Updates all projects that have available updates.
+    /// </summary>
+    /// <remarks>
+    /// Triggers updates for all cached projects with available updates.
+    /// Updates are performed sequentially in the background.
+    /// </remarks>
+    [HttpPost("update-all")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<UpdateAllResponse>>> UpdateAllProjects(CancellationToken ct)
+    {
+        try
+        {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<UpdateAllResponse>("User not authenticated"));
+            }
+
+            _logger.LogInformation("User {UserId} triggered update-all", userId.Value);
+
+            UpdateAllResponse result = await _composeUpdateService.UpdateAllProjectsAsync(
+                userId.Value,
+                GetUserIpAddress(),
+                ct
+            );
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating all projects");
+            return StatusCode(500, ApiResponse.Fail<UpdateAllResponse>("Error updating all projects", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Clears the update check cache.
+    /// </summary>
+    /// <remarks>
+    /// Forces all future update checks to re-query registries instead of using cached results.
+    /// Use this if you believe cached results are stale.
+    /// </remarks>
+    [HttpPost("clear-update-cache")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<object>>> ClearUpdateCache()
+    {
+        try
+        {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<object>("User not authenticated"));
+            }
+
+            _composeUpdateService.ClearCache();
+
+            await _auditService.LogActionAsync(
+                userId.Value,
+                "compose.clear_update_cache",
+                GetUserIpAddress(),
+                "Cleared update check cache",
+                resourceType: "System",
+                resourceId: "UpdateCache"
+            );
+
+            _logger.LogInformation("User {UserId} cleared update check cache", userId.Value);
+
+            return Ok(ApiResponse.Ok(new { success = true, message = "Update cache cleared" }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing update cache");
+            return StatusCode(500, ApiResponse.Fail<object>("Error clearing cache", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Checks for available updates across all projects with compose files.
+    /// </summary>
+    /// <remarks>
+    /// Iterates through all projects that have associated compose files and checks
+    /// each one for available image updates. Results are aggregated into a summary.
+    /// This operation may take some time depending on the number of projects.
+    /// </remarks>
+    [HttpPost("check-all-updates")]
+    [Authorize(Roles = "admin")]
+    public async Task<ActionResult<ApiResponse<CheckAllUpdatesResponse>>> CheckAllProjectUpdates(CancellationToken ct)
+    {
+        try
+        {
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<CheckAllUpdatesResponse>("User not authenticated"));
+            }
+
+            _logger.LogInformation("User {UserId} triggered check-all-updates", userId.Value);
+
+            CheckAllUpdatesResponse result = await _composeUpdateService.CheckAllProjectsUpdatesAsync(
+                userId.Value,
+                ct
+            );
+
+            await _auditService.LogActionAsync(
+                userId.Value,
+                "compose.check_all_updates",
+                GetUserIpAddress(),
+                $"Checked updates for {result.ProjectsChecked} projects - {result.ProjectsWithUpdates} with updates",
+                resourceType: "System",
+                resourceId: "BulkUpdateCheck"
+            );
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking all project updates");
+            return StatusCode(500, ApiResponse.Fail<CheckAllUpdatesResponse>("Error checking updates", "SERVER_ERROR"));
+        }
+    }
 }
 
 public record ComposeTemplateDto(string Id, string Name, string Description, string Content);

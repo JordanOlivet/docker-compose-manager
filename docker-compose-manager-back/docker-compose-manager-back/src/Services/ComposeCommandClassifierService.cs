@@ -83,7 +83,7 @@ namespace docker_compose_manager_back.Services;
 /// // - logs: false (no containers exist yet)
 /// </code>
 /// </example>
-public static class ComposeCommandClassifier
+public static class ComposeCommandClassifierService
 {
     /// <summary>
     /// Commands that require a compose file to function.

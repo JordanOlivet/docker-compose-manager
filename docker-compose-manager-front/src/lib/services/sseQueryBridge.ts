@@ -6,28 +6,22 @@ import {
   onReconnected,
   type ContainerStateChangedEvent,
   type ComposeProjectStateChangedEvent,
-} from '$lib/stores/signalr.svelte';
+} from '$lib/stores/sse.svelte';
 import type { OperationUpdateEvent } from '$lib/types';
 import { composeApi } from '$lib/api/compose';
 import { logger } from '$lib/utils/logger';
+import { isBatchOperationActive, isProjectUpdating } from '$lib/stores/batchOperation.svelte';
 
 // Configuration
 const DEBOUNCE_DELAY_MS = 50; // Minimal debounce to batch truly simultaneous events
 const DEDUPE_WINDOW_MS = 1000;
 
 // Events that indicate actual state changes (not just signals)
-// - 'start': container started
-// - 'die': container stopped/crashed
-// - 'create': container created
-// - 'destroy': container removed
-// - 'pause'/'unpause': container paused/resumed
-// Ignored events: 'kill', 'stop' (signals, not state changes)
 const STATE_CHANGING_EVENTS = new Set([
-  'start', 'die', 'create', 'destroy', 'pause', 'unpause', 'restart'
+  'start', 'die', 'create', 'destroy', 'pause', 'unpause', 'restart', 'recreate', 'pull'
 ]);
 
 // Track recent compose events to avoid double invalidation
-// Key: `${containerId}-${action}`, Value: timestamp
 const recentComposeEvents = new Map<string, number>();
 
 /**
@@ -47,7 +41,6 @@ async function refetchQueries(queryClient: QueryClient, queryKeys: string[][]): 
 
         if (keyStr === '["compose","projects"]') {
           // For compose projects, use refreshState=true to only invalidate Docker cache (fast)
-          // This skips the slow filesystem scan for compose files
           freshData = await composeApi.listProjects({ refreshState: true });
         } else {
           // For other queries, use the queryFn
@@ -70,9 +63,6 @@ async function refetchQueries(queryClient: QueryClient, queryKeys: string[][]): 
  * Creates a "leading edge" debounced refetcher:
  * - First event: executes IMMEDIATELY (no delay)
  * - Subsequent events within window: batched and executed after delay
- *
- * This gives instant response for single operations while still
- * batching bulk operations (e.g., docker-compose down with 5 services)
  */
 function createDebouncedRefetcher(
   queryClient: QueryClient,
@@ -100,7 +90,6 @@ function createDebouncedRefetcher(
       await refetchQueries(queryClient, keysToRefetch);
 
       // After execution, wait a bit before allowing next immediate execution
-      // This batches rapid subsequent events
       timeout = setTimeout(() => {
         timeout = null;
         isExecuting = false;
@@ -118,8 +107,6 @@ function createDebouncedRefetcher(
 
 /**
  * Check if an event was recently handled via compose events
- * This prevents double invalidation when both ContainerStateChanged and
- * ComposeProjectStateChanged are fired for the same container action
  */
 function wasRecentlyHandledViaCompose(containerId: string, action: string): boolean {
   const key = `${containerId}-${action}`;
@@ -156,36 +143,45 @@ function markHandledViaCompose(containerId: string, action: string): void {
 }
 
 /**
- * Sets up the bridge between SignalR events and TanStack Query cache invalidation.
- * This should be called once from the protected layout after SignalR is connected.
+ * Sets up the bridge between SSE events and TanStack Query cache invalidation.
+ * This should be called once from the protected layout after SSE is connected.
  *
  * @param queryClient - The TanStack Query client instance
  * @returns Cleanup function to remove all subscriptions
  */
-export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
-  logger.log('[Bridge] Setting up SignalR-Query bridge');
+export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
+  logger.log('[Bridge] Setting up SSE-Query bridge');
   logger.log('[Bridge] QueryClient instance:', queryClient);
 
   const scheduleRefetch = createDebouncedRefetcher(queryClient, DEBOUNCE_DELAY_MS);
   const unsubscribers: (() => void)[] = [];
 
   // Handle ComposeProjectStateChanged events
-  // These events are specific to compose projects and should trigger compose-related invalidations
   const unsubComposeProject = onComposeProjectStateChanged((event: ComposeProjectStateChangedEvent) => {
     const action = event.action.toLowerCase();
 
-    // Only react to state-changing events, ignore signals like 'kill', 'stop'
     if (!STATE_CHANGING_EVENTS.has(action)) {
       logger.log(`[Bridge] Ignoring compose event (not state-changing): ${event.projectName} - ${event.action}`);
       return;
     }
 
+    // Skip if a batch operation is in progress (e.g., during updates)
+    // This prevents excessive refreshes during docker compose pull/up operations
+    if (isBatchOperationActive() && (action !== 'recreate' && action !== 'pull')) {
+      logger.log(`[Bridge] Skipping compose event (batch operation active): ${event.projectName} - ${event.action}`);
+      return;
+    }
+
+    // Also skip if this specific project is being updated
+    if (isProjectUpdating(event.projectName) && (action !== 'recreate' && action !== 'pull')) {
+      logger.log(`[Bridge] Skipping compose event (project updating): ${event.projectName} - ${event.action}`);
+      return;
+    }
+
     logger.log(`[Bridge] Compose event (state-changing): ${event.projectName} - ${event.action}`);
 
-    // Mark this container+action as handled via compose to prevent double invalidation
     markHandledViaCompose(event.containerId, event.action);
 
-    // Invalidate compose-related queries
     scheduleRefetch([
       ['compose', 'projects'],
       ['compose', 'project', event.projectName],
@@ -194,13 +190,18 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
   unsubscribers.push(unsubComposeProject);
 
   // Handle ContainerStateChanged events
-  // These are more general container events that might not be compose-related
   const unsubContainer = onContainerStateChanged((event: ContainerStateChangedEvent) => {
     const action = event.action.toLowerCase();
 
-    // Only react to state-changing events, ignore signals like 'kill', 'stop'
     if (!STATE_CHANGING_EVENTS.has(action)) {
       logger.log(`[Bridge] Ignoring container event (not state-changing): ${event.containerName} - ${event.action}`);
+      return;
+    }
+
+    // Skip if a batch operation is in progress (e.g., during updates)
+    // This prevents excessive refreshes during docker compose pull/up operations
+    if (isBatchOperationActive()) {
+      logger.log(`[Bridge] Skipping container event (batch operation active): ${event.containerName} - ${event.action}`);
       return;
     }
 
@@ -212,20 +213,16 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
 
     logger.log(`[Bridge] Container event (state-changing): ${event.containerName} - ${event.action}`);
 
-    // Invalidate container-related queries
-    // Also invalidate compose queries since standalone container changes might affect project states
     scheduleRefetch([
       ['containers'],
       ['container', event.containerId],
-      ['compose', 'projects'], // Compose projects might be affected
+      ['compose', 'projects'],
     ]);
   });
   unsubscribers.push(unsubContainer);
 
   // Handle OperationUpdate events
-  // These track the progress of long-running operations
   const unsubOperation = onOperationUpdate((event: OperationUpdateEvent) => {
-    // Only invalidate when operations complete or fail
     if (event.status !== 'completed' && event.status !== 'failed') {
       return;
     }
@@ -235,7 +232,6 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
     const typeLower = (event.type || '').toLowerCase();
     const queriesToInvalidate: string[][] = [];
 
-    // Determine which queries to invalidate based on operation type
     if (typeLower.includes('compose')) {
       queriesToInvalidate.push(['compose', 'projects']);
       if (event.projectName) {
@@ -247,7 +243,6 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
       queriesToInvalidate.push(['containers']);
     }
 
-    // Always refresh dashboard on operation completion
     queriesToInvalidate.push(['dashboard']);
 
     if (queriesToInvalidate.length > 0) {
@@ -260,18 +255,17 @@ export function setupSignalRQueryBridge(queryClient: QueryClient): () => void {
   const unsubReconnected = onReconnected(() => {
     logger.log('[Bridge] Reconnected - refreshing all data immediately');
 
-    // Force refetch all queries
     queryClient.refetchQueries({ queryKey: ['containers'], exact: false });
     queryClient.refetchQueries({ queryKey: ['compose'], exact: false });
     queryClient.refetchQueries({ queryKey: ['dashboard'], exact: false });
   });
   unsubscribers.push(unsubReconnected);
 
-  logger.log('[Bridge] SignalR-Query bridge initialized');
+  logger.log('[Bridge] SSE-Query bridge initialized');
 
   // Return cleanup function
   return () => {
-    logger.log('[Bridge] Cleaning up SignalR-Query bridge');
+    logger.log('[Bridge] Cleaning up SSE-Query bridge');
     unsubscribers.forEach(unsub => unsub());
     recentComposeEvents.clear();
   };

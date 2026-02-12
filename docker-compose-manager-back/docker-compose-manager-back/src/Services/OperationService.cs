@@ -1,7 +1,6 @@
 using docker_compose_manager_back.Data;
-using docker_compose_manager_back.Hubs;
+using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace docker_compose_manager_back.Services;
@@ -10,16 +9,16 @@ public class OperationService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<OperationService> _logger;
-    private readonly IHubContext<OperationsHub> _hubContext;
+    private readonly SseConnectionManagerService _sseManager;
 
     public OperationService(
         AppDbContext context,
         ILogger<OperationService> logger,
-        IHubContext<OperationsHub> hubContext)
+        SseConnectionManagerService sseManager)
     {
         _context = context;
         _logger = logger;
-        _hubContext = hubContext;
+        _sseManager = sseManager;
     }
 
     /// <summary>
@@ -47,7 +46,7 @@ public class OperationService
             _context.Operations.Add(operation);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Created operation: {OperationId}, Type: {Type}, User: {UserId}",
                 operation.OperationId,
                 type,
@@ -111,14 +110,14 @@ public class OperationService
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Updated operation {OperationId}: Status={Status}, Progress={Progress}",
                 operationId,
                 status,
                 progress
             );
 
-            // Send SignalR notification
+            // Send SSE notification
             try
             {
                 var notification = new
@@ -132,23 +131,19 @@ public class OperationService
                     projectPath = operation.ProjectPath
                 };
 
-                _logger.LogInformation(
-                    "Sending SignalR notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
+                _logger.LogDebug(
+                    "Sending SSE notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
                     operationId, operation.Type, status, operation.ProjectName
                 );
 
-                await _hubContext.Clients.All.SendAsync("OperationUpdate", notification);
+                await _sseManager.BroadcastAsync("OperationUpdate", notification);
 
-                // Also send to specific operation group
-                string groupName = $"operation-{operationId}";
-                await _hubContext.Clients.Group(groupName).SendAsync("OperationUpdate", notification);
-
-                _logger.LogInformation("SignalR notification sent successfully for operation {OperationId}", operationId);
+                _logger.LogDebug("SSE notification sent successfully for operation {OperationId}", operationId);
             }
-            catch (Exception signalREx)
+            catch (Exception sseEx)
             {
-                _logger.LogWarning(signalREx, "Failed to send SignalR notification for operation {OperationId}", operationId);
-                // Don't fail the operation if SignalR notification fails
+                _logger.LogWarning(sseEx, "Failed to send SSE notification for operation {OperationId}", operationId);
+                // Don't fail the operation if SSE notification fails
             }
 
             return true;
@@ -307,7 +302,7 @@ public class OperationService
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Cancelled operation: {OperationId}", operationId);
+            _logger.LogDebug("Cancelled operation: {OperationId}", operationId);
 
             return true;
         }
@@ -336,7 +331,7 @@ public class OperationService
                 _context.Operations.RemoveRange(oldOperations);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Cleaned up {Count} old operations before {Date}", count, beforeDate);
+                _logger.LogDebug("Cleaned up {Count} old operations before {Date}", count, beforeDate);
             }
 
             return count;
@@ -362,6 +357,31 @@ public class OperationService
         {
             _logger.LogError(ex, "Error getting active operations count");
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// Sends a pull progress update via SignalR for real-time UI updates.
+    /// </summary>
+    public async Task SendPullProgressAsync(UpdateProgressEvent progress)
+    {
+        try
+        {
+            _logger.LogDebug(
+                "Sending pull progress - Operation: {OperationId}, Project: {ProjectName}, Phase: {Phase}, Progress: {Progress}%",
+                progress.OperationId,
+                progress.ProjectName,
+                progress.Phase,
+                progress.OverallProgress
+            );
+
+            // Send to all connected clients
+            await _sseManager.BroadcastAsync("PullProgressUpdate", progress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send pull progress update for operation {OperationId}", progress.OperationId);
+            // Don't fail the operation if SignalR notification fails
         }
     }
 }

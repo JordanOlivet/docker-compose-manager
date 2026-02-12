@@ -13,7 +13,7 @@ namespace docker_compose_manager_back.Tests.Services;
 public class ComposeFileScannerTests : IDisposable
 {
     private readonly string _testRoot;
-    private readonly ComposeFileScanner _scanner;
+    private readonly ComposeFileScannerService _scanner;
 
     public ComposeFileScannerTests()
     {
@@ -29,7 +29,7 @@ public class ComposeFileScannerTests : IDisposable
             MaxFileSizeKB = 1024
         });
 
-        _scanner = new ComposeFileScanner(options, new NullLogger<ComposeFileScanner>());
+        _scanner = new ComposeFileScannerService(options, new NullLogger<ComposeFileScannerService>());
     }
 
     public void Dispose()
@@ -155,7 +155,7 @@ services:
             ScanDepthLimit = 3,
             MaxFileSizeKB = 1 // 1 KB limit
         });
-        var smallScanner = new ComposeFileScanner(smallOptions, new NullLogger<ComposeFileScanner>());
+        var smallScanner = new ComposeFileScannerService(smallOptions, new NullLogger<ComposeFileScannerService>());
 
         // Create a large file (2 KB)
         var largeContent = @"

@@ -3,7 +3,6 @@
 	import { FileText, Play, Pause, Trash2, AlertCircle } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
 	import { logger } from '$lib/utils/logger';
-	import * as signalr from '$lib/services/signalr';
 
 	interface Props {
 		projectPath?: string;
@@ -28,7 +27,7 @@
 	let logsEndRef = $state<HTMLDivElement>();
 	let scrollContainerRef: HTMLDivElement;
 	let lastScrollTop = 0;
-	let streamingInProgress = false;
+	let eventSource: EventSource | null = null;
 
 	const serviceColors = new Map<string, string>();
 	const colorPalette = [
@@ -96,33 +95,22 @@
 		}
 	});
 
-	function handleReceiveLogs(logsText: string) {
-		const cleanedText = logsText.replace(/\r/g, '');
-		const lines = cleanedText.split('\n').filter((line) => line.trim() !== '');
-		logger.log(`[RECEIVE] Received batch with ${lines.length} log lines`);
-
-		const newLogs = lines.map((line) => parseLogLine(line));
-
-		logs = [...logs, ...newLogs].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+	function getApiUrl(): string {
+		const viteApiUrl = import.meta.env.VITE_API_URL;
+		if (viteApiUrl !== undefined && viteApiUrl !== '') {
+			return viteApiUrl;
+		}
+		if (import.meta.env.PROD) {
+			return '';
+		}
+		return 'https://localhost:5050';
 	}
 
-	function handleLogError(errorMsg: string) {
-		error = errorMsg;
-		logger.error('Log streaming error:', errorMsg);
-	}
-
-	function handleStreamComplete() {
-		logger.log('Log stream completed');
-		isStreaming = false;
-	}
-
-	async function startStreaming(clearExisting = false) {
-		if (streamingInProgress) {
+	function startStreaming(clearExisting = false) {
+		if (eventSource) {
 			logger.log('[STREAMING] Already streaming, skipping...');
 			return;
 		}
-
-		streamingInProgress = true;
 
 		try {
 			error = null;
@@ -131,30 +119,41 @@
 				logs = [];
 			}
 
-			// Connect to logs hub if not already connected
-			if (!signalr.isLogsConnected()) {
-				logger.log('[STREAMING] Connecting to logs hub...');
-				await signalr.connectToLogsHub();
+			if (!containerId) {
+				error = 'No container ID provided for log streaming';
+				return;
 			}
 
-			// Unregister old handlers first to prevent duplicates
-			signalr.offReceiveLogs(handleReceiveLogs);
-			signalr.offLogError(handleLogError);
-			signalr.offStreamComplete(handleStreamComplete);
-
-			// Register event handlers
-			signalr.onReceiveLogs(handleReceiveLogs);
-			signalr.onLogError(handleLogError);
-			signalr.onStreamComplete(handleStreamComplete);
-
-			// Start streaming
-			if (containerId) {
-				await signalr.streamContainerLogs(containerId);
-			} else if (projectPath) {
-				await signalr.streamComposeLogs(projectPath, undefined);
-			} else {
-				throw new Error('No source provided for logs (projectPath or containerId required)');
+			const token = localStorage.getItem('accessToken');
+			if (!token) {
+				error = 'No access token available';
+				return;
 			}
+
+			const apiUrl = getApiUrl();
+			const streamUrl = `${apiUrl}/api/containers/${encodeURIComponent(containerId)}/logs/stream?tail=100&access_token=${encodeURIComponent(token)}`;
+
+			eventSource = new EventSource(streamUrl);
+
+			eventSource.addEventListener('log', (e: MessageEvent) => {
+				const line = e.data;
+				const parsed = parseLogLine(line);
+				logs = [...logs, parsed];
+			});
+
+			eventSource.addEventListener('error', (e: MessageEvent) => {
+				if (e.data) {
+					error = e.data;
+				}
+			});
+
+			eventSource.onerror = () => {
+				if (eventSource?.readyState === EventSource.CLOSED) {
+					logger.log('[STREAMING] Stream ended');
+					isStreaming = false;
+					eventSource = null;
+				}
+			};
 
 			isStreaming = true;
 			logger.log('[STREAMING] Log streaming started successfully');
@@ -162,25 +161,15 @@
 			logger.error('[STREAMING] Failed to start log streaming:', err);
 			error = `Failed to start streaming: ${err instanceof Error ? err.message : String(err)}`;
 			isStreaming = false;
-			streamingInProgress = false;
 		}
 	}
 
-	async function stopStreaming() {
-		try {
-			await signalr.stopLogsStream();
-
-			signalr.offReceiveLogs(handleReceiveLogs);
-			signalr.offLogError(handleLogError);
-			signalr.offStreamComplete(handleStreamComplete);
-
-			isStreaming = false;
-			streamingInProgress = false;
-		} catch (err) {
-			logger.error('Failed to stop log streaming:', err);
-			error = `Failed to stop streaming: ${err instanceof Error ? err.message : String(err)}`;
-			streamingInProgress = false;
+	function stopStreaming() {
+		if (eventSource) {
+			eventSource.close();
+			eventSource = null;
 		}
+		isStreaming = false;
 	}
 
 	function clearLogs() {
@@ -208,7 +197,7 @@
 
 	onMount(async () => {
 		logger.log('[MOUNT] Component mounted, starting streaming...');
-		await startStreaming(true);
+		startStreaming(true);
 
 		// Add scroll listener
 		if (scrollContainerRef) {
@@ -218,13 +207,6 @@
 
 	onDestroy(() => {
 		logger.log('[MOUNT] Component unmounting, cleaning up...');
-
-		// Unregister handlers
-		signalr.offReceiveLogs(handleReceiveLogs);
-		signalr.offLogError(handleLogError);
-		signalr.offStreamComplete(handleStreamComplete);
-
-		// Stop streaming
 		stopStreaming();
 
 		// Remove scroll listener
@@ -252,7 +234,7 @@
 				<button
 					onclick={clearLogs}
 					disabled={logs.length === 0}
-					class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
 					title="Clear logs"
 				>
 					<Trash2 class="h-4 w-4" />
@@ -260,7 +242,7 @@
 				{#if isStreaming}
 					<button
 						onclick={() => stopStreaming()}
-						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors"
+						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors cursor-pointer"
 						title="Pause streaming (logs will be kept)"
 					>
 						<Pause class="h-4 w-4" />
@@ -269,7 +251,7 @@
 				{:else}
 					<button
 						onclick={() => startStreaming(true)}
-						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors cursor-pointer"
 						title="Resume streaming"
 					>
 						<Play class="h-4 w-4" />

@@ -195,7 +195,7 @@
 										<button
 											type="button"
 											onclick={() => toggleMember(memberId)}
-											class="hover:text-blue-900 dark:hover:text-blue-100"
+											class="hover:text-blue-900 dark:hover:text-blue-100 cursor-pointer"
 										>
 											<X class="w-3 h-3" />
 										</button>

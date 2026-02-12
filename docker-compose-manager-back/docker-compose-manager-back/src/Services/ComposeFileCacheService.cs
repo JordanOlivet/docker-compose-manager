@@ -111,14 +111,14 @@ public class ComposeFileCacheService : IComposeFileCacheService
             }
 
             // Perform filesystem scan
-            _logger.LogInformation("Starting compose file discovery scan");
+            _logger.LogDebug("Starting compose file discovery scan");
             var discovered = await _scanner.ScanComposeFilesAsync();
 
             // Cache with configured TTL
             var ttl = TimeSpan.FromSeconds(_options.Value.CacheDurationSeconds);
             _cache.Set(CacheKey, discovered, ttl);
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Cache populated with {Count} compose files, TTL: {TtlSeconds}s",
                 discovered.Count,
                 _options.Value.CacheDurationSeconds);
@@ -151,6 +151,6 @@ public class ComposeFileCacheService : IComposeFileCacheService
     public void Invalidate()
     {
         _cache.Remove(CacheKey);
-        _logger.LogInformation("Compose file discovery cache invalidated");
+        _logger.LogDebug("Compose file discovery cache invalidated");
     }
 }

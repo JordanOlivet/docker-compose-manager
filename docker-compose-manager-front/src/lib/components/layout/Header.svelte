@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { Menu, LogOut } from 'lucide-svelte';
+  import { Menu, LogOut, Download } from 'lucide-svelte';
   import { goto } from '$app/navigation';
   import * as auth from '$lib/stores/auth.svelte';
+  import { isAdmin } from '$lib/stores/auth.svelte';
+  import { hasUpdate, updateCount } from '$lib/stores/update.svelte';
   import { authApi } from '$lib/api';
   import { logger } from '$lib/utils/logger';
   import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
@@ -28,6 +30,10 @@
       goto('/login');
     }
   }
+
+  function goToSettings() {
+    goto('/settings');
+  }
 </script>
 
 <header class="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 transition-all backdrop-blur-sm bg-opacity-95 relative z-[100]">
@@ -35,7 +41,7 @@
     <div class="flex items-center gap-4">
       <button
         onclick={onToggleSidebar}
-        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 cursor-pointer"
         aria-label={$t('common.toggleSidebar')}
       >
         <Menu class="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -47,6 +53,22 @@
     </div>
 
     <div class="flex items-center gap-3">
+      <!-- Update Available Badge (Admin only) -->
+      {#if isAdmin.current && hasUpdate.current}
+        <button
+          onclick={goToSettings}
+          class="relative p-2 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200 group cursor-pointer"
+          title={$t('update.updateAvailable')}
+        >
+          <Download class="w-5 h-5 text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform" />
+          {#if updateCount.current > 0}
+            <span class="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-green-500 text-white text-xs font-bold rounded-full shadow-sm">
+              {updateCount.current > 9 ? '9+' : updateCount.current}
+            </span>
+          {/if}
+        </button>
+      {/if}
+
       <ConnectionStatus />
       <LanguageSelector />
       <ThemeToggle />
@@ -69,7 +91,7 @@
 
       <button
         onclick={handleLogout}
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105 group"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105 group cursor-pointer"
         aria-label={$t('auth.logout')}
       >
         <LogOut class="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />

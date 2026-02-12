@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 import * as auth from '$lib/stores/auth.svelte';
+import { reconnectSSEWithNewToken } from '$lib/stores/sse.svelte';
 import { browser } from '$app/environment';
 
 // Extend InternalAxiosRequestConfig to include _retry property for token refresh
@@ -91,6 +92,9 @@ apiClient.interceptors.response.use(
 
         // Synchronise le store Svelte après refresh
         auth.refreshTokens(accessToken, newRefreshToken);
+
+        // Reconnect SSE with the new token
+        reconnectSSEWithNewToken();
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
