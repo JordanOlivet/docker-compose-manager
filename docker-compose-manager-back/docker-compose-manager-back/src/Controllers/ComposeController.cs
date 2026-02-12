@@ -34,6 +34,7 @@ public class ComposeController : BaseController
     private readonly IOptions<ComposeDiscoveryOptions> _composeOptions;
     private readonly DockerService _dockerService;
     private readonly IComposeUpdateService _composeUpdateService;
+    private readonly ISelfFilterService _selfFilterService;
 
     public ComposeController(
         AppDbContext context,
@@ -53,7 +54,8 @@ public class ComposeController : BaseController
         IPathValidator pathValidator,
         IOptions<ComposeDiscoveryOptions> composeOptions,
         DockerService dockerService,
-        IComposeUpdateService composeUpdateService)
+        IComposeUpdateService composeUpdateService,
+        ISelfFilterService selfFilterService)
     {
         _context = context;
         _fileService = fileService;
@@ -73,6 +75,7 @@ public class ComposeController : BaseController
         _composeOptions = composeOptions;
         _dockerService = dockerService;
         _composeUpdateService = composeUpdateService;
+        _selfFilterService = selfFilterService;
     }
 
     // ============================================
@@ -104,6 +107,13 @@ public class ComposeController : BaseController
                 IsDisabled: f.IsDisabled,
                 Services: f.Services
             )).ToList();
+
+            // Filter out the application's own compose file
+            string? selfProject = await _selfFilterService.GetSelfProjectNameAsync();
+            if (selfProject != null)
+            {
+                dtos = dtos.Where(d => !selfProject.Equals(d.ProjectName, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
 
             return Ok(ApiResponse.Ok(dtos));
         }
@@ -605,6 +615,14 @@ public class ComposeController : BaseController
         {
             projectName = Uri.UnescapeDataString(projectName);
 
+            // Self-protection
+            if (await _selfFilterService.IsSelfProjectAsync(projectName))
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "This project belongs to the application itself and cannot be modified",
+                    "SELF_PROJECT_PROTECTED"));
+            }
+
             // Check permission
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
@@ -704,6 +722,14 @@ public class ComposeController : BaseController
         try
         {
             projectName = Uri.UnescapeDataString(projectName);
+
+            // Self-protection
+            if (await _selfFilterService.IsSelfProjectAsync(projectName))
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "This project belongs to the application itself and cannot be modified",
+                    "SELF_PROJECT_PROTECTED"));
+            }
 
             // Check permission
             int? userId = GetCurrentUserId();
@@ -1349,6 +1375,14 @@ volumes:
         {
             projectName = Uri.UnescapeDataString(projectName);
 
+            // Self-protection
+            if (await _selfFilterService.IsSelfProjectAsync(projectName))
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "This project belongs to the application itself and cannot be modified",
+                    "SELF_PROJECT_PROTECTED"));
+            }
+
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
@@ -1411,6 +1445,14 @@ volumes:
         {
             projectName = Uri.UnescapeDataString(projectName);
 
+            // Self-protection
+            if (await _selfFilterService.IsSelfProjectAsync(projectName))
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "This project belongs to the application itself and cannot be modified",
+                    "SELF_PROJECT_PROTECTED"));
+            }
+
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
@@ -1472,6 +1514,14 @@ volumes:
         try
         {
             projectName = Uri.UnescapeDataString(projectName);
+
+            // Self-protection
+            if (await _selfFilterService.IsSelfProjectAsync(projectName))
+            {
+                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                    "This project belongs to the application itself and cannot be modified",
+                    "SELF_PROJECT_PROTECTED"));
+            }
 
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
@@ -1691,6 +1741,14 @@ volumes:
         try
         {
             projectName = Uri.UnescapeDataString(projectName);
+
+            // Self-protection
+            if (await _selfFilterService.IsSelfProjectAsync(projectName))
+            {
+                return StatusCode(403, ApiResponse.Fail<UpdateTriggerResponse>(
+                    "This project belongs to the application itself and cannot be modified",
+                    "SELF_PROJECT_PROTECTED"));
+            }
 
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)

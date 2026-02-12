@@ -19,6 +19,7 @@ public class ProjectMatchingServiceTests
     private readonly Mock<IPermissionService> _mockPermissionService;
     private readonly Mock<IPathMappingService> _mockPathMappingService;
     private readonly Mock<IImageUpdateCacheService> _mockUpdateCacheService;
+    private readonly Mock<ISelfFilterService> _mockSelfFilterService;
     private readonly ProjectMatchingService _service;
 
     public ProjectMatchingServiceTests()
@@ -29,6 +30,7 @@ public class ProjectMatchingServiceTests
         _mockPermissionService = new Mock<IPermissionService>();
         _mockPathMappingService = new Mock<IPathMappingService>();
         _mockUpdateCacheService = new Mock<IImageUpdateCacheService>();
+        _mockSelfFilterService = new Mock<ISelfFilterService>();
 
         // Default behavior: ResolveConflicts returns the same list (no conflicts)
         _mockConflictService
@@ -48,6 +50,11 @@ public class ProjectMatchingServiceTests
             .Setup(s => s.RootPath)
             .Returns("/app/compose-files");
 
+        // Default behavior: Not running in Docker (no self-filtering)
+        _mockSelfFilterService
+            .Setup(s => s.GetSelfProjectNameAsync())
+            .ReturnsAsync((string?)null);
+
         _service = new ProjectMatchingService(
             _mockDiscoveryService.Object,
             _mockCacheService.Object,
@@ -55,6 +62,7 @@ public class ProjectMatchingServiceTests
             _mockPermissionService.Object,
             _mockPathMappingService.Object,
             _mockUpdateCacheService.Object,
+            _mockSelfFilterService.Object,
             new NullLogger<ProjectMatchingService>()
         );
     }

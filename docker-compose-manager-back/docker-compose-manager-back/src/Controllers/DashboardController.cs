@@ -20,6 +20,7 @@ public class DashboardController : BaseController
     private readonly AppDbContext _context;
     private readonly DockerService _dockerService;
     private readonly IComposeDiscoveryService _composeDiscoveryService;
+    private readonly ISelfFilterService _selfFilterService;
     private readonly ILogger<DashboardController> _logger;
     private readonly IProjectMatchingService _projectMatchingService;
 
@@ -27,12 +28,14 @@ public class DashboardController : BaseController
         AppDbContext context,
         DockerService dockerService,
         IComposeDiscoveryService composeDiscoveryService,
+        ISelfFilterService selfFilterService,
         ILogger<DashboardController> logger,
         IProjectMatchingService projectMatchingService)
     {
         _context = context;
         _dockerService = dockerService;
         _composeDiscoveryService = composeDiscoveryService;
+        _selfFilterService = selfFilterService;
         _logger = logger;
         _projectMatchingService = projectMatchingService;
     }
@@ -52,8 +55,32 @@ public class DashboardController : BaseController
                 return Unauthorized(ApiResponse.Fail<List<ComposeProjectDto>>("User not authenticated"));
             }
 
-            // Get container stats
+            // Get container stats (filtered to exclude self)
             List<ContainerDto> containers = await _dockerService.ListContainersAsync(showAll: true);
+
+            // Filter out self containers
+            string? selfProject = await _selfFilterService.GetSelfProjectNameAsync();
+            string? selfContainerId = await _selfFilterService.GetSelfContainerIdAsync();
+            if (selfProject != null || selfContainerId != null)
+            {
+                containers = containers.Where(c =>
+                {
+                    if (selfProject != null)
+                    {
+                        string? project = c.Labels?.GetValueOrDefault("com.docker.compose.project");
+                        if (selfProject.Equals(project, StringComparison.OrdinalIgnoreCase))
+                            return false;
+                    }
+                    if (selfContainerId != null)
+                    {
+                        if (c.Id.StartsWith(selfContainerId, StringComparison.OrdinalIgnoreCase)
+                            || selfContainerId.StartsWith(c.Id, StringComparison.OrdinalIgnoreCase))
+                            return false;
+                    }
+                    return true;
+                }).ToList();
+            }
+
             int runningContainers = containers.Count(c => c.State == ContainerState.Running.ToStateString());
             int stoppedContainers = containers.Count(c => c.State != ContainerState.Running.ToStateString());
 

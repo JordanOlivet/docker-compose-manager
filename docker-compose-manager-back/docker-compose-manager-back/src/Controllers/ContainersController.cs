@@ -15,17 +15,20 @@ public class ContainersController : BaseController
     private readonly DockerService _dockerService;
     private readonly IPermissionService _permissionService;
     private readonly IContainerUpdateService _containerUpdateService;
+    private readonly ISelfFilterService _selfFilterService;
     private readonly ILogger<ContainersController> _logger;
 
     public ContainersController(
         DockerService dockerService,
         IPermissionService permissionService,
         IContainerUpdateService containerUpdateService,
+        ISelfFilterService selfFilterService,
         ILogger<ContainersController> logger)
     {
         _dockerService = dockerService;
         _permissionService = permissionService;
         _containerUpdateService = containerUpdateService;
+        _selfFilterService = selfFilterService;
         _logger = logger;
     }
 
@@ -47,6 +50,10 @@ public class ContainersController : BaseController
         try
         {
             List<ContainerDto> containers = await _dockerService.ListContainersAsync(all);
+
+            // Filter out self containers before any other processing
+            containers = await FilterSelfContainersAsync(containers);
+
             int userId = GetCurrentUserIdRequired();
 
             // Build container-to-project mapping using Docker labels
@@ -109,6 +116,14 @@ public class ContainersController : BaseController
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
+            // Self-protection: prevent access to app's own container
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<ContainerDetailsDto>(
+                    "This container belongs to the application itself and cannot be accessed",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             // Get project name from Docker labels for inherited permissions
             string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
 
@@ -148,6 +163,14 @@ public class ContainersController : BaseController
             {
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
+            }
+
+            // Self-protection
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<bool>(
+                    "This container belongs to the application itself and cannot be modified",
+                    "SELF_CONTAINER_PROTECTED"));
             }
 
             // Get project name from Docker labels for inherited permissions
@@ -199,6 +222,14 @@ public class ContainersController : BaseController
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
+            // Self-protection
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<bool>(
+                    "This container belongs to the application itself and cannot be modified",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             // Get project name from Docker labels for inherited permissions
             string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
 
@@ -248,6 +279,14 @@ public class ContainersController : BaseController
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
+            // Self-protection
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<bool>(
+                    "This container belongs to the application itself and cannot be modified",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             // Get project name from Docker labels for inherited permissions
             string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
 
@@ -295,6 +334,14 @@ public class ContainersController : BaseController
             {
                 return NotFound(ApiResponse.Fail<bool>(
                     "Container not found", "RESOURCE_NOT_FOUND"));
+            }
+
+            // Self-protection
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<bool>(
+                    "This container belongs to the application itself and cannot be modified",
+                    "SELF_CONTAINER_PROTECTED"));
             }
 
             // Get project name from Docker labels for inherited permissions
@@ -358,6 +405,14 @@ public class ContainersController : BaseController
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
+            // Self-protection
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<List<string>>(
+                    "This container belongs to the application itself and cannot be accessed",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             // Get project name from Docker labels for inherited permissions
             string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
 
@@ -396,6 +451,16 @@ public class ContainersController : BaseController
     [HttpGet("{id}/logs/stream")]
     public async Task StreamContainerLogs(string id, [FromQuery] int tail = 100, CancellationToken cancellationToken = default)
     {
+        // Self-protection
+        if (await _selfFilterService.IsSelfContainerAsync(id))
+        {
+            Response.StatusCode = 403;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "This container belongs to the application itself and cannot be accessed",
+                "SELF_CONTAINER_PROTECTED"), cancellationToken);
+            return;
+        }
+
         Response.Headers.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
 
@@ -458,6 +523,14 @@ public class ContainersController : BaseController
                     "Container not found", "RESOURCE_NOT_FOUND"));
             }
 
+            // Self-protection
+            if (await IsSelfContainerAsync(container))
+            {
+                return StatusCode(403, ApiResponse.Fail<ContainerStatsDto>(
+                    "This container belongs to the application itself and cannot be accessed",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             // Get project name from Docker labels for inherited permissions
             string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
 
@@ -503,6 +576,14 @@ public class ContainersController : BaseController
     {
         try
         {
+            // Self-protection
+            if (await _selfFilterService.IsSelfContainerAsync(id))
+            {
+                return StatusCode(403, ApiResponse.Fail<ContainerUpdateCheckResponse>(
+                    "This container belongs to the application itself and cannot be accessed",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             ContainerUpdateCheckResponse result = await _containerUpdateService.CheckContainerUpdateAsync(id, ct);
 
             if (result.Error == "Container not found")
@@ -532,6 +613,14 @@ public class ContainersController : BaseController
     {
         try
         {
+            // Self-protection
+            if (await _selfFilterService.IsSelfContainerAsync(id))
+            {
+                return StatusCode(403, ApiResponse.Fail<UpdateTriggerResponse>(
+                    "This container belongs to the application itself and cannot be modified",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
             int userId = GetCurrentUserIdRequired();
             string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -558,6 +647,53 @@ public class ContainersController : BaseController
             return StatusCode(500, ApiResponse.Fail<UpdateTriggerResponse>(
                 "Failed to update container", "DOCKER_OPERATION_FAILED"));
         }
+    }
+
+    /// <summary>
+    /// Checks if a container belongs to this application (self-protection).
+    /// </summary>
+    private async Task<bool> IsSelfContainerAsync(ContainerDetailsDto container)
+    {
+        // Check by project name first (covers all containers in the compose project)
+        string? projectName = container.Labels?.GetValueOrDefault("com.docker.compose.project");
+        if (!string.IsNullOrEmpty(projectName) && await _selfFilterService.IsSelfProjectAsync(projectName))
+            return true;
+
+        // Check by container ID (standalone container case)
+        return await _selfFilterService.IsSelfContainerAsync(container.Id);
+    }
+
+    /// <summary>
+    /// Filters out self containers from a list based on project name or container ID.
+    /// </summary>
+    private async Task<List<ContainerDto>> FilterSelfContainersAsync(List<ContainerDto> containers)
+    {
+        string? selfProject = await _selfFilterService.GetSelfProjectNameAsync();
+        string? selfContainerId = await _selfFilterService.GetSelfContainerIdAsync();
+
+        if (selfProject == null && selfContainerId == null)
+            return containers;
+
+        return containers.Where(c =>
+        {
+            // Filter by compose project
+            if (selfProject != null)
+            {
+                string? project = c.Labels?.GetValueOrDefault("com.docker.compose.project");
+                if (selfProject.Equals(project, StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+
+            // Filter by container ID (standalone)
+            if (selfContainerId != null)
+            {
+                if (c.Id.StartsWith(selfContainerId, StringComparison.OrdinalIgnoreCase)
+                    || selfContainerId.StartsWith(c.Id, StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+
+            return true;
+        }).ToList();
     }
 
     /// <summary>

@@ -1,0 +1,23 @@
+ARG IMAGE_TAG=latest-dev
+
+# Stage 1: Rebuild backend in Debug mode from local source
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS backend-debug
+WORKDIR /src
+COPY docker-compose-manager-back/docker-compose-manager-back/docker-compose-manager-back.csproj ./docker-compose-manager-back/
+RUN dotnet restore ./docker-compose-manager-back/docker-compose-manager-back.csproj
+COPY docker-compose-manager-back/docker-compose-manager-back/ ./docker-compose-manager-back/
+RUN dotnet publish ./docker-compose-manager-back/docker-compose-manager-back.csproj -c Debug -o /app/backend
+
+# Stage 2: Extend GHCR image with vsdbg + Debug backend
+FROM ghcr.io/jordanolivet/docker-compose-manager:${IMAGE_TAG}
+
+# Install vsdbg (Visual Studio remote debugger for .NET)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends unzip \
+    && curl -sSL https://aka.ms/getvsdbgsh | bash /dev/stdin -v latest -l /vsdbg \
+    && apt-get remove -y unzip \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Replace Release backend with Debug backend (keeps frontend, nginx, supervisor from GHCR)
+COPY --from=backend-debug /app/backend /app/backend

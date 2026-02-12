@@ -190,6 +190,7 @@ builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService
 // Register Self-Update services
 builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
 builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
+builder.Services.AddSingleton<ISelfFilterService, SelfFilterService>();
 builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
 
 // Register Compose Update services (for project updates)
@@ -422,7 +423,7 @@ app.MapControllers();
 
 // Log when application is ready
 IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
-lifetime.ApplicationStarted.Register(() =>
+lifetime.ApplicationStarted.Register(async () =>
 {
     string[] urls = app.Urls.ToArray();
     if (urls.Length > 0)
@@ -432,6 +433,35 @@ lifetime.ApplicationStarted.Register(() =>
     else
     {
         Log.Information("Docker Compose Manager Backend is ready and listening");
+    }
+
+    // Log self-filter detection result
+    try
+    {
+        ISelfFilterService selfFilter = app.Services.GetRequiredService<ISelfFilterService>();
+        string? selfProject = await selfFilter.GetSelfProjectNameAsync();
+        string? selfContainerId = await selfFilter.GetSelfContainerIdAsync();
+
+        if (selfProject != null)
+        {
+            Log.Information(
+                "Self-filter active: project '{SelfProject}', container '{SelfContainerId}' will be hidden from all lists",
+                selfProject, selfContainerId);
+        }
+        else if (selfContainerId != null)
+        {
+            Log.Information(
+                "Self-filter active: standalone container '{SelfContainerId}' will be hidden from all lists",
+                selfContainerId);
+        }
+        else
+        {
+            Log.Information("Self-filter inactive: not running in Docker");
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to log self-filter detection result");
     }
 });
 

@@ -1,0 +1,36 @@
+# Usage:
+#   IMAGE_TAG=latest-dev docker compose -f docker-compose.vs-debug.yml up --build
+#   IMAGE_TAG=1.2.0-my-branch docker compose -f docker-compose.vs-debug.yml up --build
+
+services:
+  docker-compose-manager:
+    build:
+      context: .
+      dockerfile: debug/Dockerfile.debug
+      args:
+        IMAGE_TAG: latest-dev
+    container_name: dcm-debug
+    ports:
+      - "7070:80"
+    environment:
+      - Jwt__Secret=dev-secret-key-at-least-32-chars-long-for-jwt-signing
+      - Docker__Host=unix:///var/run/docker.sock
+      - Serilog__MinimumLevel__Default=Debug
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - app-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker:/root/.docker
+      - ./logs:/app/logs
+      #- path/to/compose/files:/app/compose-files
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  app-data:
+    driver: local
