@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
 import type { MaintenanceModeNotification, UpdateProgressEvent, ProjectUpdatesCheckedEvent, ContainerUpdatesCheckedEvent } from '$lib/types/update';
 import { logger } from '$lib/utils/logger';
+import { refreshTokens as updateAuthTokens } from './auth.svelte';
 
 // Types for SSE events
 export interface ContainerStateChangedEvent {
@@ -56,8 +57,10 @@ let eventSource: EventSource | null = null;
 let isInitializing = false;
 let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let lastEventTime = 0;
+let connectionStartTime = 0;
 
 const HEARTBEAT_TIMEOUT_MS = 300_000; // Consider disconnected if no event in 5 minutes
+const FAST_FAIL_THRESHOLD_MS = 2000; // If connection fails within 2s, likely auth issue
 
 const getApiUrl = () => {
   if (!browser) return '';
@@ -122,6 +125,7 @@ export async function initializeSSEConnection(): Promise<void> {
   isInitializing = true;
   sseState.connectionStatus = 'connecting';
   sseState.error = null;
+  connectionStartTime = Date.now();
 
   const apiUrl = getApiUrl();
   const token = localStorage.getItem('accessToken');
@@ -237,7 +241,56 @@ export async function initializeSSEConnection(): Promise<void> {
       resetHeartbeatTimer();
     };
 
-    eventSource.onerror = () => {
+    eventSource.onerror = async () => {
+      const connectionDuration = Date.now() - connectionStartTime;
+      const isFastFail = connectionDuration < FAST_FAIL_THRESHOLD_MS;
+
+      if (isFastFail && sseState.reconnectAttempt === 0) {
+        // Fast failure on first attempt likely means auth issue (401)
+        // Try to refresh token before reconnecting
+        logger.warn('[SSE Store] Fast connection failure detected, attempting token refresh');
+
+        try {
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (refreshToken) {
+            const refreshUrl = apiUrl
+              ? `${apiUrl}/api/auth/refresh`
+              : '/api/auth/refresh';
+
+            const response = await fetch(refreshUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const { accessToken, refreshToken: newRefreshToken } = data.data;
+
+              localStorage.setItem('accessToken', accessToken);
+              localStorage.setItem('refreshToken', newRefreshToken);
+
+              // Sync auth store
+              updateAuthTokens(accessToken, newRefreshToken);
+
+              logger.log('[SSE Store] Token refreshed successfully, reconnecting');
+
+              // Close current connection and reconnect with new token
+              if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+              }
+              isInitializing = false;
+              sseState.reconnectAttempt = 0;
+              initializeSSEConnection();
+              return;
+            }
+          }
+        } catch (err) {
+          logger.error('[SSE Store] Token refresh failed:', err);
+        }
+      }
+
       logger.warn('[SSE Store] Connection error');
 
       if (eventSource?.readyState === EventSource.CLOSED) {
@@ -285,6 +338,33 @@ export function stopSSEConnection(): void {
   eventSource = null;
   logger.log('[SSE Store] Disconnected');
   sseState.connectionStatus = 'disconnected';
+}
+
+/**
+ * Reconnect SSE with a fresh token.
+ * This should be called after token refresh to use the new token.
+ */
+export function reconnectSSEWithNewToken(): void {
+  if (!browser) return;
+
+  logger.log('[SSE Store] Reconnecting with fresh token after token refresh');
+
+  // Close existing connection
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+
+  if (heartbeatTimer) {
+    clearTimeout(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+
+  isInitializing = false;
+  sseState.reconnectAttempt = 0; // Reset retry count since we have a fresh token
+
+  // Reconnect immediately with new token
+  initializeSSEConnection();
 }
 
 // Subscription functions - return unsubscribe functions
