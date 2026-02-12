@@ -57,10 +57,8 @@ let eventSource: EventSource | null = null;
 let isInitializing = false;
 let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let lastEventTime = 0;
-let connectionStartTime = 0;
 
 const HEARTBEAT_TIMEOUT_MS = 300_000; // Consider disconnected if no event in 5 minutes
-const FAST_FAIL_THRESHOLD_MS = 2000; // If connection fails within 2s, likely auth issue
 
 const getApiUrl = () => {
   if (!browser) return '';
@@ -74,6 +72,71 @@ const getApiUrl = () => {
   }
   return 'https://localhost:5050';
 };
+
+/**
+ * Check if a JWT token is expired (with 60s safety margin).
+ */
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Add 60 second margin to avoid race conditions
+    return (payload.exp * 1000) < (Date.now() + 60_000);
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Refresh the access token using the refresh token.
+ * Uses fetch directly (not Axios) to avoid circular dependency.
+ * Returns the new access token, or null if refresh failed.
+ */
+async function ensureFreshToken(): Promise<string | null> {
+  let token = localStorage.getItem('accessToken');
+
+  if (token && !isTokenExpired(token)) {
+    return token;
+  }
+
+  logger.log('[SSE Store] Token expired or missing, attempting refresh');
+
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    logger.warn('[SSE Store] No refresh token available');
+    return null;
+  }
+
+  try {
+    const apiUrl = getApiUrl();
+    const refreshUrl = apiUrl
+      ? `${apiUrl}/api/auth/refresh`
+      : '/api/auth/refresh';
+
+    const response = await fetch(refreshUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const { accessToken, refreshToken: newRefreshToken } = data.data;
+
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      updateAuthTokens(accessToken, newRefreshToken);
+
+      logger.log('[SSE Store] Token refreshed successfully');
+      return accessToken;
+    }
+
+    logger.warn('[SSE Store] Token refresh failed with status:', response.status);
+    return null;
+  } catch (err) {
+    logger.error('[SSE Store] Token refresh error:', err);
+    return null;
+  }
+}
 
 function resetHeartbeatTimer() {
   lastEventTime = Date.now();
@@ -91,6 +154,7 @@ function resetHeartbeatTimer() {
 }
 
 function reconnect() {
+  // Always close existing EventSource to prevent browser auto-reconnect
   if (eventSource) {
     eventSource.close();
     eventSource = null;
@@ -101,6 +165,7 @@ function reconnect() {
 
   // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
   const delay = Math.min(1000 * Math.pow(2, sseState.reconnectAttempt - 1), 30000);
+  logger.log(`[SSE Store] Reconnecting in ${delay}ms (attempt ${sseState.reconnectAttempt})`);
   setTimeout(() => {
     initializeSSEConnection();
   }, delay);
@@ -109,6 +174,7 @@ function reconnect() {
 /**
  * Initialize the global SSE connection.
  * This should be called once from the protected layout.
+ * Ensures token freshness before connecting.
  */
 export async function initializeSSEConnection(): Promise<void> {
   if (!browser) return;
@@ -125,19 +191,19 @@ export async function initializeSSEConnection(): Promise<void> {
   isInitializing = true;
   sseState.connectionStatus = 'connecting';
   sseState.error = null;
-  connectionStartTime = Date.now();
 
-  const apiUrl = getApiUrl();
-  const token = localStorage.getItem('accessToken');
+  // Ensure we have a fresh token before connecting
+  const token = await ensureFreshToken();
 
   if (!token) {
-    logger.warn('[SSE Store] No access token found');
+    logger.warn('[SSE Store] No valid access token available');
     sseState.connectionStatus = 'disconnected';
-    sseState.error = 'No access token';
+    sseState.error = 'No valid access token';
     isInitializing = false;
     return;
   }
 
+  const apiUrl = getApiUrl();
   const streamUrl = apiUrl
     ? `${apiUrl}/api/events/stream?access_token=${encodeURIComponent(token)}`
     : `/api/events/stream?access_token=${encodeURIComponent(token)}`;
@@ -149,7 +215,6 @@ export async function initializeSSEConnection(): Promise<void> {
       logger.log('[SSE Store] Connected successfully');
       sseState.connectionStatus = 'connected';
       sseState.lastConnected = new Date();
-      sseState.reconnectAttempt = 0;
       sseState.error = null;
       resetHeartbeatTimer();
       connectedCallbacks.forEach(cb => cb());
@@ -158,6 +223,8 @@ export async function initializeSSEConnection(): Promise<void> {
       if (sseState.reconnectAttempt > 0 || reconnectedCallbacks.size > 0) {
         reconnectedCallbacks.forEach(cb => cb());
       }
+
+      sseState.reconnectAttempt = 0;
     });
 
     eventSource.addEventListener('ContainerStateChanged', (e: MessageEvent) => {
@@ -241,71 +308,26 @@ export async function initializeSSEConnection(): Promise<void> {
       resetHeartbeatTimer();
     };
 
-    eventSource.onerror = async () => {
-      const connectionDuration = Date.now() - connectionStartTime;
-      const isFastFail = connectionDuration < FAST_FAIL_THRESHOLD_MS;
-
-      if (isFastFail && sseState.reconnectAttempt === 0) {
-        // Fast failure on first attempt likely means auth issue (401)
-        // Try to refresh token before reconnecting
-        logger.warn('[SSE Store] Fast connection failure detected, attempting token refresh');
-
-        try {
-          const refreshToken = localStorage.getItem('refreshToken');
-          if (refreshToken) {
-            const refreshUrl = apiUrl
-              ? `${apiUrl}/api/auth/refresh`
-              : '/api/auth/refresh';
-
-            const response = await fetch(refreshUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ refreshToken }),
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              const { accessToken, refreshToken: newRefreshToken } = data.data;
-
-              localStorage.setItem('accessToken', accessToken);
-              localStorage.setItem('refreshToken', newRefreshToken);
-
-              // Sync auth store
-              updateAuthTokens(accessToken, newRefreshToken);
-
-              logger.log('[SSE Store] Token refreshed successfully, reconnecting');
-
-              // Close current connection and reconnect with new token
-              if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-              }
-              isInitializing = false;
-              sseState.reconnectAttempt = 0;
-              initializeSSEConnection();
-              return;
-            }
-          }
-        } catch (err) {
-          logger.error('[SSE Store] Token refresh failed:', err);
-        }
-      }
-
+    eventSource.onerror = () => {
       logger.warn('[SSE Store] Connection error');
 
-      if (eventSource?.readyState === EventSource.CLOSED) {
-        // Connection fully closed — reconnect manually
-        sseState.connectionStatus = 'disconnected';
-        sseState.error = 'Connection lost';
-        disconnectedCallbacks.forEach(cb => cb());
+      // ALWAYS close EventSource on error to prevent browser auto-reconnect.
+      // The browser's native auto-reconnect reuses the same URL (with a potentially
+      // stale/expired token), so we must handle reconnection ourselves.
+      if (eventSource) {
+        eventSource.close();
         eventSource = null;
-        isInitializing = false;
-        reconnect();
-      } else {
-        // EventSource is reconnecting automatically (readyState === CONNECTING)
-        sseState.connectionStatus = 'reconnecting';
-        sseState.reconnectAttempt += 1;
       }
+      isInitializing = false;
+
+      sseState.connectionStatus = 'disconnected';
+      sseState.error = 'Connection lost';
+      disconnectedCallbacks.forEach(cb => cb());
+
+      // Manual reconnect with exponential backoff.
+      // initializeSSEConnection() will call ensureFreshToken() which
+      // refreshes the JWT if expired, ensuring we always connect with a valid token.
+      reconnect();
     };
   } catch (error) {
     logger.error('[SSE Store] Connection failed:', error);
