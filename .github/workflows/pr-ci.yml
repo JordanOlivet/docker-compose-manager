@@ -125,7 +125,9 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
+            ${{ steps.image.outputs.name }}:latest-dev
           cache-from: type=gha,scope=pr-${{ steps.branch.outputs.tag }}
           cache-to: type=gha,scope=pr-${{ steps.branch.outputs.tag }},mode=max
           provenance: false
