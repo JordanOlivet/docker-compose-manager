@@ -59,7 +59,7 @@
       role="document"
     >
       <div class="flex items-start gap-4">
-        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+        <div class="shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
           <AlertTriangle class="w-6 h-6 text-red-600 dark:text-red-400" />
         </div>
         <div class="flex-1">
@@ -76,10 +76,10 @@
       </div>
 
       <div class="mt-6 flex justify-end gap-3">
-        <Button variant="outline" onclick={oncancel}>
+        <Button variant="outline" onclick={oncancel} class="cursor-pointer">
           {cancelText}
         </Button>
-        <Button variant={confirmVariant} onclick={onconfirm}>
+        <Button variant={confirmVariant} onclick={onconfirm} class="cursor-pointer">
           {confirmText}
         </Button>
       </div>

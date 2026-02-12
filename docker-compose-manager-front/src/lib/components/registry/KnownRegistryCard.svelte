@@ -154,6 +154,7 @@
         variant="outline"
         onclick={handleTestConnection}
         disabled={isTestingConnection}
+        class="cursor-pointer"
       >
         {#if isTestingConnection}
           <RefreshCw class="w-4 h-4 mr-2 animate-spin" />
@@ -167,12 +168,13 @@
         variant="outline"
         onclick={() => logoutMutation.mutate()}
         disabled={logoutMutation.isPending}
+        class="cursor-pointer"
       >
         <LogOut class="w-4 h-4 mr-2" />
         {$t('auth.logout')}
       </Button>
     {:else}
-      <Button size="sm" onclick={() => showLoginDialog = true}>
+      <Button size="sm" onclick={() => showLoginDialog = true} class="cursor-pointer">
         <Settings class="w-4 h-4 mr-2" />
         {$t('settings.registry.configure')}
       </Button>

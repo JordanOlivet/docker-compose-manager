@@ -29,7 +29,7 @@
     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
       {$t('settings.registry.customRegistries')}
     </h3>
-    <Button size="sm" onclick={() => showAddDialog = true}>
+    <Button size="sm" onclick={() => showAddDialog = true} class="cursor-pointer">
       <Plus class="w-4 h-4 mr-2" />
       {$t('settings.registry.addRegistry')}
     </Button>

@@ -107,7 +107,7 @@
         <button
           type="button"
           onclick={() => showPassword = !showPassword}
-          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
         >
           {#if showPassword}
             <EyeOff class="w-4 h-4" />
@@ -149,7 +149,7 @@
         <button
           type="button"
           onclick={() => showPassword = !showPassword}
-          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
         >
           {#if showPassword}
             <EyeOff class="w-4 h-4" />
@@ -163,11 +163,11 @@
 
   <div class="flex justify-end gap-3 pt-4">
     {#if oncancel}
-      <Button type="button" variant="outline" onclick={oncancel} disabled={isLoading}>
+      <Button type="button" variant="outline" onclick={oncancel} disabled={isLoading} class="cursor-pointer">
         {$t('common.cancel')}
       </Button>
     {/if}
-    <Button type="submit" disabled={isLoading}>
+    <Button type="submit" disabled={isLoading} class="cursor-pointer">
       {#if isLoading}
         <span class="animate-spin mr-2">⏳</span>
         {$t('common.loading')}

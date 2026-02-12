@@ -89,6 +89,7 @@
       onclick={handleTestConnection}
       disabled={isTestingConnection}
       title={$t('settings.registry.testConnection')}
+      class="cursor-pointer"
     >
       {#if isTestingConnection}
         <RefreshCw class="w-4 h-4 animate-spin" />
@@ -102,7 +103,7 @@
       onclick={() => logoutMutation.mutate()}
       disabled={logoutMutation.isPending}
       title={$t('settings.registry.remove')}
-      class="text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
+      class="text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 cursor-pointer"
     >
       <Trash2 class="w-4 h-4" />
     </Button>
