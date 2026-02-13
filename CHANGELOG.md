@@ -1,3 +1,13 @@
+## Changes in v1.3.2
+
+**Merged Pull Requests:**
+- Make action buttons bigger and centralize into component (#64)
+
+**Commits:**
+- Make action buttons bigger and centralize into component (#64) (28fa381)
+- docs: update CHANGELOG for v1.3.1 [skip ci] (d466108)
+- chore: bump version to v1.3.1 [skip ci] (7e5f319)
+
 ## Changes in v1.3.1
 
 **Merged Pull Requests:**
