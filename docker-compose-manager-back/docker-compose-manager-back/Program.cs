@@ -189,7 +189,9 @@ builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService
 
 // Register Self-Update services
 builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
+builder.Services.AddSingleton<IImageReferenceParser, ImageReferenceParser>();
 builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
+builder.Services.AddSingleton<IVersionDetectionService, VersionDetectionService>();
 builder.Services.AddSingleton<ISelfFilterService, SelfFilterService>();
 builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
 

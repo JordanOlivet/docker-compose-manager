@@ -1,3 +1,13 @@
+## Changes in v1.3.1
+
+**Merged Pull Requests:**
+- Add image tag detection and usage (#63)
+
+**Commits:**
+- Add image tag detection and usage (#63) (2ac6564)
+- docs: update CHANGELOG for v1.3.0 [skip ci] (5aef7f7)
+- chore: bump version to v1.3.0 [skip ci] (8a230ee)
+
 ## Changes in v1.3.0
 
 **Merged Pull Requests:**

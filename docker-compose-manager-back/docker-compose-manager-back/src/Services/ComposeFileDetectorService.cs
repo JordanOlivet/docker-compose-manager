@@ -1,5 +1,6 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using docker_compose_manager_back.DTOs;
 using Microsoft.Extensions.Configuration;
 
 namespace docker_compose_manager_back.Services;
@@ -25,20 +26,25 @@ public record ComposeDetectionResult(
     string? WorkingDirectory,
     string? ProjectName,
     string? ContainerId,
-    string? DetectionError
+    string? DetectionError,
+    string? ImageName = null,
+    string? ImageTag = null
 );
 
 public class ComposeFileDetectorService : IComposeFileDetectorService
 {
     private readonly DockerClient _dockerClient;
+    private readonly IImageReferenceParser _imageParser;
     private readonly ILogger<ComposeFileDetectorService> _logger;
     private ComposeDetectionResult? _cachedResult;
 
     public ComposeFileDetectorService(
         IConfiguration configuration,
+        IImageReferenceParser imageParser,
         ILogger<ComposeFileDetectorService> logger)
     {
         _logger = logger;
+        _imageParser = imageParser;
 
         string? dockerHost = configuration["Docker:Host"];
         if (string.IsNullOrEmpty(dockerHost))
@@ -85,7 +91,9 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                 WorkingDirectory: null,
                 ProjectName: null,
                 ContainerId: null,
-                DetectionError: "Docker client not available. Check Docker:Host configuration."
+                DetectionError: "Docker client not available. Check Docker:Host configuration.",
+                ImageName: null,
+                ImageTag: null
             );
             return _cachedResult;
         }
@@ -103,7 +111,9 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                     WorkingDirectory: null,
                     ProjectName: null,
                     ContainerId: null,
-                    DetectionError: "Not running in a Docker container"
+                    DetectionError: "Not running in a Docker container",
+                    ImageName: null,
+                    ImageTag: null
                 );
                 return _cachedResult;
             }
@@ -112,6 +122,26 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
 
             // Inspect the container to get labels
             ContainerInspectResponse inspection = await _dockerClient.Containers.InspectContainerAsync(containerId);
+
+            // Extract image name and tag using parser
+            string? imageName = inspection.Config?.Image;
+            string? imageTag = null;
+
+            if (!string.IsNullOrEmpty(imageName))
+            {
+                try
+                {
+                    ImageReference imageRef = _imageParser.ParseImageReference(imageName);
+                    imageTag = imageRef.Tag;
+                    _logger.LogDebug(
+                        "Detected Docker image: {ImageName}, tag: {ImageTag}",
+                        imageName, imageTag);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse image reference: {ImageName}", imageName);
+                }
+            }
 
             if (inspection.Config?.Labels == null)
             {
@@ -122,7 +152,9 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                     WorkingDirectory: null,
                     ProjectName: null,
                     ContainerId: containerId,
-                    DetectionError: "Container has no labels"
+                    DetectionError: "Container has no labels",
+                    ImageName: imageName,
+                    ImageTag: imageTag
                 );
                 return _cachedResult;
             }
@@ -143,7 +175,9 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                     WorkingDirectory: workingDir,
                     ProjectName: projectName,
                     ContainerId: containerId,
-                    DetectionError: "Container was not started via docker-compose (no config_files label)"
+                    DetectionError: "Container was not started via docker-compose (no config_files label)",
+                    ImageName: imageName,
+                    ImageTag: imageTag
                 );
                 return _cachedResult;
             }
@@ -162,7 +196,9 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                 WorkingDirectory: workingDir,
                 ProjectName: projectName,
                 ContainerId: containerId,
-                DetectionError: null
+                DetectionError: null,
+                ImageName: imageName,
+                ImageTag: imageTag
             );
             return _cachedResult;
         }
@@ -176,7 +212,9 @@ public class ComposeFileDetectorService : IComposeFileDetectorService
                 WorkingDirectory: null,
                 ProjectName: null,
                 ContainerId: null,
-                DetectionError: ex.Message
+                DetectionError: ex.Message,
+                ImageName: null,
+                ImageTag: null
             );
             return _cachedResult;
         }
