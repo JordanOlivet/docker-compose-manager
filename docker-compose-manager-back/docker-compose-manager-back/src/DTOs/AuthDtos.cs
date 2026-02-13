@@ -1,6 +1,6 @@
 namespace docker_compose_manager_back.DTOs;
 
-public record LoginRequest(string Username, string Password);
+public record LoginRequest(string Username, string Password, bool RememberMe = false);
 
 public record LoginResponse(
     string AccessToken,

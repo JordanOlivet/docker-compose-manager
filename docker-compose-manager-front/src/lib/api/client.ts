@@ -14,7 +14,7 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 // In production (built in Docker), VITE_API_URL should be empty/undefined to use nginx proxy
 const getApiUrl = () => {
   if (!browser) return '';
-  
+
   const viteApiUrl = import.meta.env.VITE_API_URL;
   // If VITE_API_URL is explicitly set (even if empty string), use it
   if (viteApiUrl !== undefined && viteApiUrl !== '') {
@@ -29,6 +29,80 @@ const getApiUrl = () => {
 };
 
 const API_URL = getApiUrl();
+
+/**
+ * Check if a JWT token is near expiration (within 10 minutes).
+ */
+function isTokenNearExpiration(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const expiresAt = payload.exp * 1000;
+    const timeLeft = expiresAt - Date.now();
+    // Refresh if less than 10 minutes remaining
+    return timeLeft < 10 * 60 * 1000;
+  } catch {
+    return true; // If parsing fails, consider it expired
+  }
+}
+
+/**
+ * Proactively refresh the access token if it's near expiration.
+ * Returns true if refresh was successful or not needed, false on failure.
+ */
+async function proactiveTokenRefresh(): Promise<boolean> {
+  if (!browser) return true;
+
+  const token = localStorage.getItem('accessToken');
+  if (!token) return true; // No token, nothing to refresh
+
+  if (!isTokenNearExpiration(token)) {
+    return true; // Token is still valid, no refresh needed
+  }
+
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    auth.logout();
+    window.location.href = '/login';
+    return false;
+  }
+
+  try {
+    const refreshUrl = API_URL ? `${API_URL}/api/auth/refresh` : '/api/auth/refresh';
+    const response = await axios.post(refreshUrl, { refreshToken });
+
+    const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', newRefreshToken);
+
+    // Synchronize with Svelte store
+    auth.refreshTokens(accessToken, newRefreshToken);
+
+    // Reconnect SSE with the new token
+    reconnectSSEWithNewToken();
+
+    return true;
+  } catch (error) {
+    // If refresh fails, log out the user
+    auth.logout();
+    window.location.href = '/login';
+    return false;
+  }
+}
+
+// Proactive token refresh: check every 60 seconds
+if (browser) {
+  setInterval(() => {
+    proactiveTokenRefresh();
+  }, 60_000);
+
+  // Refresh token when user returns to the tab after being away
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      proactiveTokenRefresh();
+    }
+  });
+}
 
 export const apiClient = axios.create({
   baseURL: API_URL ? `${API_URL}/api` : '/api',

@@ -45,8 +45,10 @@ public class AuthService
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
 
-        // Calculate refresh token expiration
-        var refreshExpirationDays = int.Parse(_configuration["Jwt:RefreshExpirationDays"] ?? "7");
+        // Calculate refresh token expiration based on RememberMe
+        var refreshExpirationDays = request.RememberMe
+            ? int.Parse(_configuration["Jwt:RefreshExpirationDaysExtended"] ?? "30")
+            : int.Parse(_configuration["Jwt:RefreshExpirationDays"] ?? "1");
         var expiresAt = DateTime.UtcNow.AddDays(refreshExpirationDays);
 
         // Create session

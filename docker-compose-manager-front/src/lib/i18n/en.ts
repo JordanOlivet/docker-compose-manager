@@ -57,6 +57,7 @@ export default {
     onResource: 'on {type}',
     selectAll: 'Select All',
     deselectAll: 'Deselect All',
+    days: 'days',
   },
 
   navigation: {
@@ -111,6 +112,7 @@ export default {
     passwordTooShort: 'Password must be at least 6 characters',
     changePasswordSubtitle: 'Please enter your current password and choose a new one',
     defaultCredentials: 'Default credentials:',
+    rememberMe: 'Remember me',
   },
   
   dashboard: {
