@@ -1,3 +1,13 @@
+## Changes in v1.3.3
+
+**Merged Pull Requests:**
+- Add remerber me checkbox, add consistency to auth token (#65)
+
+**Commits:**
+- Add remerber me checkbox, add consistency to auth token (#65) (5aa066e)
+- docs: update CHANGELOG for v1.3.2 [skip ci] (c86eceb)
+- chore: bump version to v1.3.2 [skip ci] (ded66b8)
+
 ## Changes in v1.3.2
 
 **Merged Pull Requests:**
