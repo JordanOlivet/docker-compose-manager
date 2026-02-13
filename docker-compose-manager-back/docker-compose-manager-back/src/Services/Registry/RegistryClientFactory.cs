@@ -23,13 +23,16 @@ public interface IRegistryClientFactory
 public class RegistryClientFactory : IRegistryClientFactory
 {
     private readonly IEnumerable<IRegistryClient> _clients;
+    private readonly IImageReferenceParser _imageParser;
     private readonly ILogger<RegistryClientFactory> _logger;
 
     public RegistryClientFactory(
         IEnumerable<IRegistryClient> clients,
+        IImageReferenceParser imageParser,
         ILogger<RegistryClientFactory> logger)
     {
         _clients = clients;
+        _imageParser = imageParser;
         _logger = logger;
     }
 
@@ -51,66 +54,6 @@ public class RegistryClientFactory : IRegistryClientFactory
 
     public ImageReference ParseImageReference(string image)
     {
-        // Handle pinned digests (image@sha256:...)
-        string? digest = null;
-        string imageWithoutDigest = image;
-
-        int atIndex = image.IndexOf('@');
-        if (atIndex > 0)
-        {
-            digest = image.Substring(atIndex + 1);
-            imageWithoutDigest = image.Substring(0, atIndex);
-        }
-
-        // Parse registry, repository, and tag
-        string registry;
-        string repository;
-        string tag;
-
-        // Extract tag
-        int colonIndex = imageWithoutDigest.LastIndexOf(':');
-        if (colonIndex > 0 && !imageWithoutDigest.Substring(colonIndex).Contains('/'))
-        {
-            tag = imageWithoutDigest.Substring(colonIndex + 1);
-            imageWithoutDigest = imageWithoutDigest.Substring(0, colonIndex);
-        }
-        else
-        {
-            tag = "latest";
-        }
-
-        // Extract registry and repository
-        int slashIndex = imageWithoutDigest.IndexOf('/');
-        if (slashIndex > 0)
-        {
-            string firstPart = imageWithoutDigest.Substring(0, slashIndex);
-
-            // Check if first part looks like a registry (contains . or : or is localhost)
-            if (firstPart.Contains('.') || firstPart.Contains(':') || firstPart == "localhost")
-            {
-                registry = firstPart;
-                repository = imageWithoutDigest.Substring(slashIndex + 1);
-            }
-            else
-            {
-                // Docker Hub with username
-                registry = "docker.io";
-                repository = imageWithoutDigest;
-            }
-        }
-        else
-        {
-            // Official Docker Hub image (e.g., "nginx")
-            registry = "docker.io";
-            repository = "library/" + imageWithoutDigest;
-        }
-
-        return new ImageReference(
-            Registry: registry,
-            Repository: repository,
-            Tag: tag,
-            Digest: digest,
-            FullName: image
-        );
+        return _imageParser.ParseImageReference(image);
     }
 }
