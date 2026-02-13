@@ -16,15 +16,18 @@ public class SystemController : BaseController
     private readonly ILogger<SystemController> _logger;
     private readonly ISelfUpdateService _selfUpdateService;
     private readonly IAuditService _auditService;
+    private readonly IVersionDetectionService _versionDetectionService;
 
     public SystemController(
         ILogger<SystemController> logger,
         ISelfUpdateService selfUpdateService,
-        IAuditService auditService)
+        IAuditService auditService,
+        IVersionDetectionService versionDetectionService)
     {
         _logger = logger;
         _selfUpdateService = selfUpdateService;
         _auditService = auditService;
+        _versionDetectionService = versionDetectionService;
     }
 
     /// <summary>
@@ -33,11 +36,12 @@ public class SystemController : BaseController
     /// <returns>Version information including app version, build date, and git commit</returns>
     [HttpGet("version")]
     [ProducesResponseType(typeof(ApiResponse<VersionInfo>), StatusCodes.Status200OK)]
-    public ActionResult<ApiResponse<VersionInfo>> GetVersion()
+    public async Task<ActionResult<ApiResponse<VersionInfo>>> GetVersion()
     {
         try
         {
-            string version = GetCurrentVersion();
+            // Use async version detection (includes Docker tag)
+            string version = await _versionDetectionService.GetCurrentVersionAsync();
 
             VersionInfo versionInfo = new VersionInfo
             {
@@ -54,34 +58,6 @@ public class SystemController : BaseController
             _logger.LogError(ex, "Error retrieving version information");
             return StatusCode(500, ApiResponse.Fail<VersionInfo>("Failed to retrieve version information"));
         }
-    }
-
-    /// <summary>
-    /// Gets the current application version from VERSION file, environment variable, or assembly.
-    /// Same logic as GitHubReleaseService.GetCurrentVersion() for consistency.
-    /// </summary>
-    private static string GetCurrentVersion()
-    {
-        // Try to read from VERSION file first (preferred)
-        string versionFile = Path.Combine(AppContext.BaseDirectory, "VERSION");
-        if (System.IO.File.Exists(versionFile))
-        {
-            string version = System.IO.File.ReadAllText(versionFile).Trim();
-            if (!string.IsNullOrEmpty(version))
-            {
-                return version.TrimStart('v', 'V');
-            }
-        }
-
-        // Fallback to APP_VERSION environment variable
-        string? envVersion = Environment.GetEnvironmentVariable("APP_VERSION");
-        if (!string.IsNullOrEmpty(envVersion))
-        {
-            return envVersion.TrimStart('v', 'V');
-        }
-
-        // Last fallback to assembly version
-        return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
     }
 
     /// <summary>

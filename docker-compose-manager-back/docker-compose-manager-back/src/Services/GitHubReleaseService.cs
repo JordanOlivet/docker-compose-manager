@@ -21,6 +21,7 @@ public partial class GitHubReleaseService : IGitHubReleaseService
     private readonly HttpClient _httpClient;
     private readonly SelfUpdateOptions _options;
     private readonly IImageDigestService _imageDigestService;
+    private readonly IVersionDetectionService _versionDetectionService;
     private readonly ILogger<GitHubReleaseService> _logger;
 
     private List<GitHubRelease>? _cachedReleases;
@@ -31,18 +32,23 @@ public partial class GitHubReleaseService : IGitHubReleaseService
         HttpClient httpClient,
         IOptions<SelfUpdateOptions> options,
         IImageDigestService imageDigestService,
+        IVersionDetectionService versionDetectionService,
         ILogger<GitHubReleaseService> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _imageDigestService = imageDigestService;
+        _versionDetectionService = versionDetectionService;
         _logger = logger;
 
         // Configure HttpClient for GitHub API
         _httpClient.BaseAddress = new Uri(_options.GitHubApiBaseUrl);
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("docker-compose-manager", GetCurrentVersion()));
+
+        // Use sync version for UserAgent header (avoid async in constructor)
+        string version = _versionDetectionService.GetCurrentVersionSync();
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("docker-compose-manager", version));
 
         if (!string.IsNullOrEmpty(_options.GitHubAccessToken))
         {
@@ -54,7 +60,8 @@ public partial class GitHubReleaseService : IGitHubReleaseService
     {
         try
         {
-            string currentVersion = GetCurrentVersion();
+            // Use async version detection (includes Docker tag)
+            string currentVersion = await _versionDetectionService.GetCurrentVersionAsync();
 
             // Check if this is a dev version (e.g., "1.2.6-Test-dev-fix")
             if (IsDevVersion(currentVersion))
@@ -379,30 +386,6 @@ public partial class GitHubReleaseService : IGitHubReleaseService
         return combined.Contains("security") ||
                combined.Contains("vulnerability") ||
                combined.Contains("cve-");
-    }
-
-    private static string GetCurrentVersion()
-    {
-        // Try to read from VERSION file first (preferred)
-        string versionFile = Path.Combine(AppContext.BaseDirectory, "VERSION");
-        if (File.Exists(versionFile))
-        {
-            string version = File.ReadAllText(versionFile).Trim();
-            if (!string.IsNullOrEmpty(version))
-            {
-                return NormalizeVersion(version);
-            }
-        }
-
-        // Fallback to environment variable
-        string? envVersion = Environment.GetEnvironmentVariable("APP_VERSION");
-        if (!string.IsNullOrEmpty(envVersion))
-        {
-            return NormalizeVersion(envVersion);
-        }
-
-        // Last fallback to assembly version
-        return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
     }
 
     private static string NormalizeVersion(string version)
