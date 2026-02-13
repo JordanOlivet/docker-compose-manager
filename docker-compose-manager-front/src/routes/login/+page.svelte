@@ -14,6 +14,7 @@
 
   let username = $state('');
   let password = $state('');
+  let rememberMe = $state(false);
   let error = $state('');
   let loading = $state(false);
 
@@ -23,7 +24,7 @@
     loading = true;
 
     try {
-      const response = await authApi.login({ username, password });
+      const response = await authApi.login({ username, password, rememberMe });
 
       // Store tokens
       if (typeof localStorage !== 'undefined') {
@@ -92,7 +93,7 @@
           />
         </div>
 
-        <div class="mb-6">
+        <div class="mb-4">
           <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             {$t('auth.password')}
           </label>
@@ -102,6 +103,20 @@
             required
             autocomplete="current-password"
           />
+        </div>
+
+        <div class="mb-6">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              bind:checked={rememberMe}
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">
+              {$t('auth.rememberMe')}
+              <span class="text-gray-500 dark:text-gray-400">(30 {$t('common.days')})</span>
+            </span>
+          </label>
         </div>
 
         <Button type="submit" disabled={loading} class="w-full">

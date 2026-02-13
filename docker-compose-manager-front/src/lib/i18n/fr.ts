@@ -57,6 +57,7 @@ const fr = {
     onResource: 'sur {type}',
     selectAll: 'Tout sélectionner',
     deselectAll: 'Tout désélectionner',
+    days: 'jours',
   },
 
   navigation: {
@@ -111,6 +112,7 @@ const fr = {
     passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères',
     changePasswordSubtitle: 'Veuillez entrer votre mot de passe actuel et choisir un nouveau',
     defaultCredentials: 'Identifiants par défaut :',
+    rememberMe: 'Se souvenir de moi',
   },
   
   dashboard: {

@@ -58,7 +58,8 @@ let isInitializing = false;
 let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let lastEventTime = 0;
 
-const HEARTBEAT_TIMEOUT_MS = 300_000; // Consider disconnected if no event in 5 minutes
+const HEARTBEAT_TIMEOUT_MS = 900_000; // Consider disconnected if no event in 15 minutes
+const MAX_RECONNECT_ATTEMPTS = 10; // Max consecutive reconnection attempts before giving up
 
 const getApiUrl = () => {
   if (!browser) return '';
@@ -147,7 +148,7 @@ function resetHeartbeatTimer() {
 
   heartbeatTimer = setTimeout(() => {
     if (sseState.connectionStatus === 'connected') {
-      logger.warn('[SSE Store] No events received for 5 minutes, reconnecting...');
+      logger.warn('[SSE Store] No events received for 15 minutes, reconnecting...');
       reconnect();
     }
   }, HEARTBEAT_TIMEOUT_MS);
@@ -162,6 +163,15 @@ function reconnect() {
   isInitializing = false;
   sseState.connectionStatus = 'reconnecting';
   sseState.reconnectAttempt += 1;
+
+  // If too many consecutive failures, stop trying and log warning
+  // Don't log out the user - SSE is optional for real-time updates
+  if (sseState.reconnectAttempt > MAX_RECONNECT_ATTEMPTS) {
+    logger.warn(`[SSE Store] Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping automatic reconnection. SSE updates are disabled but user remains logged in.`);
+    sseState.connectionStatus = 'disconnected';
+    sseState.error = 'Max reconnection attempts reached';
+    return;
+  }
 
   // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
   const delay = Math.min(1000 * Math.pow(2, sseState.reconnectAttempt - 1), 30000);

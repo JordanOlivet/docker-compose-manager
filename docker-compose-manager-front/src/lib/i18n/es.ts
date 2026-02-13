@@ -57,6 +57,7 @@ const es = {
     onResource: 'en {type}',
     selectAll: 'Seleccionar todo',
     deselectAll: 'Deseleccionar todo',
+    days: 'días',
   },
 
   navigation: {
@@ -111,6 +112,7 @@ const es = {
     passwordTooShort: 'La contraseña debe tener al menos 6 caracteres',
     changePasswordSubtitle: 'Por favor ingrese su contraseña actual y elija una nueva',
     defaultCredentials: 'Credenciales predeterminadas:',
+    rememberMe: 'Recordarme',
   },
   
   dashboard: {
