@@ -22,6 +22,7 @@
 	import StatsCard from '$lib/components/stats/StatsCard.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
 	import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
+	import ActionButton from '$lib/components/common/ActionButton.svelte';
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
@@ -250,18 +251,14 @@
 						<!-- Check Updates Button (admin only, when compose file exists) -->
 						{#if isAdmin.current && project.hasComposeFile}
 							<div class="relative">
-								<button
-									onclick={handleCheckUpdates}
-									disabled={checkingUpdates}
-									class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+								<ActionButton
+									icon={checkingUpdates ? Loader2 : Download}
+									variant="update"
 									title={$t('update.checkUpdates')}
-								>
-									{#if checkingUpdates}
-										<Loader2 class="w-4 h-4 animate-spin" />
-									{:else}
-										<Download class="w-4 h-4" />
-									{/if}
-								</button>
+									disabled={checkingUpdates}
+									class={checkingUpdates ? 'animate-spin' : ''}
+									onclick={handleCheckUpdates}
+								/>
 								{#if projectHasUpdates(projectName)}
 									<span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
 								{/if}
@@ -270,20 +267,18 @@
 
 						<!-- UP: For "Not Started" projects with compose file -->
 						{#if project.state === EntityState.NotStarted && project.availableActions?.up}
-							<button
-								onclick={() => upMutation.mutate({ detach: true })}
-								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+							<ActionButton
+								icon={Play}
+								variant="play"
 								title={$t('compose.up')}
-							>
-								<Play class="w-4 h-4" />
-							</button>
-							<button
-								onclick={() => upMutation.mutate({ detach: true, forceRecreate: true })}
-								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+								onclick={() => upMutation.mutate({ detach: true })}
+							/>
+							<ActionButton
+								icon={Zap}
+								variant="force"
 								title={$t('compose.forceRecreate')}
-							>
-								<Zap class="w-4 h-4" />
-							</button>
+								onclick={() => upMutation.mutate({ detach: true, forceRecreate: true })}
+							/>
 
 						<!-- START: For stopped containers (Stopped, Exited, Down, Created) -->
 						{:else if (project.state === EntityState.Stopped ||
@@ -291,42 +286,38 @@
 						           project.state === EntityState.Down ||
 						           project.state === EntityState.Created) &&
 						          project.availableActions?.start}
-							<button
-								onclick={() => startMutation.mutate()}
-								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+							<ActionButton
+								icon={Play}
+								variant="play"
 								title={$t('containers.start')}
-							>
-								<Play class="w-4 h-4" />
-							</button>
+								onclick={() => startMutation.mutate()}
+							/>
 						{/if}
 
 						<!-- RESTART & STOP: For running projects -->
 						{#if project.state === EntityState.Running || project.state === EntityState.Degraded}
-							<button
-								onclick={() => restartMutation.mutate()}
-								class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+							<ActionButton
+								icon={RotateCw}
+								variant="restart"
 								title={$t('compose.restart')}
-							>
-								<RotateCw class="w-4 h-4" />
-							</button>
-							<button
-								onclick={() => stopMutation.mutate()}
-								class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
+								onclick={() => restartMutation.mutate()}
+							/>
+							<ActionButton
+								icon={Square}
+								variant="stop"
 								title={$t('compose.stop')}
-							>
-								<Square class="w-4 h-4" />
-							</button>
+								onclick={() => stopMutation.mutate()}
+							/>
 						{/if}
 
 						<!-- DOWN: To remove (if containers exist) -->
 						{#if project.state !== EntityState.NotStarted && project.availableActions?.down}
-							<button
-								onclick={() => handleRemoveComposeProject(project.state)}
-								class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+							<ActionButton
+								icon={Trash2}
+								variant="remove"
 								title={$t('common.delete')}
-							>
-								<Trash2 class="w-4 h-4" />
-							</button>
+								onclick={() => handleRemoveComposeProject(project.state)}
+							/>
 						{/if}
 					</div>
 				</div>
@@ -403,36 +394,32 @@
 									<td class="px-8 py-5 whitespace-nowrap text-sm">
 										<div class="flex items-center gap-3">
 											{#if service.state === 'Running'}
-												<button
-													onclick={() => restartContainerMutation.mutate(service.id)}
-													class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+												<ActionButton
+													icon={RotateCw}
+													variant="restart"
 													title={$t('containers.restart')}
-												>
-													<RotateCw class="w-4 h-4" />
-												</button>
-												<button
-													onclick={() => stopContainerMutation.mutate(service.id)}
-													class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
+													onclick={() => restartContainerMutation.mutate(service.id)}
+												/>
+												<ActionButton
+													icon={Square}
+													variant="stop"
 													title={$t('containers.stop')}
-												>
-													<Square class="w-4 h-4" />
-												</button>
+													onclick={() => stopContainerMutation.mutate(service.id)}
+												/>
 											{:else}
-												<button
-													onclick={() => startContainerMutation.mutate(service.id)}
-													class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+												<ActionButton
+													icon={Play}
+													variant="play"
 													title={$t('containers.start')}
-												>
-													<Play class="w-4 h-4" />
-												</button>
+													onclick={() => startContainerMutation.mutate(service.id)}
+												/>
 											{/if}
-											<button
-												onclick={() => handleRemoveContainer(service)}
-												class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+											<ActionButton
+												icon={Trash2}
+												variant="remove"
 												title={$t('containers.remove')}
-											>
-												<Trash2 class="w-4 h-4" />
-											</button>
+												onclick={() => handleRemoveContainer(service)}
+											/>
 										</div>
 									</td>
 								</tr>
