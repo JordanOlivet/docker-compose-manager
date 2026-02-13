@@ -7,6 +7,7 @@
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import ContainerUpdateDialog from '$lib/components/update/ContainerUpdateDialog.svelte';
   import BulkContainerUpdateDialog from '$lib/components/update/BulkContainerUpdateDialog.svelte';
+  import ActionButton from '$lib/components/common/ActionButton.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
@@ -370,58 +371,50 @@
                     <div class="flex items-center gap-1">
                       {#if isAdmin.current}
                         <div class="relative">
-                          <button
-                            onclick={() => handleCheckUpdate(container.id)}
-                            disabled={checkingUpdateFor === container.id}
-                            class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          <ActionButton
+                            icon={checkingUpdateFor === container.id ? Loader2 : Download}
+                            variant="update"
                             title={$t('update.checkUpdates')}
-                          >
-                            {#if checkingUpdateFor === container.id}
-                              <Loader2 class="w-3 h-3 animate-spin" />
-                            {:else}
-                              <Download class="w-3 h-3" />
-                            {/if}
-                          </button>
+                            disabled={checkingUpdateFor === container.id}
+                            class={checkingUpdateFor === container.id ? 'animate-spin' : ''}
+                            onclick={() => handleCheckUpdate(container.id)}
+                          />
                           {#if containerHasUpdate(container.id)}
                             <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
                           {/if}
                         </div>
                       {/if}
                       {#if isRunning}
-                        <button
-                          onclick={() => restartMutation.mutate(container.id)}
-                          class="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer text-xs"
+                        <ActionButton
+                          icon={RotateCw}
+                          variant="restart"
                           title={$t('containers.restart')}
                           disabled={restartMutation.isPending}
-                        >
-                          <RotateCw class="w-3 h-3" />
-                        </button>
-                        <button
-                          onclick={() => stopMutation.mutate(container.id)}
-                          class="p-1 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer text-xs"
+                          onclick={() => restartMutation.mutate(container.id)}
+                        />
+                        <ActionButton
+                          icon={Square}
+                          variant="stop"
                           title={$t('containers.stop')}
                           disabled={stopMutation.isPending}
-                        >
-                          <Square class="w-3 h-3" />
-                        </button>
+                          onclick={() => stopMutation.mutate(container.id)}
+                        />
                       {:else}
-                        <button
-                          onclick={() => startMutation.mutate(container.id)}
-                          class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer text-xs"
+                        <ActionButton
+                          icon={Play}
+                          variant="play"
                           title={$t('containers.start')}
                           disabled={startMutation.isPending}
-                        >
-                          <Play class="w-3 h-3" />
-                        </button>
+                          onclick={() => startMutation.mutate(container.id)}
+                        />
                       {/if}
-                      <button
-                        onclick={() => confirmDialog = { open: true, containerId: container.id, containerName: container.name, isRunning }}
-                        class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer text-xs"
+                      <ActionButton
+                        icon={Trash2}
+                        variant="remove"
                         title={$t('containers.remove')}
                         disabled={removeMutation.isPending}
-                      >
-                        <Trash2 class="w-3 h-3" />
-                      </button>
+                        onclick={() => confirmDialog = { open: true, containerId: container.id, containerName: container.name, isRunning }}
+                      />
                     </div>
                   </td>
                 </tr>

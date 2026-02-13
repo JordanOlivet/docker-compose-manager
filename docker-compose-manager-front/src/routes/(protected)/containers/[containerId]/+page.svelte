@@ -15,6 +15,7 @@
 	import StatsCard from '$lib/components/stats/StatsCard.svelte';
 	import ContainerInfoSection from '$lib/components/compose/ContainerInfoSection.svelte';
 	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
+	import ActionButton from '$lib/components/common/ActionButton.svelte';
 	import { t } from '$lib/i18n';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -154,40 +155,36 @@
 					</div>
 					<div class="flex gap-2 shrink-0">
 						{#if isRunning}
-							<button
-								onclick={() => restartMutation.mutate()}
-								class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors cursor-pointer"
+							<ActionButton
+								icon={RotateCw}
+								variant="restart"
 								title={$t('containers.restart')}
 								disabled={restartMutation.isPending}
-							>
-								<RotateCw class="w-4 h-4" />
-							</button>
-							<button
-								onclick={() => stopMutation.mutate()}
-								class="p-1.5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors cursor-pointer"
+								onclick={() => restartMutation.mutate()}
+							/>
+							<ActionButton
+								icon={Square}
+								variant="stop"
 								title={$t('containers.stop')}
 								disabled={stopMutation.isPending}
-							>
-								<Square class="w-4 h-4" />
-							</button>
+								onclick={() => stopMutation.mutate()}
+							/>
 						{:else}
-							<button
-								onclick={() => startMutation.mutate()}
-								class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors cursor-pointer"
+							<ActionButton
+								icon={Play}
+								variant="play"
 								title={$t('containers.start')}
 								disabled={startMutation.isPending}
-							>
-								<Play class="w-4 h-4" />
-							</button>
+								onclick={() => startMutation.mutate()}
+							/>
 						{/if}
-						<button
-							onclick={handleRemove}
-							class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors cursor-pointer"
+						<ActionButton
+							icon={Trash2}
+							variant="remove"
 							title={$t('containers.remove')}
 							disabled={removeMutation.isPending}
-						>
-							<Trash2 class="w-4 h-4" />
-						</button>
+							onclick={handleRemove}
+						/>
 					</div>
 				</div>
 
