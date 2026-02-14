@@ -119,7 +119,7 @@
           </label>
         </div>
 
-        <Button type="submit" disabled={loading} class="w-full">
+        <Button type="submit" disabled={loading} class="w-full cursor-pointer">
           {#if loading}
             <span class="flex items-center justify-center gap-2">
               <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
