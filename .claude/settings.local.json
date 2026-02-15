@@ -63,7 +63,8 @@
       "Bash(dotnet run:*)",
       "Bash(powershell -Command \"Get-ChildItem -Recurse -Path ''$env:USERPROFILE\\\\.nuget\\\\packages\\\\docker.dotnet'' -Filter ''Message.cs'' | Select-Object -First 1 -ExpandProperty FullName\")",
       "Bash(powershell:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(npx svelte-check:*)"
     ],
     "deny": [],
     "ask": []

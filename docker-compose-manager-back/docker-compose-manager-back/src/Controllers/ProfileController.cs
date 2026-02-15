@@ -144,12 +144,7 @@ public class ProfileController : BaseController
             string ipAddress = GetUserIpAddress();
             string userAgent = HttpContext.Request.Headers["User-Agent"].ToString() ?? "unknown";
 
-            // Validate password complexity
-            var validationResult = ValidatePasswordComplexity(request.NewPassword);
-            if (!validationResult.IsValid)
-            {
-                return BadRequest(ApiResponse.Fail<LoginResponse>(validationResult.ErrorMessage!));
-            }
+            // Password complexity is validated by ChangePasswordRequestValidator (FluentValidation)
 
             var (success, accessToken, refreshToken) = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ipAddress, userAgent);
 
@@ -198,63 +193,4 @@ public class ProfileController : BaseController
         }
     }
 
-    #region Helper Methods
-
-    private (bool IsValid, string? ErrorMessage) ValidatePasswordComplexity(string password)
-    {
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            return (false, "Password cannot be empty");
-        }
-
-        if (password.Length < 8)
-        {
-            return (false, "Password must be at least 8 characters long");
-        }
-
-        if (password.Length > 128)
-        {
-            return (false, "Password cannot exceed 128 characters");
-        }
-
-        bool hasUpperCase = password.Any(char.IsUpper);
-        bool hasLowerCase = password.Any(char.IsLower);
-        bool hasDigit = password.Any(char.IsDigit);
-        bool hasSpecialChar = password.Any(ch => !char.IsLetterOrDigit(ch));
-
-        if (!hasUpperCase)
-        {
-            return (false, "Password must contain at least one uppercase letter");
-        }
-
-        if (!hasLowerCase)
-        {
-            return (false, "Password must contain at least one lowercase letter");
-        }
-
-        if (!hasDigit)
-        {
-            return (false, "Password must contain at least one digit");
-        }
-
-        if (!hasSpecialChar)
-        {
-            return (false, "Password must contain at least one special character");
-        }
-
-        // Check for common weak patterns
-        string[] weakPatterns = { "12345", "password", "qwerty", "abc123", "admin" };
-        string lowerPassword = password.ToLower();
-        foreach (string pattern in weakPatterns)
-        {
-            if (lowerPassword.Contains(pattern))
-            {
-                return (false, $"Password contains a common weak pattern: {pattern}");
-            }
-        }
-
-        return (true, null);
-    }
-
-    #endregion
 }

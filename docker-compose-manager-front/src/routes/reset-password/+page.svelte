@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import Input from '$lib/components/ui/input.svelte';
 	import Button from '$lib/components/ui/button.svelte';
 	import Card from '$lib/components/ui/card.svelte';
 	import CardHeader from '$lib/components/ui/card-header.svelte';
@@ -11,6 +10,8 @@
 	import CardContent from '$lib/components/ui/card-content.svelte';
 	import PasswordInput from '$lib/components/common/PasswordInput.svelte';
 	import { Lock, AlertCircle, Loader2 } from 'lucide-svelte';
+	import { t } from '$lib/i18n';
+	import { validatePassword, type PasswordValidationError } from '$lib/utils/passwordValidation';
 
 	let token = $state('');
 	let newPassword = $state('');
@@ -19,7 +20,7 @@
 	let isTokenValid = $state(false);
 	let isSubmitting = $state(false);
 	let errorMessage = $state('');
-	let validationErrors = $state<string[]>([]);
+	let validationErrors = $state<PasswordValidationError[]>([]);
 
 	onMount(async () => {
 		const urlToken = $page.url.searchParams.get('token');
@@ -48,12 +49,13 @@
 	function validateForm(): boolean {
 		validationErrors = [];
 
-		if (newPassword.length < 8) {
-			validationErrors.push('Password must be at least 8 characters');
+		const validation = validatePassword(newPassword);
+		if (!validation.isValid) {
+			validationErrors = [...validation.errors];
 		}
 
 		if (newPassword !== confirmPassword) {
-			validationErrors.push('Passwords do not match');
+			validationErrors.push({ key: 'auth.passwordMismatch' });
 		}
 
 		return validationErrors.length === 0;
@@ -128,10 +130,10 @@
 						<div class="flex items-start gap-2">
 							<AlertCircle class="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
 							<div>
-								<h3 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">Please fix the following:</h3>
+								<h3 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{$t('auth.passwordRequirements')}:</h3>
 								<ul class="mt-2 list-disc pl-5 text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
-									{#each validationErrors as error}
-										<li>{error}</li>
+									{#each validationErrors as err}
+										<li>{$t(err.key, err.params)}</li>
 									{/each}
 								</ul>
 							</div>
