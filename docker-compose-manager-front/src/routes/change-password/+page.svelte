@@ -34,14 +34,20 @@
 
     loading = true;
     try {
-      await authApi.changePassword(currentPassword, newPassword);
+      const response = await authApi.changePassword(currentPassword, newPassword);
       toast.success($t('auth.passwordChanged'));
 
-      // Update auth store
-      const currentUser = auth.auth.user;
-      if (currentUser) {
-        auth.updateUser({ ...currentUser, mustChangePassword: false });
+      // Update tokens in localStorage
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('accessToken', response.accessToken);
+        localStorage.setItem('refreshToken', response.refreshToken);
       }
+
+      // Fetch updated user data
+      const user = await authApi.getCurrentUser();
+
+      // Update auth store with new tokens and user data
+      auth.login(response.accessToken, response.refreshToken, user);
 
       goto('/dashboard');
     } catch (err: any) {

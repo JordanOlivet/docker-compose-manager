@@ -145,6 +145,47 @@ builder.Services.Configure<PasswordHashingOptions>(
     builder.Configuration.GetSection(PasswordHashingOptions.SectionName));
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
+// Configure Email and Password Reset options
+builder.Services.Configure<docker_compose_manager_back.Configuration.EmailOptions>(
+    builder.Configuration.GetSection(docker_compose_manager_back.Configuration.EmailOptions.SectionName));
+builder.Services.Configure<docker_compose_manager_back.Configuration.PasswordResetOptions>(
+    builder.Configuration.GetSection(docker_compose_manager_back.Configuration.PasswordResetOptions.SectionName));
+
+// Decrypt embedded Resend API key if present (injected at Docker build time)
+string? encryptedResendKey = builder.Configuration["Email:Resend:EncryptedApiKey"];
+if (!string.IsNullOrEmpty(encryptedResendKey))
+{
+    string? decryptedKey = docker_compose_manager_back.Security.ApiKeyProtector.Decrypt(encryptedResendKey);
+    if (!string.IsNullOrEmpty(decryptedKey))
+    {
+        builder.Configuration["Email:Resend:ApiKey"] = decryptedKey;
+        Log.Information("Resend API key decrypted successfully from embedded configuration");
+    }
+    else
+    {
+        Log.Warning("Failed to decrypt embedded Resend API key");
+    }
+}
+
+// Register email service (based on configuration provider)
+// Falls back to Mock if Resend is configured but API key is missing
+string emailProvider = builder.Configuration["Email:Provider"] ?? "Mock";
+string? resendApiKey = builder.Configuration["Email:Resend:ApiKey"];
+if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(resendApiKey))
+{
+    builder.Services.AddScoped<docker_compose_manager_back.Services.Email.IEmailService, docker_compose_manager_back.Services.Email.ResendEmailService>();
+    Log.Information("Email service configured: Resend");
+}
+else
+{
+    if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+    {
+        Log.Warning("Resend provider configured but API key is missing. Falling back to Mock email service");
+    }
+    builder.Services.AddScoped<docker_compose_manager_back.Services.Email.IEmailService, docker_compose_manager_back.Services.Email.MockEmailService>();
+    Log.Information("Email service configured: Mock (development mode)");
+}
+
 // Add Memory Cache (required for ComposeDiscoveryService)
 builder.Services.AddMemoryCache();
 
@@ -165,6 +206,7 @@ builder.Services.Configure<UpdateCheckOptions>(
 // Register application services
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<ComposeService>();
@@ -219,13 +261,14 @@ builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
+builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.TokenCleanupBackgroundService>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // Add Rate Limiting
-//builder.Services.ConfigureRateLimiting();
+builder.Services.ConfigureRateLimiting();
 
 // Add Request Timeouts (required for UseRequestTimeouts middleware)
 builder.Services.AddRequestTimeouts();
@@ -339,7 +382,7 @@ app.UseSecurityHeaders();
 app.UseRequestTimeouts();
 
 // Add Rate Limiting
-//app.UseRateLimiter();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

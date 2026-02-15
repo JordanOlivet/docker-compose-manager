@@ -19,8 +19,8 @@ public class UsersControllerTests
 
         var users = new List<UserDto>
         {
-            new UserDto(1, "admin", "admin", true, false, DateTime.UtcNow, null),
-            new UserDto(2, "user1", "user", true, false, DateTime.UtcNow, null)
+            new UserDto(1, "admin", null, "admin", true, false, false, DateTime.UtcNow, null),
+            new UserDto(2, "user1", null, "user", true, false, false, DateTime.UtcNow, null)
         };
 
         var paginatedResponse = new PaginatedResponse<UserDto>(
@@ -78,7 +78,7 @@ public class UsersControllerTests
         var mockUserService = new Mock<IUserService>();
         var mockLogger = new Mock<ILogger<UsersController>>();
 
-        var createdUser = new UserDto(1, "newuser", "user", true, true, DateTime.UtcNow, null);
+        var createdUser = new UserDto(1, "newuser", null, "user", true, true, false, DateTime.UtcNow, null);
         mockUserService.Setup(s => s.CreateUserAsync(It.IsAny<CreateUserRequest>()))
             .ReturnsAsync(createdUser);
 
@@ -158,7 +158,7 @@ public class UsersControllerTests
         var mockUserService = new Mock<IUserService>();
         var mockLogger = new Mock<ILogger<UsersController>>();
 
-        var enabledUser = new UserDto(1, "testuser", "user", true, false, DateTime.UtcNow, null);
+        var enabledUser = new UserDto(1, "testuser", null, "user", true, false, false, DateTime.UtcNow, null);
         mockUserService.Setup(s => s.EnableUserAsync(It.IsAny<int>())).ReturnsAsync(enabledUser);
 
         var controller = new UsersController(mockUserService.Object, mockLogger.Object);

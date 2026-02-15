@@ -62,7 +62,8 @@
       "Bash(then mv Dockerfile.original docker-compose-manager-back/)",
       "Bash(dotnet run:*)",
       "Bash(powershell -Command \"Get-ChildItem -Recurse -Path ''$env:USERPROFILE\\\\.nuget\\\\packages\\\\docker.dotnet'' -Filter ''Message.cs'' | Select-Object -First 1 -ExpandProperty FullName\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

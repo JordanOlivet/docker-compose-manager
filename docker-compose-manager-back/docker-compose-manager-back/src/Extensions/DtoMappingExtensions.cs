@@ -16,9 +16,11 @@ public static class DtoMappingExtensions
         return new UserDto(
             user.Id,
             user.Username,
+            user.Email,
             user.Role?.Name ?? "user",
             user.IsEnabled,
             user.MustChangePassword,
+            user.MustAddEmail,
             user.CreatedAt,
             user.LastLoginAt
         );

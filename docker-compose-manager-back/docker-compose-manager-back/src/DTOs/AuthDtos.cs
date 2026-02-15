@@ -7,19 +7,28 @@ public record LoginResponse(
     string RefreshToken,
     string Username,
     string Role,
-    bool MustChangePassword
+    bool MustChangePassword,
+    bool MustAddEmail
 );
 
 public record RefreshTokenRequest(string RefreshToken);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
+public record ForgotPasswordRequest(string UsernameOrEmail);
+
+public record ResetPasswordRequest(string Token, string NewPassword);
+
+public record AddEmailRequest(string Email);
+
 public record UserDto(
     int Id,
     string Username,
+    string? Email,
     string Role,
     bool IsEnabled,
     bool MustChangePassword,
+    bool MustAddEmail,
     DateTime CreatedAt,
     DateTime? LastLoginAt
 );
@@ -33,8 +42,10 @@ public record CreateUserRequest(
 
 public record UpdateUserRequest(
     string? Username = null,
+    string? Email = null,
     string? Role = null,
     bool? IsEnabled = null,
+    bool? MustAddEmail = null,
     string? NewPassword = null,
     List<ResourcePermissionInput>? Permissions = null
 );

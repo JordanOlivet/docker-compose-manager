@@ -1,3 +1,13 @@
+## Changes in v1.4.0
+
+**Merged Pull Requests:**
+- Add forgot password mecanism (#68)
+
+**Commits:**
+- Add forgot password mecanism (#68) (b8ddef6)
+- docs: update CHANGELOG for v1.3.3 [skip ci] (38aa407)
+- chore: bump version to v1.3.3 [skip ci] (309278e)
+
 ## Changes in v1.3.3
 
 **Merged Pull Requests:**

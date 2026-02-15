@@ -328,9 +328,11 @@ public class UserGroupsController : BaseController
             .Select(m => new UserDto(
                 m.User!.Id,
                 m.User.Username,
+                m.User.Email,
                 m.User.Role!.Name,
                 m.User.IsEnabled,
                 m.User.MustChangePassword,
+                m.User.MustAddEmail,
                 m.User.CreatedAt,
                 m.User.LastLoginAt
             ))

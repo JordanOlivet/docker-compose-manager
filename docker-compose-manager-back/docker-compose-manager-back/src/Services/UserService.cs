@@ -249,6 +249,25 @@ public class UserService : IUserService
             user.RoleId = newRole.Id;
         }
 
+        // Update email if provided
+        if (request.Email != null && request.Email != user.Email)
+        {
+            // Check if email is already in use by another user
+            var existingEmail = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email && u.Id != id);
+            if (existingEmail != null)
+                throw new InvalidOperationException($"Email '{request.Email}' is already in use");
+
+            changes.Add($"Email changed from '{user.Email ?? "none"}' to '{request.Email}'");
+            user.Email = request.Email;
+        }
+
+        // Update mustAddEmail flag if provided
+        if (request.MustAddEmail.HasValue && request.MustAddEmail.Value != user.MustAddEmail)
+        {
+            changes.Add($"MustAddEmail changed from {user.MustAddEmail} to {request.MustAddEmail.Value}");
+            user.MustAddEmail = request.MustAddEmail.Value;
+        }
+
         // Update enabled status if provided
         if (request.IsEnabled.HasValue && request.IsEnabled.Value != user.IsEnabled)
         {
@@ -400,9 +419,11 @@ public class UserService : IUserService
         return new UserDto(
             user.Id,
             user.Username,
+            user.Email,
             user.Role?.Name ?? "user",
             user.IsEnabled,
             user.MustChangePassword,
+            user.MustAddEmail,
             user.CreatedAt,
             user.LastLoginAt
         );

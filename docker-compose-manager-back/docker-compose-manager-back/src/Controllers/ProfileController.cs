@@ -133,24 +133,25 @@ public class ProfileController : BaseController
     /// <response code="400">Invalid password or validation error</response>
     /// <response code="401">Unauthorized</response>
     [HttpPut("password")]
-    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<ApiResponse<bool>>> ChangePassword([FromBody] ChangePasswordRequest request)
+    public async Task<ActionResult<ApiResponse<LoginResponse>>> ChangePassword([FromBody] ChangePasswordRequest request)
     {
         try
         {
             int userId = GetCurrentUserIdRequired();
             string ipAddress = GetUserIpAddress();
+            string userAgent = HttpContext.Request.Headers["User-Agent"].ToString() ?? "unknown";
 
             // Validate password complexity
             var validationResult = ValidatePasswordComplexity(request.NewPassword);
             if (!validationResult.IsValid)
             {
-                return BadRequest(ApiResponse.Fail<bool>(validationResult.ErrorMessage!));
+                return BadRequest(ApiResponse.Fail<LoginResponse>(validationResult.ErrorMessage!));
             }
 
-            bool success = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+            var (success, accessToken, refreshToken) = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ipAddress, userAgent);
 
             if (!success)
             {
@@ -163,8 +164,20 @@ public class ProfileController : BaseController
                     "Failed password change attempt - incorrect current password"
                 );
 
-                return BadRequest(ApiResponse.Fail<bool>("Current password is incorrect"));
+                return BadRequest(ApiResponse.Fail<LoginResponse>("Current password is incorrect"));
             }
+
+            // Get updated user info
+            var user = await _userService.GetUserByIdAsync(userId);
+
+            var response = new LoginResponse(
+                AccessToken: accessToken!,
+                RefreshToken: refreshToken!,
+                Username: user!.Username,
+                Role: user.Role,
+                MustChangePassword: user.MustChangePassword,
+                MustAddEmail: user.MustAddEmail
+            );
 
             // Audit log
             await _auditService.LogActionAsync(
@@ -176,12 +189,12 @@ public class ProfileController : BaseController
 
             _logger.LogInformation("User {UserId} changed their password successfully", userId);
 
-            return Ok(ApiResponse.Ok(true, "Password changed successfully"));
+            return Ok(ApiResponse.Ok(response, "Password changed successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error changing password for user {UserId}", GetCurrentUserId() ?? 0);
-            return StatusCode(500, ApiResponse.Fail<bool>("An error occurred while changing password"));
+            return StatusCode(500, ApiResponse.Fail<LoginResponse>("An error occurred while changing password"));
         }
     }
 

@@ -12,9 +12,11 @@ export * from './registry';
 export interface User {
   id: number;
   username: string;
+  email?: string;
   role: string;
   isEnabled: boolean;
   mustChangePassword: boolean;
+  mustAddEmail: boolean;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -31,6 +33,7 @@ export interface LoginResponse {
   username: string;
   role: string;
   mustChangePassword: boolean;
+  mustAddEmail: boolean;
 }
 
 export interface ApiResponseWrapper<T> {
