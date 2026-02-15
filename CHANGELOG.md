@@ -1,3 +1,13 @@
+## Changes in v1.7.0
+
+**Merged Pull Requests:**
+- Add network info on container (#75)
+
+**Commits:**
+- Add network info on container (#75) (15a9c44)
+- docs: update CHANGELOG for v1.6.0 [skip ci] (3adaf5b)
+- chore: bump version to v1.6.0 [skip ci] (da7a288)
+
 ## Changes in v1.6.0
 
 **Merged Pull Requests:**
