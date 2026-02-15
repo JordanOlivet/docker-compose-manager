@@ -26,6 +26,7 @@
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
+	import { goto } from '$app/navigation';
 	import { isAdmin } from '$lib/stores/auth.svelte';
 	import { projectHasUpdates } from '$lib/stores/projectUpdate.svelte';
 
@@ -377,9 +378,13 @@
 							{#each project.services as service (service.id)}
 								<tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
 									<td class="px-8 py-5 whitespace-nowrap">
-										<div class="text-sm font-medium text-gray-900 dark:text-white">
+										<button
+											class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+											onclick={() => goto(`/containers/${service.id}`)}
+											title={$t('containers.viewDetails')}
+										>
 											{service.name}
-										</div>
+										</button>
 										<div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
 											{service.id}
 										</div>

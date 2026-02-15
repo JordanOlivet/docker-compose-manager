@@ -475,12 +475,13 @@
                       {#each project.services as service (service.id)}
                         <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
                           <td class="px-4 py-2">
-                            <div
-                              class="text-xs font-medium text-gray-900 dark:text-white truncate"
-                              title={service.name}
+                            <button
+                              class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer truncate block"
+                              onclick={() => goto(`/containers/${service.id}`)}
+                              title={$t('containers.viewDetails')}
                             >
                               {service.name}
-                            </div>
+                            </button>
                             <div
                               class="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate"
                               title={service.id}
