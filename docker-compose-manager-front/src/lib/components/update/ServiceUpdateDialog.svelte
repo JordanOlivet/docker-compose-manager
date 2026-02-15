@@ -26,6 +26,9 @@
   // State for service selection
   let selectedServices = $state<Set<string>>(new Set());
 
+  // State for "restart full project" option
+  let restartFullProject = $state(true);
+
   // State for tracking copied digests (to show checkmark temporarily)
   let copiedDigests = $state<Set<string>>(new Set());
 
@@ -60,6 +63,7 @@
       updateProgress = null;
       updateLogs = [];
       logsExpanded = false;
+      restartFullProject = true;
       if (unsubscribePullProgress) {
         unsubscribePullProgress();
         unsubscribePullProgress = null;
@@ -81,7 +85,8 @@
   // Mutation for updating services
   const updateMutation = createMutation(() => ({
     mutationFn: () => updateApi.updateProject(projectName, {
-      services: Array.from(selectedServices)
+      services: Array.from(selectedServices),
+      restartFullProject
     }),
     onMutate: () => {
       // Start tracking progress
@@ -654,28 +659,43 @@
             {updateProgress?.overallProgress ?? 0}%
           </div>
         {:else}
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            {selectedServices.size} {$t('update.servicesSelected')}
-          </p>
-          <div class="flex gap-3">
-            <button
-              class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-              onclick={onClose}
-            >
-              {$t('common.cancel')}
-            </button>
-            <button
-              class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              onclick={handleUpdate}
-              disabled={noneSelected || updateMutation.isPending}
-            >
-              {#if updateMutation.isPending}
-                <Loader2 class="w-4 h-4 animate-spin" />
-              {:else}
-                <Download class="w-4 h-4" />
-              {/if}
-              {$t('update.updateSelected')} ({selectedServices.size})
-            </button>
+          <div class="flex flex-col gap-3 w-full">
+            <div class="flex items-center justify-between">
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {selectedServices.size} {$t('update.servicesSelected')}
+              </p>
+              <div class="flex gap-3">
+                <button
+                  class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                  onclick={onClose}
+                >
+                  {$t('common.cancel')}
+                </button>
+                <button
+                  class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  onclick={handleUpdate}
+                  disabled={noneSelected || updateMutation.isPending}
+                >
+                  {#if updateMutation.isPending}
+                    <Loader2 class="w-4 h-4 animate-spin" />
+                  {:else}
+                    <Download class="w-4 h-4" />
+                  {/if}
+                  {$t('update.updateSelected')} ({selectedServices.size})
+                </button>
+              </div>
+            </div>
+            <!-- Restart full project checkbox -->
+            <label class="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={restartFullProject}
+                onclick={() => restartFullProject = !restartFullProject}
+              />
+              <div class="flex flex-col">
+                <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartFullProject')}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{$t('update.restartFullProjectHint')}</span>
+              </div>
+            </label>
           </div>
         {/if}
       </div>

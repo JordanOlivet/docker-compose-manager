@@ -115,6 +115,7 @@ export interface ImageUpdateStatus {
 export interface ProjectUpdateRequest {
   services?: string[];
   updateAll?: boolean;
+  restartFullProject?: boolean;
 }
 
 /**

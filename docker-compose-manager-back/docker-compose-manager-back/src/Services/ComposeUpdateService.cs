@@ -24,6 +24,7 @@ public interface IComposeUpdateService
         string projectName,
         List<string>? services,
         bool updateAll,
+        bool restartFullProject,
         int userId,
         string ipAddress,
         CancellationToken ct = default);
@@ -230,6 +231,7 @@ public class ComposeUpdateService : IComposeUpdateService
         string projectName,
         List<string>? services,
         bool updateAll,
+        bool restartFullProject,
         int userId,
         string ipAddress,
         CancellationToken ct = default)
@@ -378,7 +380,10 @@ public class ComposeUpdateService : IComposeUpdateService
             await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Recreating containers...");
 
             // Recreate containers with new images
-            _logger.LogDebug("Recreating containers for services: {Services}", servicesArg);
+            string recreateArgs = restartFullProject
+                ? $"compose -f \"{composeFilePath}\" up -d --force-recreate"
+                : $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}";
+            _logger.LogDebug("Recreating containers - RestartFullProject: {RestartFullProject}, Command args: {Args}", restartFullProject, recreateArgs);
 
             void OnRecreateOutput(string line)
             {
@@ -393,7 +398,7 @@ public class ComposeUpdateService : IComposeUpdateService
 
             (int upExitCode, string upOutput, string upError) = await _dockerExecutor.ExecuteWithStreamingAsync(
                 "docker",
-                $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}",
+                recreateArgs,
                 OnRecreateOutput,
                 OnRecreateOutput,
                 ct);
@@ -435,11 +440,14 @@ public class ComposeUpdateService : IComposeUpdateService
             _cacheService.InvalidateProject(projectName);
 
             // Audit log
+            string auditDetail = restartFullProject
+                ? $"Updated {servicesToUpdate.Count} services in project {projectName}: {servicesArg} (full project restart)"
+                : $"Updated {servicesToUpdate.Count} services in project {projectName}: {servicesArg}";
             await _auditService.LogActionAsync(
                 userId,
                 "compose.project_update",
                 ipAddress,
-                $"Updated {servicesToUpdate.Count} services in project {projectName}: {servicesArg}",
+                auditDetail,
                 resourceType: "compose_project",
                 resourceId: projectName
             );
@@ -540,7 +548,7 @@ public class ComposeUpdateService : IComposeUpdateService
             {
                 try
                 {
-                    await UpdateProjectAsync(projectName, null, true, userId, ipAddress, CancellationToken.None);
+                    await UpdateProjectAsync(projectName, null, true, true, userId, ipAddress, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
