@@ -348,6 +348,16 @@
 								<th
 									class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"
 								>
+									{$t('containers.ipAddress')}
+								</th>
+								<th
+									class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"
+								>
+									{$t('containers.ports')}
+								</th>
+								<th
+									class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"
+								>
 									{$t('containers.state')}
 								</th>
 								<th
@@ -377,6 +387,22 @@
 									<td class="px-8 py-5">
 										<div class="text-sm text-gray-900 dark:text-gray-300">
 											{service.image}
+										</div>
+									</td>
+									<td class="px-8 py-5">
+										<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+											{service.ipAddress || '-'}
+										</div>
+									</td>
+									<td class="px-8 py-5">
+										<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+											{#if service.ports && service.ports.length > 0}
+												{#each service.ports as port}
+													<div>{port}</div>
+												{/each}
+											{:else}
+												-
+											{/if}
 										</div>
 									</td>
 									<td class="px-8 py-5 whitespace-nowrap">

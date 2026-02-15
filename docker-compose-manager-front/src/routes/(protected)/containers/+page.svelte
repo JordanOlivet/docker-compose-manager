@@ -309,6 +309,12 @@
                     </span>
                   {/if}
                 </th>
+                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  {$t('containers.ipAddress')}
+                </th>
+                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  {$t('containers.ports')}
+                </th>
                 <th
                   onclick={() => toggleSort('state')}
                   class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
@@ -355,6 +361,22 @@
                   <td class="px-4 py-2">
                     <div class="text-xs text-gray-900 dark:text-gray-300">
                       {container.image}
+                    </div>
+                  </td>
+                  <td class="px-4 py-2">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                      {container.ipAddress || '-'}
+                    </div>
+                  </td>
+                  <td class="px-4 py-2">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                      {#if container.ports && container.ports.length > 0}
+                        {#each container.ports as port}
+                          <div>{port}</div>
+                        {/each}
+                      {:else}
+                        -
+                      {/if}
                     </div>
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">

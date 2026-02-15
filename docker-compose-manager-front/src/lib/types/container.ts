@@ -8,6 +8,8 @@ export interface Container {
   state: EntityState;
   created: string;
   labels?: Record<string, string>;
+  ports?: string[];
+  ipAddress?: string;
 }
 
 export interface ContainerDetails extends Container {
@@ -15,6 +17,8 @@ export interface ContainerDetails extends Container {
   mounts?: Mount[];
   networks?: string[];
   ports?: Record<string, string>;
+  ipAddress?: string;
+  simplePorts?: string[];
 }
 
 export interface Mount {

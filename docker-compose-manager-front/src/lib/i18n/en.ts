@@ -180,6 +180,7 @@ export default {
     status: 'Status',
     created: 'Created',
     ports: 'Ports',
+    ipAddress: 'IP Address',
     volumes: 'Volumes',
     networks: 'Networks',
     environment: 'Environment Variables',

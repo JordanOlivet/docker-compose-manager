@@ -448,16 +448,22 @@
                   <table class="w-full table-fixed">
                     <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                       <tr>
-                        <th class="w-[25%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[18%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.name')}
                         </th>
-                        <th class="w-[30%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[20%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.image')}
                         </th>
-                        <th class="w-[12%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[10%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          {$t('containers.ipAddress')}
+                        </th>
+                        <th class="w-[10%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          {$t('containers.ports')}
+                        </th>
+                        <th class="w-[10%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.state')}
                         </th>
-                        <th class="w-[18%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                        <th class="w-[17%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           {$t('containers.status')}
                         </th>
                         <th class="w-[15%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
@@ -488,6 +494,22 @@
                               title={service.image || '-'}
                             >
                               {service.image || '-'}
+                            </div>
+                          </td>
+                          <td class="px-4 py-2">
+                            <div class="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={service.ipAddress || '-'}>
+                              {service.ipAddress || '-'}
+                            </div>
+                          </td>
+                          <td class="px-4 py-2">
+                            <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                              {#if service.ports && service.ports.length > 0}
+                                {#each service.ports as port}
+                                  <div>{port}</div>
+                                {/each}
+                              {:else}
+                                -
+                              {/if}
                             </div>
                           </td>
                           <td class="px-4 py-2">

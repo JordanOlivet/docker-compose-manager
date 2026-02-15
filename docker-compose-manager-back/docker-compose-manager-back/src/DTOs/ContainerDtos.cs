@@ -7,7 +7,9 @@ public record ContainerDto(
     string Status,
     string State,
     DateTime Created,
-    Dictionary<string, string>? Labels
+    Dictionary<string, string>? Labels,
+    List<string>? Ports = null,
+    string? IpAddress = null
 );
 
 public record ContainerDetailsDto(
@@ -21,7 +23,9 @@ public record ContainerDetailsDto(
     Dictionary<string, string>? Env,
     List<MountDto>? Mounts,
     List<string>? Networks,
-    Dictionary<string, string>? Ports
+    Dictionary<string, string>? Ports,
+    string? IpAddress = null,
+    List<string>? SimplePorts = null
 );
 
 public record MountDto(
