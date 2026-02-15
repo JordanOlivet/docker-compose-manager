@@ -1,6 +1,5 @@
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Services;
-using docker_compose_manager_back.Validators;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -111,21 +110,7 @@ public class UsersController : BaseController
     {
         try
         {
-            if (ValidationConfig.ShouldEnforceStrictPasswordRules)
-            {
-                // Validate request
-                if (string.IsNullOrWhiteSpace(request.Username))
-                    return BadRequest(ApiResponse.Fail<UserDto>("Username is required"));
-
-                if (string.IsNullOrWhiteSpace(request.Password))
-                    return BadRequest(ApiResponse.Fail<UserDto>("Password is required"));
-
-                if (request.Password.Length < 8)
-                    return BadRequest(ApiResponse.Fail<UserDto>("Password must be at least 8 characters"));
-
-                if (string.IsNullOrWhiteSpace(request.Role))
-                    return BadRequest(ApiResponse.Fail<UserDto>("Role is required"));
-            }
+            // Validation is handled by CreateUserRequestValidator (FluentValidation)
 
             var user = await _userService.CreateUserAsync(request);
             return CreatedAtAction(
@@ -160,12 +145,7 @@ public class UsersController : BaseController
     {
         try
         {
-            if (ValidationConfig.ShouldEnforceStrictPasswordRules)
-            {
-                // Validate password if provided
-                if (request.NewPassword != null && request.NewPassword.Length < 8)
-                    return BadRequest(ApiResponse.Fail<UserDto>("Password must be at least 8 characters"));
-            }
+            // Validation is handled by UpdateUserRequestValidator (FluentValidation)
 
             var user = await _userService.UpdateUserAsync(id, request);
             return Ok(ApiResponse.Ok(user, "User updated successfully"));

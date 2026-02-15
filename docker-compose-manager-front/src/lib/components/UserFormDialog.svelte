@@ -7,6 +7,7 @@
 	import { toast } from 'svelte-sonner';
 	import type { User } from '$lib/types';
 	import type { ResourcePermissionInput } from '$lib/types/permissions';
+	import { validatePassword, type PasswordValidationError } from '$lib/utils/passwordValidation';
 
 	interface Props {
 		open: boolean;
@@ -107,12 +108,24 @@
 		}
 	}));
 
+	let validationErrors = $state<PasswordValidationError[]>([]);
+
 	function handleSubmit(e: Event) {
 		e.preventDefault();
+		validationErrors = [];
 
 		if (!formData.username || (!isEditMode && !formData.password)) {
 			error = 'Please fill in all required fields';
 			return;
+		}
+
+		// Validate password if provided (required for create, optional for edit)
+		if (formData.password) {
+			const validation = validatePassword(formData.password);
+			if (!validation.isValid) {
+				validationErrors = validation.errors;
+				return;
+			}
 		}
 
 		if (isEditMode) {
@@ -228,6 +241,17 @@
 						showCopyButton={isEditMode && !!onCopyPermissionsClick}
 					/>
 				</div>
+
+				{#if validationErrors.length > 0}
+					<div class="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-700 rounded-lg">
+						<h3 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{$t('auth.passwordRequirements')}:</h3>
+						<ul class="mt-2 list-disc pl-5 text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
+							{#each validationErrors as err}
+								<li>{$t(err.key, err.params)}</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 
 				{#if error}
 					<div class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg text-sm whitespace-pre-line">

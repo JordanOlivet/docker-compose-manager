@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using docker_compose_manager_back.Controllers;
 using docker_compose_manager_back.Services;
 using docker_compose_manager_back.DTOs;
+using docker_compose_manager_back.Validators;
 
 namespace docker_compose_manager_back.Tests.Controllers;
 
@@ -97,37 +98,35 @@ public class UsersControllerTests
     }
 
     [Fact]
-    public async Task CreateUser_ReturnsBadRequestWhenUsernameEmpty()
+    public void CreateUser_ValidatorRejectsMissingUsername()
     {
-        // Arrange
-        var mockUserService = new Mock<IUserService>();
-        var mockLogger = new Mock<ILogger<UsersController>>();
-        var controller = new UsersController(mockUserService.Object, mockLogger.Object);
-        var request = new CreateUserRequest("", "password123", "user");
+        // Arrange - validation is now handled by FluentValidation (CreateUserRequestValidator)
+        ValidationConfig.IsDevelopment = false;
+        var validator = new CreateUserRequestValidator();
+        var request = new CreateUserRequest("", "Password1!", "user");
 
         // Act
-        var result = await controller.CreateUser(request);
+        var result = validator.Validate(request);
 
         // Assert
-        var actionResult = Assert.IsType<ActionResult<ApiResponse<UserDto>>>(result);
-        Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.PropertyName == "Username");
     }
 
     [Fact]
-    public async Task CreateUser_ReturnsBadRequestWhenPasswordTooShort()
+    public void CreateUser_ValidatorRejectsShortPassword()
     {
-        // Arrange
-        var mockUserService = new Mock<IUserService>();
-        var mockLogger = new Mock<ILogger<UsersController>>();
-        var controller = new UsersController(mockUserService.Object, mockLogger.Object);
+        // Arrange - validation is now handled by FluentValidation (CreateUserRequestValidator)
+        ValidationConfig.IsDevelopment = false;
+        var validator = new CreateUserRequestValidator();
         var request = new CreateUserRequest("testuser", "short", "user");
 
         // Act
-        var result = await controller.CreateUser(request);
+        var result = validator.Validate(request);
 
         // Assert
-        var actionResult = Assert.IsType<ActionResult<ApiResponse<UserDto>>>(result);
-        Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.PropertyName == "Password");
     }
 
     [Fact]

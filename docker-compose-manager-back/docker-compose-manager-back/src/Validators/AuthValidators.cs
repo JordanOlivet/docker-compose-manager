@@ -21,7 +21,7 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
         When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
         {
             RuleFor(x => x.Password)
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters");
+                .MinimumLength(PasswordRules.MinLength).WithMessage($"Password must be at least {PasswordRules.MinLength} characters");
         });
     }
 }
@@ -58,21 +58,8 @@ public class ChangePasswordRequestValidator : AbstractValidator<ChangePasswordRe
         When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
         {
             RuleFor(x => x.NewPassword)
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters")
-                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
-                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
-                .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
-                .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character")
-                .Must(password => !ContainsWeakPattern(password))
-                    .WithMessage("Password contains a common weak pattern");
+                .ApplyPasswordRules();
         });
-    }
-
-    private static bool ContainsWeakPattern(string password)
-    {
-        string[] weakPatterns = { "12345", "password", "qwerty", "abc123", "admin" };
-        string lowerPassword = password.ToLower();
-        return weakPatterns.Any(pattern => lowerPassword.Contains(pattern));
     }
 }
 
@@ -95,11 +82,7 @@ public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
         When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
         {
             RuleFor(x => x.Password)
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters")
-                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
-                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
-                .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
-                .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character");
+                .ApplyPasswordRules();
         });
 
         RuleFor(x => x.Role)
@@ -139,12 +122,12 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
 
         When(x => !string.IsNullOrEmpty(x.NewPassword), () =>
         {
-            RuleFor(x => x.NewPassword)
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters")
-                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
-                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
-                .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
-                .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character");
+            // Apply same rules conditionally on environment, like all other validators
+            When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
+            {
+                RuleFor(x => x.NewPassword)
+                    .ApplyPasswordRules();
+            });
         });
     }
 }
@@ -196,11 +179,7 @@ public class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequ
         When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
         {
             RuleFor(x => x.NewPassword)
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters")
-                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
-                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
-                .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
-                .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character");
+                .ApplyPasswordRules();
         });
     }
 }

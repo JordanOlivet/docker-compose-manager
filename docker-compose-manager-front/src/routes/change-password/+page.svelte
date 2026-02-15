@@ -11,24 +11,28 @@
   import CardContent from '$lib/components/ui/card-content.svelte';
   import { toast } from 'svelte-sonner';
   import { KeyRound } from 'lucide-svelte';
+  import { validatePassword, type PasswordValidationError } from '$lib/utils/passwordValidation';
 
   let currentPassword = $state('');
   let newPassword = $state('');
   let confirmPassword = $state('');
   let error = $state('');
+  let validationErrors = $state<PasswordValidationError[]>([]);
   let loading = $state(false);
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
+    validationErrors = [];
 
     if (newPassword !== confirmPassword) {
       error = $t('auth.passwordMismatch');
       return;
     }
 
-    if (newPassword.length < 8) {
-      error = $t('auth.passwordTooShort');
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      validationErrors = validation.errors;
       return;
     }
 
@@ -80,6 +84,17 @@
       {#if error}
         <div class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg text-sm">
           {error}
+        </div>
+      {/if}
+
+      {#if validationErrors.length > 0}
+        <div class="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-700 rounded-lg">
+          <h3 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{$t('auth.passwordRequirements')}:</h3>
+          <ul class="mt-2 list-disc pl-5 text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
+            {#each validationErrors as err}
+              <li>{$t(err.key, err.params)}</li>
+            {/each}
+          </ul>
         </div>
       {/if}
 
