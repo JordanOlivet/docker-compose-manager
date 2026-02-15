@@ -151,15 +151,37 @@ builder.Services.Configure<docker_compose_manager_back.Configuration.EmailOption
 builder.Services.Configure<docker_compose_manager_back.Configuration.PasswordResetOptions>(
     builder.Configuration.GetSection(docker_compose_manager_back.Configuration.PasswordResetOptions.SectionName));
 
+// Decrypt embedded Resend API key if present (injected at Docker build time)
+string? encryptedResendKey = builder.Configuration["Email:Resend:EncryptedApiKey"];
+if (!string.IsNullOrEmpty(encryptedResendKey))
+{
+    string? decryptedKey = docker_compose_manager_back.Security.ApiKeyProtector.Decrypt(encryptedResendKey);
+    if (!string.IsNullOrEmpty(decryptedKey))
+    {
+        builder.Configuration["Email:Resend:ApiKey"] = decryptedKey;
+        Log.Information("Resend API key decrypted successfully from embedded configuration");
+    }
+    else
+    {
+        Log.Warning("Failed to decrypt embedded Resend API key");
+    }
+}
+
 // Register email service (based on configuration provider)
+// Falls back to Mock if Resend is configured but API key is missing
 string emailProvider = builder.Configuration["Email:Provider"] ?? "Mock";
-if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+string? resendApiKey = builder.Configuration["Email:Resend:ApiKey"];
+if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(resendApiKey))
 {
     builder.Services.AddScoped<docker_compose_manager_back.Services.Email.IEmailService, docker_compose_manager_back.Services.Email.ResendEmailService>();
     Log.Information("Email service configured: Resend");
 }
 else
 {
+    if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+    {
+        Log.Warning("Resend provider configured but API key is missing. Falling back to Mock email service");
+    }
     builder.Services.AddScoped<docker_compose_manager_back.Services.Email.IEmailService, docker_compose_manager_back.Services.Email.MockEmailService>();
     Log.Information("Email service configured: Mock (development mode)");
 }
