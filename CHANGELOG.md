@@ -1,3 +1,13 @@
+## Changes in v1.5.0
+
+**Merged Pull Requests:**
+- Harmonize password rules (#69)
+
+**Commits:**
+- Harmonize password rules (#69) (41d93e6)
+- docs: update CHANGELOG for v1.4.0 [skip ci] (75810d8)
+- chore: bump version to v1.4.0 [skip ci] (27e9299)
+
 ## Changes in v1.4.0
 
 **Merged Pull Requests:**
