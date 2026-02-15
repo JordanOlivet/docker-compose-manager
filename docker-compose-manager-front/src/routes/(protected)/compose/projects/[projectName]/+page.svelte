@@ -26,6 +26,7 @@
 	import { t } from '$lib/i18n';
 	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
+	import { goto } from '$app/navigation';
 	import { isAdmin } from '$lib/stores/auth.svelte';
 	import { projectHasUpdates } from '$lib/stores/projectUpdate.svelte';
 
@@ -348,6 +349,16 @@
 								<th
 									class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"
 								>
+									{$t('containers.ipAddress')}
+								</th>
+								<th
+									class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"
+								>
+									{$t('containers.ports')}
+								</th>
+								<th
+									class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"
+								>
 									{$t('containers.state')}
 								</th>
 								<th
@@ -367,9 +378,13 @@
 							{#each project.services as service (service.id)}
 								<tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
 									<td class="px-8 py-5 whitespace-nowrap">
-										<div class="text-sm font-medium text-gray-900 dark:text-white">
+										<button
+											class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+											onclick={() => goto(`/containers/${service.id}`)}
+											title={$t('containers.viewDetails')}
+										>
 											{service.name}
-										</div>
+										</button>
 										<div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
 											{service.id}
 										</div>
@@ -377,6 +392,22 @@
 									<td class="px-8 py-5">
 										<div class="text-sm text-gray-900 dark:text-gray-300">
 											{service.image}
+										</div>
+									</td>
+									<td class="px-8 py-5">
+										<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+											{service.ipAddress || '-'}
+										</div>
+									</td>
+									<td class="px-8 py-5">
+										<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+											{#if service.ports && service.ports.length > 0}
+												{#each service.ports as port}
+													<div>{port}</div>
+												{/each}
+											{:else}
+												-
+											{/if}
 										</div>
 									</td>
 									<td class="px-8 py-5 whitespace-nowrap">

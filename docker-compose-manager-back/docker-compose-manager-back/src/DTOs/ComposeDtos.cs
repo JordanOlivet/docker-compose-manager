@@ -106,7 +106,8 @@ public record ComposeServiceDto(
     string State, // running, exited, restarting, etc.
     string Status, // Up xx minutes
     List<string> Ports,
-    string? Health
+    string? Health,
+    string? IpAddress = null
 );
 
 /// <summary>

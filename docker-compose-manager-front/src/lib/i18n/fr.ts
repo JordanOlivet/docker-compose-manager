@@ -180,6 +180,7 @@ const fr = {
     status: 'Statut',
     created: 'Créé',
     ports: 'Ports',
+    ipAddress: 'Adresse IP',
     volumes: 'Volumes',
     networks: 'Réseaux',
     environment: 'Variables d\'environnement',

@@ -47,7 +47,9 @@ public class DockerService
                 c.Status,
                 c.State.ToEntityState().ToStateString(),
                 c.Created,
-                c.Labels != null ? new Dictionary<string, string>(c.Labels) : null
+                c.Labels != null ? new Dictionary<string, string>(c.Labels) : null,
+                Ports: c.Ports?.Where(p => p.PublicPort > 0).Select(p => $"{p.PublicPort}:{p.PrivatePort}").Distinct().ToList(),
+                IpAddress: c.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress
             )).ToList();
         }
         catch (Exception ex)
@@ -84,6 +86,20 @@ public class DockerService
                 .Where(parts => parts.Length == 2)
                 .ToDictionary(parts => parts[0], parts => parts[1]);
 
+            // Extract simplified ports (e.g. "7070:80") from port bindings
+            List<string>? simplePorts = container.NetworkSettings?.Ports?
+                .Where(p => p.Value != null && p.Value.Any(b => !string.IsNullOrEmpty(b.HostPort)))
+                .SelectMany(p =>
+                {
+                    // p.Key is like "80/tcp", extract the port number
+                    string containerPort = p.Key.Split('/')[0];
+                    return p.Value
+                        .Where(b => !string.IsNullOrEmpty(b.HostPort))
+                        .Select(b => $"{b.HostPort}:{containerPort}");
+                })
+                .Distinct()
+                .ToList();
+
             return new ContainerDetailsDto(
                 container.ID,
                 NormalizeName(container.Name),
@@ -95,7 +111,9 @@ public class DockerService
                 envDict,
                 mounts,
                 networks,
-                ports
+                PortDetails: ports,
+                IpAddress: container.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress,
+                Ports: simplePorts
             );
         }
         catch (Exception ex)
@@ -330,6 +348,7 @@ public class DockerService
                 var ports = c.Ports?
                     .Where(p => p.PublicPort > 0)
                     .Select(p => $"{p.PublicPort}:{p.PrivatePort}")
+                    .Distinct()
                     .ToList() ?? new List<string>();
 
                 // Get health status from labels or status string
@@ -345,7 +364,8 @@ public class DockerService
                     State: c.State.ToEntityState().ToStateString(),
                     Status: c.Status ?? "",
                     Ports: ports,
-                    Health: health
+                    Health: health,
+                    IpAddress: c.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress
                 );
             }).ToList();
         }

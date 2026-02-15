@@ -141,19 +141,23 @@
 
 		<!-- Container Info Card -->
 		<div
-			class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg px-6 py-4 flex flex-col gap-6"
+			class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-visible shadow-lg hover:shadow-2xl transition-all duration-300"
 		>
-			<!-- Header sur deux lignes -->
-			<div class="flex flex-col gap-1 w-full">
-				<!-- Ligne 1 : nom + state + actions -->
-				<div class="flex items-center justify-between w-full gap-4">
+			<!-- Container Header -->
+			<div
+				class="bg-white dark:bg-gray-800 px-6 py-4 rounded-t-2xl border-b border-gray-200 dark:border-gray-700"
+			>
+				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-4 min-w-0 flex-1">
-						<h2 class="text-2xl font-bold text-gray-900 dark:text-white truncate max-w-xs">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex-shrink-0">
 							{container.name}
-						</h2>
-						<StateBadge class={getStateColor(container.state)} status={container.state} size="md" />
+						</h3>
+						<StateBadge class={getStateColor(container.state)} status={container.state} />
+						<span class="text-sm text-gray-500 dark:text-gray-400 font-mono hidden sm:inline">
+							{container.id.substring(0, 12)}
+						</span>
 					</div>
-					<div class="flex gap-2 shrink-0">
+					<div class="flex gap-2 flex-shrink-0">
 						{#if isRunning}
 							<ActionButton
 								icon={RotateCw}
@@ -187,29 +191,68 @@
 						/>
 					</div>
 				</div>
+			</div>
 
-				<!-- Ligne 2 : infos secondaires -->
-				<div
-					class="flex flex-wrap items-center gap-6 mt-1 text-sm text-gray-600 dark:text-gray-400"
-				>
-					<span class="font-mono"
-						>{$t('containers.id')}: {container.id.substring(0, 12)}</span
-					>
-					<span
-						>{$t('containers.image')}:
-						<span class="font-mono text-gray-900 dark:text-white">{container.image}</span></span
-					>
-					<span
-						>{$t('containers.status')}:
-						<span class="text-gray-900 dark:text-white">{container.status}</span></span
-					>
-					<span
-						>{$t('containers.created')}:
-						<span class="text-gray-900 dark:text-white"
-							>{new Date(container.created).toLocaleString()}</span
-						></span
-					>
-				</div>
+			<!-- Container Details Table -->
+			<div class="overflow-x-auto">
+				<table class="w-full">
+					<thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+						<tr>
+							<th class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+								{$t('containers.image')}
+							</th>
+							<th class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+								{$t('containers.ipAddress')}
+							</th>
+							<th class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+								{$t('containers.ports')}
+							</th>
+							<th class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+								{$t('containers.state')}
+							</th>
+							<th class="px-8 py-5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+								{$t('containers.status')}
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="px-8 py-5">
+								<div class="text-sm text-gray-900 dark:text-gray-300">
+									{container.image}
+								</div>
+							</td>
+							<td class="px-8 py-5">
+								<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+									{container.ipAddress || '-'}
+								</div>
+							</td>
+							<td class="px-8 py-5">
+								<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+									{#if container.ports && container.ports.length > 0}
+										{#each container.ports as port}
+											<div>{port}</div>
+										{/each}
+									{:else}
+										-
+									{/if}
+								</div>
+							</td>
+							<td class="px-8 py-5 whitespace-nowrap">
+								<StateBadge
+									class={getStateColor(container.state)}
+									status={container.state}
+									size="sm"
+								/>
+							</td>
+							<td class="px-8 py-5">
+								<div class="text-sm text-gray-500 dark:text-gray-400">
+									{container.status}
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
 			</div>
 		</div>
 

@@ -82,8 +82,9 @@ export interface ComposeService {
   image?: string;
   state: EntityState;
   status?: string;
-  ports?: string[];  
+  ports?: string[];
   health?: string;
+  ipAddress?: string;
 }
 
 export interface ComposeProjectDetailsDto{

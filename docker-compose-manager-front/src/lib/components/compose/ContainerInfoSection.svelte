@@ -36,11 +36,11 @@
 			});
 		}
 
-		if (container.ports && Object.keys(container.ports).length > 0) {
+		if (container.portDetails && Object.keys(container.portDetails).length > 0) {
 			result.push({
 				id: 'ports',
 			title: $t('containers.ports'),
-				count: Object.keys(container.ports).length
+				count: Object.keys(container.portDetails).length
 			});
 		}
 
@@ -160,9 +160,9 @@
 									</div>
 								{/each}
 							</div>
-						{:else if section.id === 'ports' && container.ports}
+						{:else if section.id === 'ports' && container.portDetails}
 							<div class="flex flex-wrap gap-1 text-xs font-mono">
-								{#each Object.entries(container.ports) as [containerPort, hostPort]}
+								{#each Object.entries(container.portDetails) as [containerPort, hostPort]}
 									<span
 										class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded"
 									>
