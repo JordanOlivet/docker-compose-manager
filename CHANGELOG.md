@@ -1,3 +1,13 @@
+## Changes in v1.7.1
+
+**Merged Pull Requests:**
+- Fix bad caching in the front (#76)
+
+**Commits:**
+- Fix bad caching in the front (#76) (feff994)
+- docs: update CHANGELOG for v1.7.0 [skip ci] (55b6da1)
+- chore: bump version to v1.7.0 [skip ci] (d300d48)
+
 ## Changes in v1.7.0
 
 **Merged Pull Requests:**
