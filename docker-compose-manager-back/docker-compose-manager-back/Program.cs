@@ -155,6 +155,7 @@ builder.Services.Configure<docker_compose_manager_back.Configuration.PasswordRes
 string emailProvider = builder.Configuration["Email:Provider"] ?? "Mock";
 if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
 {
+    builder.Services.AddScoped<docker_compose_manager_back.Services.Email.IEmailService, docker_compose_manager_back.Services.Email.ResendEmailService>();
     Log.Information("Email service configured: Resend");
 }
 else
