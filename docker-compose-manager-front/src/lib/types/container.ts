@@ -16,9 +16,8 @@ export interface ContainerDetails extends Container {
   env?: Record<string, string>;
   mounts?: Mount[];
   networks?: string[];
-  ports?: Record<string, string>;
+  portDetails?: Record<string, string>;
   ipAddress?: string;
-  simplePorts?: string[];
 }
 
 export interface Mount {

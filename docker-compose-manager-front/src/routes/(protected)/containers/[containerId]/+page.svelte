@@ -229,8 +229,8 @@
 							</td>
 							<td class="px-8 py-5">
 								<div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
-									{#if container.simplePorts && container.simplePorts.length > 0}
-										{#each container.simplePorts as port}
+									{#if container.ports && container.ports.length > 0}
+										{#each container.ports as port}
 											<div>{port}</div>
 										{/each}
 									{:else}

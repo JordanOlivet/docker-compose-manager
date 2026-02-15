@@ -23,9 +23,9 @@ public record ContainerDetailsDto(
     Dictionary<string, string>? Env,
     List<MountDto>? Mounts,
     List<string>? Networks,
-    Dictionary<string, string>? Ports,
+    Dictionary<string, string>? PortDetails,
     string? IpAddress = null,
-    List<string>? SimplePorts = null
+    List<string>? Ports = null
 );
 
 public record MountDto(

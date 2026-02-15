@@ -437,11 +437,12 @@ public class ContainerUpdateService : IContainerUpdateService
         }
 
         // Ports
-        if (container.Ports != null)
+        if (container.PortDetails != null)
         {
-            foreach ((string hostPort, string containerPort) in container.Ports)
+            foreach ((string containerPort, string hostBinding) in container.PortDetails)
             {
-                args.Add($"-p {hostPort}:{containerPort}");
+                // containerPort is like "80/tcp", hostBinding is like "0.0.0.0:7070"
+                args.Add($"-p {hostBinding}:{containerPort}");
             }
         }
 

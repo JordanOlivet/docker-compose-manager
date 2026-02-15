@@ -111,9 +111,9 @@ public class DockerService
                 envDict,
                 mounts,
                 networks,
-                ports,
+                PortDetails: ports,
                 IpAddress: container.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress,
-                SimplePorts: simplePorts
+                Ports: simplePorts
             );
         }
         catch (Exception ex)
