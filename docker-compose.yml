@@ -16,6 +16,9 @@ services:
       - Email__AppBaseUrl=${APP_BASE_URL:-http://localhost:3030}
       # Logging
       - Serilog__MinimumLevel__Default=${LOG_LEVEL:-Information}
+      # Application base URL (used in emails for password reset links)                                                                                                                                                                                                                                       
+      # Set this to the external URL users access the app from (e.g., https://dcm.example.com)                                                                                                                                                                                                                     
+      - Email__AppBaseUrl=${APP_BASE_URL:-http://localhost:3030}
     volumes:
       # Database persistence
       - app-data:/app/data
