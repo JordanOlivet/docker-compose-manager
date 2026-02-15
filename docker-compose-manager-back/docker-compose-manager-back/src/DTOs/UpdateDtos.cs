@@ -116,7 +116,8 @@ public record ImageUpdateStatus(
 /// </summary>
 public record ProjectUpdateRequest(
     List<string>? Services = null,
-    bool UpdateAll = false
+    bool UpdateAll = false,
+    bool RestartFullProject = true
 );
 
 /// <summary>

@@ -22,6 +22,9 @@
   // State for project selection
   let selectedProjects = $state<Set<string>>(new Set());
 
+  // State for "restart full project" option
+  let restartFullProject = $state(true);
+
   // State for tracking update progress
   let updatingProjects = $state<Set<string>>(new Set());
   let completedProjects = $state<Set<string>>(new Set());
@@ -39,6 +42,7 @@
       updatingProjects = new Set();
       completedProjects = new Set();
       failedProjects = new Map();
+      restartFullProject = true;
     }
   });
 
@@ -93,7 +97,7 @@
         updatingProjects = new Set(updatingProjects);
 
         try {
-          await updateApi.updateProject(projectName, { updateAll: true });
+          await updateApi.updateProject(projectName, { updateAll: true, restartFullProject });
 
           completedProjects.add(projectName);
           completedProjects = new Set(completedProjects);
@@ -271,32 +275,47 @@
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {selectedProjects.size} {$t('update.projectsSelected')} ({totalServicesSelected} {$t('compose.services').toLowerCase()})
-        </p>
-        <div class="flex gap-3">
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-            onclick={onClose}
-            disabled={isUpdating}
-          >
-            {$t('common.cancel')}
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            onclick={handleUpdateSelected}
-            disabled={noneSelected || isUpdating}
-          >
-            {#if isUpdating}
-              <Loader2 class="w-4 h-4 animate-spin" />
-              {$t('update.updating')}
-            {:else}
-              <Download class="w-4 h-4" />
-              {$t('update.updateSelected')}
-            {/if}
-          </button>
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {selectedProjects.size} {$t('update.projectsSelected')} ({totalServicesSelected} {$t('compose.services').toLowerCase()})
+          </p>
+          <div class="flex gap-3">
+            <button
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              onclick={onClose}
+              disabled={isUpdating}
+            >
+              {$t('common.cancel')}
+            </button>
+            <button
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onclick={handleUpdateSelected}
+              disabled={noneSelected || isUpdating}
+            >
+              {#if isUpdating}
+                <Loader2 class="w-4 h-4 animate-spin" />
+                {$t('update.updating')}
+              {:else}
+                <Download class="w-4 h-4" />
+                {$t('update.updateSelected')}
+              {/if}
+            </button>
+          </div>
         </div>
+        <!-- Restart full project checkbox -->
+        {#if !isUpdating}
+          <label class="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={restartFullProject}
+              onclick={() => restartFullProject = !restartFullProject}
+            />
+            <div class="flex flex-col">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartFullProject')}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{$t('update.restartFullProjectHint')}</span>
+            </div>
+          </label>
+        {/if}
       </div>
     </div>
   </div>

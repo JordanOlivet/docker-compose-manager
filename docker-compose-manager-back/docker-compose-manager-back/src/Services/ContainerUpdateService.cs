@@ -184,6 +184,7 @@ public class ContainerUpdateService : IContainerUpdateService
                 projectName,
                 services,
                 services == null,
+                false, // Don't restart full project for single container updates
                 userId,
                 ipAddress,
                 ct);

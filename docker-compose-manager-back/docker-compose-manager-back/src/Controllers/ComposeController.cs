@@ -1767,6 +1767,7 @@ volumes:
                 projectName,
                 request.Services,
                 request.UpdateAll,
+                request.RestartFullProject,
                 userId.Value,
                 GetUserIpAddress(),
                 ct

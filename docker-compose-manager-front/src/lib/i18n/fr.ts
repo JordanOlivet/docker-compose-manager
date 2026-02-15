@@ -490,6 +490,8 @@ const fr = {
     servicesSelected: 'services sélectionnés',
     updateSelected: 'Mettre à jour la sélection',
     updateSuccess: '{count} services mis à jour avec succès',
+    restartFullProject: 'Redémarrer le projet en entier',
+    restartFullProjectHint: 'Redémarre tous les services du projet, pas uniquement ceux mis à jour',
     // Bulk update keys
     updateAll: 'Tout mettre à jour',
     updateAllProjects: 'Mettre à jour tous les projets',

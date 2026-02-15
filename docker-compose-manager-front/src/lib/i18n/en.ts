@@ -490,6 +490,8 @@ export default {
     servicesSelected: 'services selected',
     updateSelected: 'Update Selected',
     updateSuccess: 'Successfully updated {count} services',
+    restartFullProject: 'Restart entire project',
+    restartFullProjectHint: 'Restarts all services in the project, not just the updated ones',
     // Bulk update keys
     updateAll: 'Update All',
     updateAllProjects: 'Update All Projects',

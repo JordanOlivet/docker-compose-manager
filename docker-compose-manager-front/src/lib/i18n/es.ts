@@ -453,6 +453,8 @@ const es = {
     servicesSelected: 'servicios seleccionados',
     updateSelected: 'Actualizar selección',
     updateSuccess: '{count} servicios actualizados correctamente',
+    restartFullProject: 'Reiniciar todo el proyecto',
+    restartFullProjectHint: 'Reinicia todos los servicios del proyecto, no solo los actualizados',
     // Bulk update keys
     updateAll: 'Actualizar todo',
     updateAllProjects: 'Actualizar todos los proyectos',
