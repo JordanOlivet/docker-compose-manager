@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using docker_compose_manager_back.Data;
 
@@ -10,9 +11,11 @@ using docker_compose_manager_back.Data;
 namespace docker_compose_manager_back.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260214205610_AddPasswordResetSupport")]
+    partial class AddPasswordResetSupport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.10");
@@ -397,8 +400,9 @@ namespace docker_compose_manager_back.Migrations
                         {
                             Id = 1,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Email = "admin@localhost",
                             IsEnabled = true,
-                            MustAddEmail = true,
+                            MustAddEmail = false,
                             MustChangePassword = true,
                             PasswordHash = "$2a$12$KWzphWJ1oNVd2iDLsJPQIu/j3xeEjYHMeF8meG1EU2x84DzPzL51u",
                             RoleId = 1,

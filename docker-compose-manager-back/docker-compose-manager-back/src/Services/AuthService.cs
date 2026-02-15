@@ -75,7 +75,8 @@ public class AuthService
             refreshToken,
             user.Username,
             user.Role?.Name ?? "user",
-            user.MustChangePassword
+            user.MustChangePassword,
+            user.MustAddEmail
         );
 
         return (true, response, null);
@@ -110,7 +111,8 @@ public class AuthService
             newRefreshToken,
             session.User.Username,
             session.User.Role?.Name ?? "user",
-            session.User.MustChangePassword
+            session.User.MustChangePassword,
+            session.User.MustAddEmail
         );
 
         return (true, response, null);
@@ -130,22 +132,66 @@ public class AuthService
         return false;
     }
 
-    public async Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    public async Task<(bool Success, string? AccessToken, string? RefreshToken)> ChangePasswordAsync(int userId, string currentPassword, string newPassword, string ipAddress, string userAgent)
     {
-        var user = await _context.Users.FindAsync(userId);
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null || !_passwordHasher.VerifyPassword(currentPassword, user.PasswordHash))
         {
-            return false;
+            return (false, null, null);
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(newPassword);
         user.MustChangePassword = false;
         user.UpdatedAt = DateTime.UtcNow;
 
-        // Invalidate all sessions for security
+        // Invalidate all OLD sessions for security
         var sessions = await _context.Sessions.Where(s => s.UserId == userId).ToListAsync();
         _context.Sessions.RemoveRange(sessions);
+
+        // Create a new session with new tokens
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var refreshToken = _jwtService.GenerateRefreshToken();
+
+        var newSession = new Session
+        {
+            UserId = user.Id,
+            RefreshToken = refreshToken,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            IpAddress = ipAddress,
+            DeviceInfo = userAgent,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Sessions.Add(newSession);
+        await _context.SaveChangesAsync();
+
+        return (true, accessToken, refreshToken);
+    }
+
+    public async Task<bool> AddEmailAsync(int userId, string email)
+    {
+        var user = await _context.Users.FindAsync(userId);
+
+        if (user == null)
+        {
+            return false;
+        }
+
+        // Check if email is already in use by another user
+        var emailExists = await _context.Users
+            .AnyAsync(u => u.Email == email && u.Id != userId);
+
+        if (emailExists)
+        {
+            return false;
+        }
+
+        user.Email = email;
+        user.MustAddEmail = false;
+        user.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
         return true;

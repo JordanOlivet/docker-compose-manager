@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import * as auth from '$lib/stores/auth.svelte';
   import { authApi } from '$lib/api';
   import { t } from '$lib/i18n';
@@ -17,6 +18,14 @@
   let rememberMe = $state(false);
   let error = $state('');
   let loading = $state(false);
+  let successMessage = $state('');
+
+  // Check for reset=success URL parameter
+  $effect(() => {
+    if ($page.url.searchParams.get('reset') === 'success') {
+      successMessage = 'Password reset successful! You can now log in with your new password.';
+    }
+  });
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
@@ -38,7 +47,9 @@
       // Update auth store
       auth.login(response.accessToken, response.refreshToken, user);
 
-      if (response.mustChangePassword) {
+      if (response.mustAddEmail) {
+        goto('/add-email');
+      } else if (response.mustChangePassword) {
         goto('/change-password');
       } else {
         goto('/dashboard');
@@ -73,6 +84,12 @@
       <CardTitle class="text-2xl font-bold">{$t('app.title')}</CardTitle>
     </CardHeader>
     <CardContent class="pt-6">
+      {#if successMessage}
+        <div class="mb-4 p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 rounded-lg text-sm">
+          {successMessage}
+        </div>
+      {/if}
+
       {#if error}
         <div class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg text-sm">
           {error}
@@ -94,9 +111,14 @@
         </div>
 
         <div class="mb-4">
-          <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            {$t('auth.password')}
-          </label>
+          <div class="flex items-center justify-between mb-2">
+            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              {$t('auth.password')}
+            </label>
+            <a href="/forgot-password" class="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+              Forgot password?
+            </a>
+          </div>
           <PasswordInput
             id="password"
             bind:value={password}

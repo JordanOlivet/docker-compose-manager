@@ -23,10 +23,12 @@
 
 	let formData = $state({
 		username: user?.username || '',
+		email: user?.email || '',
 		password: '',
 		role: user?.role || 'user',
 		isEnabled: user?.isEnabled ?? true,
 		mustChangePassword: user?.mustChangePassword ?? false,
+		mustAddEmail: user?.mustAddEmail ?? false,
 		permissions: [] as ResourcePermissionInput[]
 	});
 
@@ -35,10 +37,12 @@
 		if (user) {
 			formData = {
 				username: user.username,
+				email: user.email || '',
 				password: '',
 				role: user.role,
 				isEnabled: user.isEnabled,
 				mustChangePassword: user.mustChangePassword,
+				mustAddEmail: user.mustAddEmail,
 				permissions: []
 			};
 		}
@@ -76,9 +80,11 @@
 		mutationFn: () =>
 			usersApi.update(user!.id, {
 				username: formData.username,
+				email: formData.email || undefined,
 				newPassword: formData.password || undefined,
 				role: formData.role,
 				isEnabled: formData.isEnabled,
+				mustAddEmail: formData.mustAddEmail,
 				permissions: formData.permissions
 			}),
 		onSuccess: () => {
@@ -147,6 +153,20 @@
 					/>
 				</div>
 
+				<!-- Email -->
+				<div class="space-y-2">
+					<Label for="email">Email ({$t('common.optional')})</Label>
+					<Input
+						id="email"
+						type="email"
+						bind:value={formData.email}
+						placeholder="user@example.com"
+					/>
+					<p class="text-xs text-gray-500 dark:text-gray-400">
+						Required for password reset functionality
+					</p>
+				</div>
+
 				<!-- Password -->
 				<div class="space-y-2">
 					<Label for="password"
@@ -189,6 +209,13 @@
 						<span class="text-sm font-medium text-gray-900 dark:text-white"
 							>{$t('users.mustChangePassword')}</span
 						>
+					</label>
+
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" bind:checked={formData.mustAddEmail} class="h-4 w-4" />
+						<span class="text-sm font-medium text-gray-900 dark:text-white">
+							Must add email
+						</span>
 					</label>
 				</div>
 

@@ -11,6 +11,9 @@ services:
       # Docker Host
       - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock} # For linux host
       # - Docker__Host=${DOCKER_HOST:-npipe://./pipe/docker_engine} # For windows host
+      # Application base URL (used in emails for password reset links)
+      # Set this to the external URL users access the app from (e.g., https://dcm.example.com)
+      - Email__AppBaseUrl=${APP_BASE_URL:-http://localhost:3030}
       # Logging
       - Serilog__MinimumLevel__Default=${LOG_LEVEL:-Information}
     volumes:
