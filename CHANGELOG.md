@@ -1,3 +1,13 @@
+## Changes in v1.6.0
+
+**Merged Pull Requests:**
+- Add restart full compose project by default when updating (#73)
+
+**Commits:**
+- Add restart full compose project by default when updating (#73) (7de7752)
+- docs: update CHANGELOG for v1.5.1 [skip ci] (5d293c5)
+- chore: bump version to v1.5.1 [skip ci] (b5ea4cf)
+
 ## Changes in v1.5.1
 
 **Merged Pull Requests:**
