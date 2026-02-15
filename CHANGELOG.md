@@ -1,3 +1,13 @@
+## Changes in v1.5.1
+
+**Merged Pull Requests:**
+- Update compsoe file with email base app url variable (#71)
+
+**Commits:**
+- Update compsoe file with email base app url variable (#71) (f56fafe)
+- docs: update CHANGELOG for v1.5.0 [skip ci] (9ed6fc0)
+- chore: bump version to v1.5.0 [skip ci] (cca9e4b)
+
 ## Changes in v1.5.0
 
 **Merged Pull Requests:**
