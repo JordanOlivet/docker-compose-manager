@@ -97,6 +97,10 @@ RUN mkdir -p /app/data /app/logs /app/compose-files /root/.docker && \
 ENV HOME=/root
 ENV DOCKER_CONFIG=/root/.docker
 
+# Encrypted Resend API key (injected at build time, never in plain text)
+ARG ENCRYPTED_RESEND_KEY=""
+ENV Email__Resend__EncryptedApiKey=${ENCRYPTED_RESEND_KEY}
+
 # Expose HTTP port
 EXPOSE 80
 

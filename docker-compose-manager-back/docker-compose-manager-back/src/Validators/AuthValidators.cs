@@ -123,6 +123,13 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
                 .Matches(@"^[a-zA-Z0-9_-]+$").WithMessage("Username can only contain letters, numbers, hyphens and underscores");
         });
 
+        When(x => !string.IsNullOrEmpty(x.Email), () =>
+        {
+            RuleFor(x => x.Email)
+                .EmailAddress().WithMessage("Invalid email address")
+                .MaximumLength(255).WithMessage("Email cannot exceed 255 characters");
+        });
+
         When(x => !string.IsNullOrEmpty(x.Role), () =>
         {
             RuleFor(x => x.Role)
@@ -155,5 +162,59 @@ public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequ
                 .Length(3, 100).WithMessage("Username must be between 3 and 100 characters")
                 .Matches(@"^[a-zA-Z0-9_-]+$").WithMessage("Username can only contain letters, numbers, hyphens and underscores");
         });
+    }
+}
+
+/// <summary>
+/// Validator for forgot password requests
+/// </summary>
+public class ForgotPasswordRequestValidator : AbstractValidator<ForgotPasswordRequest>
+{
+    public ForgotPasswordRequestValidator()
+    {
+        RuleFor(x => x.UsernameOrEmail)
+            .NotEmpty().WithMessage("Username or email is required")
+            .MinimumLength(3).WithMessage("Username or email must be at least 3 characters");
+    }
+}
+
+/// <summary>
+/// Validator for reset password requests
+/// </summary>
+public class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequest>
+{
+    public ResetPasswordRequestValidator()
+    {
+        RuleFor(x => x.Token)
+            .NotEmpty().WithMessage("Reset token is required")
+            .MinimumLength(20).WithMessage("Invalid reset token format");
+
+        RuleFor(x => x.NewPassword)
+            .NotEmpty().WithMessage("New password is required");
+
+        // Only enforce strict password rules in production
+        When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
+        {
+            RuleFor(x => x.NewPassword)
+                .MinimumLength(8).WithMessage("Password must be at least 8 characters")
+                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
+                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
+                .Matches(@"[0-9]").WithMessage("Password must contain at least one digit")
+                .Matches(@"[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character");
+        });
+    }
+}
+
+/// <summary>
+/// Validator for add email requests
+/// </summary>
+public class AddEmailRequestValidator : AbstractValidator<AddEmailRequest>
+{
+    public AddEmailRequestValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required")
+            .EmailAddress().WithMessage("Invalid email format")
+            .MaximumLength(255).WithMessage("Email must not exceed 255 characters");
     }
 }

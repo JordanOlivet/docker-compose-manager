@@ -10,8 +10,10 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   username?: string;
+  email?: string;
   role?: string;
   isEnabled?: boolean;
+  mustAddEmail?: boolean;
   newPassword?: string;
   permissions?: ResourcePermissionInput[];
 }

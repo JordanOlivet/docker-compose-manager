@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<UserGroup> UserGroups { get; set; } = null!;
     public DbSet<UserGroupMembership> UserGroupMemberships { get; set; } = null!;
     public DbSet<ResourcePermission> ResourcePermissions { get; set; } = null!;
+    public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,7 +29,9 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Username).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.PasswordHash).IsRequired();
             // Configure Role relationship instead of trying to map the Role object as a scalar
             entity.Property(e => e.RoleId).IsRequired();
@@ -144,6 +147,21 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // PasswordResetToken configuration
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.HasIndex(e => e.IsUsed);
+            entity.Property(e => e.TokenHash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.IpAddress).IsRequired().HasMaxLength(50);
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.PasswordResetTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Seed initial data
         SeedData(modelBuilder);
     }
@@ -180,10 +198,12 @@ public class AppDbContext : DbContext
             {
                 Id = 1,
                 Username = "admin",
+                Email = null,
                 PasswordHash = "$2a$12$KWzphWJ1oNVd2iDLsJPQIu/j3xeEjYHMeF8meG1EU2x84DzPzL51u",
                 RoleId = 1, // admin role
                 IsEnabled = true,
                 MustChangePassword = true,
+                MustAddEmail = true,
                 CreatedAt = seedDate
             }
         );
