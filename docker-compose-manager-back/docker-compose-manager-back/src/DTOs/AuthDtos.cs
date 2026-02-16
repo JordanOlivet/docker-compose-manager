@@ -46,6 +46,7 @@ public record UpdateUserRequest(
     string? Role = null,
     bool? IsEnabled = null,
     bool? MustAddEmail = null,
+    bool? MustChangePassword = null,
     string? NewPassword = null,
     List<ResourcePermissionInput>? Permissions = null
 );
