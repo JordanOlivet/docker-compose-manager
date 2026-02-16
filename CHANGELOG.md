@@ -1,3 +1,13 @@
+## Changes in v1.8.0
+
+**Merged Pull Requests:**
+- Fix must change password mecanism (#80)
+
+**Commits:**
+- Fix must change password mecanism (#80) (8b1d395)
+- docs: update CHANGELOG for v1.7.2 [skip ci] (ca3e718)
+- chore: bump version to v1.7.2 [skip ci] (6dc6c98)
+
 ## Changes in v1.7.2
 
 **Merged Pull Requests:**
