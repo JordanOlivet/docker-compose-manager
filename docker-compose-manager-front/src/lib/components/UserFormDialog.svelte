@@ -105,6 +105,8 @@
 				role: formData.role,
 				isEnabled: formData.isEnabled,
 				mustAddEmail: formData.mustAddEmail,
+				permissions: formData.permissions,
+				mustChangePassword: formData.mustChangePassword,
 				...(permissionsModified ? { permissions: formData.permissions } : {})
 			}),
 		onSuccess: () => {
