@@ -1,3 +1,13 @@
+## Changes in v1.7.2
+
+**Merged Pull Requests:**
+- Fix permissions not persisted (#78)
+
+**Commits:**
+- Fix permissions not persisted (#78) (5038277)
+- docs: update CHANGELOG for v1.7.1 [skip ci] (2a06e91)
+- chore: bump version to v1.7.1 [skip ci] (7bf372e)
+
 ## Changes in v1.7.1
 
 **Merged Pull Requests:**
