@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createMutation, useQueryClient } from '@tanstack/svelte-query';
-	import { usersApi } from '$lib/api';
+	import { usersApi, permissionsApi } from '$lib/api';
 	import { Button, Input, Label, Select } from '$lib/components/ui';
 	import { PasswordInput, PermissionSelector } from '$lib/components';
 	import { t } from '$lib/i18n';
@@ -18,7 +18,7 @@
 
 	let { open, user = undefined, onClose, onCopyPermissionsClick }: Props = $props();
  	let error = $state('');
-	
+
 	const isEditMode = $derived(!!user);
 	const queryClient = useQueryClient();
 
@@ -33,7 +33,10 @@
 		permissions: [] as ResourcePermissionInput[]
 	});
 
-	// Reset form when user changes
+	let permissionsModified = $state(false);
+	let loadingPermissions = $state(false);
+
+	// Reset form and load permissions when user changes
 	$effect(() => {
 		if (user) {
 			formData = {
@@ -46,6 +49,22 @@
 				mustAddEmail: user.mustAddEmail,
 				permissions: []
 			};
+			permissionsModified = false;
+
+			// Fetch existing permissions for this user
+			loadingPermissions = true;
+			permissionsApi.getUserPermissions(user.id).then((response) => {
+				formData.permissions = response.directPermissions.map((p) => ({
+					resourceType: p.resourceType,
+					resourceName: p.resourceName,
+					permissions: p.permissions
+				}));
+				loadingPermissions = false;
+			}).catch(() => {
+				loadingPermissions = false;
+			});
+		} else {
+			permissionsModified = false;
 		}
 	});
 
@@ -86,7 +105,7 @@
 				role: formData.role,
 				isEnabled: formData.isEnabled,
 				mustAddEmail: formData.mustAddEmail,
-				permissions: formData.permissions
+				...(permissionsModified ? { permissions: formData.permissions } : {})
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -137,6 +156,7 @@
 
 	function handlePermissionsChange(permissions: ResourcePermissionInput[]) {
 		formData.permissions = permissions;
+		permissionsModified = true;
 	}
 </script>
 
@@ -234,12 +254,22 @@
 
 				<!-- Permissions -->
 				<div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-					<PermissionSelector
-						permissions={formData.permissions}
-						onChange={handlePermissionsChange}
-						onCopyClick={onCopyPermissionsClick}
-						showCopyButton={isEditMode && !!onCopyPermissionsClick}
-					/>
+					{#if loadingPermissions}
+						<div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-4">
+							<svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+							</svg>
+							{$t('common.loading')}...
+						</div>
+					{:else}
+						<PermissionSelector
+							permissions={formData.permissions}
+							onChange={handlePermissionsChange}
+							onCopyClick={onCopyPermissionsClick}
+							showCopyButton={isEditMode && !!onCopyPermissionsClick}
+						/>
+					{/if}
 				</div>
 
 				{#if validationErrors.length > 0}

@@ -1,5 +1,5 @@
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 namespace docker_compose_manager_back.Middleware;
 
@@ -15,19 +15,19 @@ public static class RateLimitingConfiguration
     {
         services.AddRateLimiter(options =>
         {
-            // Auth endpoints: 5 attempts per 15 minutes per IP
+            // Auth endpoints: 20 attempts per 15 minutes per IP
             options.AddFixedWindowLimiter(AuthPolicy, limiterOptions =>
             {
-                limiterOptions.PermitLimit = 10;
+                limiterOptions.PermitLimit = 20;
                 limiterOptions.Window = TimeSpan.FromMinutes(15);
                 limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                 limiterOptions.QueueLimit = 0; // No queueing
             });
 
-            // Refresh token endpoint: 10 attempts per 15 minutes per IP
+            // Refresh token endpoint: 20 attempts per 15 minutes per IP
             options.AddFixedWindowLimiter(RefreshPolicy, limiterOptions =>
             {
-                limiterOptions.PermitLimit = 10;
+                limiterOptions.PermitLimit = 20;
                 limiterOptions.Window = TimeSpan.FromMinutes(15);
                 limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                 limiterOptions.QueueLimit = 0; // No queueing
