@@ -296,6 +296,13 @@ public class UserService : IUserService
             changes.Add("All sessions invalidated due to password change");
         }
 
+        // Update mustChangePassword flag if provided (after password update so admin can set both)
+        if (request.MustChangePassword.HasValue && request.MustChangePassword.Value != user.MustChangePassword)
+        {
+            changes.Add($"MustChangePassword changed from {user.MustChangePassword} to {request.MustChangePassword.Value}");
+            user.MustChangePassword = request.MustChangePassword.Value;
+        }
+
         // Update permissions if provided
         if (request.Permissions != null)
         {

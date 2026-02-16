@@ -14,6 +14,7 @@ export interface UpdateUserRequest {
   role?: string;
   isEnabled?: boolean;
   mustAddEmail?: boolean;
+  mustChangePassword?: boolean;
   newPassword?: string;
   permissions?: ResourcePermissionInput[];
 }
@@ -66,6 +67,7 @@ const usersApi = {
     if (data.username !== undefined) backendData.Username = data.username;
     if (data.role !== undefined) backendData.Role = data.role;
     if (data.isEnabled !== undefined) backendData.IsEnabled = data.isEnabled;
+    if (data.mustChangePassword !== undefined) backendData.MustChangePassword = data.mustChangePassword;
     if (data.newPassword !== undefined) backendData.NewPassword = data.newPassword;
     if (data.permissions !== undefined) {
       backendData.Permissions = data.permissions?.map(p => ({
