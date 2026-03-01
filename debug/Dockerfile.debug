@@ -1,7 +1,7 @@
 ARG IMAGE_TAG=latest-dev
 
 # Stage 1: Rebuild backend in Debug mode from local source
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS backend-debug
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS backend-debug
 WORKDIR /src
 COPY docker-compose-manager-back/docker-compose-manager-back/docker-compose-manager-back.csproj ./docker-compose-manager-back/
 RUN dotnet restore ./docker-compose-manager-back/docker-compose-manager-back.csproj

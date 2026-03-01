@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for unified frontend + backend deployment
 # Stage 1: Build .NET Backend
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS backend-build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS backend-build
 WORKDIR /src
 
 # Copy backend project file and restore dependencies
@@ -41,7 +41,7 @@ ENV VITE_GIT_COMMIT=${VITE_GIT_COMMIT}
 RUN npm run build
 
 # Stage 3: Runtime Base with Dependencies
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
 
 # Install nginx, supervisor, procps and Docker CLI
 RUN apt-get update && \
@@ -55,11 +55,11 @@ RUN apt-get update && \
         procps && \
     # Add Docker repository
     install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
         gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-        https://download.docker.com/linux/debian $(lsb_release -cs) stable" > \
+        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > \
         /etc/apt/sources.list.d/docker.list && \
     # Install Docker CLI and Compose plugin
     apt-get update && \
