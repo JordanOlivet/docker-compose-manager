@@ -319,8 +319,10 @@ public class ComposeUpdateService : IComposeUpdateService
                         changed, progress,
                         string.Join(", ", serviceProgress.Select(s => $"{s.Key}:{s.Value.Status}({s.Value.ProgressPercent}%)")));
 
-                    // Fire and forget - don't block the output processing
-                    _ = SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, line);
+                    // Snapshot state before firing to avoid stale data when the task runs
+                    // (serviceProgress may be mutated further by subsequent OnPullOutput calls)
+                    var progressSnapshot = serviceProgress.ToDictionary(k => k.Key, v => v.Value);
+                    _ = SendProgressUpdateAsync(operationId, projectName, "pull", progressSnapshot, line);
                 }
             }
 
@@ -392,7 +394,8 @@ public class ComposeUpdateService : IComposeUpdateService
                 if (DateTime.UtcNow - lastProgressSent > minProgressInterval)
                 {
                     lastProgressSent = DateTime.UtcNow;
-                    _ = SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, line);
+                    var progressSnapshot = serviceProgress.ToDictionary(k => k.Key, v => v.Value);
+                    _ = SendProgressUpdateAsync(operationId, projectName, "recreate", progressSnapshot, line);
                 }
             }
 

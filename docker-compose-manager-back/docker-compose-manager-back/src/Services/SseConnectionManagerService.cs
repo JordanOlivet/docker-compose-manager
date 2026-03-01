@@ -97,5 +97,37 @@ public class SseConnectionManagerService
         }
     }
 
+    /// <summary>
+    /// Writes a raw SSE message to a specific client under the broadcast lock,
+    /// preventing concurrent writes with BroadcastAsync from corrupting the stream.
+    /// Used by the SSE controller for the initial connected event and heartbeats.
+    /// </summary>
+    public async Task WriteToClientAsync(string connectionId, string message)
+    {
+        await _broadcastLock.WaitAsync();
+        try
+        {
+            if (!_clients.TryGetValue(connectionId, out var client))
+                return;
+
+            if (client.CancellationToken.IsCancellationRequested)
+            {
+                RemoveClient(connectionId);
+                return;
+            }
+
+            await client.Response.WriteAsync(message, client.CancellationToken);
+            await client.Response.Body.FlushAsync(client.CancellationToken);
+        }
+        catch (Exception)
+        {
+            RemoveClient(connectionId);
+        }
+        finally
+        {
+            _broadcastLock.Release();
+        }
+    }
+
     public int ClientCount => _clients.Count;
 }
