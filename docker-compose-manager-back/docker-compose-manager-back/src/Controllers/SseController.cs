@@ -47,18 +47,18 @@ public class SseController : ControllerBase
 
         try
         {
-            // Send initial connected event
-            await Response.WriteAsync($"event: connected\ndata: {{\"connectionId\":\"{connectionId}\"}}\n\n", cancellationToken);
-            await Response.Body.FlushAsync(cancellationToken);
+            // Send initial connected event through the SSE manager to avoid concurrent
+            // writes with BroadcastAsync (both target the same HttpResponse stream).
+            await _sseManager.WriteToClientAsync(connectionId,
+                $"event: connected\ndata: {{\"connectionId\":\"{connectionId}\"}}\n\n");
 
-            // Keep connection alive with heartbeat
+            // Keep connection alive with heartbeat (also coordinated via manager)
             while (!cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
 
                 // Send heartbeat comment (not an event, just keeps connection alive)
-                await Response.WriteAsync(": heartbeat\n\n", cancellationToken);
-                await Response.Body.FlushAsync(cancellationToken);
+                await _sseManager.WriteToClientAsync(connectionId, ": heartbeat\n\n");
             }
         }
         catch (OperationCanceledException)

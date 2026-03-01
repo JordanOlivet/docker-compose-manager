@@ -1,9 +1,12 @@
 <script lang="ts">
   import { dev } from '$app/environment';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import { projectUpdateState } from '$lib/stores/projectUpdate.svelte';
   import { _devFirePullProgressUpdate } from '$lib/stores/sse.svelte';
   import BulkUpdateDialog from '$lib/components/update/BulkUpdateDialog.svelte';
+  import { devTestApi } from '$lib/api/devTest';
+  import type { DevTestStatus, DevTestActionResult } from '$lib/api/devTest';
   import type {
     CheckAllUpdatesResponse,
     ProjectUpdateSummary,
@@ -149,6 +152,40 @@
   const storeProjects = $derived(
     projectUpdateState.checkResult?.projects ?? []
   );
+
+  // --- Real Docker Testing ---
+  let dockerStatus = $state<DevTestStatus | null>(null);
+  let dockerLoading = $state(false);
+  let lastLogs = $state<string[]>([]);
+  let lastError = $state<string | null>(null);
+
+  onMount(async () => {
+    try {
+      dockerStatus = await devTestApi.getStatus();
+    } catch {
+      // not critical if this fails
+    }
+  });
+
+  async function dockerAction(fn: () => Promise<DevTestActionResult>) {
+    dockerLoading = true;
+    lastLogs = [];
+    lastError = null;
+    try {
+      const result = await fn();
+      lastLogs = result.logs;
+      lastError = result.error;
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e.message : String(e);
+    } finally {
+      dockerLoading = false;
+      try {
+        dockerStatus = await devTestApi.getStatus();
+      } catch {
+        // ignore
+      }
+    }
+  }
 </script>
 
 <div class="max-w-xl mx-auto p-8 space-y-8">
@@ -241,6 +278,92 @@
         {/each}
       </ul>
     {/if}
+  </section>
+
+  <!-- Real Docker Testing -->
+  <section class="space-y-4 p-4 border border-dashed border-amber-400 dark:border-amber-600 rounded-lg">
+    <h2 class="text-sm font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Real Docker Testing</h2>
+
+    <!-- Status -->
+    {#if dockerStatus}
+      <div class="space-y-1 text-sm">
+        <div class="flex items-center gap-2">
+          <span class={dockerStatus.filesCreated ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
+            {dockerStatus.filesCreated ? '✓' : '✗'}
+          </span>
+          <span class="text-gray-700 dark:text-gray-300">Fichiers compose</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class={dockerStatus.nginxImageExists ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
+            {dockerStatus.nginxImageExists ? '✓' : '–'}
+          </span>
+          <span class="text-gray-700 dark:text-gray-300 font-mono">nginx:stable-alpine</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class={dockerStatus.redisImageExists ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
+            {dockerStatus.redisImageExists ? '✓' : '–'}
+          </span>
+          <span class="text-gray-700 dark:text-gray-300 font-mono">redis:alpine</span>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 font-mono pt-1">{dockerStatus.effectiveRootPath}</p>
+      </div>
+    {:else}
+      <p class="text-sm text-gray-400 italic">Chargement du statut...</p>
+    {/if}
+
+    <!-- Actions -->
+    <div class="flex flex-wrap gap-2">
+      <button
+        onclick={() => dockerAction(devTestApi.setup)}
+        disabled={dockerLoading}
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        1. Créer fichiers
+      </button>
+      <button
+        onclick={() => dockerAction(devTestApi.forceOutdated)}
+        disabled={dockerLoading}
+        title="Peut prendre ~30-60s (docker pull)"
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        2. Forcer périmé (~30-60s)
+      </button>
+      <button
+        onclick={() => dockerAction(devTestApi.restore)}
+        disabled={dockerLoading}
+        title="Peut prendre ~30-60s (docker pull)"
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        3. Restaurer (~30-60s)
+      </button>
+      <button
+        onclick={() => dockerAction(devTestApi.teardown)}
+        disabled={dockerLoading}
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        4. Teardown
+      </button>
+      {#if dockerLoading}
+        <span class="text-xs text-gray-500 dark:text-gray-400 self-center animate-pulse">En cours...</span>
+      {/if}
+    </div>
+
+    <!-- Logs output -->
+    {#if lastLogs.length > 0 || lastError}
+      <div class="space-y-1">
+        <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Dernière sortie</p>
+        {#if lastError}
+          <p class="text-xs text-red-500">{lastError}</p>
+        {/if}
+        <pre class="text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded p-3 overflow-y-auto max-h-48 whitespace-pre-wrap">{lastLogs.join('\n')}</pre>
+      </div>
+    {/if}
+
+    <!-- Hint -->
+    <p class="text-xs text-amber-700 dark:text-amber-400 border-t border-amber-200 dark:border-amber-800 pt-3">
+      Apres "Forcer perime", lancez "Check Updates" dans la page principale pour voir
+      <span class="font-mono">dcm-test-nginx</span> et <span class="font-mono">dcm-test-redis</span> marques comme necessitant une MAJ.
+    </p>
   </section>
 </div>
 
