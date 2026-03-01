@@ -512,3 +512,12 @@ export function onDisconnected(callback: (error?: Error) => void): () => void {
   disconnectedCallbacks.add(callback);
   return () => disconnectedCallbacks.delete(callback);
 }
+
+/**
+ * Dev-only: simulates a PullProgressUpdate SSE event for the test page.
+ * No-op in production.
+ */
+export function _devFirePullProgressUpdate(event: UpdateProgressEvent): void {
+  if (!import.meta.env.DEV) return;
+  pullProgressCallbacks.forEach(cb => cb(event));
+}

@@ -10,14 +10,15 @@
   import { projectUpdateState, markProjectAsUpdated } from '$lib/stores/projectUpdate.svelte';
   import { startBatchOperation } from '$lib/stores/batchOperation.svelte';
   import { onPullProgressUpdate } from '$lib/stores/sse.svelte';
-  import type { ProjectUpdateSummary, UpdateProgressEvent, ServicePullStatus } from '$lib/types/update';
+  import type { ProjectUpdateSummary, UpdateProgressEvent, ServicePullStatus, ProjectUpdateRequest } from '$lib/types/update';
 
   interface Props {
     open: boolean;
     onClose: () => void;
+    updateFn?: (projectName: string, options: ProjectUpdateRequest) => Promise<unknown>;
   }
 
-  let { open, onClose }: Props = $props();
+  let { open, onClose, updateFn }: Props = $props();
 
   const queryClient = useQueryClient();
 
@@ -160,7 +161,8 @@
         });
 
         try {
-          await updateApi.updateProject(projectName, { updateAll: true, restartFullProject });
+          const doUpdate = updateFn ?? updateApi.updateProject;
+          await doUpdate(projectName, { updateAll: true, restartFullProject });
 
           completedProjects.add(projectName);
           completedProjects = new Set(completedProjects);
