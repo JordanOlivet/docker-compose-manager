@@ -497,6 +497,8 @@ const fr = {
     updateAll: 'Tout mettre à jour',
     updateAllProjects: 'Mettre à jour tous les projets',
     projectsHaveUpdates: 'projets ont des mises à jour',
+    updatingProject: 'Mise à jour du projet',
+    projectsCompleted: 'projets terminés',
     allProjectsUpToDate: 'Tous les projets sont à jour',
     servicesNeedUpdate: 'services à mettre à jour',
     projectsSelected: 'projets sélectionnés',

@@ -497,6 +497,8 @@ export default {
     updateAll: 'Update All',
     updateAllProjects: 'Update All Projects',
     projectsHaveUpdates: 'projects have updates',
+    updatingProject: 'Updating project',
+    projectsCompleted: 'projects completed',
     allProjectsUpToDate: 'All projects are up to date',
     servicesNeedUpdate: 'services need update',
     projectsSelected: 'projects selected',
