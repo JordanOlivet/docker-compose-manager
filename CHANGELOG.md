@@ -1,3 +1,14 @@
+## Changes in v1.9.0
+
+**Merged Pull Requests:**
+- Fix bulk update and add real time progression (#85)
+
+**Commits:**
+- Fix bulk update and add real time progression (#85) (05bfb2d)
+- Upgrade back and test projects to dotnet 10 (#84) (bf6ae8f)
+- docs: update CHANGELOG for v1.8.0 [skip ci] (e16a36f)
+- chore: bump version to v1.8.0 [skip ci] (e5047d8)
+
 ## Changes in v1.8.0
 
 **Merged Pull Requests:**
