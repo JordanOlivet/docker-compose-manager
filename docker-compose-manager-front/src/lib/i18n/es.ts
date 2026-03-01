@@ -460,6 +460,8 @@ const es = {
     updateAll: 'Actualizar todo',
     updateAllProjects: 'Actualizar todos los proyectos',
     projectsHaveUpdates: 'proyectos tienen actualizaciones',
+    updatingProject: 'Actualizando proyecto',
+    projectsCompleted: 'proyectos completados',
     allProjectsUpToDate: 'Todos los proyectos están al día',
     servicesNeedUpdate: 'servicios necesitan actualización',
     projectsSelected: 'proyectos seleccionados',
