@@ -1,3 +1,13 @@
+## Changes in v1.9.1
+
+**Merged Pull Requests:**
+- Fix bulk update again (#86)
+
+**Commits:**
+- Fix bulk update again (#86) (9fec0ab)
+- docs: update CHANGELOG for v1.9.0 [skip ci] (e589e49)
+- chore: bump version to v1.9.0 [skip ci] (40a4e52)
+
 ## Changes in v1.9.0
 
 **Merged Pull Requests:**
