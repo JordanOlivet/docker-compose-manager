@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for unified frontend + backend deployment
 # Stage 1: Build .NET Backend
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS backend-build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-bookworm AS backend-build
 WORKDIR /src
 
 # Copy backend project file and restore dependencies
@@ -41,7 +41,7 @@ ENV VITE_GIT_COMMIT=${VITE_GIT_COMMIT}
 RUN npm run build
 
 # Stage 3: Runtime Base with Dependencies
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-bookworm-slim AS base
 
 # Install nginx, supervisor, procps and Docker CLI
 RUN apt-get update && \
