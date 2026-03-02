@@ -504,6 +504,20 @@ const es = {
     bulkContainerUpdatePartial: '{success} contenedores actualizados, {failed} fallidos',
     bulkContainerUpdateFailed: 'Error al actualizar los contenedores',
   },
+  devTest: {
+    title: 'Pruebas Docker reales',
+    statusLoading: 'Cargando estado...',
+    composeFiles: 'Archivos compose',
+    createFiles: '1. Crear archivos',
+    forceOutdated: '2. Forzar desactualizado',
+    forceOutdatedHint: 'Cross-tagea imágenes para simular un digest obsoleto',
+    restore: '3. Restaurar',
+    restoreHint: 'Restaura las imágenes desde backups locales',
+    teardown: '4. Eliminar archivos',
+    running: 'En progreso...',
+    lastOutput: 'Última salida',
+    hint: 'Después de "Forzar desactualizado", ejecuta "Verificar MAJ" en la página principal para ver dcm-test-nginx y dcm-test-redis marcados como necesitando actualización.',
+  },
 };
 
 export default es;

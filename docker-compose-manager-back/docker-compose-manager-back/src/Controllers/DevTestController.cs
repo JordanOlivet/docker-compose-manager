@@ -19,7 +19,8 @@ public class DevTestController : BaseController
     private readonly IWebHostEnvironment _env;
     private readonly ComposeDiscoveryOptions _options;
     private readonly DockerCommandExecutorService _docker;
-    private readonly IComposeFileCacheService _cache;
+    private readonly IComposeFileCacheService _composeCache;
+    private readonly IImageUpdateCacheService _updateCache;
     private readonly ILogger<DevTestController> _logger;
 
     private const string TestDirName = "tests-dcm";
@@ -49,13 +50,15 @@ public class DevTestController : BaseController
         IWebHostEnvironment env,
         IOptions<ComposeDiscoveryOptions> options,
         DockerCommandExecutorService docker,
-        IComposeFileCacheService cache,
+        IComposeFileCacheService composeCache,
+        IImageUpdateCacheService updateCache,
         ILogger<DevTestController> logger)
     {
         _env = env;
         _options = options.Value;
         _docker = docker;
-        _cache = cache;
+        _composeCache = composeCache;
+        _updateCache = updateCache;
         _logger = logger;
     }
 
@@ -85,8 +88,8 @@ public class DevTestController : BaseController
         bool nginxFileExists = System.IO.File.Exists(nginxPath);
         bool redisFileExists = System.IO.File.Exists(redisPath);
 
-        var (nginxExit, _, _) = await _docker.ExecuteAsync("docker", "image inspect nginx:stable-alpine");
-        var (redisExit, _, _) = await _docker.ExecuteAsync("docker", "image inspect redis:alpine");
+        (int nginxExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect nginx:stable-alpine");
+        (int redisExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect redis:alpine");
 
         return Ok(ApiResponse.Ok(new DevTestStatusResponse(
             FilesCreated: nginxFileExists && redisFileExists,
@@ -138,7 +141,7 @@ public class DevTestController : BaseController
                 logs.Add($"Already exists: {redisPath}");
             }
 
-            _cache.Invalidate();
+            _composeCache.Invalidate();
             logs.Add(anyCreated ? "Cache invalidated." : "No new files created.");
 
             return Ok(ApiResponse.Ok(new DevTestActionResponse(true, [.. logs], null)));
@@ -193,8 +196,8 @@ public class DevTestController : BaseController
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(300));
         List<string> logs = [];
 
-        var (nginxBackupExit, _, _) = await _docker.ExecuteAsync("docker", "image inspect nginx:stable-alpine-dcm-backup", cts.Token);
-        var (redisBackupExit, _, _) = await _docker.ExecuteAsync("docker", "image inspect redis:alpine-dcm-backup", cts.Token);
+        (int nginxBackupExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect nginx:stable-alpine-dcm-backup", cts.Token);
+        (int redisBackupExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect redis:alpine-dcm-backup", cts.Token);
 
         if (nginxBackupExit == 0 && redisBackupExit == 0)
         {
@@ -208,6 +211,9 @@ public class DevTestController : BaseController
             await RunStep(logs, "docker", "pull nginx:stable-alpine", cts.Token);
             await RunStep(logs, "docker", "pull redis:alpine", cts.Token);
         }
+
+        _updateCache.InvalidateAll();
+        logs.Add("Update cache invalidated.");
 
         return Ok(ApiResponse.Ok(new DevTestActionResponse(true, [.. logs], null)));
     }
@@ -237,7 +243,7 @@ public class DevTestController : BaseController
                 logs.Add($"Directory not found: {testDir}");
             }
 
-            _cache.Invalidate();
+            _composeCache.Invalidate();
             logs.Add("Cache invalidated.");
 
             return Ok(ApiResponse.Ok(new DevTestActionResponse(true, [.. logs], null)));
@@ -251,7 +257,7 @@ public class DevTestController : BaseController
 
     private async Task EnsureImagePresent(List<string> logs, string image, CancellationToken ct)
     {
-        var (exitCode, _, _) = await _docker.ExecuteAsync("docker", $"image inspect {image}", ct);
+        (int exitCode, string _, string _) = await _docker.ExecuteAsync("docker", $"image inspect {image}", ct);
         if (exitCode == 0)
         {
             logs.Add($"Image already present: {image}");
@@ -268,7 +274,7 @@ public class DevTestController : BaseController
         logs.Add($"$ {command} {arguments}");
         try
         {
-            var (exitCode, output, error) = await _docker.ExecuteAsync(command, arguments, ct);
+            (int exitCode, string? output, string? error) = await _docker.ExecuteAsync(command, arguments, ct);
             if (!string.IsNullOrWhiteSpace(output)) logs.Add(output.TrimEnd());
             if (!string.IsNullOrWhiteSpace(error)) logs.Add(error.TrimEnd());
             logs.Add($"Exit code: {exitCode}");

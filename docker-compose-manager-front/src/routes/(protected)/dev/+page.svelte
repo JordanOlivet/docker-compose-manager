@@ -5,6 +5,7 @@
   import { projectUpdateState } from '$lib/stores/projectUpdate.svelte';
   import { _devFirePullProgressUpdate } from '$lib/stores/sse.svelte';
   import BulkUpdateDialog from '$lib/components/update/BulkUpdateDialog.svelte';
+  import { t } from '$lib/i18n';
   import { devTestApi } from '$lib/api/devTest';
   import type { DevTestStatus, DevTestActionResult } from '$lib/api/devTest';
   import type {
@@ -282,7 +283,7 @@
 
   <!-- Real Docker Testing -->
   <section class="space-y-4 p-4 border border-dashed border-amber-400 dark:border-amber-600 rounded-lg">
-    <h2 class="text-sm font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Real Docker Testing</h2>
+    <h2 class="text-sm font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">{$t('devTest.title')}</h2>
 
     <!-- Status -->
     {#if dockerStatus}
@@ -291,7 +292,7 @@
           <span class={dockerStatus.filesCreated ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
             {dockerStatus.filesCreated ? '✓' : '✗'}
           </span>
-          <span class="text-gray-700 dark:text-gray-300">Fichiers compose</span>
+          <span class="text-gray-700 dark:text-gray-300">{$t('devTest.composeFiles')}</span>
         </div>
         <div class="flex items-center gap-2">
           <span class={dockerStatus.nginxImageExists ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
@@ -308,7 +309,7 @@
         <p class="text-xs text-gray-500 dark:text-gray-400 font-mono pt-1">{dockerStatus.effectiveRootPath}</p>
       </div>
     {:else}
-      <p class="text-sm text-gray-400 italic">Chargement du statut...</p>
+      <p class="text-sm text-gray-400 italic">{$t('devTest.statusLoading')}</p>
     {/if}
 
     <!-- Actions -->
@@ -318,40 +319,40 @@
         disabled={dockerLoading}
         class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
       >
-        1. Créer fichiers
+        {$t('devTest.createFiles')}
       </button>
       <button
         onclick={() => dockerAction(devTestApi.forceOutdated)}
         disabled={dockerLoading}
-        title="Peut prendre ~30-60s (docker pull)"
+        title={$t('devTest.forceOutdatedHint')}
         class="px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
       >
-        2. Forcer périmé (~30-60s)
+        {$t('devTest.forceOutdated')}
       </button>
       <button
         onclick={() => dockerAction(devTestApi.restore)}
         disabled={dockerLoading}
-        title="Peut prendre ~30-60s (docker pull)"
+        title={$t('devTest.restoreHint')}
         class="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
       >
-        3. Restaurer (~30-60s)
+        {$t('devTest.restore')}
       </button>
       <button
         onclick={() => dockerAction(devTestApi.teardown)}
         disabled={dockerLoading}
         class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
       >
-        4. Teardown
+        {$t('devTest.teardown')}
       </button>
       {#if dockerLoading}
-        <span class="text-xs text-gray-500 dark:text-gray-400 self-center animate-pulse">En cours...</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400 self-center animate-pulse">{$t('devTest.running')}</span>
       {/if}
     </div>
 
     <!-- Logs output -->
     {#if lastLogs.length > 0 || lastError}
       <div class="space-y-1">
-        <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Dernière sortie</p>
+        <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{$t('devTest.lastOutput')}</p>
         {#if lastError}
           <p class="text-xs text-red-500">{lastError}</p>
         {/if}
@@ -361,8 +362,7 @@
 
     <!-- Hint -->
     <p class="text-xs text-amber-700 dark:text-amber-400 border-t border-amber-200 dark:border-amber-800 pt-3">
-      Apres "Forcer perime", lancez "Check Updates" dans la page principale pour voir
-      <span class="font-mono">dcm-test-nginx</span> et <span class="font-mono">dcm-test-redis</span> marques comme necessitant une MAJ.
+      {$t('devTest.hint')}
     </p>
   </section>
 </div>

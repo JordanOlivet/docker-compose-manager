@@ -541,4 +541,18 @@ export default {
     bulkContainerUpdatePartial: 'Updated {success} containers, {failed} failed',
     bulkContainerUpdateFailed: 'Failed to update containers',
   },
+  devTest: {
+    title: 'Real Docker Testing',
+    statusLoading: 'Loading status...',
+    composeFiles: 'Compose files',
+    createFiles: '1. Create files',
+    forceOutdated: '2. Force outdated',
+    forceOutdatedHint: 'Cross-tags images to simulate a stale digest',
+    restore: '3. Restore',
+    restoreHint: 'Restores images from local backups',
+    teardown: '4. Remove files',
+    running: 'Running...',
+    lastOutput: 'Last output',
+    hint: 'After "Force outdated", run "Check Updates" on the main page to see dcm-test-nginx and dcm-test-redis marked as needing an update.',
+  },
 } as const;
