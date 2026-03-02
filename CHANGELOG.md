@@ -1,3 +1,13 @@
+## Changes in v1.9.2
+
+**Merged Pull Requests:**
+- Fix dev tests (#87)
+
+**Commits:**
+- Fix dev tests (#87) (b80fb35)
+- docs: update CHANGELOG for v1.9.1 [skip ci] (e3c718c)
+- chore: bump version to v1.9.1 [skip ci] (1defd70)
+
 ## Changes in v1.9.1
 
 **Merged Pull Requests:**
