@@ -25,25 +25,30 @@ public class DevTestController : BaseController
 
     private const string TestDirName = "tests-dcm";
     private const string NginxProjectDir = "dcm-test-nginx";
-    private const string RedisProjectDir = "dcm-test-redis";
+    private const string WhoamiProjectDir = "dcm-test-whoami";
     private const string ComposeFileName = "docker-compose.yml";
+
+    private const string NginxImage = "ghcr.io/nginx/nginx-unprivileged:alpine-slim";
+    private const string WhoamiImage = "ghcr.io/traefik/whoami:v1.11";
+    private const string NginxImageBackup = "ghcr.io/nginx/nginx-unprivileged:alpine-slim-dcm-backup";
+    private const string WhoamiImageBackup = "ghcr.io/traefik/whoami:v1.11-dcm-backup";
 
     private const string NginxComposeContent = """
         name: dcm-test-nginx
         services:
           web:
-            image: nginx:stable-alpine
+            image: ghcr.io/nginx/nginx-unprivileged:alpine-slim
             ports:
-              - "18181:80"
+              - "18181:8080"
         """;
 
-    private const string RedisComposeContent = """
-        name: dcm-test-redis
+    private const string WhoamiComposeContent = """
+        name: dcm-test-whoami
         services:
-          cache:
-            image: redis:alpine
+          app:
+            image: ghcr.io/traefik/whoami:v1.11
             ports:
-              - "16363:6379"
+              - "16363:80"
         """;
 
     public DevTestController(
@@ -70,8 +75,8 @@ public class DevTestController : BaseController
     private string NginxComposePath(string root) =>
         Path.Combine(root, TestDirName, NginxProjectDir, ComposeFileName);
 
-    private string RedisComposePath(string root) =>
-        Path.Combine(root, TestDirName, RedisProjectDir, ComposeFileName);
+    private string WhoamiComposePath(string root) =>
+        Path.Combine(root, TestDirName, WhoamiProjectDir, ComposeFileName);
 
     /// <summary>
     /// Returns the status of the test setup (files and images).
@@ -83,21 +88,21 @@ public class DevTestController : BaseController
 
         string root = GetEffectiveRootPath();
         string nginxPath = NginxComposePath(root);
-        string redisPath = RedisComposePath(root);
+        string whoamiPath = WhoamiComposePath(root);
 
         bool nginxFileExists = System.IO.File.Exists(nginxPath);
-        bool redisFileExists = System.IO.File.Exists(redisPath);
+        bool whoamiFileExists = System.IO.File.Exists(whoamiPath);
 
-        (int nginxExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect nginx:stable-alpine");
-        (int redisExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect redis:alpine");
+        (int nginxExit, string _, string _) = await _docker.ExecuteAsync("docker", $"image inspect {NginxImage}");
+        (int whoamiExit, string _, string _) = await _docker.ExecuteAsync("docker", $"image inspect {WhoamiImage}");
 
         return Ok(ApiResponse.Ok(new DevTestStatusResponse(
-            FilesCreated: nginxFileExists && redisFileExists,
+            FilesCreated: nginxFileExists && whoamiFileExists,
             NginxImageExists: nginxExit == 0,
-            RedisImageExists: redisExit == 0,
+            WhoamiImageExists: whoamiExit == 0,
             EffectiveRootPath: Path.Combine(root, TestDirName),
             NginxComposePath: nginxPath,
-            RedisComposePath: redisPath
+            WhoamiComposePath: whoamiPath
         )));
     }
 
@@ -128,17 +133,17 @@ public class DevTestController : BaseController
                 logs.Add($"Already exists: {nginxPath}");
             }
 
-            string redisPath = RedisComposePath(root);
-            if (!System.IO.File.Exists(redisPath))
+            string whoamiPath = WhoamiComposePath(root);
+            if (!System.IO.File.Exists(whoamiPath))
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(redisPath)!);
-                System.IO.File.WriteAllText(redisPath, RedisComposeContent);
-                logs.Add($"Created: {redisPath}");
+                Directory.CreateDirectory(Path.GetDirectoryName(whoamiPath)!);
+                System.IO.File.WriteAllText(whoamiPath, WhoamiComposeContent);
+                logs.Add($"Created: {whoamiPath}");
                 anyCreated = true;
             }
             else
             {
-                logs.Add($"Already exists: {redisPath}");
+                logs.Add($"Already exists: {whoamiPath}");
             }
 
             _composeCache.Invalidate();
@@ -167,19 +172,21 @@ public class DevTestController : BaseController
         List<string> logs = [];
 
         // Ensure images are present locally (pull only if absent)
-        await EnsureImagePresent(logs, "nginx:stable-alpine", cts.Token);
-        await EnsureImagePresent(logs, "redis:alpine", cts.Token);
+        await EnsureImagePresent(logs, NginxImage, cts.Token);
+        await EnsureImagePresent(logs, WhoamiImage, cts.Token);
 
         // Create backups before cross-tagging
-        await RunStep(logs, "docker", "tag nginx:stable-alpine nginx:stable-alpine-dcm-backup", cts.Token);
-        await RunStep(logs, "docker", "tag redis:alpine redis:alpine-dcm-backup", cts.Token);
+        await RunStep(logs, "docker", $"tag {NginxImage} {NginxImageBackup}", cts.Token);
+        await RunStep(logs, "docker", $"tag {WhoamiImage} {WhoamiImageBackup}", cts.Token);
 
-        // Cross-tag: give nginx the redis digest and vice-versa
+        // Cross-tag: give nginx the whoami digest and vice-versa
         // → local digest ≠ remote digest → update detected by ImageDigestService
-        await RunStep(logs, "docker", "tag redis:alpine-dcm-backup nginx:stable-alpine", cts.Token);
-        await RunStep(logs, "docker", "tag nginx:stable-alpine-dcm-backup redis:alpine", cts.Token);
+        await RunStep(logs, "docker", $"tag {WhoamiImageBackup} {NginxImage}", cts.Token);
+        await RunStep(logs, "docker", $"tag {NginxImageBackup} {WhoamiImage}", cts.Token);
 
-        logs.Add("Done. Local digests now mismatch remote — run Check Updates to verify.");
+        // Invalidate the 60-min update cache so the next Check Updates is fresh
+        _updateCache.InvalidateAll();
+        logs.Add("Update cache invalidated — run Check Updates to verify.");
 
         return Ok(ApiResponse.Ok(new DevTestActionResponse(true, [.. logs], null)));
     }
@@ -196,20 +203,20 @@ public class DevTestController : BaseController
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(300));
         List<string> logs = [];
 
-        (int nginxBackupExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect nginx:stable-alpine-dcm-backup", cts.Token);
-        (int redisBackupExit, string _, string _) = await _docker.ExecuteAsync("docker", "image inspect redis:alpine-dcm-backup", cts.Token);
+        (int nginxBackupExit, string _, string _) = await _docker.ExecuteAsync("docker", $"image inspect {NginxImageBackup}", cts.Token);
+        (int whoamiBackupExit, string _, string _) = await _docker.ExecuteAsync("docker", $"image inspect {WhoamiImageBackup}", cts.Token);
 
-        if (nginxBackupExit == 0 && redisBackupExit == 0)
+        if (nginxBackupExit == 0 && whoamiBackupExit == 0)
         {
             logs.Add("Restoring from local backup tags (no network needed).");
-            await RunStep(logs, "docker", "tag nginx:stable-alpine-dcm-backup nginx:stable-alpine", cts.Token);
-            await RunStep(logs, "docker", "tag redis:alpine-dcm-backup redis:alpine", cts.Token);
+            await RunStep(logs, "docker", $"tag {NginxImageBackup} {NginxImage}", cts.Token);
+            await RunStep(logs, "docker", $"tag {WhoamiImageBackup} {WhoamiImage}", cts.Token);
         }
         else
         {
             logs.Add("No backup tags found, pulling fresh images.");
-            await RunStep(logs, "docker", "pull nginx:stable-alpine", cts.Token);
-            await RunStep(logs, "docker", "pull redis:alpine", cts.Token);
+            await RunStep(logs, "docker", $"pull {NginxImage}", cts.Token);
+            await RunStep(logs, "docker", $"pull {WhoamiImage}", cts.Token);
         }
 
         _updateCache.InvalidateAll();
@@ -293,10 +300,10 @@ public class DevTestController : BaseController
 public record DevTestStatusResponse(
     bool FilesCreated,
     bool NginxImageExists,
-    bool RedisImageExists,
+    bool WhoamiImageExists,
     string EffectiveRootPath,
     string NginxComposePath,
-    string RedisComposePath
+    string WhoamiComposePath
 );
 
 public record DevTestActionResponse(

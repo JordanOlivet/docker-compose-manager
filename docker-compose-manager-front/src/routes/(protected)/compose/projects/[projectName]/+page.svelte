@@ -114,7 +114,7 @@
 
 	// Check updates mutation
 	const checkUpdatesMutation = createMutation(() => ({
-		mutationFn: () => updateApi.checkProjectUpdates(projectName),
+		mutationFn: () => updateApi.checkProjectUpdates(projectName, true),
 		onSuccess: (data: ProjectUpdateCheckResponse) => {
 			projectUpdateCheck = data;
 			updateDialogOpen = true;

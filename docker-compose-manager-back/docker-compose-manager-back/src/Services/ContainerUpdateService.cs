@@ -10,7 +10,7 @@ public interface IContainerUpdateService
     /// <summary>
     /// Checks if an update is available for a specific container's image.
     /// </summary>
-    Task<ContainerUpdateCheckResponse> CheckContainerUpdateAsync(string containerId, CancellationToken ct = default);
+    Task<ContainerUpdateCheckResponse> CheckContainerUpdateAsync(string containerId, bool forceRefresh = false, CancellationToken ct = default);
 
     /// <summary>
     /// Updates a standalone container by pulling new image and recreating with same config.
@@ -21,7 +21,7 @@ public interface IContainerUpdateService
     /// <summary>
     /// Checks all containers for updates and broadcasts results via SSE.
     /// </summary>
-    Task<ContainerUpdatesCheckedEvent> CheckAllContainerUpdatesAsync(CancellationToken ct = default);
+    Task<ContainerUpdatesCheckedEvent> CheckAllContainerUpdatesAsync(bool forceRefresh = false, CancellationToken ct = default);
 
     /// <summary>
     /// Returns cached container update summaries (does not trigger new checks).
@@ -69,7 +69,7 @@ public class ContainerUpdateService : IContainerUpdateService
         _logger = logger;
     }
 
-    public async Task<ContainerUpdateCheckResponse> CheckContainerUpdateAsync(string containerId, CancellationToken ct = default)
+    public async Task<ContainerUpdateCheckResponse> CheckContainerUpdateAsync(string containerId, bool forceRefresh = false, CancellationToken ct = default)
     {
         ContainerDetailsDto? container = await _dockerService.GetContainerDetailsAsync(containerId);
         if (container == null)
@@ -94,8 +94,8 @@ public class ContainerUpdateService : IContainerUpdateService
 
         try
         {
-            // For compose-managed containers, check if we have cached results
-            if (isComposeManaged && !string.IsNullOrEmpty(projectName))
+            // For compose-managed containers, check if we have cached results (skip if forceRefresh)
+            if (!forceRefresh && isComposeManaged && !string.IsNullOrEmpty(projectName))
             {
                 ProjectUpdateCheckResponse? cached = _updateCacheService.GetCachedCheck(projectName);
                 if (cached != null && !string.IsNullOrEmpty(serviceName))
@@ -489,9 +489,9 @@ public class ContainerUpdateService : IContainerUpdateService
         return string.Join(" ", args);
     }
 
-    public async Task<ContainerUpdatesCheckedEvent> CheckAllContainerUpdatesAsync(CancellationToken ct = default)
+    public async Task<ContainerUpdatesCheckedEvent> CheckAllContainerUpdatesAsync(bool forceRefresh = false, CancellationToken ct = default)
     {
-        _logger.LogInformation("Checking updates for all containers");
+        _logger.LogInformation("Checking updates for all containers (forceRefresh: {ForceRefresh})", forceRefresh);
 
         List<ContainerDto> containers = await _dockerService.ListContainersAsync(true);
         List<ContainerUpdateSummary> summaries = new();
@@ -510,8 +510,8 @@ public class ContainerUpdateService : IContainerUpdateService
             {
                 bool updateAvailable = false;
 
-                // For compose-managed containers, try to resolve from project update cache
-                if (isComposeManaged && !string.IsNullOrEmpty(serviceName))
+                // For compose-managed containers, try to resolve from project update cache (skip if forceRefresh)
+                if (!forceRefresh && isComposeManaged && !string.IsNullOrEmpty(serviceName))
                 {
                     ProjectUpdateCheckResponse? cached = _updateCacheService.GetCachedCheck(projectName!);
                     if (cached != null)
@@ -553,7 +553,7 @@ public class ContainerUpdateService : IContainerUpdateService
                 }
 
                 // Standalone container or compose container without cached project data: do real check
-                ContainerUpdateCheckResponse result = await CheckContainerUpdateAsync(container.Id, ct);
+                ContainerUpdateCheckResponse result = await CheckContainerUpdateAsync(container.Id, forceRefresh, ct);
                 updateAvailable = result.UpdateAvailable;
 
                 summaries.Add(new ContainerUpdateSummary(

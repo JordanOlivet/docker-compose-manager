@@ -104,7 +104,7 @@
 
   // Check update mutation
   const checkUpdateMutation = createMutation(() => ({
-    mutationFn: (containerId: string) => updateApi.checkContainerUpdate(containerId),
+    mutationFn: (containerId: string) => updateApi.checkContainerUpdate(containerId, true),
     onSuccess: (data: ContainerUpdateCheckResponse) => {
       containerUpdateCheck = data;
       setContainerUpdateResult(data.containerId, data.updateAvailable);
@@ -119,7 +119,7 @@
 
   // Check all container updates mutation
   const checkAllUpdatesMutation = createMutation(() => ({
-    mutationFn: () => updateApi.checkAllContainerUpdates(),
+    mutationFn: () => updateApi.checkAllContainerUpdates(true),
     onSuccess: (data: ContainerUpdatesCheckedEvent) => {
       handleContainerUpdatesCheckedEvent(data);
       toast.success($t('update.checkForUpdates') + ' - OK');

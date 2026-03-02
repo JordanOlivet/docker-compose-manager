@@ -298,13 +298,13 @@
           <span class={dockerStatus.nginxImageExists ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
             {dockerStatus.nginxImageExists ? '✓' : '–'}
           </span>
-          <span class="text-gray-700 dark:text-gray-300 font-mono">nginx:stable-alpine</span>
+          <span class="text-gray-700 dark:text-gray-300 font-mono">ghcr.io/nginx/nginx-unprivileged:alpine-slim</span>
         </div>
         <div class="flex items-center gap-2">
-          <span class={dockerStatus.redisImageExists ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
-            {dockerStatus.redisImageExists ? '✓' : '–'}
+          <span class={dockerStatus.whoamiImageExists ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
+            {dockerStatus.whoamiImageExists ? '✓' : '–'}
           </span>
-          <span class="text-gray-700 dark:text-gray-300 font-mono">redis:alpine</span>
+          <span class="text-gray-700 dark:text-gray-300 font-mono">ghcr.io/traefik/whoami:v1.11</span>
         </div>
         <p class="text-xs text-gray-500 dark:text-gray-400 font-mono pt-1">{dockerStatus.effectiveRootPath}</p>
       </div>

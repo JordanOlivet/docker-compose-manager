@@ -15,6 +15,7 @@ public interface IComposeUpdateService
     /// </summary>
     Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
         string projectName,
+        bool forceRefresh = false,
         CancellationToken ct = default);
 
     /// <summary>
@@ -52,6 +53,7 @@ public interface IComposeUpdateService
     /// </summary>
     Task<CheckAllUpdatesResponse> CheckAllProjectsUpdatesAsync(
         int userId,
+        bool forceRefresh = false,
         CancellationToken ct = default);
 }
 
@@ -105,8 +107,12 @@ public class ComposeUpdateService : IComposeUpdateService
 
     public Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
         string projectName,
+        bool forceRefresh = false,
         CancellationToken ct = default)
     {
+        if (forceRefresh)
+            _cacheService.InvalidateProject(projectName);
+
         return CheckProjectUpdatesInternalAsync(projectName, null, ct);
     }
 
@@ -265,7 +271,7 @@ public class ComposeUpdateService : IComposeUpdateService
             if (updateAll || services == null || services.Count == 0)
             {
                 // Update all services with available updates
-                ProjectUpdateCheckResponse updateCheck = await CheckProjectUpdatesAsync(projectName, ct);
+                ProjectUpdateCheckResponse updateCheck = await CheckProjectUpdatesAsync(projectName, ct: ct);
                 servicesToUpdate = updateCheck.Images
                     .Where(i => i.UpdateAvailable && i.UpdatePolicy != "disabled")
                     .Select(i => i.ServiceName)
@@ -584,9 +590,13 @@ public class ComposeUpdateService : IComposeUpdateService
 
     public async Task<CheckAllUpdatesResponse> CheckAllProjectsUpdatesAsync(
         int userId,
+        bool forceRefresh = false,
         CancellationToken ct = default)
     {
-        _logger.LogDebug("Checking updates for all projects (user: {UserId})", userId);
+        _logger.LogDebug("Checking updates for all projects (user: {UserId}, forceRefresh: {ForceRefresh})", userId, forceRefresh);
+
+        if (forceRefresh)
+            _cacheService.InvalidateAll();
 
         // Get all projects with compose files
         List<ComposeProjectDto> allProjects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);

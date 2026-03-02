@@ -45,8 +45,10 @@ export const getUpdateStatus = async (): Promise<UpdateStatusResponse> => {
 /**
  * Check for available updates for a project's images
  */
-export const checkProjectUpdates = async (projectName: string): Promise<ProjectUpdateCheckResponse> => {
-  const response = await apiClient.get(`/compose/projects/${encodeURIComponent(projectName)}/check-updates`);
+export const checkProjectUpdates = async (projectName: string, forceRefresh = false): Promise<ProjectUpdateCheckResponse> => {
+  const response = await apiClient.get(`/compose/projects/${encodeURIComponent(projectName)}/check-updates`, {
+    params: { forceRefresh },
+  });
   return response.data.data;
 };
 
@@ -89,8 +91,10 @@ export const clearUpdateCache = async (): Promise<void> => {
 /**
  * Check for updates across all projects with compose files
  */
-export const checkAllProjectUpdates = async (): Promise<CheckAllUpdatesResponse> => {
-  const response = await apiClient.post('/compose/check-all-updates');
+export const checkAllProjectUpdates = async (forceRefresh = false): Promise<CheckAllUpdatesResponse> => {
+  const response = await apiClient.post('/compose/check-all-updates', null, {
+    params: { forceRefresh },
+  });
   return response.data.data;
 };
 
@@ -101,8 +105,10 @@ export const checkAllProjectUpdates = async (): Promise<CheckAllUpdatesResponse>
 /**
  * Check if an update is available for a container's image
  */
-export const checkContainerUpdate = async (containerId: string): Promise<ContainerUpdateCheckResponse> => {
-  const response = await apiClient.get(`/containers/${encodeURIComponent(containerId)}/check-update`);
+export const checkContainerUpdate = async (containerId: string, forceRefresh = false): Promise<ContainerUpdateCheckResponse> => {
+  const response = await apiClient.get(`/containers/${encodeURIComponent(containerId)}/check-update`, {
+    params: { forceRefresh },
+  });
   return response.data.data;
 };
 
@@ -129,8 +135,10 @@ export const getContainerUpdateStatus = async (): Promise<ContainerUpdateSummary
 /**
  * Check all containers for available updates
  */
-export const checkAllContainerUpdates = async (): Promise<ContainerUpdatesCheckedEvent> => {
-  const response = await apiClient.post('/containers/check-all-updates');
+export const checkAllContainerUpdates = async (forceRefresh = false): Promise<ContainerUpdatesCheckedEvent> => {
+  const response = await apiClient.post('/containers/check-all-updates', null, {
+    params: { forceRefresh },
+  });
   return response.data.data;
 };
 
