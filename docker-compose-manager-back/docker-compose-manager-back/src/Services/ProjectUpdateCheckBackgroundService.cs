@@ -81,7 +81,7 @@ public class ProjectUpdateCheckBackgroundService : BackgroundService
         using IServiceScope scope = _serviceProvider.CreateScope();
         IComposeUpdateService updateService = scope.ServiceProvider.GetRequiredService<IComposeUpdateService>();
 
-        CheckAllUpdatesResponse result = await updateService.CheckAllProjectsUpdatesAsync(userId: 1, ct);
+        CheckAllUpdatesResponse result = await updateService.CheckAllProjectsUpdatesAsync(userId: 1, ct: ct);
 
         ProjectUpdatesCheckedEvent sseEvent = new(
             Projects: result.Projects,
@@ -105,7 +105,7 @@ public class ProjectUpdateCheckBackgroundService : BackgroundService
         try
         {
             IContainerUpdateService containerUpdateService = scope.ServiceProvider.GetRequiredService<IContainerUpdateService>();
-            await containerUpdateService.CheckAllContainerUpdatesAsync(ct);
+            await containerUpdateService.CheckAllContainerUpdatesAsync(ct: ct);
         }
         catch (Exception ex)
         {

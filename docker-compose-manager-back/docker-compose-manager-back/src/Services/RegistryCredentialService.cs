@@ -37,6 +37,12 @@ public interface IRegistryCredentialService
     /// Get list of known registries (Docker Hub, GHCR)
     /// </summary>
     List<KnownRegistryInfo> GetKnownRegistries();
+
+    /// <summary>
+    /// Returns the raw (username, password) credentials for a registry from ~/.docker/config.json,
+    /// resolving credential helpers when needed. Returns null if no credentials are configured.
+    /// </summary>
+    Task<(string Username, string Password)?> GetRawCredentialsAsync(string registryKey);
 }
 
 /// <summary>
@@ -369,6 +375,80 @@ public class RegistryCredentialService : IRegistryCredentialService
                 IsAuthenticated: false,
                 Error: ex.Message
             );
+        }
+    }
+
+    public async Task<(string Username, string Password)?> GetRawCredentialsAsync(string registryKey)
+    {
+        try
+        {
+            string configPath = GetDockerConfigPath();
+            if (!File.Exists(configPath)) return null;
+
+            string configContent = await File.ReadAllTextAsync(configPath);
+            DockerConfig? config = JsonSerializer.Deserialize<DockerConfig>(configContent,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (config == null) return null;
+
+            // Try to find a direct base64-encoded auth entry
+            if (config.Auths != null)
+            {
+                foreach ((string key, AuthEntry? authEntry) in config.Auths)
+                {
+                    if (!NormalizeRegistryUrl(key).Equals(NormalizeRegistryUrl(registryKey), StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (string.IsNullOrEmpty(authEntry?.Auth))
+                        continue;
+
+                    string decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(authEntry.Auth));
+                    int colonIndex = decoded.IndexOf(':');
+                    if (colonIndex > 0)
+                        return (decoded[..colonIndex], decoded[(colonIndex + 1)..]);
+                }
+            }
+
+            // Resolve credential helper (specific first, then global credsStore)
+            string? credHelper = null;
+            if (config.CredHelpers != null)
+            {
+                foreach (string key in config.CredHelpers.Keys)
+                {
+                    if (NormalizeRegistryUrl(key).Equals(NormalizeRegistryUrl(registryKey), StringComparison.OrdinalIgnoreCase))
+                    {
+                        credHelper = config.CredHelpers[key];
+                        break;
+                    }
+                }
+            }
+
+            if (credHelper == null && !string.IsNullOrEmpty(config.CredsStore))
+                credHelper = config.CredsStore;
+
+            if (credHelper != null)
+            {
+                // docker-credential-<helper> get reads the registry URL from stdin
+                var (exitCode, output, _) = await _executor.ExecuteWithStdinAsync(
+                    $"docker-credential-{credHelper}",
+                    "get",
+                    registryKey,
+                    CancellationToken.None);
+
+                if (exitCode == 0 && !string.IsNullOrEmpty(output))
+                {
+                    using JsonDocument doc = JsonDocument.Parse(output);
+                    string? username = doc.RootElement.TryGetProperty("Username", out JsonElement u) ? u.GetString() : null;
+                    string? password = doc.RootElement.TryGetProperty("Secret", out JsonElement s) ? s.GetString() : null;
+                    if (username != null && password != null)
+                        return (username, password);
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to get raw credentials for registry {Registry}", registryKey);
+            return null;
         }
     }
 

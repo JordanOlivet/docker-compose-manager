@@ -3,10 +3,10 @@ import { apiClient } from './client';
 export interface DevTestStatus {
   filesCreated: boolean;
   nginxImageExists: boolean;
-  redisImageExists: boolean;
+  whoamiImageExists: boolean;
   effectiveRootPath: string;
   nginxComposePath: string;
-  redisComposePath: string;
+  whoamiComposePath: string;
 }
 
 export interface DevTestActionResult {

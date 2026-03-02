@@ -572,7 +572,10 @@ public class ContainersController : BaseController
     /// </summary>
     [HttpGet("{id}/check-update")]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<ApiResponse<ContainerUpdateCheckResponse>>> CheckContainerUpdate(string id, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<ContainerUpdateCheckResponse>>> CheckContainerUpdate(
+        string id,
+        [FromQuery] bool forceRefresh = false,
+        CancellationToken ct = default)
     {
         try
         {
@@ -584,7 +587,7 @@ public class ContainersController : BaseController
                     "SELF_CONTAINER_PROTECTED"));
             }
 
-            ContainerUpdateCheckResponse result = await _containerUpdateService.CheckContainerUpdateAsync(id, ct);
+            ContainerUpdateCheckResponse result = await _containerUpdateService.CheckContainerUpdateAsync(id, forceRefresh, ct);
 
             if (result.Error == "Container not found")
             {
@@ -701,11 +704,13 @@ public class ContainersController : BaseController
     /// </summary>
     [HttpPost("check-all-updates")]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<ApiResponse<ContainerUpdatesCheckedEvent>>> CheckAllContainerUpdates(CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<ContainerUpdatesCheckedEvent>>> CheckAllContainerUpdates(
+        [FromQuery] bool forceRefresh = false,
+        CancellationToken ct = default)
     {
         try
         {
-            ContainerUpdatesCheckedEvent result = await _containerUpdateService.CheckAllContainerUpdatesAsync(ct);
+            ContainerUpdatesCheckedEvent result = await _containerUpdateService.CheckAllContainerUpdatesAsync(forceRefresh, ct);
             return Ok(ApiResponse.Ok(result));
         }
         catch (Exception ex)

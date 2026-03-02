@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using docker_compose_manager_back.Configuration;
+using docker_compose_manager_back.Services;
 using Microsoft.Extensions.Options;
 
 namespace docker_compose_manager_back.Services.Registry;
@@ -13,17 +15,21 @@ public class DockerHubRegistryClient : IRegistryClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<DockerHubRegistryClient> _logger;
     private readonly UpdateCheckOptions _options;
+    private readonly IRegistryCredentialService _credentialService;
 
     private const string AuthUrl = "https://auth.docker.io/token";
     private const string RegistryUrl = "https://registry-1.docker.io/v2";
+    private const string DockerHubRegistryKey = "https://index.docker.io/v1/";
 
     public DockerHubRegistryClient(
         HttpClient httpClient,
         IOptions<UpdateCheckOptions> options,
+        IRegistryCredentialService credentialService,
         ILogger<DockerHubRegistryClient> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _credentialService = credentialService;
         _logger = logger;
 
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
@@ -95,7 +101,19 @@ public class DockerHubRegistryClient : IRegistryClient
             string scope = $"repository:{repository}:pull";
             string url = $"{AuthUrl}?service=registry.docker.io&scope={Uri.EscapeDataString(scope)}";
 
-            HttpResponseMessage response = await _httpClient.GetAsync(url, cancellationToken);
+            using HttpRequestMessage tokenRequest = new(HttpMethod.Get, url);
+
+            // Use configured Docker Hub credentials if available to bypass anonymous rate limits
+            var credentials = await _credentialService.GetRawCredentialsAsync(DockerHubRegistryKey);
+            if (credentials.HasValue)
+            {
+                string basicAuth = Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes($"{credentials.Value.Username}:{credentials.Value.Password}"));
+                tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+                _logger.LogDebug("Using authenticated Docker Hub token request for {Repository}", repository);
+            }
+
+            HttpResponseMessage response = await _httpClient.SendAsync(tokenRequest, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {

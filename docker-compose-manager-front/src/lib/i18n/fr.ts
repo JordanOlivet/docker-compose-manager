@@ -541,6 +541,20 @@ const fr = {
     bulkContainerUpdatePartial: '{success} conteneurs mis à jour, {failed} échoués',
     bulkContainerUpdateFailed: 'Échec de la mise à jour des conteneurs',
   },
+  devTest: {
+    title: 'Tests Docker réels',
+    statusLoading: 'Chargement du statut...',
+    composeFiles: 'Fichiers compose',
+    createFiles: '1. Créer les fichiers',
+    forceOutdated: '2. Forcer périmé',
+    forceOutdatedHint: 'Cross-tag les images pour simuler un digest périmé',
+    restore: '3. Restaurer',
+    restoreHint: 'Restaure les images depuis les backups locaux',
+    teardown: '4. Supprimer les fichiers',
+    running: 'En cours...',
+    lastOutput: 'Dernière sortie',
+    hint: 'Après "Forcer périmé", lancez "Vérifier les MAJ" dans la page principale pour voir dcm-test-nginx et dcm-test-redis marqués comme nécessitant une mise à jour.',
+  },
 };
 
 export default fr;

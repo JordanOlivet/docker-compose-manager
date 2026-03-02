@@ -1688,7 +1688,8 @@ volumes:
     [Authorize(Roles = "admin")]
     public async Task<ActionResult<ApiResponse<ProjectUpdateCheckResponse>>> CheckProjectUpdates(
         string projectName,
-        CancellationToken ct)
+        [FromQuery] bool forceRefresh = false,
+        CancellationToken ct = default)
     {
         try
         {
@@ -1700,9 +1701,9 @@ volumes:
                 return Unauthorized(ApiResponse.Fail<ProjectUpdateCheckResponse>("User not authenticated"));
             }
 
-            _logger.LogDebug("User {UserId} checking updates for project {ProjectName}", userId.Value, projectName);
+            _logger.LogDebug("User {UserId} checking updates for project {ProjectName} (forceRefresh: {ForceRefresh})", userId.Value, projectName, forceRefresh);
 
-            ProjectUpdateCheckResponse result = await _composeUpdateService.CheckProjectUpdatesAsync(projectName, ct);
+            ProjectUpdateCheckResponse result = await _composeUpdateService.CheckProjectUpdatesAsync(projectName, forceRefresh, ct);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1899,7 +1900,9 @@ volumes:
     /// </remarks>
     [HttpPost("check-all-updates")]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<ApiResponse<CheckAllUpdatesResponse>>> CheckAllProjectUpdates(CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<CheckAllUpdatesResponse>>> CheckAllProjectUpdates(
+        [FromQuery] bool forceRefresh = false,
+        CancellationToken ct = default)
     {
         try
         {
@@ -1909,10 +1912,11 @@ volumes:
                 return Unauthorized(ApiResponse.Fail<CheckAllUpdatesResponse>("User not authenticated"));
             }
 
-            _logger.LogInformation("User {UserId} triggered check-all-updates", userId.Value);
+            _logger.LogInformation("User {UserId} triggered check-all-updates (forceRefresh: {ForceRefresh})", userId.Value, forceRefresh);
 
             CheckAllUpdatesResponse result = await _composeUpdateService.CheckAllProjectsUpdatesAsync(
                 userId.Value,
+                forceRefresh,
                 ct
             );
 
