@@ -1,3 +1,13 @@
+## Changes in v1.10.0
+
+**Merged Pull Requests:**
+- Add more consistant ready check and app uuid (#88)
+
+**Commits:**
+- Add more consistant ready check and app uuid (#88) (8232147)
+- docs: update CHANGELOG for v1.9.2 [skip ci] (c9f139c)
+- chore: bump version to v1.9.2 [skip ci] (ea77716)
+
 ## Changes in v1.9.2
 
 **Merged Pull Requests:**
