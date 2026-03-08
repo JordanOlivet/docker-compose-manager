@@ -6,6 +6,7 @@
   import { t } from '$lib/i18n';
   import { updateState, updateReconnectState, exitMaintenanceMode, clearUpdateInfo } from '$lib/stores/update.svelte';
   import { logger } from '$lib/utils/logger';
+  import { getHealth } from '$lib/api/system';
   import type { HealthResponse } from '$lib/types/update';
 
   interface Props {
@@ -68,34 +69,28 @@
     updateReconnectState(reconnectAttempt, 0);
 
     try {
-      // Try to reach the health endpoint
-      const response = await fetch('/api/system/health', {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      });
+      // Try to reach the health endpoint using apiClient (handles dev/prod URLs)
+      const health = await getHealth();
 
-      if (response.ok) {
-        // Server responded, but let's verify it's fully stable with multiple checks
-        isVerifyingStability = true;
-        const isStable = await verifyServerStability();
-        isVerifyingStability = false;
+      // Server responded, now verify it's fully stable
+      isVerifyingStability = true;
+      const isStable = await verifyServerStability(health);
+      isVerifyingStability = false;
 
-        if (isStable) {
-          // Server is fully operational
-          reconnectionSucceeded = true;
-          exitMaintenanceMode();
-          // Clear update info so the settings page shows fresh state after login
-          clearUpdateInfo();
+      if (isStable) {
+        // Server is fully operational
+        reconnectionSucceeded = true;
+        exitMaintenanceMode();
+        // Clear update info so the settings page shows fresh state after login
+        clearUpdateInfo();
 
-          // Give a moment for the success message to show, then redirect
-          setTimeout(() => {
-            goto('/login');
-          }, 3000);
-          return;
-        }
-        // If not stable yet, continue reconnecting
+        // Give a moment for the success message to show, then redirect
+        setTimeout(() => {
+          goto('/login');
+        }, 3000);
+        return;
       }
+      // If not stable yet, continue reconnecting
     } catch {
       // Server still down, continue reconnecting
     }
@@ -116,25 +111,10 @@
     scheduleReconnect(nextInterval);
   }
 
-  async function verifyServerStability(): Promise<boolean> {
+  async function verifyServerStability(health: HealthResponse): Promise<boolean> {
     const preUpdateId = updateState.preUpdateInstanceId;
 
     try {
-      const response = await fetch('/api/system/health', {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-
-      if (!response.ok) {
-        logger.log('[Maintenance] Health check failed with status:', response.status);
-        return false;
-      }
-
-      const result = await response.json();
-      // Handle wrapped response (ApiResponse<HealthStatus>)
-      const health: HealthResponse = result.data ?? result;
-
       // 1. Instance must be ready
       if (!health.isReady) {
         logger.log('[Maintenance] Instance not ready yet, instanceId:', health.instanceId);

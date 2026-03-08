@@ -27,6 +27,18 @@ public interface IInstanceIdentifierService
     /// Should be called after all initialization tasks are complete.
     /// </summary>
     void SetReady();
+
+    /// <summary>
+    /// Reset the instance ID and startup timestamp (dev/testing only).
+    /// Simulates a container restart.
+    /// </summary>
+    void ResetInstance();
+
+    /// <summary>
+    /// Set the instance as not ready (dev/testing only).
+    /// Simulates the initialization phase after restart.
+    /// </summary>
+    void SetNotReady();
 }
 
 /// <summary>
@@ -35,9 +47,22 @@ public interface IInstanceIdentifierService
 /// </summary>
 public class InstanceIdentifierService : IInstanceIdentifierService
 {
-    public string InstanceId { get; } = Guid.NewGuid().ToString("N");
-    public DateTime StartupTimestamp { get; } = DateTime.UtcNow;
-    public bool IsReady { get; private set; } = false;
+    private string _instanceId = Guid.NewGuid().ToString("N");
+    private DateTime _startupTimestamp = DateTime.UtcNow;
+    private bool _isReady = false;
 
-    public void SetReady() => IsReady = true;
+    public string InstanceId => _instanceId;
+    public DateTime StartupTimestamp => _startupTimestamp;
+    public bool IsReady => _isReady;
+
+    public void SetReady() => _isReady = true;
+
+    public void ResetInstance()
+    {
+        _instanceId = Guid.NewGuid().ToString("N");
+        _startupTimestamp = DateTime.UtcNow;
+        _isReady = false;
+    }
+
+    public void SetNotReady() => _isReady = false;
 }
