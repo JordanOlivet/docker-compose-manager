@@ -35,7 +35,10 @@ jobs:
           fetch-depth: 0
       - name: Extract version
         id: version
-        uses: ./.github/actions/extract-version
+        uses: JordanOlivet/ci-workflows/actions/extract-version@v1
+        with:
+          source: file
+          path: VERSION
 
   backend-build-test:
     name: Backend - Build & Test
