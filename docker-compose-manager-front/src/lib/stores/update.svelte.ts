@@ -28,6 +28,8 @@ export const updateState = $state({
   isInMaintenance: false,
   maintenanceMessage: '' as string,
   gracePeriodSeconds: 0,
+  /** Instance ID before the update, used to detect when new instance is ready */
+  preUpdateInstanceId: null as string | null,
 
   // Reconnection state during maintenance
   reconnectAttempt: 0,
@@ -90,6 +92,7 @@ export function enterMaintenanceMode(notification: MaintenanceModeNotification) 
   updateState.isInMaintenance = notification.isActive;
   updateState.maintenanceMessage = notification.message;
   updateState.gracePeriodSeconds = notification.gracePeriodSeconds;
+  updateState.preUpdateInstanceId = notification.preUpdateInstanceId ?? null;
   updateState.reconnectAttempt = 0;
   updateState.reconnectCountdown = 0;
 
@@ -103,6 +106,7 @@ export function exitMaintenanceMode() {
   updateState.isInMaintenance = false;
   updateState.maintenanceMessage = '';
   updateState.gracePeriodSeconds = 0;
+  updateState.preUpdateInstanceId = null;
   updateState.reconnectAttempt = 0;
   updateState.reconnectCountdown = 0;
   updateState.isUpdating = false;

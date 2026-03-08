@@ -17,17 +17,20 @@ public class SystemController : BaseController
     private readonly ISelfUpdateService _selfUpdateService;
     private readonly IAuditService _auditService;
     private readonly IVersionDetectionService _versionDetectionService;
+    private readonly IInstanceIdentifierService _instanceIdentifierService;
 
     public SystemController(
         ILogger<SystemController> logger,
         ISelfUpdateService selfUpdateService,
         IAuditService auditService,
-        IVersionDetectionService versionDetectionService)
+        IVersionDetectionService versionDetectionService,
+        IInstanceIdentifierService instanceIdentifierService)
     {
         _logger = logger;
         _selfUpdateService = selfUpdateService;
         _auditService = auditService;
         _versionDetectionService = versionDetectionService;
+        _instanceIdentifierService = instanceIdentifierService;
     }
 
     /// <summary>
@@ -63,15 +66,20 @@ public class SystemController : BaseController
     /// <summary>
     /// Health check endpoint
     /// </summary>
-    /// <returns>Simple health status</returns>
+    /// <returns>Health status including instance identification and readiness</returns>
     [HttpGet("health")]
     [ProducesResponseType(typeof(ApiResponse<HealthStatus>), StatusCodes.Status200OK)]
     public ActionResult<ApiResponse<HealthStatus>> GetHealth()
     {
+        DateTime now = DateTime.UtcNow;
         HealthStatus health = new HealthStatus
         {
             Status = "healthy",
-            Timestamp = DateTime.UtcNow
+            Timestamp = now,
+            InstanceId = _instanceIdentifierService.InstanceId,
+            IsReady = _instanceIdentifierService.IsReady,
+            StartupTimestamp = _instanceIdentifierService.StartupTimestamp,
+            UptimeSeconds = (now - _instanceIdentifierService.StartupTimestamp).TotalSeconds
         };
 
         return Ok(ApiResponse.Ok(health, "System is healthy"));
@@ -195,4 +203,8 @@ public class HealthStatus
 {
     public string Status { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
+    public string InstanceId { get; set; } = string.Empty;
+    public bool IsReady { get; set; }
+    public DateTime StartupTimestamp { get; set; }
+    public double UptimeSeconds { get; set; }
 }

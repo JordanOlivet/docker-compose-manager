@@ -5,6 +5,9 @@
   import { Loader2, RefreshCw, Wrench, CheckCircle, XCircle } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import { updateState, updateReconnectState, exitMaintenanceMode, clearUpdateInfo } from '$lib/stores/update.svelte';
+  import { logger } from '$lib/utils/logger';
+  import { getHealth } from '$lib/api/system';
+  import type { HealthResponse } from '$lib/types/update';
 
   interface Props {
     initialIntervalMs?: number;
@@ -66,34 +69,28 @@
     updateReconnectState(reconnectAttempt, 0);
 
     try {
-      // Try to reach the health endpoint
-      const response = await fetch('/api/system/health', {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      });
+      // Try to reach the health endpoint using apiClient (handles dev/prod URLs)
+      const health = await getHealth();
 
-      if (response.ok) {
-        // Server responded, but let's verify it's fully stable with multiple checks
-        isVerifyingStability = true;
-        const isStable = await verifyServerStability();
-        isVerifyingStability = false;
+      // Server responded, now verify it's fully stable
+      isVerifyingStability = true;
+      const isStable = await verifyServerStability(health);
+      isVerifyingStability = false;
 
-        if (isStable) {
-          // Server is fully operational
-          reconnectionSucceeded = true;
-          exitMaintenanceMode();
-          // Clear update info so the settings page shows fresh state after login
-          clearUpdateInfo();
+      if (isStable) {
+        // Server is fully operational
+        reconnectionSucceeded = true;
+        exitMaintenanceMode();
+        // Clear update info so the settings page shows fresh state after login
+        clearUpdateInfo();
 
-          // Give a moment for the success message to show, then redirect
-          setTimeout(() => {
-            goto('/login');
-          }, 3000);
-          return;
-        }
-        // If not stable yet, continue reconnecting
+        // Give a moment for the success message to show, then redirect
+        setTimeout(() => {
+          goto('/login');
+        }, 3000);
+        return;
       }
+      // If not stable yet, continue reconnecting
     } catch {
       // Server still down, continue reconnecting
     }
@@ -114,48 +111,33 @@
     scheduleReconnect(nextInterval);
   }
 
-  async function verifyServerStability(): Promise<boolean> {
-    // Perform multiple consecutive health checks to ensure server is stable
-    const checksNeeded = 3;
-    const delayBetweenChecks = 1000; // 1 second
+  async function verifyServerStability(health: HealthResponse): Promise<boolean> {
+    const preUpdateId = updateState.preUpdateInstanceId;
 
-    for (let i = 0; i < checksNeeded; i++) {
-      try {
-        // Wait between checks (except for the first one)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
-        }
-
-        // Try both health and version endpoints to ensure full initialization
-        const [healthResponse, versionResponse] = await Promise.all([
-          fetch('/api/system/health', {
-            method: 'GET',
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-          }),
-          fetch('/api/system/version', {
-            method: 'GET',
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-          })
-        ]);
-
-        // Both endpoints must respond successfully
-        if (!healthResponse.ok || !versionResponse.ok) {
-          return false;
-        }
-
-        // Parse version response to ensure JSON processing works
-        await versionResponse.json();
-
-      } catch {
-        // Any failure means server isn't stable yet
+    try {
+      // 1. Instance must be ready
+      if (!health.isReady) {
+        logger.log('[Maintenance] Instance not ready yet, instanceId:', health.instanceId);
         return false;
       }
-    }
 
-    // All checks passed - server is stable
-    return true;
+      // 2. If we have a preUpdateInstanceId, the new one must be DIFFERENT
+      if (preUpdateId && health.instanceId === preUpdateId) {
+        logger.log('[Maintenance] Same instance, old container still responding, instanceId:', health.instanceId);
+        return false;
+      }
+
+      logger.log('[Maintenance] New instance verified:', {
+        newInstanceId: health.instanceId,
+        preUpdateId,
+        uptime: health.uptimeSeconds
+      });
+
+      return true;
+    } catch (error) {
+      logger.log('[Maintenance] Health check error:', error);
+      return false;
+    }
   }
 
   function retryManually() {

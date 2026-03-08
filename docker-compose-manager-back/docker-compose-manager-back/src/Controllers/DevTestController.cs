@@ -8,6 +8,162 @@ using Microsoft.Extensions.Options;
 namespace docker_compose_manager_back.Controllers;
 
 /// <summary>
+/// Dev-only endpoints for maintenance mode simulation.
+/// All endpoints return 404 in production.
+/// </summary>
+[ApiController]
+[Route("api/dev/maintenance")]
+[Authorize(Roles = "admin")]
+public class MaintenanceDevController : BaseController
+{
+    private readonly IWebHostEnvironment _env;
+    private readonly IInstanceIdentifierService _instanceService;
+    private readonly SseConnectionManagerService _sseService;
+    private readonly MaintenanceOptions _maintenanceOptions;
+    private readonly ILogger<MaintenanceDevController> _logger;
+
+    public MaintenanceDevController(
+        IWebHostEnvironment env,
+        IInstanceIdentifierService instanceService,
+        SseConnectionManagerService sseService,
+        IOptions<MaintenanceOptions> maintenanceOptions,
+        ILogger<MaintenanceDevController> logger)
+    {
+        _env = env;
+        _instanceService = instanceService;
+        _sseService = sseService;
+        _maintenanceOptions = maintenanceOptions.Value;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Returns the current maintenance status: instanceId, isReady, uptime.
+    /// </summary>
+    [HttpGet("status")]
+    public ActionResult<ApiResponse<MaintenanceDevStatusResponse>> GetStatus()
+    {
+        if (!_env.IsDevelopment()) return NotFound();
+
+        DateTime now = DateTime.UtcNow;
+        return Ok(ApiResponse.Ok(new MaintenanceDevStatusResponse(
+            InstanceId: _instanceService.InstanceId,
+            IsReady: _instanceService.IsReady,
+            UptimeSeconds: (now - _instanceService.StartupTimestamp).TotalSeconds,
+            StartupTimestamp: _instanceService.StartupTimestamp
+        )));
+    }
+
+    /// <summary>
+    /// Simulates the complete maintenance mode cycle:
+    /// 1. Broadcast maintenance mode to all clients
+    /// 2. Wait for delay
+    /// 3. Reset instance (new instanceId)
+    /// 4. Set ready
+    /// </summary>
+    [HttpPost("simulate")]
+    public async Task<ActionResult<ApiResponse<DevTestActionResponse>>> SimulateMaintenance(
+        [FromQuery] int delaySeconds = 15,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_env.IsDevelopment()) return NotFound();
+
+        delaySeconds = Math.Clamp(delaySeconds, 5, 60);
+        List<string> logs = [];
+
+        try
+        {
+            string originalInstanceId = _instanceService.InstanceId;
+            logs.Add($"Original instanceId: {originalInstanceId}");
+
+            // Step 1: Broadcast maintenance mode notification
+            var notification = new MaintenanceModeNotification(
+                IsActive: true,
+                Message: "[DEV SIMULATION] Maintenance mode active. Simulating update...",
+                EstimatedEndTime: DateTime.UtcNow.AddSeconds(delaySeconds),
+                GracePeriodSeconds: _maintenanceOptions.GracePeriodSeconds,
+                PreUpdateInstanceId: originalInstanceId
+            );
+
+            await _sseService.BroadcastAsync("MaintenanceMode", notification);
+            logs.Add($"Broadcasted MaintenanceMode notification (grace period: {_maintenanceOptions.GracePeriodSeconds}s)");
+
+            // Step 2: Wait for the configured delay
+            logs.Add($"Waiting {delaySeconds} seconds to simulate update...");
+            await Task.Delay(delaySeconds * 1000, cancellationToken);
+
+            // Step 3: Reset instance (simulates container restart)
+            _instanceService.ResetInstance();
+            logs.Add($"Instance reset. New instanceId: {_instanceService.InstanceId}");
+
+            // Step 4: Set ready (simulates initialization complete)
+            _instanceService.SetReady();
+            logs.Add("Instance marked as ready");
+
+            return Ok(ApiResponse.Ok(new DevTestActionResponse(true, [.. logs], null)));
+        }
+        catch (OperationCanceledException)
+        {
+            logs.Add("Simulation cancelled");
+            return Ok(ApiResponse.Ok(new DevTestActionResponse(false, [.. logs], "Cancelled")));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during maintenance simulation");
+            return Ok(ApiResponse.Ok(new DevTestActionResponse(false, [.. logs], ex.Message)));
+        }
+    }
+
+    /// <summary>
+    /// Force a new instanceId (simulates container restart).
+    /// </summary>
+    [HttpPost("reset-instance")]
+    public ActionResult<ApiResponse<DevTestActionResponse>> ResetInstance()
+    {
+        if (!_env.IsDevelopment()) return NotFound();
+
+        string oldId = _instanceService.InstanceId;
+        _instanceService.ResetInstance();
+
+        return Ok(ApiResponse.Ok(new DevTestActionResponse(
+            true,
+            [$"Instance reset. Old: {oldId}, New: {_instanceService.InstanceId}"],
+            null
+        )));
+    }
+
+    /// <summary>
+    /// Set the IsReady state manually.
+    /// </summary>
+    [HttpPost("set-ready")]
+    public ActionResult<ApiResponse<DevTestActionResponse>> SetReady([FromQuery] bool ready = true)
+    {
+        if (!_env.IsDevelopment()) return NotFound();
+
+        if (ready)
+        {
+            _instanceService.SetReady();
+        }
+        else
+        {
+            _instanceService.SetNotReady();
+        }
+
+        return Ok(ApiResponse.Ok(new DevTestActionResponse(
+            true,
+            [$"IsReady set to: {_instanceService.IsReady}"],
+            null
+        )));
+    }
+}
+
+public record MaintenanceDevStatusResponse(
+    string InstanceId,
+    bool IsReady,
+    double UptimeSeconds,
+    DateTime StartupTimestamp
+);
+
+/// <summary>
 /// Dev-only endpoints for real Docker testing of the bulk update workflow.
 /// All endpoints return 404 in production.
 /// </summary>

@@ -7,7 +7,7 @@
   import BulkUpdateDialog from '$lib/components/update/BulkUpdateDialog.svelte';
   import { t } from '$lib/i18n';
   import { devTestApi } from '$lib/api/devTest';
-  import type { DevTestStatus, DevTestActionResult } from '$lib/api/devTest';
+  import type { DevTestStatus, DevTestActionResult, MaintenanceDevStatus } from '$lib/api/devTest';
   import type {
     CheckAllUpdatesResponse,
     ProjectUpdateSummary,
@@ -160,9 +160,21 @@
   let lastLogs = $state<string[]>([]);
   let lastError = $state<string | null>(null);
 
+  // --- Maintenance Mode Simulation ---
+  let maintenanceStatus = $state<MaintenanceDevStatus | null>(null);
+  let maintenanceLoading = $state(false);
+  let maintenanceDelaySeconds = $state(15);
+  let maintenanceLogs = $state<string[]>([]);
+  let maintenanceError = $state<string | null>(null);
+
   onMount(async () => {
     try {
       dockerStatus = await devTestApi.getStatus();
+    } catch {
+      // not critical if this fails
+    }
+    try {
+      maintenanceStatus = await devTestApi.getMaintenanceStatus();
     } catch {
       // not critical if this fails
     }
@@ -185,6 +197,34 @@
       } catch {
         // ignore
       }
+    }
+  }
+
+  async function maintenanceAction(fn: () => Promise<DevTestActionResult>) {
+    maintenanceLoading = true;
+    maintenanceLogs = [];
+    maintenanceError = null;
+    try {
+      const result = await fn();
+      maintenanceLogs = result.logs;
+      maintenanceError = result.error;
+    } catch (e: unknown) {
+      maintenanceError = e instanceof Error ? e.message : String(e);
+    } finally {
+      maintenanceLoading = false;
+      try {
+        maintenanceStatus = await devTestApi.getMaintenanceStatus();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  async function refreshMaintenanceStatus() {
+    try {
+      maintenanceStatus = await devTestApi.getMaintenanceStatus();
+    } catch {
+      // ignore
     }
   }
 </script>
@@ -363,6 +403,107 @@
     <!-- Hint -->
     <p class="text-xs text-amber-700 dark:text-amber-400 border-t border-amber-200 dark:border-amber-800 pt-3">
       {$t('devTest.hint')}
+    </p>
+  </section>
+
+  <!-- Maintenance Mode Simulation -->
+  <section class="space-y-4 p-4 border border-dashed border-purple-400 dark:border-purple-600 rounded-lg">
+    <h2 class="text-sm font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wide">
+      Maintenance Mode Simulation
+    </h2>
+
+    <!-- Status -->
+    {#if maintenanceStatus}
+      <div class="space-y-1 text-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600 dark:text-gray-400">Instance ID:</span>
+          <span class="font-mono text-gray-900 dark:text-white">{maintenanceStatus.instanceId}</span>
+          <button
+            onclick={refreshMaintenanceStatus}
+            class="text-xs text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+          >
+            refresh
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class={maintenanceStatus.isReady ? 'text-green-600 dark:text-green-400' : 'text-yellow-500'}>
+            {maintenanceStatus.isReady ? '✓ Ready' : '⏳ Not Ready'}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600 dark:text-gray-400">Uptime:</span>
+          <span class="text-gray-900 dark:text-white">{Math.round(maintenanceStatus.uptimeSeconds)}s</span>
+        </div>
+      </div>
+    {:else}
+      <p class="text-sm text-gray-400 italic">Loading status...</p>
+    {/if}
+
+    <!-- Configuration -->
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-2">
+        <span class="text-xs text-gray-600 dark:text-gray-400">Delay (seconds):</span>
+        <input
+          type="number"
+          min="5"
+          max="60"
+          bind:value={maintenanceDelaySeconds}
+          class="w-16 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        />
+      </label>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-wrap gap-2">
+      <button
+        onclick={() => maintenanceAction(() => devTestApi.simulateMaintenance(maintenanceDelaySeconds))}
+        disabled={maintenanceLoading}
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        Launch Simulated Maintenance
+      </button>
+      <button
+        onclick={() => maintenanceAction(devTestApi.resetInstance)}
+        disabled={maintenanceLoading}
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        Reset Instance
+      </button>
+      <button
+        onclick={() => maintenanceAction(() => devTestApi.setReady(false))}
+        disabled={maintenanceLoading}
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        Set Not Ready
+      </button>
+      <button
+        onclick={() => maintenanceAction(() => devTestApi.setReady(true))}
+        disabled={maintenanceLoading}
+        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      >
+        Set Ready
+      </button>
+      {#if maintenanceLoading}
+        <span class="text-xs text-gray-500 dark:text-gray-400 self-center animate-pulse">Running...</span>
+      {/if}
+    </div>
+
+    <!-- Logs output -->
+    {#if maintenanceLogs.length > 0 || maintenanceError}
+      <div class="space-y-1">
+        <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Output</p>
+        {#if maintenanceError}
+          <p class="text-xs text-red-500">{maintenanceError}</p>
+        {/if}
+        <pre class="text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded p-3 overflow-y-auto max-h-48 whitespace-pre-wrap">{maintenanceLogs.join('\n')}</pre>
+      </div>
+    {/if}
+
+    <!-- Hint -->
+    <p class="text-xs text-purple-700 dark:text-purple-400 border-t border-purple-200 dark:border-purple-800 pt-3">
+      This section simulates the maintenance mode cycle without triggering a real update.
+      "Launch Simulated Maintenance" broadcasts a MaintenanceMode SSE event, waits for the delay,
+      then resets the instance ID to simulate a container restart.
     </p>
   </section>
 </div>

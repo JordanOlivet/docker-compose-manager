@@ -74,6 +74,20 @@ export interface MaintenanceModeNotification {
   message: string;
   estimatedEndTime: string | null;
   gracePeriodSeconds: number;
+  /** Instance ID before the update, used to detect when new instance is ready */
+  preUpdateInstanceId?: string | null;
+}
+
+/**
+ * Health check response from /api/system/health
+ */
+export interface HealthResponse {
+  status: string;
+  timestamp: string;
+  instanceId: string;
+  isReady: boolean;
+  startupTimestamp: string;
+  uptimeSeconds: number;
 }
 
 // ============================================
