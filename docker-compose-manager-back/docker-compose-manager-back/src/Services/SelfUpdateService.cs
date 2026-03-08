@@ -27,6 +27,7 @@ public class SelfUpdateService : ISelfUpdateService
     private readonly MaintenanceOptions _maintenanceOptions;
     private readonly ILogger<SelfUpdateService> _logger;
     private readonly SseConnectionManagerService _seConnectionManagerService;
+    private readonly IInstanceIdentifierService _instanceIdentifierService;
 
     private bool _updateInProgress;
     private readonly object _updateLock = new();
@@ -52,7 +53,8 @@ public class SelfUpdateService : ISelfUpdateService
         IOptions<SelfUpdateOptions> selfUpdateOptions,
         IOptions<MaintenanceOptions> maintenanceOptions,
         ILogger<SelfUpdateService> logger,
-        SseConnectionManagerService sseConnectionManagerService)
+        SseConnectionManagerService sseConnectionManagerService,
+        IInstanceIdentifierService instanceIdentifierService)
     {
         _gitHubReleaseService = gitHubReleaseService;
         _composeFileDetector = composeFileDetector;
@@ -63,6 +65,7 @@ public class SelfUpdateService : ISelfUpdateService
         _maintenanceOptions = maintenanceOptions.Value;
         _logger = logger;
         _seConnectionManagerService = sseConnectionManagerService;
+        _instanceIdentifierService = instanceIdentifierService;
 
         // Initialize Docker client for launching updater container
         string? dockerHost = configuration["Docker:Host"];
@@ -155,12 +158,14 @@ public class SelfUpdateService : ISelfUpdateService
             );
 
             // Notify all clients about maintenance mode
-            _logger.LogDebug("Broadcasting maintenance mode notification");
+            _logger.LogDebug("Broadcasting maintenance mode notification with instance ID {InstanceId}",
+                _instanceIdentifierService.InstanceId);
             var notification = new MaintenanceModeNotification(
                 IsActive: true,
                 Message: $"Application is updating to version {updateInfo.LatestVersion}. Please wait...",
                 EstimatedEndTime: DateTime.UtcNow.AddMinutes(2),
-                GracePeriodSeconds: _maintenanceOptions.GracePeriodSeconds
+                GracePeriodSeconds: _maintenanceOptions.GracePeriodSeconds,
+                PreUpdateInstanceId: _instanceIdentifierService.InstanceId
             );
 
             await _seConnectionManagerService.BroadcastAsync("MaintenanceMode", notification);

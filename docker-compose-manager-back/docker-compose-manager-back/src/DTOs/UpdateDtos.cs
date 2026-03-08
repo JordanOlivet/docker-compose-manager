@@ -64,11 +64,17 @@ public record UpdateTriggerRequest(
 /// <summary>
 /// Maintenance mode notification data sent via SignalR.
 /// </summary>
+/// <param name="IsActive">Whether maintenance mode is active.</param>
+/// <param name="Message">Message to display to users.</param>
+/// <param name="EstimatedEndTime">Estimated time when maintenance will end.</param>
+/// <param name="GracePeriodSeconds">Grace period in seconds before update starts.</param>
+/// <param name="PreUpdateInstanceId">Instance ID before the update, used to detect when new instance is ready.</param>
 public record MaintenanceModeNotification(
     bool IsActive,
     string Message,
     DateTime? EstimatedEndTime,
-    int GracePeriodSeconds
+    int GracePeriodSeconds,
+    string? PreUpdateInstanceId = null
 );
 
 /// <summary>

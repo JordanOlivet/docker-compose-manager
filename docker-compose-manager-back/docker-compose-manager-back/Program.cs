@@ -235,6 +235,7 @@ builder.Services.AddSingleton<IImageReferenceParser, ImageReferenceParser>();
 builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
 builder.Services.AddSingleton<IVersionDetectionService, VersionDetectionService>();
 builder.Services.AddSingleton<ISelfFilterService, SelfFilterService>();
+builder.Services.AddSingleton<IInstanceIdentifierService, InstanceIdentifierService>();
 builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
 
 // Register Compose Update services (for project updates)
@@ -466,10 +467,12 @@ app.MapGet("/health/detailed", async (AppDbContext dbContext, DockerService dock
 
 app.MapControllers();
 
-// Log when application is ready
+// Log when application is ready and mark instance as ready
 IHostApplicationLifetime lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
 lifetime.ApplicationStarted.Register(async () =>
 {
+    IInstanceIdentifierService instanceService = app.Services.GetRequiredService<IInstanceIdentifierService>();
+
     string[] urls = app.Urls.ToArray();
     if (urls.Length > 0)
     {
@@ -478,6 +481,25 @@ lifetime.ApplicationStarted.Register(async () =>
     else
     {
         Log.Information("Docker Compose Manager Backend is ready and listening");
+    }
+
+    // Verify DB accessibility before marking as ready
+    try
+    {
+        using IServiceScope scope = app.Services.CreateScope();
+        AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.CanConnectAsync();
+
+        // Mark instance as ready
+        instanceService.SetReady();
+        double uptimeMs = (DateTime.UtcNow - instanceService.StartupTimestamp).TotalMilliseconds;
+        Log.Information("Instance {InstanceId} ready after {UptimeMs:F0}ms",
+            instanceService.InstanceId, uptimeMs);
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Readiness checks failed - instance {InstanceId} NOT marked as ready",
+            instanceService.InstanceId);
     }
 
     // Log self-filter detection result

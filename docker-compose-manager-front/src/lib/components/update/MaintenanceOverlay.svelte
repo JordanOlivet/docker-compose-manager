@@ -5,6 +5,8 @@
   import { Loader2, RefreshCw, Wrench, CheckCircle, XCircle } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import { updateState, updateReconnectState, exitMaintenanceMode, clearUpdateInfo } from '$lib/stores/update.svelte';
+  import { logger } from '$lib/utils/logger';
+  import type { HealthResponse } from '$lib/types/update';
 
   interface Props {
     initialIntervalMs?: number;
@@ -115,47 +117,47 @@
   }
 
   async function verifyServerStability(): Promise<boolean> {
-    // Perform multiple consecutive health checks to ensure server is stable
-    const checksNeeded = 3;
-    const delayBetweenChecks = 1000; // 1 second
+    const preUpdateId = updateState.preUpdateInstanceId;
 
-    for (let i = 0; i < checksNeeded; i++) {
-      try {
-        // Wait between checks (except for the first one)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
-        }
+    try {
+      const response = await fetch('/api/system/health', {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
 
-        // Try both health and version endpoints to ensure full initialization
-        const [healthResponse, versionResponse] = await Promise.all([
-          fetch('/api/system/health', {
-            method: 'GET',
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-          }),
-          fetch('/api/system/version', {
-            method: 'GET',
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-          })
-        ]);
-
-        // Both endpoints must respond successfully
-        if (!healthResponse.ok || !versionResponse.ok) {
-          return false;
-        }
-
-        // Parse version response to ensure JSON processing works
-        await versionResponse.json();
-
-      } catch {
-        // Any failure means server isn't stable yet
+      if (!response.ok) {
+        logger.log('[Maintenance] Health check failed with status:', response.status);
         return false;
       }
-    }
 
-    // All checks passed - server is stable
-    return true;
+      const result = await response.json();
+      // Handle wrapped response (ApiResponse<HealthStatus>)
+      const health: HealthResponse = result.data ?? result;
+
+      // 1. Instance must be ready
+      if (!health.isReady) {
+        logger.log('[Maintenance] Instance not ready yet, instanceId:', health.instanceId);
+        return false;
+      }
+
+      // 2. If we have a preUpdateInstanceId, the new one must be DIFFERENT
+      if (preUpdateId && health.instanceId === preUpdateId) {
+        logger.log('[Maintenance] Same instance, old container still responding, instanceId:', health.instanceId);
+        return false;
+      }
+
+      logger.log('[Maintenance] New instance verified:', {
+        newInstanceId: health.instanceId,
+        preUpdateId,
+        uptime: health.uptimeSeconds
+      });
+
+      return true;
+    } catch (error) {
+      logger.log('[Maintenance] Health check error:', error);
+      return false;
+    }
   }
 
   function retryManually() {
