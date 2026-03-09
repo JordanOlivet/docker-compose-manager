@@ -19,28 +19,17 @@ permissions:
   pull-requests: write
 
 jobs:
-  prepare:
-    name: Prepare & Version Extraction
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      base_version: ${{ steps.version.outputs.base_version }}
-      assembly_version: ${{ steps.version.outputs.assembly_version }}
-      build_date: ${{ steps.version.outputs.build_date }}
-      vcs_ref: ${{ steps.version.outputs.vcs_ref }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Extract version
-        id: version
-        uses: ./.github/actions/extract-version
+  extract-version:
+    name: Extract Version
+    uses: JordanOlivet/ci-workflows/.github/workflows/extract-version.yml@v1
+    with:
+      source: file
+      path: VERSION
 
   backend-build-test:
     name: Backend - Build & Test
     runs-on: ubuntu-latest
-    needs: prepare
+    needs: extract-version
     steps:
       - name: Checkout backend
         uses: actions/checkout@v4
@@ -53,10 +42,10 @@ jobs:
         working-directory: ./docker-compose-manager-back
         run: |
           dotnet build --configuration Release --no-restore \
-            -p:Version=${{ needs.prepare.outputs.assembly_version }} \
-            -p:AssemblyVersion=${{ needs.prepare.outputs.assembly_version }} \
-            -p:FileVersion=${{ needs.prepare.outputs.assembly_version }} \
-            -p:InformationalVersion=${{ needs.prepare.outputs.version }}
+            -p:Version=${{ needs.extract-version.outputs.assembly_version }} \
+            -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly_version }} \
+            -p:FileVersion=${{ needs.extract-version.outputs.assembly_version }} \
+            -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
       - name: Run backend tests
         working-directory: ./docker-compose-manager-back
         run: dotnet test --no-build --configuration Release --verbosity minimal
@@ -64,7 +53,7 @@ jobs:
   frontend-build-test:
     name: Frontend - Build & Test
     runs-on: ubuntu-latest
-    needs: prepare
+    needs: extract-version
     steps:
       - name: Checkout frontend
         uses: actions/checkout@v4
@@ -77,9 +66,9 @@ jobs:
         working-directory: ./docker-compose-manager-front
         env:
           VITE_API_URL: /api
-          VITE_APP_VERSION: ${{ needs.prepare.outputs.version }}
-          VITE_BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
-          VITE_GIT_COMMIT: ${{ needs.prepare.outputs.vcs_ref }}
+          VITE_APP_VERSION: ${{ needs.extract-version.outputs.version }}
+          VITE_BUILD_DATE: ${{ needs.extract-version.outputs.build_date }}
+          VITE_GIT_COMMIT: ${{ needs.extract-version.outputs.vcs_ref }}
         run: npm run build
       - name: Run frontend type checking
         working-directory: ./docker-compose-manager-front
@@ -88,7 +77,7 @@ jobs:
   docker-build-push:
     name: Docker - Build & Push
     runs-on: ubuntu-latest
-    needs: [prepare, backend-build-test, frontend-build-test]
+    needs: [extract-version, backend-build-test, frontend-build-test]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -137,20 +126,20 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
+            ${{ steps.image.outputs.name }}:${{ needs.extract-version.outputs.base_version }}-${{ steps.branch.outputs.tag }}
             ${{ steps.image.outputs.name }}:latest-dev
           cache-from: type=gha,scope=pr-${{ steps.branch.outputs.tag }}
           cache-to: type=gha,scope=pr-${{ steps.branch.outputs.tag }},mode=max
           provenance: false
           sbom: false
           build-args: |
-            VERSION=${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
-            ASSEMBLY_VERSION=${{ needs.prepare.outputs.assembly_version }}
-            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
-            VCS_REF=${{ needs.prepare.outputs.vcs_ref }}
-            VITE_APP_VERSION=${{ needs.prepare.outputs.base_version }}-${{ steps.branch.outputs.tag }}
-            VITE_BUILD_DATE=${{ needs.prepare.outputs.build_date }}
-            VITE_GIT_COMMIT=${{ needs.prepare.outputs.vcs_ref }}
+            VERSION=${{ needs.extract-version.outputs.base_version }}-${{ steps.branch.outputs.tag }}
+            ASSEMBLY_VERSION=${{ needs.extract-version.outputs.assembly_version }}
+            BUILD_DATE=${{ needs.extract-version.outputs.build_date }}
+            VCS_REF=${{ needs.extract-version.outputs.vcs_ref }}
+            VITE_APP_VERSION=${{ needs.extract-version.outputs.base_version }}-${{ steps.branch.outputs.tag }}
+            VITE_BUILD_DATE=${{ needs.extract-version.outputs.build_date }}
+            VITE_GIT_COMMIT=${{ needs.extract-version.outputs.vcs_ref }}
             ENCRYPTED_RESEND_KEY=${{ steps.encrypt_resend.outputs.encrypted_key }}
 
   summary:
