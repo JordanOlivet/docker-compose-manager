@@ -1,3 +1,14 @@
+## Changes in v1.10.1
+
+**Merged Pull Requests:**
+- Migrate to centralized CI (#89)
+
+**Commits:**
+- chore: bump version to v1.10.1 [skip ci] (b8b4872)
+- Migrate to centralized CI (#89) (bca4201)
+- docs: update CHANGELOG for v1.10.0 [skip ci] (289eb4f)
+- chore: bump version to v1.10.0 [skip ci] (0f3fa05)
+
 ## Changes in v1.10.0
 
 **Merged Pull Requests:**
