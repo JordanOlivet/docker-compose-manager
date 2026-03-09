@@ -70,8 +70,12 @@ public class SseControllerTests
         // Start stream in background so we can check count while it's running
         var streamTask = _controller.Stream(cts.Token);
 
-        // Give it a moment to register
-        await Task.Delay(50);
+        // Poll until client is registered (CI runners can be slow)
+        for (int i = 0; i < 20; i++)
+        {
+            if (_sseManager.ClientCount >= 1) break;
+            await Task.Delay(50);
+        }
 
         // Client should be registered while stream is active
         _sseManager.ClientCount.Should().BeGreaterThanOrEqualTo(1);
