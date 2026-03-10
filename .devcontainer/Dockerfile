@@ -38,4 +38,8 @@ RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || true \
 # Add user to docker group (will be created if socket is mounted)
 RUN groupadd -f docker && usermod -aG docker $USERNAME
 
+# Ensure dotnet is in PATH for all users (interactive shells)
+ENV DOTNET_ROOT=/usr/share/dotnet
+ENV PATH="${PATH}:${DOTNET_ROOT}:${DOTNET_ROOT}/tools:/home/vscode/.dotnet/tools"
+
 USER $USERNAME
