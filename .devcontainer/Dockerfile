@@ -38,8 +38,13 @@ RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || true \
 # Add user to docker group (will be created if socket is mounted)
 RUN groupadd -f docker && usermod -aG docker $USERNAME
 
-# Ensure dotnet is in PATH for all users (interactive shells)
+# Ensure dotnet + node are in PATH for all shells (login, interactive, and non-interactive)
 ENV DOTNET_ROOT=/usr/share/dotnet
-ENV PATH="${PATH}:${DOTNET_ROOT}:${DOTNET_ROOT}/tools:/home/vscode/.dotnet/tools"
+ENV PATH="${DOTNET_ROOT}:${DOTNET_ROOT}/tools:/home/vscode/.dotnet/tools:${PATH}"
+RUN echo 'export DOTNET_ROOT=/usr/share/dotnet' > /etc/profile.d/dotnet.sh \
+    && echo 'export PATH="/usr/share/dotnet:/usr/share/dotnet/tools:$HOME/.dotnet/tools:$PATH"' >> /etc/profile.d/dotnet.sh \
+    && chmod +x /etc/profile.d/dotnet.sh \
+    # Also add to bashrc for non-login shells (VS Code tasks)
+    && echo '. /etc/profile.d/dotnet.sh' >> /etc/bash.bashrc
 
 USER $USERNAME
