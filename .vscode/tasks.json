@@ -1,0 +1,69 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "backend: watch",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["watch", "run", "--project", "docker-compose-manager-back"],
+      "options": {
+        "cwd": "${workspaceFolder}/docker-compose-manager-back"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "dotnet",
+        "fileLocation": "absolute",
+        "pattern": {
+          "regexp": "^(.*)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(.+):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*dotnet watch.*Started$",
+          "endsPattern": "^.*Content root path:.*$"
+        }
+      },
+      "presentation": {
+        "label": "Backend",
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    },
+    {
+      "label": "frontend: dev",
+      "type": "npm",
+      "script": "dev",
+      "path": "docker-compose-manager-front",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "fileLocation": "relative",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*$",
+          "endsPattern": "^.*ready in.*$"
+        }
+      },
+      "presentation": {
+        "label": "Frontend",
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    }
+  ]
+}

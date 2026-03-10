@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "backend: watch",
+      "program": "${workspaceFolder}/docker-compose-manager-back/docker-compose-manager-back/bin/Debug/net10.0/docker-compose-manager-back.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/docker-compose-manager-back/docker-compose-manager-back",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5050"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Frontend (Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/docker-compose-manager-front",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack (Backend + Frontend)",
+      "configurations": ["Backend (.NET)", "Frontend (Vite)"],
+      "stopAll": true,
+      "presentation": {
+        "order": 1
+      }
+    }
+  ]
+}
