@@ -1,18 +1,8 @@
 {
   "name": "Docker Compose Manager",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
-
-  "features": {
-    "ghcr.io/devcontainers/features/dotnet:2": {
-      "version": "10"
-    },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "22"
-    },
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "version": "latest",
-      "enableNonRootDocker": "true"
-    }
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
   },
 
   "customizations": {
