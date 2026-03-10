@@ -3,9 +3,8 @@
   "tasks": [
     {
       "label": "backend: watch",
-      "type": "process",
-      "command": "dotnet",
-      "args": ["watch", "run", "--project", "docker-compose-manager-back"],
+      "type": "shell",
+      "command": "dotnet watch run --project docker-compose-manager-back",
       "options": {
         "cwd": "${workspaceFolder}/docker-compose-manager-back"
       },
