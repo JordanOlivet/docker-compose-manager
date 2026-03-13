@@ -1,3 +1,17 @@
+## Changes in v1.11.0
+
+**Merged Pull Requests:**
+- Add hour, minute and second to app update version (#94)
+
+**Commits:**
+- chore: bump version to v1.11.0 [skip ci] (a7a721e)
+- Add hour, minute and second to app update version (#94) (2f1a35b)
+- Fix devcontainer user creation (#93) (6699199)
+- Fix devcontainer (#92) (bf7fe7e)
+- Fix devcontainer (#91) (de921e3)
+- Add dev container configuration (#90) (cf46dd2)
+- docs: update CHANGELOG for v1.10.1 [skip ci] (65d121a)
+
 ## Changes in v1.10.1
 
 **Merged Pull Requests:**
