@@ -273,6 +273,7 @@
         type="text"
         placeholder={$t('common.search')}
         bind:value={filters.search}
+        onkeydown={(e) => e.key === 'Escape' && (filters.search = '')}
         class="pl-10"
       />
     </div>
