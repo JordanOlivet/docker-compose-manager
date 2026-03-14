@@ -136,21 +136,6 @@
 		projectUpdateCheck = null;
 	}
 
-	function getStateColor(state: string) {
-		switch (state) {
-			case 'Running':
-			case 'Restarting':
-				return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-			case 'Exited':
-			case 'Down':
-			case 'Stopped':
-				return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-			case 'Degraded':
-			default:
-				return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-		}
-	}
-
 	function handleRemoveComposeProject(projectState: string) {
 		const isRunning = projectState === 'Running';
 		const message = isRunning
@@ -232,7 +217,7 @@
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex-shrink-0">
 							{project.name}
 						</h3>
-						<StateBadge class={getStateColor(project.state)} status={project.state} />
+						<StateBadge status={project.state} />
 						<!-- Compose file path and warning inline -->
 						{#if project.composeFilePath}
 							<span class="text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:inline" title={project.composeFilePath}>
@@ -411,11 +396,7 @@
 										</div>
 									</td>
 									<td class="px-8 py-5 whitespace-nowrap">
-										<StateBadge
-											class={getStateColor(service.state)}
-											status={service.state}
-											size="sm"
-										/>
+										<StateBadge status={service.state} size="sm" />
 									</td>
 									<td class="px-8 py-5">
 										<div class="text-sm text-gray-500 dark:text-gray-400">

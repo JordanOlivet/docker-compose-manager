@@ -8,6 +8,7 @@
   import ContainerUpdateDialog from '$lib/components/update/ContainerUpdateDialog.svelte';
   import BulkContainerUpdateDialog from '$lib/components/update/BulkContainerUpdateDialog.svelte';
   import ActionButton from '$lib/components/common/ActionButton.svelte';
+  import StateBadge from '$lib/components/common/StateBadge.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
@@ -17,9 +18,10 @@
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { containerHasUpdate, setContainerUpdateResult, handleContainerUpdatesCheckedEvent, hasAnyContainerUpdates, containersWithUpdatesCount, reconcileContainerUpdateState } from '$lib/stores/containerUpdate.svelte';
   import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
+  import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
 
   // Grouped filter state
-  type SortKey = 'name' | 'image' | 'state' | 'status';
+  type SortKey = 'name' | 'image' | 'ipAddress' | 'ports' | 'state' | 'status';
   type SortDir = 'asc' | 'desc';
 
   let filters = $state({
@@ -148,6 +150,14 @@
 
     // Then sort
     return [...filtered].sort((a: any, b: any) => {
+      // Handle IP and Ports with dedicated comparison functions
+      if (filters.sortKey === 'ipAddress') {
+        return compareIpAddress(a.ipAddress, b.ipAddress, filters.sortDir);
+      }
+      if (filters.sortKey === 'ports') {
+        return comparePorts(a.ports, b.ports, filters.sortDir);
+      }
+
       const getVal = (c: any) => {
         switch (filters.sortKey) {
           case 'name':
@@ -176,17 +186,6 @@
     } else {
       filters.sortKey = key;
       filters.sortDir = 'asc';
-    }
-  }
-
-  function getStateColor(state: EntityState) {
-    switch (state) {
-      case EntityState.Running:
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case EntityState.Exited:
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   }
 
@@ -309,11 +308,27 @@
                     </span>
                   {/if}
                 </th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th
+                  onclick={() => toggleSort('ipAddress')}
+                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                >
                   {$t('containers.ipAddress')}
+                  {#if filters.sortKey === 'ipAddress'}
+                    <span class="inline-block ml-1">
+                      {filters.sortDir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  {/if}
                 </th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th
+                  onclick={() => toggleSort('ports')}
+                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                >
                   {$t('containers.ports')}
+                  {#if filters.sortKey === 'ports'}
+                    <span class="inline-block ml-1">
+                      {filters.sortDir === 'asc' ? '↑' : '↓'}
+                    </span>
+                  {/if}
                 </th>
                 <th
                   onclick={() => toggleSort('state')}
@@ -380,9 +395,7 @@
                     </div>
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">
-                    <span class={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStateColor(container.state)}`}>
-                      {container.state}
-                    </span>
+                    <StateBadge status={container.state} size="sm" />
                   </td>
                   <td class="px-4 py-2">
                     <div class="text-xs text-gray-500 dark:text-gray-400">

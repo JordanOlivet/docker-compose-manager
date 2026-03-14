@@ -66,18 +66,6 @@
 		onError: () => toast.error($t('containers.removeFailed'))
 	}));
 
-	function getStateColor(state: string) {
-		switch (state.toLowerCase()) {
-			case 'running':
-				return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-			case 'exited':
-			case 'stopped':
-				return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-			default:
-				return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-		}
-	}
-
 	function handleRemove() {
 		const container = containerQuery.data;
 		if (!container) return;
@@ -152,7 +140,7 @@
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex-shrink-0">
 							{container.name}
 						</h3>
-						<StateBadge class={getStateColor(container.state)} status={container.state} />
+						<StateBadge status={container.state} />
 						<span class="text-sm text-gray-500 dark:text-gray-400 font-mono hidden sm:inline">
 							{container.id.substring(0, 12)}
 						</span>
@@ -239,11 +227,7 @@
 								</div>
 							</td>
 							<td class="px-8 py-5 whitespace-nowrap">
-								<StateBadge
-									class={getStateColor(container.state)}
-									status={container.state}
-									size="sm"
-								/>
+								<StateBadge status={container.state} size="sm" />
 							</td>
 							<td class="px-8 py-5">
 								<div class="text-sm text-gray-500 dark:text-gray-400">
