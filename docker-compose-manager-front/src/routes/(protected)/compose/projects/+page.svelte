@@ -17,20 +17,48 @@
   import { updateApi } from '$lib/api/update';
   import type { ComposeProject, ComposeService } from '$lib/types';
   import type { ProjectUpdateCheckResponse } from '$lib/types/update';
+  import type { ColumnDefinition } from '$lib/types/table';
   import { EntityState } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
   import BulkUpdateDialog from '$lib/components/update/BulkUpdateDialog.svelte';
+  import DraggableTableHeader from '$lib/components/common/DraggableTableHeader.svelte';
   import ActionButton from '$lib/components/common/ActionButton.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { isAdmin } from '$lib/stores/auth.svelte';
+  import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { projectHasUpdates, hasAnyUpdates, projectsWithUpdatesCount } from '$lib/stores/projectUpdate.svelte';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
+
+  // Column definitions for projects table
+  const projectColumns: ColumnDefinition[] = [
+    { id: 'name', labelKey: 'compose.projectName', sortKey: 'name' },
+    { id: 'state', labelKey: 'containers.state', sortKey: 'state' },
+    { id: 'services', labelKey: 'compose.services', sortKey: 'services' },
+    { id: 'actions', labelKey: 'containers.actions', width: '12rem' }
+  ];
+
+  // Column definitions for services table
+  const serviceColumns: ColumnDefinition[] = [
+    { id: 'name', labelKey: 'containers.name', sortKey: 'name', width: '18%' },
+    { id: 'image', labelKey: 'containers.image', sortKey: 'image', width: '20%' },
+    { id: 'ipAddress', labelKey: 'containers.ipAddress', sortKey: 'ipAddress', width: '10%' },
+    { id: 'ports', labelKey: 'containers.ports', sortKey: 'ports', width: '10%' },
+    { id: 'state', labelKey: 'containers.state', sortKey: 'state', width: '10%' },
+    { id: 'status', labelKey: 'containers.status', sortKey: 'status', width: '17%' },
+    { id: 'actions', labelKey: 'containers.actions', width: '9rem' }
+  ];
+
+  const defaultProjectColumnOrder = projectColumns.map(c => c.id);
+  const defaultServiceColumnOrder = serviceColumns.map(c => c.id);
+
+  const projectColumnPrefs = createColumnPreferences('compose-projects', defaultProjectColumnOrder);
+  const serviceColumnPrefs = createColumnPreferences('compose-services', defaultServiceColumnOrder);
 
   // Sorting types
   type ProjectSortKey = 'name' | 'services' | 'state';
@@ -193,16 +221,16 @@
     };
   }
 
-  function toggleProjectSort(key: ProjectSortKey) {
+  function toggleProjectSort(key: string) {
     if (filters.sortKey === key) {
       filters.sortDir = filters.sortDir === 'asc' ? 'desc' : 'asc';
     } else {
-      filters.sortKey = key;
+      filters.sortKey = key as ProjectSortKey;
       filters.sortDir = 'asc';
     }
   }
 
-  function toggleServiceSort(projectName: string, key: ServiceSortKey) {
+  function toggleServiceSort(projectName: string, key: string) {
     const current = getProjectState(projectName);
     if (current.serviceSortKey === key) {
       openProjects = {
@@ -212,9 +240,17 @@
     } else {
       openProjects = {
         ...openProjects,
-        [projectName]: { ...current, serviceSortKey: key, serviceSortDir: 'asc' },
+        [projectName]: { ...current, serviceSortKey: key as ServiceSortKey, serviceSortDir: 'asc' },
       };
     }
+  }
+
+  function handleProjectColumnReorder(fromIndex: number, toIndex: number) {
+    projectColumnPrefs.moveColumn(fromIndex, toIndex);
+  }
+
+  function handleServiceColumnReorder(fromIndex: number, toIndex: number) {
+    serviceColumnPrefs.moveColumn(fromIndex, toIndex);
   }
 
   function getSortedServices(project: ComposeProject): ComposeService[] {
@@ -437,40 +473,14 @@
     <div class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-visible shadow hover:shadow-lg transition-all duration-300">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-            <tr>
-              <th
-                onclick={() => toggleProjectSort('name')}
-                class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-              >
-                {$t('containers.name')} / {$t('compose.directoryPath')}
-                {#if filters.sortKey === 'name'}
-                  <span class="inline-block ml-1">{filters.sortDir === 'asc' ? '↑' : '↓'}</span>
-                {/if}
-              </th>
-              <th
-                onclick={() => toggleProjectSort('state')}
-                class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap"
-              >
-                {$t('containers.state')}
-                {#if filters.sortKey === 'state'}
-                  <span class="inline-block ml-1">{filters.sortDir === 'asc' ? '↑' : '↓'}</span>
-                {/if}
-              </th>
-              <th
-                onclick={() => toggleProjectSort('services')}
-                class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap"
-              >
-                {$t('compose.services')}
-                {#if filters.sortKey === 'services'}
-                  <span class="inline-block ml-1">{filters.sortDir === 'asc' ? '↑' : '↓'}</span>
-                {/if}
-              </th>
-              <th class="w-48 px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                {$t('containers.actions')}
-              </th>
-            </tr>
-          </thead>
+          <DraggableTableHeader
+            columns={projectColumns}
+            columnOrder={projectColumnPrefs.order}
+            sortKey={filters.sortKey}
+            sortDir={filters.sortDir}
+            onSort={toggleProjectSort}
+            onReorder={handleProjectColumnReorder}
+          />
           <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
             {#each filteredAndSortedProjects as project (project.name)}
               {@const projectState = getProjectState(project.name)}
@@ -485,117 +495,124 @@
                   }
                 }}
               >
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="inline-block transition-transform duration-150 ease-in-out text-gray-500 dark:text-gray-400"
-                      class:rotate-90={isOpen}
-                    >
-                      <ChevronRight class="w-4 h-4" />
-                    </span>
-                    <div class="flex items-center gap-2 min-w-0">
-                      <button
-                        class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer shrink-0"
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          navigateToProject(project.name);
-                        }}
-                        title={$t('compose.projectDetails')}
-                      >
-                        {project.name}
-                      </button>
-                      {#if project.path}
-                        <span class="text-xs italic text-gray-500 dark:text-gray-400 truncate" title={project.path}>
-                          {project.path}
+                {#each projectColumnPrefs.order as colId (colId)}
+                  {#if colId === 'name'}
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="inline-block transition-transform duration-150 ease-in-out text-gray-500 dark:text-gray-400"
+                          class:rotate-90={isOpen}
+                        >
+                          <ChevronRight class="w-4 h-4" />
                         </span>
+                        <div class="flex items-center gap-2 min-w-0">
+                          <button
+                            class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer shrink-0"
+                            onclick={(e) => {
+                              e.stopPropagation();
+                              navigateToProject(project.name);
+                            }}
+                            title={$t('compose.projectDetails')}
+                          >
+                            {project.name}
+                          </button>
+                          {#if project.path}
+                            <span class="text-xs italic text-gray-500 dark:text-gray-400 truncate" title={project.path}>
+                              {project.path}
+                            </span>
+                          {/if}
+                        </div>
+                      </div>
+                      {#if project.warning}
+                        <div class="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-0.5 ml-6">
+                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <span class="truncate">{project.warning}</span>
+                        </div>
                       {/if}
-                    </div>
-                  </div>
-                  {#if project.warning}
-                    <div class="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-0.5 ml-6">
-                      <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <span class="truncate">{project.warning}</span>
-                    </div>
-                  {/if}
-                </td>
-                <td class="px-4 py-3">
-                  <StateBadge status={project.state} size="sm" />
-                </td>
-                <td class="px-4 py-3">
-                  <span class="text-xs text-gray-700 dark:text-gray-300">
-                    {project.services?.length ?? 0}
-                  </span>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-1">
-                    <!-- Check Updates Button (admin only, when compose file exists) -->
-                    {#if isAdmin.current && project.hasComposeFile}
-                      <div class="relative">
-                        <ActionButton
-                          icon={checkingUpdatesFor === project.name ? Loader2 : Download}
-                          variant="update"
-                          title={$t('update.checkUpdates')}
-                          disabled={checkingUpdatesFor === project.name}
-                          class={checkingUpdatesFor === project.name ? 'animate-spin' : ''}
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            handleCheckUpdates(project.name);
-                          }}
-                        />
-                        {#if projectHasUpdates(project.name) || (project.servicesWithUpdates != null && project.servicesWithUpdates > 0)}
-                          <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                    </td>
+                  {:else if colId === 'state'}
+                    <td class="px-4 py-3">
+                      <StateBadge status={project.state} size="sm" />
+                    </td>
+                  {:else if colId === 'services'}
+                    <td class="px-4 py-3">
+                      <span class="text-xs text-gray-700 dark:text-gray-300">
+                        {project.services?.length ?? 0}
+                      </span>
+                    </td>
+                  {:else if colId === 'actions'}
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-1">
+                        <!-- Check Updates Button (admin only, when compose file exists) -->
+                        {#if isAdmin.current && project.hasComposeFile}
+                          <div class="relative">
+                            <ActionButton
+                              icon={checkingUpdatesFor === project.name ? Loader2 : Download}
+                              variant="update"
+                              title={$t('update.checkUpdates')}
+                              disabled={checkingUpdatesFor === project.name}
+                              class={checkingUpdatesFor === project.name ? 'animate-spin' : ''}
+                              onclick={(e) => {
+                                e.stopPropagation();
+                                handleCheckUpdates(project.name);
+                              }}
+                            />
+                            {#if projectHasUpdates(project.name) || (project.servicesWithUpdates != null && project.servicesWithUpdates > 0)}
+                              <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                            {/if}
+                          </div>
+                        {/if}
+                        {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
+                          {#if project.availableActions?.up}
+                            <ActionButton
+                              icon={Play}
+                              variant="play"
+                              title={$t('compose.up')}
+                              onclick={(e) => { e.stopPropagation(); upMutation.mutate({ projectName: project.name }); }}
+                            />
+                            <ActionButton
+                              icon={Zap}
+                              variant="force"
+                              title={$t('compose.forceRecreate')}
+                              onclick={(e) => { e.stopPropagation(); upMutation.mutate({ projectName: project.name, forceRecreate: true }); }}
+                            />
+                          {:else if project.availableActions?.start}
+                            <ActionButton
+                              icon={Play}
+                              variant="play"
+                              title={$t('containers.start')}
+                              onclick={(e) => { e.stopPropagation(); restartMutation.mutate(project.name); }}
+                            />
+                          {/if}
+                        {/if}
+                        {#if project.state === EntityState.Running || project.state === EntityState.Degraded}
+                          <ActionButton
+                            icon={RotateCw}
+                            variant="restart"
+                            title={$t('compose.restart')}
+                            onclick={(e) => { e.stopPropagation(); restartMutation.mutate(project.name); }}
+                          />
+                          <ActionButton
+                            icon={Square}
+                            variant="stop"
+                            title={$t('compose.stop')}
+                            onclick={(e) => { e.stopPropagation(); stopMutation.mutate(project.name); }}
+                          />
+                        {/if}
+                        {#if project.state !== EntityState.Down && project.state !== EntityState.NotStarted && project.availableActions?.down}
+                          <ActionButton
+                            icon={Trash2}
+                            variant="remove"
+                            title={$t('common.delete')}
+                            onclick={(e) => { e.stopPropagation(); handleRemoveProject(project); }}
+                          />
                         {/if}
                       </div>
-                    {/if}
-                    {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
-                      {#if project.availableActions?.up}
-                        <ActionButton
-                          icon={Play}
-                          variant="play"
-                          title={$t('compose.up')}
-                          onclick={(e) => { e.stopPropagation(); upMutation.mutate({ projectName: project.name }); }}
-                        />
-                        <ActionButton
-                          icon={Zap}
-                          variant="force"
-                          title={$t('compose.forceRecreate')}
-                          onclick={(e) => { e.stopPropagation(); upMutation.mutate({ projectName: project.name, forceRecreate: true }); }}
-                        />
-                      {:else if project.availableActions?.start}
-                        <ActionButton
-                          icon={Play}
-                          variant="play"
-                          title={$t('containers.start')}
-                          onclick={(e) => { e.stopPropagation(); restartMutation.mutate(project.name); }}
-                        />
-                      {/if}
-                    {/if}
-                    {#if project.state === EntityState.Running || project.state === EntityState.Degraded}
-                      <ActionButton
-                        icon={RotateCw}
-                        variant="restart"
-                        title={$t('compose.restart')}
-                        onclick={(e) => { e.stopPropagation(); restartMutation.mutate(project.name); }}
-                      />
-                      <ActionButton
-                        icon={Square}
-                        variant="stop"
-                        title={$t('compose.stop')}
-                        onclick={(e) => { e.stopPropagation(); stopMutation.mutate(project.name); }}
-                      />
-                    {/if}
-                    {#if project.state !== EntityState.Down && project.state !== EntityState.NotStarted && project.availableActions?.down}
-                      <ActionButton
-                        icon={Trash2}
-                        variant="remove"
-                        title={$t('common.delete')}
-                        onclick={(e) => { e.stopPropagation(); handleRemoveProject(project); }}
-                      />
-                    {/if}
-                  </div>
-                </td>
+                    </td>
+                  {/if}
+                {/each}
               </tr>
               <!-- Expanded Services Row -->
               {#if isOpen && project.services && project.services.length > 0}
@@ -604,159 +621,116 @@
                     <div class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
                       <div class="overflow-x-auto">
                         <table class="w-full table-fixed">
-                          <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                            <tr>
-                              <th
-                                onclick={() => toggleServiceSort(project.name, 'name')}
-                                class="w-[18%] pl-10 pr-4 py-2 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                              >
-                                {$t('containers.name')}
-                                {#if projectState.serviceSortKey === 'name'}
-                                  <span class="inline-block ml-1">{projectState.serviceSortDir === 'asc' ? '↑' : '↓'}</span>
-                                {/if}
-                              </th>
-                              <th
-                                onclick={() => toggleServiceSort(project.name, 'image')}
-                                class="w-[20%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                              >
-                                {$t('containers.image')}
-                                {#if projectState.serviceSortKey === 'image'}
-                                  <span class="inline-block ml-1">{projectState.serviceSortDir === 'asc' ? '↑' : '↓'}</span>
-                                {/if}
-                              </th>
-                              <th
-                                onclick={() => toggleServiceSort(project.name, 'ipAddress')}
-                                class="w-[10%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                              >
-                                {$t('containers.ipAddress')}
-                                {#if projectState.serviceSortKey === 'ipAddress'}
-                                  <span class="inline-block ml-1">{projectState.serviceSortDir === 'asc' ? '↑' : '↓'}</span>
-                                {/if}
-                              </th>
-                              <th
-                                onclick={() => toggleServiceSort(project.name, 'ports')}
-                                class="w-[10%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                              >
-                                {$t('containers.ports')}
-                                {#if projectState.serviceSortKey === 'ports'}
-                                  <span class="inline-block ml-1">{projectState.serviceSortDir === 'asc' ? '↑' : '↓'}</span>
-                                {/if}
-                              </th>
-                              <th
-                                onclick={() => toggleServiceSort(project.name, 'state')}
-                                class="w-[10%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                              >
-                                {$t('containers.state')}
-                                {#if projectState.serviceSortKey === 'state'}
-                                  <span class="inline-block ml-1">{projectState.serviceSortDir === 'asc' ? '↑' : '↓'}</span>
-                                {/if}
-                              </th>
-                              <th
-                                onclick={() => toggleServiceSort(project.name, 'status')}
-                                class="w-[17%] px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                              >
-                                {$t('containers.status')}
-                                {#if projectState.serviceSortKey === 'status'}
-                                  <span class="inline-block ml-1">{projectState.serviceSortDir === 'asc' ? '↑' : '↓'}</span>
-                                {/if}
-                              </th>
-                              <th class="w-36 px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                {$t('containers.actions')}
-                              </th>
-                            </tr>
-                          </thead>
+                          <DraggableTableHeader
+                            columns={serviceColumns}
+                            columnOrder={serviceColumnPrefs.order}
+                            sortKey={projectState.serviceSortKey}
+                            sortDir={projectState.serviceSortDir}
+                            onSort={(key) => toggleServiceSort(project.name, key)}
+                            onReorder={handleServiceColumnReorder}
+                          />
                           <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                             {#each getSortedServices(project) as service (service.id)}
                               <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
-                                <td class="pl-15 pr-4 py-2">
-                                  <button
-                                    class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer truncate block"
-                                    onclick={() => goto(`/containers/${service.id}`)}
-                                    title={$t('containers.viewDetails')}
-                                  >
-                                    {service.name}
-                                  </button>
-                                  <div
-                                    class="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate"
-                                    title={service.id}
-                                  >
-                                    {service.id}
-                                  </div>
-                                </td>
-                                <td class="px-4 py-2">
-                                  <div
-                                    class="text-xs text-gray-900 dark:text-gray-300 truncate"
-                                    title={service.image || '-'}
-                                  >
-                                    {service.image || '-'}
-                                  </div>
-                                </td>
-                                <td class="px-4 py-2">
-                                  <div class="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={service.ipAddress || '-'}>
-                                    {service.ipAddress || '-'}
-                                  </div>
-                                </td>
-                                <td class="px-4 py-2">
-                                  <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                    {#if service.ports && service.ports.length > 0}
-                                      {#each service.ports as port}
-                                        <div>{port}</div>
-                                      {/each}
-                                    {:else}
-                                      -
-                                    {/if}
-                                  </div>
-                                </td>
-                                <td class="px-4 py-2">
-                                  <StateBadge status={service.state} size="sm" />
-                                </td>
-                                <td class="px-4 py-2">
-                                  <div
-                                    class="text-xs text-gray-500 dark:text-gray-400 truncate"
-                                    title={service.status || '-'}
-                                  >
-                                    {service.status || '-'}
-                                  </div>
-                                </td>
-                                <td class="px-4 py-2 text-xs">
-                                  <div class="flex items-center gap-1">
-                                    {#if service.state === EntityState.Unknown || service.state === EntityState.NotStarted}
-                                      <span class="text-gray-400 text-xs italic">{$t('containers.noContainer')}</span>
-                                    {:else if service.state === EntityState.Running}
-                                      <ActionButton
-                                        icon={RotateCw}
-                                        variant="restart"
-                                        title={$t('containers.restart')}
-                                        onclick={() => restartContainerMutation.mutate(service.id)}
-                                      />
-                                      <ActionButton
-                                        icon={Square}
-                                        variant="stop"
-                                        title={$t('containers.stop')}
-                                        onclick={() => stopContainerMutation.mutate(service.id)}
-                                      />
-                                      <ActionButton
-                                        icon={Trash2}
-                                        variant="remove"
-                                        title={$t('containers.remove')}
-                                        onclick={() => handleRemoveService(service)}
-                                      />
-                                    {:else}
-                                      <ActionButton
-                                        icon={Play}
-                                        variant="play"
-                                        title={$t('containers.start')}
-                                        onclick={() => startContainerMutation.mutate(service.id)}
-                                      />
-                                      <ActionButton
-                                        icon={Trash2}
-                                        variant="remove"
-                                        title={$t('containers.remove')}
-                                        onclick={() => handleRemoveService(service)}
-                                      />
-                                    {/if}
-                                  </div>
-                                </td>
+                                {#each serviceColumnPrefs.order as colId (colId)}
+                                  {#if colId === 'name'}
+                                    <td class="pl-10 pr-4 py-2">
+                                      <button
+                                        class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer truncate block"
+                                        onclick={() => goto(`/containers/${service.id}`)}
+                                        title={$t('containers.viewDetails')}
+                                      >
+                                        {service.name}
+                                      </button>
+                                      <div
+                                        class="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate"
+                                        title={service.id}
+                                      >
+                                        {service.id}
+                                      </div>
+                                    </td>
+                                  {:else if colId === 'image'}
+                                    <td class="px-4 py-2">
+                                      <div
+                                        class="text-xs text-gray-900 dark:text-gray-300 truncate"
+                                        title={service.image || '-'}
+                                      >
+                                        {service.image || '-'}
+                                      </div>
+                                    </td>
+                                  {:else if colId === 'ipAddress'}
+                                    <td class="px-4 py-2">
+                                      <div class="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={service.ipAddress || '-'}>
+                                        {service.ipAddress || '-'}
+                                      </div>
+                                    </td>
+                                  {:else if colId === 'ports'}
+                                    <td class="px-4 py-2">
+                                      <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                        {#if service.ports && service.ports.length > 0}
+                                          {#each service.ports as port}
+                                            <div>{port}</div>
+                                          {/each}
+                                        {:else}
+                                          -
+                                        {/if}
+                                      </div>
+                                    </td>
+                                  {:else if colId === 'state'}
+                                    <td class="px-4 py-2">
+                                      <StateBadge status={service.state} size="sm" />
+                                    </td>
+                                  {:else if colId === 'status'}
+                                    <td class="px-4 py-2">
+                                      <div
+                                        class="text-xs text-gray-500 dark:text-gray-400 truncate"
+                                        title={service.status || '-'}
+                                      >
+                                        {service.status || '-'}
+                                      </div>
+                                    </td>
+                                  {:else if colId === 'actions'}
+                                    <td class="px-4 py-2 text-xs">
+                                      <div class="flex items-center gap-1">
+                                        {#if service.state === EntityState.Unknown || service.state === EntityState.NotStarted}
+                                          <span class="text-gray-400 text-xs italic">{$t('containers.noContainer')}</span>
+                                        {:else if service.state === EntityState.Running}
+                                          <ActionButton
+                                            icon={RotateCw}
+                                            variant="restart"
+                                            title={$t('containers.restart')}
+                                            onclick={() => restartContainerMutation.mutate(service.id)}
+                                          />
+                                          <ActionButton
+                                            icon={Square}
+                                            variant="stop"
+                                            title={$t('containers.stop')}
+                                            onclick={() => stopContainerMutation.mutate(service.id)}
+                                          />
+                                          <ActionButton
+                                            icon={Trash2}
+                                            variant="remove"
+                                            title={$t('containers.remove')}
+                                            onclick={() => handleRemoveService(service)}
+                                          />
+                                        {:else}
+                                          <ActionButton
+                                            icon={Play}
+                                            variant="play"
+                                            title={$t('containers.start')}
+                                            onclick={() => startContainerMutation.mutate(service.id)}
+                                          />
+                                          <ActionButton
+                                            icon={Trash2}
+                                            variant="remove"
+                                            title={$t('containers.remove')}
+                                            onclick={() => handleRemoveService(service)}
+                                          />
+                                        {/if}
+                                      </div>
+                                    </td>
+                                  {/if}
+                                {/each}
                               </tr>
                             {/each}
                           </tbody>

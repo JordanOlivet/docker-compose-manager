@@ -224,6 +224,7 @@ export default {
     title: 'Docker Compose',
     subtitle: 'Manage your Docker Compose projects',
     projects: 'Projects',
+    projectName: 'Name / Path',
     files: 'Files',
     editor: 'Editor',
     details: 'Project Details',

@@ -224,6 +224,7 @@ const es = {
     title: 'Docker Compose',
     subtitle: 'Gestione sus proyectos Docker Compose',
     projects: 'Proyectos',
+    projectName: 'Nombre / Ruta',
     files: 'Archivos',
     editor: 'Editor',
     details: 'Detalles del proyecto',

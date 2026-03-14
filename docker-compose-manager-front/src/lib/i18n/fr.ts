@@ -224,6 +224,7 @@ const fr = {
     title: 'Docker Compose',
     subtitle: 'Gérez vos projets Docker Compose',
     projects: 'Projets',
+    projectName: 'Nom / Chemin',
     files: 'Fichiers',
     editor: 'Éditeur',
     details: 'Détails du projet',
