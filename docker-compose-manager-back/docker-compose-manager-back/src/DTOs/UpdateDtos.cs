@@ -114,7 +114,8 @@ public record ImageUpdateStatus(
     string? UpdatePolicy,
     bool IsLocalBuild,
     bool IsPinnedDigest,
-    string? Error
+    string? Error,
+    string? ContainerState = null
 );
 
 /// <summary>
@@ -123,7 +124,15 @@ public record ImageUpdateStatus(
 public record ProjectUpdateRequest(
     List<string>? Services = null,
     bool UpdateAll = false,
-    bool RestartFullProject = true
+    bool RestartFullProject = true,
+    bool RestartAfterUpdate = true
+);
+
+/// <summary>
+/// Request to update a container.
+/// </summary>
+public record ContainerUpdateRequest(
+    bool RestartAfterUpdate = true
 );
 
 /// <summary>
@@ -132,7 +141,8 @@ public record ProjectUpdateRequest(
 public record ProjectUpdateSummary(
     string ProjectName,
     int ServicesWithUpdates,
-    DateTime? LastChecked
+    DateTime? LastChecked,
+    bool HasRunningServices = false
 );
 
 /// <summary>

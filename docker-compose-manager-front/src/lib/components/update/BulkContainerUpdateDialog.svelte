@@ -6,7 +6,7 @@
   import { updateApi } from '$lib/api/update';
   import Badge from '$lib/components/ui/badge.svelte';
   import Checkbox from '$lib/components/ui/checkbox.svelte';
-  import { containerUpdateState, markContainerAsUpdated, containerHasUpdate } from '$lib/stores/containerUpdate.svelte';
+  import { markContainerAsUpdated, containerHasUpdate } from '$lib/stores/containerUpdate.svelte';
 
   interface ContainerInfo {
     id: string;
@@ -28,6 +28,9 @@
   // State for container selection
   let selectedContainers = $state<Set<string>>(new Set());
 
+  // State for "restart after update" option
+  let restartAfterUpdate = $state(true);
+
   // State for tracking update progress
   let updatingContainers = $state<Set<string>>(new Set());
   let completedContainers = $state<Set<string>>(new Set());
@@ -45,6 +48,8 @@
       updatingContainers = new Set();
       completedContainers = new Set();
       failedContainers = new Map();
+      // Default to true since we can't reliably check container state from summaries
+      restartAfterUpdate = true;
     }
   });
 
@@ -80,7 +85,7 @@
       updatingContainers = new Set(updatingContainers);
 
       try {
-        await updateApi.updateContainer(containerId);
+        await updateApi.updateContainer(containerId, { restartAfterUpdate });
 
         completedContainers.add(containerId);
         completedContainers = new Set(completedContainers);
@@ -267,32 +272,47 @@
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {selectedContainers.size} {$t('update.containersSelected')}
-        </p>
-        <div class="flex gap-3">
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-            onclick={onClose}
-            disabled={isUpdating}
-          >
-            {$t('common.cancel')}
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            onclick={handleUpdateSelected}
-            disabled={noneSelected || isUpdating}
-          >
-            {#if isUpdating}
-              <Loader2 class="w-4 h-4 animate-spin" />
-              {$t('update.updating')}
-            {:else}
-              <Download class="w-4 h-4" />
-              {$t('update.updateSelected')}
-            {/if}
-          </button>
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {selectedContainers.size} {$t('update.containersSelected')}
+          </p>
+          <div class="flex gap-3">
+            <button
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
+              onclick={onClose}
+              disabled={isUpdating}
+            >
+              {$t('common.cancel')}
+            </button>
+            <button
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onclick={handleUpdateSelected}
+              disabled={noneSelected || isUpdating}
+            >
+              {#if isUpdating}
+                <Loader2 class="w-4 h-4 animate-spin" />
+                {$t('update.updating')}
+              {:else}
+                <Download class="w-4 h-4" />
+                {$t('update.updateSelected')}
+              {/if}
+            </button>
+          </div>
         </div>
+        {#if !isUpdating}
+          <!-- Restart after update checkbox -->
+          <label class="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={restartAfterUpdate}
+              onclick={() => restartAfterUpdate = !restartAfterUpdate}
+            />
+            <div class="flex flex-col">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartAfterUpdate')}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{$t('update.restartAfterUpdateHint')}</span>
+            </div>
+          </label>
+        {/if}
       </div>
     </div>
   </div>

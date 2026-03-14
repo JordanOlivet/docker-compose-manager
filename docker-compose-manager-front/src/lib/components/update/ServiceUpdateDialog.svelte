@@ -26,6 +26,9 @@
   // State for service selection
   let selectedServices = $state<Set<string>>(new Set());
 
+  // State for "restart after update" option - default based on container state
+  let restartAfterUpdate = $state(true);
+
   // State for "restart full project" option
   let restartFullProject = $state(true);
 
@@ -53,6 +56,9 @@
           .filter(img => img.updateAvailable && img.updatePolicy !== 'disabled')
           .map(img => img.serviceName)
       );
+      // Set restartAfterUpdate based on whether any service is running
+      const hasRunning = updateCheck.images.some(img => img.containerState === 'running');
+      restartAfterUpdate = hasRunning;
     }
   });
 
@@ -63,6 +69,7 @@
       updateProgress = null;
       updateLogs = [];
       logsExpanded = false;
+      restartAfterUpdate = true;
       restartFullProject = true;
       if (unsubscribePullProgress) {
         unsubscribePullProgress();
@@ -86,7 +93,8 @@
   const updateMutation = createMutation(() => ({
     mutationFn: () => updateApi.updateProject(projectName, {
       services: Array.from(selectedServices),
-      restartFullProject
+      restartFullProject,
+      restartAfterUpdate
     }),
     onMutate: () => {
       // Start tracking progress
@@ -685,11 +693,23 @@
                 </button>
               </div>
             </div>
-            <!-- Restart full project checkbox -->
+            <!-- Restart after update checkbox -->
             <label class="flex items-center gap-2 cursor-pointer">
               <Checkbox
+                checked={restartAfterUpdate}
+                onclick={() => restartAfterUpdate = !restartAfterUpdate}
+              />
+              <div class="flex flex-col">
+                <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartAfterUpdate')}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{$t('update.restartAfterUpdateHint')}</span>
+              </div>
+            </label>
+            <!-- Restart full project checkbox (only enabled if restartAfterUpdate is true) -->
+            <label class="flex items-center gap-2 {restartAfterUpdate ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}">
+              <Checkbox
                 checked={restartFullProject}
-                onclick={() => restartFullProject = !restartFullProject}
+                onclick={() => restartAfterUpdate && (restartFullProject = !restartFullProject)}
+                disabled={!restartAfterUpdate}
               />
               <div class="flex flex-col">
                 <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartFullProject')}</span>

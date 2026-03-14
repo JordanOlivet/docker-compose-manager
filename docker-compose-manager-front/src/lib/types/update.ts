@@ -121,6 +121,7 @@ export interface ImageUpdateStatus {
   isLocalBuild: boolean;
   isPinnedDigest: boolean;
   error: string | null;
+  containerState?: string | null;
 }
 
 /**
@@ -130,6 +131,14 @@ export interface ProjectUpdateRequest {
   services?: string[];
   updateAll?: boolean;
   restartFullProject?: boolean;
+  restartAfterUpdate?: boolean;
+}
+
+/**
+ * Request to update a container
+ */
+export interface ContainerUpdateRequest {
+  restartAfterUpdate?: boolean;
 }
 
 /**
@@ -139,6 +148,7 @@ export interface ProjectUpdateSummary {
   projectName: string;
   servicesWithUpdates: number;
   lastChecked: string | null;
+  hasRunningServices?: boolean;
 }
 
 /**
@@ -213,6 +223,7 @@ export interface ContainerUpdateCheckResponse {
   remoteDigest: string | null;
   requiredPull: boolean;
   error: string | null;
+  containerState: string | null;
 }
 
 // ============================================

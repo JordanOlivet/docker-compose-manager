@@ -59,5 +59,6 @@ public record ContainerUpdateCheckResponse(
     string? LocalDigest,
     string? RemoteDigest,
     bool RequiredPull,
-    string? Error
+    string? Error,
+    string? ContainerState = null
 );

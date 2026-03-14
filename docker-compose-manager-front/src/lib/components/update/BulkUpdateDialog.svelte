@@ -25,6 +25,9 @@
   // State for project selection
   let selectedProjects = $state<Set<string>>(new Set());
 
+  // State for "restart after update" option
+  let restartAfterUpdate = $state(true);
+
   // State for "restart full project" option
   let restartFullProject = $state(true);
 
@@ -65,6 +68,9 @@
       updatingProjects = new Set();
       completedProjects = new Set();
       failedProjects = new Map();
+      // Set restartAfterUpdate based on whether any project has running services
+      const hasRunning = projects.some(p => p.hasRunningServices);
+      restartAfterUpdate = hasRunning;
       restartFullProject = true;
       frozenProjects = [];
       currentProjectProgress = null;
@@ -162,7 +168,7 @@
 
         try {
           const doUpdate = updateFn ?? updateApi.updateProject;
-          await doUpdate(projectName, { updateAll: true, restartFullProject });
+          await doUpdate(projectName, { updateAll: true, restartFullProject, restartAfterUpdate });
 
           completedProjects.add(projectName);
           completedProjects = new Set(completedProjects);
@@ -527,11 +533,23 @@
               </button>
             </div>
           </div>
-          <!-- Restart full project checkbox -->
+          <!-- Restart after update checkbox -->
           <label class="flex items-center gap-2 cursor-pointer">
             <Checkbox
+              checked={restartAfterUpdate}
+              onclick={() => restartAfterUpdate = !restartAfterUpdate}
+            />
+            <div class="flex flex-col">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartAfterUpdate')}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{$t('update.restartAfterUpdateHint')}</span>
+            </div>
+          </label>
+          <!-- Restart full project checkbox (only enabled if restartAfterUpdate is true) -->
+          <label class="flex items-center gap-2 {restartAfterUpdate ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}">
+            <Checkbox
               checked={restartFullProject}
-              onclick={() => restartFullProject = !restartFullProject}
+              onclick={() => restartAfterUpdate && (restartFullProject = !restartFullProject)}
+              disabled={!restartAfterUpdate}
             />
             <div class="flex flex-col">
               <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartFullProject')}</span>
