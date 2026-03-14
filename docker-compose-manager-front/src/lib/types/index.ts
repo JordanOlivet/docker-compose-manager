@@ -7,6 +7,7 @@ export * from './permissions';
 export * from './global';
 export * from './api';
 export * from './registry';
+export * from './table';
 
 // Base types
 export interface User {

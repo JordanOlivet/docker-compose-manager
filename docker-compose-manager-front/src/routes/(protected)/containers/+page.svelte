@@ -9,16 +9,33 @@
   import BulkContainerUpdateDialog from '$lib/components/update/BulkContainerUpdateDialog.svelte';
   import ActionButton from '$lib/components/common/ActionButton.svelte';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
+  import DraggableTableHeader from '$lib/components/common/DraggableTableHeader.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import { t } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { goto } from '$app/navigation';
   import { EntityState } from '$lib/types';
+  import type { ColumnDefinition } from '$lib/types/table';
   import { isAdmin } from '$lib/stores/auth.svelte';
+  import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { containerHasUpdate, setContainerUpdateResult, handleContainerUpdatesCheckedEvent, hasAnyContainerUpdates, containersWithUpdatesCount, reconcileContainerUpdateState } from '$lib/stores/containerUpdate.svelte';
   import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
+
+  // Column definitions for containers table
+  const containerColumns: ColumnDefinition[] = [
+    { id: 'name', labelKey: 'containers.name', sortKey: 'name' },
+    { id: 'image', labelKey: 'containers.image', sortKey: 'image' },
+    { id: 'ipAddress', labelKey: 'containers.ipAddress', sortKey: 'ipAddress' },
+    { id: 'ports', labelKey: 'containers.ports', sortKey: 'ports' },
+    { id: 'state', labelKey: 'containers.state', sortKey: 'state' },
+    { id: 'status', labelKey: 'containers.status', sortKey: 'status' },
+    { id: 'actions', labelKey: 'containers.actions' }
+  ];
+
+  const defaultColumnOrder = containerColumns.map(c => c.id);
+  const columnPrefs = createColumnPreferences('containers', defaultColumnOrder);
 
   // Grouped filter state
   type SortKey = 'name' | 'image' | 'ipAddress' | 'ports' | 'state' | 'status';
@@ -180,13 +197,17 @@
     });
   });
 
-  function toggleSort(key: SortKey) {
+  function toggleSort(key: string) {
     if (filters.sortKey === key) {
       filters.sortDir = filters.sortDir === 'asc' ? 'desc' : 'asc';
     } else {
-      filters.sortKey = key;
+      filters.sortKey = key as SortKey;
       filters.sortDir = 'asc';
     }
+  }
+
+  function handleColumnReorder(fromIndex: number, toIndex: number) {
+    columnPrefs.moveColumn(fromIndex, toIndex);
   }
 
   function handleRemove() {
@@ -252,6 +273,7 @@
         type="text"
         placeholder={$t('common.search')}
         bind:value={filters.search}
+        onkeydown={(e) => e.key === 'Escape' && (filters.search = '')}
         class="pl-10"
       />
     </div>
@@ -284,174 +306,119 @@
       <div class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-visible shadow hover:shadow-lg transition-all duration-300">
         <div class="overflow-x-auto">
           <table class="w-full">
-            <thead class="bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th
-                  onclick={() => toggleSort('name')}
-                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                >
-                  {$t('containers.name')}
-                  {#if filters.sortKey === 'name'}
-                    <span class="inline-block ml-1">
-                      {filters.sortDir === 'asc' ? '↑' : '↓'}
-                    </span>
-                  {/if}
-                </th>
-                <th
-                  onclick={() => toggleSort('image')}
-                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                >
-                  {$t('containers.image')}
-                  {#if filters.sortKey === 'image'}
-                    <span class="inline-block ml-1">
-                      {filters.sortDir === 'asc' ? '↑' : '↓'}
-                    </span>
-                  {/if}
-                </th>
-                <th
-                  onclick={() => toggleSort('ipAddress')}
-                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                >
-                  {$t('containers.ipAddress')}
-                  {#if filters.sortKey === 'ipAddress'}
-                    <span class="inline-block ml-1">
-                      {filters.sortDir === 'asc' ? '↑' : '↓'}
-                    </span>
-                  {/if}
-                </th>
-                <th
-                  onclick={() => toggleSort('ports')}
-                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                >
-                  {$t('containers.ports')}
-                  {#if filters.sortKey === 'ports'}
-                    <span class="inline-block ml-1">
-                      {filters.sortDir === 'asc' ? '↑' : '↓'}
-                    </span>
-                  {/if}
-                </th>
-                <th
-                  onclick={() => toggleSort('state')}
-                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                >
-                  {$t('containers.state')}
-                  {#if filters.sortKey === 'state'}
-                    <span class="inline-block ml-1">
-                      {filters.sortDir === 'asc' ? '↑' : '↓'}
-                    </span>
-                  {/if}
-                </th>
-                <th
-                  onclick={() => toggleSort('status')}
-                  class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
-                >
-                  {$t('containers.status')}
-                  {#if filters.sortKey === 'status'}
-                    <span class="inline-block ml-1">
-                      {filters.sortDir === 'asc' ? '↑' : '↓'}
-                    </span>
-                  {/if}
-                </th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                  {$t('containers.actions')}
-                </th>
-              </tr>
-            </thead>
+            <DraggableTableHeader
+              columns={containerColumns}
+              columnOrder={columnPrefs.order}
+              sortKey={filters.sortKey}
+              sortDir={filters.sortDir}
+              onSort={toggleSort}
+              onReorder={handleColumnReorder}
+            />
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
               {#each filteredAndSortedContainers as container (container.id)}
                 {@const isRunning = container.state === EntityState.Running}
                 <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
-                  <td class="px-4 py-2 whitespace-nowrap">
-                    <button
-                      class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
-                      onclick={() => goto(`/containers/${container.id}`)}
-                      title={$t('containers.viewDetails')}
-                    >
-                      {container.name.startsWith('/') ? container.name.slice(1) : container.name}
-                    </button>
-                    <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                      {container.id.substring(0, 12)}
-                    </div>
-                  </td>
-                  <td class="px-4 py-2">
-                    <div class="text-xs text-gray-900 dark:text-gray-300">
-                      {container.image}
-                    </div>
-                  </td>
-                  <td class="px-4 py-2">
-                    <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      {container.ipAddress || '-'}
-                    </div>
-                  </td>
-                  <td class="px-4 py-2">
-                    <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      {#if container.ports && container.ports.length > 0}
-                        {#each container.ports as port}
-                          <div>{port}</div>
-                        {/each}
-                      {:else}
-                        -
-                      {/if}
-                    </div>
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap">
-                    <StateBadge status={container.state} size="sm" />
-                  </td>
-                  <td class="px-4 py-2">
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
-                      {container.status}
-                    </div>
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap text-xs">
-                    <div class="flex items-center gap-1">
-                      {#if isAdmin.current}
-                        <div class="relative">
-                          <ActionButton
-                            icon={checkingUpdateFor === container.id ? Loader2 : Download}
-                            variant="update"
-                            title={$t('update.checkUpdates')}
-                            disabled={checkingUpdateFor === container.id}
-                            class={checkingUpdateFor === container.id ? 'animate-spin' : ''}
-                            onclick={() => handleCheckUpdate(container.id)}
-                          />
-                          {#if containerHasUpdate(container.id)}
-                            <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                  {#each columnPrefs.order as colId (colId)}
+                    {#if colId === 'name'}
+                      <td class="px-4 py-2 whitespace-nowrap">
+                        <button
+                          class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+                          onclick={() => goto(`/containers/${container.id}`)}
+                          title={$t('containers.viewDetails')}
+                        >
+                          {container.name.startsWith('/') ? container.name.slice(1) : container.name}
+                        </button>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                          {container.id.substring(0, 12)}
+                        </div>
+                      </td>
+                    {:else if colId === 'image'}
+                      <td class="px-4 py-2">
+                        <div class="text-xs text-gray-900 dark:text-gray-300">
+                          {container.image}
+                        </div>
+                      </td>
+                    {:else if colId === 'ipAddress'}
+                      <td class="px-4 py-2">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {container.ipAddress || '-'}
+                        </div>
+                      </td>
+                    {:else if colId === 'ports'}
+                      <td class="px-4 py-2">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {#if container.ports && container.ports.length > 0}
+                            {#each container.ports as port}
+                              <div>{port}</div>
+                            {/each}
+                          {:else}
+                            -
                           {/if}
                         </div>
-                      {/if}
-                      {#if isRunning}
-                        <ActionButton
-                          icon={RotateCw}
-                          variant="restart"
-                          title={$t('containers.restart')}
-                          disabled={restartMutation.isPending}
-                          onclick={() => restartMutation.mutate(container.id)}
-                        />
-                        <ActionButton
-                          icon={Square}
-                          variant="stop"
-                          title={$t('containers.stop')}
-                          disabled={stopMutation.isPending}
-                          onclick={() => stopMutation.mutate(container.id)}
-                        />
-                      {:else}
-                        <ActionButton
-                          icon={Play}
-                          variant="play"
-                          title={$t('containers.start')}
-                          disabled={startMutation.isPending}
-                          onclick={() => startMutation.mutate(container.id)}
-                        />
-                      {/if}
-                      <ActionButton
-                        icon={Trash2}
-                        variant="remove"
-                        title={$t('containers.remove')}
-                        disabled={removeMutation.isPending}
-                        onclick={() => confirmDialog = { open: true, containerId: container.id, containerName: container.name, isRunning }}
-                      />
-                    </div>
-                  </td>
+                      </td>
+                    {:else if colId === 'state'}
+                      <td class="px-4 py-2 whitespace-nowrap">
+                        <StateBadge status={container.state} size="sm" />
+                      </td>
+                    {:else if colId === 'status'}
+                      <td class="px-4 py-2">
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          {container.status}
+                        </div>
+                      </td>
+                    {:else if colId === 'actions'}
+                      <td class="px-4 py-2 whitespace-nowrap text-xs">
+                        <div class="flex items-center gap-1">
+                          {#if isAdmin.current}
+                            <div class="relative">
+                              <ActionButton
+                                icon={checkingUpdateFor === container.id ? Loader2 : Download}
+                                variant="update"
+                                title={$t('update.checkUpdates')}
+                                disabled={checkingUpdateFor === container.id}
+                                class={checkingUpdateFor === container.id ? 'animate-spin' : ''}
+                                onclick={() => handleCheckUpdate(container.id)}
+                              />
+                              {#if containerHasUpdate(container.id)}
+                                <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                              {/if}
+                            </div>
+                          {/if}
+                          {#if isRunning}
+                            <ActionButton
+                              icon={RotateCw}
+                              variant="restart"
+                              title={$t('containers.restart')}
+                              disabled={restartMutation.isPending}
+                              onclick={() => restartMutation.mutate(container.id)}
+                            />
+                            <ActionButton
+                              icon={Square}
+                              variant="stop"
+                              title={$t('containers.stop')}
+                              disabled={stopMutation.isPending}
+                              onclick={() => stopMutation.mutate(container.id)}
+                            />
+                          {:else}
+                            <ActionButton
+                              icon={Play}
+                              variant="play"
+                              title={$t('containers.start')}
+                              disabled={startMutation.isPending}
+                              onclick={() => startMutation.mutate(container.id)}
+                            />
+                          {/if}
+                          <ActionButton
+                            icon={Trash2}
+                            variant="remove"
+                            title={$t('containers.remove')}
+                            disabled={removeMutation.isPending}
+                            onclick={() => confirmDialog = { open: true, containerId: container.id, containerName: container.name, isRunning }}
+                          />
+                        </div>
+                      </td>
+                    {/if}
+                  {/each}
                 </tr>
               {/each}
             </tbody>
