@@ -11,7 +11,8 @@ import type {
   CheckAllUpdatesResponse,
   ContainerUpdateCheckResponse,
   ContainerUpdateSummary,
-  ContainerUpdatesCheckedEvent
+  ContainerUpdatesCheckedEvent,
+  ContainerUpdateRequest
 } from '$lib/types/update';
 
 /**
@@ -115,10 +116,13 @@ export const checkContainerUpdate = async (containerId: string, forceRefresh = f
 /**
  * Update a container (pull new image and recreate)
  */
-export const updateContainer = async (containerId: string): Promise<UpdateTriggerResponse> => {
+export const updateContainer = async (
+  containerId: string,
+  options?: ContainerUpdateRequest
+): Promise<UpdateTriggerResponse> => {
   const response = await apiClient.post(
     `/containers/${encodeURIComponent(containerId)}/update`,
-    {},
+    options ?? {},
     { timeout: 1800000 } // 30 minutes timeout
   );
   return response.data.data;

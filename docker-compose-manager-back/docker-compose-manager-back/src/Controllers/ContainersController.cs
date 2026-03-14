@@ -612,7 +612,10 @@ public class ContainersController : BaseController
     /// </summary>
     [HttpPost("{id}/update")]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<ApiResponse<UpdateTriggerResponse>>> UpdateContainer(string id, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<UpdateTriggerResponse>>> UpdateContainer(
+        string id,
+        [FromBody] ContainerUpdateRequest? request,
+        CancellationToken ct)
     {
         try
         {
@@ -626,9 +629,10 @@ public class ContainersController : BaseController
 
             int userId = GetCurrentUserIdRequired();
             string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            bool restartAfterUpdate = request?.RestartAfterUpdate ?? true;
 
             UpdateTriggerResponse result = await _containerUpdateService.UpdateContainerAsync(
-                id, userId, ipAddress, ct);
+                id, restartAfterUpdate, userId, ipAddress, ct);
 
             if (result.Message.Contains("not found"))
             {

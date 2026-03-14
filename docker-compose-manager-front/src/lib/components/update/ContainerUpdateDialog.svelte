@@ -5,6 +5,7 @@
   import { t } from '$lib/i18n';
   import { updateApi } from '$lib/api/update';
   import Badge from '$lib/components/ui/badge.svelte';
+  import Checkbox from '$lib/components/ui/checkbox.svelte';
   import type { ContainerUpdateCheckResponse, UpdateProgressEvent, ServicePullStatus } from '$lib/types/update';
   import { markContainerAsUpdated } from '$lib/stores/containerUpdate.svelte';
   import { onPullProgressUpdate } from '$lib/stores/sse.svelte';
@@ -23,6 +24,16 @@
 
   let copiedDigests = $state<Set<string>>(new Set());
   let isUpdating = $state(false);
+
+  // State for "restart after update" option - default based on container state
+  let restartAfterUpdate = $state(true);
+
+  // Initialize restartAfterUpdate based on container state when checkResult changes
+  $effect(() => {
+    if (checkResult) {
+      restartAfterUpdate = checkResult.containerState === 'running';
+    }
+  });
 
   // State for update progress tracking
   let updateProgress = $state<UpdateProgressEvent | null>(null);
@@ -64,7 +75,7 @@
   const updateMutation = createMutation(() => ({
     mutationFn: () => {
       if (!checkResult) throw new Error('No check result');
-      return updateApi.updateContainer(checkResult.containerId);
+      return updateApi.updateContainer(checkResult.containerId, { restartAfterUpdate });
     },
     onMutate: () => {
       isUpdating = true;
@@ -505,35 +516,52 @@
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-end gap-3">
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-3">
         {#if isUpdating}
-          <p class="text-sm text-gray-500 dark:text-gray-400 mr-auto">
-            {$t('update.pleaseWait')}
-          </p>
-          <div class="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
-            <Loader2 class="w-4 h-4 animate-spin" />
-            {updateProgress?.overallProgress ?? 0}%
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {$t('update.pleaseWait')}
+            </p>
+            <div class="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+              <Loader2 class="w-4 h-4 animate-spin" />
+              {updateProgress?.overallProgress ?? 0}%
+            </div>
           </div>
         {:else}
-          <button
-            class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            onclick={onClose}
-          >
-            {$t('common.cancel')}
-          </button>
-          {#if checkResult.updateAvailable}
+          <div class="flex items-center justify-end gap-3">
             <button
-              class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              onclick={() => updateMutation.mutate()}
-              disabled={updateMutation.isPending}
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+              onclick={onClose}
             >
-              {#if updateMutation.isPending}
-                <Loader2 class="w-4 h-4 animate-spin" />
-              {:else}
-                <Download class="w-4 h-4" />
-              {/if}
-              {$t('update.updateNow')}
+              {$t('common.cancel')}
             </button>
+            {#if checkResult.updateAvailable}
+              <button
+                class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                onclick={() => updateMutation.mutate()}
+                disabled={updateMutation.isPending}
+              >
+                {#if updateMutation.isPending}
+                  <Loader2 class="w-4 h-4 animate-spin" />
+                {:else}
+                  <Download class="w-4 h-4" />
+                {/if}
+                {$t('update.updateNow')}
+              </button>
+            {/if}
+          </div>
+          {#if checkResult.updateAvailable}
+            <!-- Restart after update checkbox -->
+            <label class="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={restartAfterUpdate}
+                onclick={() => restartAfterUpdate = !restartAfterUpdate}
+              />
+              <div class="flex flex-col">
+                <span class="text-sm text-gray-700 dark:text-gray-300">{$t('update.restartAfterUpdate')}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{$t('update.restartAfterUpdateHint')}</span>
+              </div>
+            </label>
           {/if}
         {/if}
       </div>

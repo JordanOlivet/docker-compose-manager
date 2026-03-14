@@ -492,6 +492,8 @@ export default {
     servicesSelected: 'services selected',
     updateSelected: 'Update Selected',
     updateSuccess: 'Successfully updated {count} services',
+    restartAfterUpdate: 'Restart after update',
+    restartAfterUpdateHint: 'Recreate containers with the new images. Uncheck to only pull images without restarting.',
     restartFullProject: 'Restart entire project',
     restartFullProjectHint: 'Restarts all services in the project, not just the updated ones',
     // Bulk update keys

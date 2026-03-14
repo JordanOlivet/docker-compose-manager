@@ -26,6 +26,7 @@ public interface IComposeUpdateService
         List<string>? services,
         bool updateAll,
         bool restartFullProject,
+        bool restartAfterUpdate,
         int userId,
         string ipAddress,
         CancellationToken ct = default);
@@ -238,6 +239,7 @@ public class ComposeUpdateService : IComposeUpdateService
         List<string>? services,
         bool updateAll,
         bool restartFullProject,
+        bool restartAfterUpdate,
         int userId,
         string ipAddress,
         CancellationToken ct = default)
@@ -301,7 +303,7 @@ public class ComposeUpdateService : IComposeUpdateService
             TimeSpan minProgressInterval = TimeSpan.FromMilliseconds(100); // Throttle to max 10 updates per second
 
             // Send initial progress event
-            await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, null);
+            await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, null, restartAfterUpdate);
 
             // Pull new images with streaming output
             _logger.LogDebug("Pulling images for services: {Services}", servicesArg);
@@ -328,7 +330,7 @@ public class ComposeUpdateService : IComposeUpdateService
                     // Snapshot state before firing to avoid stale data when the task runs
                     // (serviceProgress may be mutated further by subsequent OnPullOutput calls)
                     var progressSnapshot = serviceProgress.ToDictionary(k => k.Key, v => v.Value);
-                    _ = SendProgressUpdateAsync(operationId, projectName, "pull", progressSnapshot, line);
+                    _ = SendProgressUpdateAsync(operationId, projectName, "pull", progressSnapshot, line, restartAfterUpdate);
                 }
             }
 
@@ -355,7 +357,7 @@ public class ComposeUpdateService : IComposeUpdateService
                         };
                     }
                 }
-                await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, pullError);
+                await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, pullError, restartAfterUpdate);
 
                 return new UpdateTriggerResponse(
                     Success: false,
@@ -373,7 +375,46 @@ public class ComposeUpdateService : IComposeUpdateService
                     ProgressPercent = 100
                 };
             }
-            await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, "Pull completed");
+            await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, "Pull completed", restartAfterUpdate);
+
+            // Skip recreate phase if restartAfterUpdate is false
+            if (!restartAfterUpdate)
+            {
+                // Mark all services as completed (pull only)
+                foreach (string serviceName in servicesToUpdate)
+                {
+                    serviceProgress[serviceName] = serviceProgress[serviceName] with
+                    {
+                        Status = "completed",
+                        ProgressPercent = 100
+                    };
+                }
+                await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, "Images updated (containers not restarted)", restartAfterUpdate);
+
+                // Invalidate cache for this project
+                _cacheService.InvalidateProject(projectName);
+
+                // Audit log
+                await _auditService.LogActionAsync(
+                    userId,
+                    "compose.project_update",
+                    ipAddress,
+                    $"Pulled images for {servicesToUpdate.Count} services in project {projectName}: {servicesArg} (pull only, no restart)",
+                    resourceType: "compose_project",
+                    resourceId: projectName
+                );
+
+                _logger.LogDebug(
+                    "Successfully pulled images for {Count} services in project {ProjectName} (no restart)",
+                    servicesToUpdate.Count,
+                    projectName);
+
+                return new UpdateTriggerResponse(
+                    Success: true,
+                    Message: $"Successfully pulled images for {servicesToUpdate.Count} services (containers not restarted)",
+                    OperationId: operationId
+                );
+            }
 
             // Reset progress for recreate phase
             foreach (string serviceName in servicesToUpdate)
@@ -385,7 +426,7 @@ public class ComposeUpdateService : IComposeUpdateService
                     Message: null
                 );
             }
-            await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Recreating containers...");
+            await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Recreating containers...", restartAfterUpdate);
 
             // Recreate containers with new images
             string recreateArgs = restartFullProject
@@ -401,7 +442,7 @@ public class ComposeUpdateService : IComposeUpdateService
                 {
                     lastProgressSent = DateTime.UtcNow;
                     var progressSnapshot = serviceProgress.ToDictionary(k => k.Key, v => v.Value);
-                    _ = SendProgressUpdateAsync(operationId, projectName, "recreate", progressSnapshot, line);
+                    _ = SendProgressUpdateAsync(operationId, projectName, "recreate", progressSnapshot, line, restartAfterUpdate);
                 }
             }
 
@@ -425,7 +466,7 @@ public class ComposeUpdateService : IComposeUpdateService
                         Message = "Recreate failed"
                     };
                 }
-                await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, upError);
+                await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, upError, restartAfterUpdate);
 
                 return new UpdateTriggerResponse(
                     Success: false,
@@ -443,7 +484,7 @@ public class ComposeUpdateService : IComposeUpdateService
                     ProgressPercent = 100
                 };
             }
-            await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Update completed");
+            await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Update completed", restartAfterUpdate);
 
             // Invalidate cache for this project
             _cacheService.InvalidateProject(projectName);
@@ -488,22 +529,27 @@ public class ComposeUpdateService : IComposeUpdateService
         string projectName,
         string phase,
         Dictionary<string, ServicePullProgress> serviceProgress,
-        string? currentLog)
+        string? currentLog,
+        bool restartAfterUpdate = true)
     {
         try
         {
             int overallProgress = _progressParser.CalculateOverallProgress(serviceProgress);
 
-            // During recreate phase, add 50% base since pull is complete
-            if (phase == "recreate")
+            // Adjust progress based on whether we're doing pull+restart or pull only
+            if (restartAfterUpdate)
             {
-                overallProgress = 50 + (overallProgress / 2);
+                // Pull+restart: pull is 0-50%, recreate is 50-100%
+                if (phase == "recreate")
+                {
+                    overallProgress = 50 + (overallProgress / 2);
+                }
+                else
+                {
+                    overallProgress = overallProgress / 2;
+                }
             }
-            else
-            {
-                // Pull phase is first 50%
-                overallProgress = overallProgress / 2;
-            }
+            // If pull only, progress goes 0-100% for pull phase
 
             UpdateProgressEvent progressEvent = new UpdateProgressEvent(
                 OperationId: operationId,
@@ -557,7 +603,7 @@ public class ComposeUpdateService : IComposeUpdateService
             {
                 try
                 {
-                    await UpdateProjectAsync(projectName, null, true, true, userId, ipAddress, CancellationToken.None);
+                    await UpdateProjectAsync(projectName, null, true, true, true, userId, ipAddress, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
