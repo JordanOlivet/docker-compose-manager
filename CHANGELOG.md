@@ -1,3 +1,13 @@
+## Changes in v1.14.0
+
+**Merged Pull Requests:**
+- Add possibility to not restart compose or container afeter an update (#97)
+
+**Commits:**
+- chore: bump version to v1.14.0 [skip ci] (565d339)
+- Add possibility to not restart compose or container afeter an update (#97) (ae7c905)
+- docs: update CHANGELOG for v1.13.0 [skip ci] (caf6da7)
+
 ## Changes in v1.13.0
 
 **Merged Pull Requests:**
