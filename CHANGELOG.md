@@ -1,3 +1,13 @@
+## Changes in v1.12.0
+
+**Merged Pull Requests:**
+- Rework compose project view (#95)
+
+**Commits:**
+- chore: bump version to v1.12.0 [skip ci] (9172933)
+- Rework compose project view (#95) (b87730e)
+- docs: update CHANGELOG for v1.11.0 [skip ci] (fe5c1e7)
+
 ## Changes in v1.11.0
 
 **Merged Pull Requests:**
