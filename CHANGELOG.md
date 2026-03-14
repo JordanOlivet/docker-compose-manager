@@ -1,3 +1,13 @@
+## Changes in v1.13.0
+
+**Merged Pull Requests:**
+- Make columns draggable (#96)
+
+**Commits:**
+- chore: bump version to v1.13.0 [skip ci] (17ed675)
+- Make columns draggable (#96) (04700c9)
+- docs: update CHANGELOG for v1.12.0 [skip ci] (8c74b84)
+
 ## Changes in v1.12.0
 
 **Merged Pull Requests:**
