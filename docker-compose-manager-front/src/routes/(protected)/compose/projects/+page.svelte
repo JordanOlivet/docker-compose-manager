@@ -485,7 +485,7 @@
                   }
                 }}
               >
-                <td class="px-4 py-2">
+                <td class="px-4 py-3">
                   <div class="flex items-center gap-2">
                     <span
                       class="inline-block transition-transform duration-150 ease-in-out text-gray-500 dark:text-gray-400"
@@ -495,7 +495,7 @@
                     </span>
                     <div class="flex items-center gap-2 min-w-0">
                       <button
-                        class="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer shrink-0"
+                        class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer shrink-0"
                         onclick={(e) => {
                           e.stopPropagation();
                           navigateToProject(project.name);
@@ -505,7 +505,7 @@
                         {project.name}
                       </button>
                       {#if project.path}
-                        <span class="text-xs text-gray-500 dark:text-gray-400 truncate" title={project.path}>
+                        <span class="text-xs italic text-gray-500 dark:text-gray-400 truncate" title={project.path}>
                           {project.path}
                         </span>
                       {/if}
@@ -520,15 +520,15 @@
                     </div>
                   {/if}
                 </td>
-                <td class="px-4 py-2">
+                <td class="px-4 py-3">
                   <StateBadge status={project.state} size="sm" />
                 </td>
-                <td class="px-4 py-2">
+                <td class="px-4 py-3">
                   <span class="text-xs text-gray-700 dark:text-gray-300">
                     {project.services?.length ?? 0}
                   </span>
                 </td>
-                <td class="px-4 py-2">
+                <td class="px-4 py-3">
                   <div class="flex items-center gap-1">
                     <!-- Check Updates Button (admin only, when compose file exists) -->
                     {#if isAdmin.current && project.hasComposeFile}
@@ -608,7 +608,7 @@
                             <tr>
                               <th
                                 onclick={() => toggleServiceSort(project.name, 'name')}
-                                class="w-[18%] pl-10 pr-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+                                class="w-[18%] pl-10 pr-4 py-2 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none"
                               >
                                 {$t('containers.name')}
                                 {#if projectState.serviceSortKey === 'name'}

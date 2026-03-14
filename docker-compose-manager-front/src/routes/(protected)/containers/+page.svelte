@@ -363,7 +363,7 @@
                 <tr class="hover:bg-white dark:hover:bg-gray-800 transition-all">
                   <td class="px-4 py-2 whitespace-nowrap">
                     <button
-                      class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+                      class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
                       onclick={() => goto(`/containers/${container.id}`)}
                       title={$t('containers.viewDetails')}
                     >
