@@ -3,6 +3,7 @@
   import Sidebar from './Sidebar.svelte';
   import Header from './Header.svelte';
   import ActionLogPanel from './ActionLogPanel.svelte';
+  import ActionLogFab from './ActionLogFab.svelte';
   import ComposeHealthBanner from '$lib/components/compose/ComposeHealthBanner.svelte';
   import { actionLogState } from '$lib/stores/actionLog.svelte';
 
@@ -26,7 +27,8 @@
 
     <div class="flex flex-1 overflow-hidden">
       <main class="flex-1 overflow-y-auto p-8 lg:p-10 bg-gray-50 dark:bg-gray-900">
-        <div class="mx-auto">
+        <div class="mx-auto relative">
+          <ActionLogFab />
           <ComposeHealthBanner />
           {@render children()}
         </div>

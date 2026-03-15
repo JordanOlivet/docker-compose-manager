@@ -539,7 +539,7 @@ const fr = {
     containerUpdateSuccess: 'Conteneur mis à jour avec succès',
     containerUpdateFailed: 'Échec de la mise à jour du conteneur',
     standaloneWarning: "Ce conteneur n'est pas géré par un fichier compose. La mise à jour recréera le conteneur avec la même configuration (ports, volumes, environnement, réseaux).",
-    checkContainerUpdates: 'Vérifier les mises à jour des conteneurs',
+    checkContainerUpdates: 'Vérifier les mises à jour',
     updateAllContainers: 'Mettre à jour tous les conteneurs',
     containersHaveUpdates: 'conteneurs ont des mises à jour',
     allContainersUpToDate: 'Tous les conteneurs sont à jour',
@@ -577,6 +577,12 @@ const fr = {
     containerRemove: 'Supprimer le conteneur',
     markSeen: 'Marquer comme vu',
     markAllSeen: 'Tout marquer comme vu',
+  },
+  user: {
+    profile: 'Profil',
+    language: 'Langue',
+    darkTheme: 'Thème sombre',
+    preferences: 'Préférences',
   },
   devTest: {
     title: 'Tests Docker réels',

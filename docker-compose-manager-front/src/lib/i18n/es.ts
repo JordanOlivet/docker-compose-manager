@@ -500,7 +500,7 @@ const es = {
     containerUpdateSuccess: 'Contenedor actualizado con éxito',
     containerUpdateFailed: 'Error al actualizar el contenedor',
     standaloneWarning: 'Este contenedor no está gestionado por un archivo compose. La actualización recreará el contenedor con la misma configuración (puertos, volúmenes, entorno, redes).',
-    checkContainerUpdates: 'Verificar actualizaciones de contenedores',
+    checkContainerUpdates: 'Verificar actualizaciones',
     updateAllContainers: 'Actualizar todos los contenedores',
     containersHaveUpdates: 'contenedores tienen actualizaciones',
     allContainersUpToDate: 'Todos los contenedores están al día',
@@ -538,6 +538,12 @@ const es = {
     containerRemove: 'Eliminar contenedor',
     markSeen: 'Marcar como visto',
     markAllSeen: 'Marcar todo como visto',
+  },
+  user: {
+    profile: 'Perfil',
+    language: 'Idioma',
+    darkTheme: 'Tema oscuro',
+    preferences: 'Preferencias',
   },
   devTest: {
     title: 'Pruebas Docker reales',

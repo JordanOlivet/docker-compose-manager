@@ -45,7 +45,6 @@
   type SortDir = 'asc' | 'desc';
 
   let filters = $state({
-    showAll: true,
     search: '',
     sortKey: 'name' as SortKey,
     sortDir: 'asc' as SortDir
@@ -70,8 +69,8 @@
   // SSE is now handled globally in the protected layout
   // The SSE-Query bridge automatically invalidates queries on events
   const containersQuery = createQuery(() => ({
-    queryKey: ['containers', { all: filters.showAll }],
-    queryFn: () => containersApi.list(filters.showAll),
+    queryKey: ['containers'],
+    queryFn: () => containersApi.list(),
     refetchInterval: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -267,9 +266,6 @@
               </button>
             {/if}
           {/if}
-          <Button variant={filters.showAll ? 'default' : 'outline'} onclick={() => filters.showAll = !filters.showAll}>
-            {filters.showAll ? $t('containers.showRunning') : $t('containers.showAll')}
-          </Button>
         </div>
       </div>
     </div>
