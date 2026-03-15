@@ -58,6 +58,10 @@ export default {
     selectAll: 'Select All',
     deselectAll: 'Deselect All',
     days: 'days',
+    crashLoop: {
+      label: 'Crash loop',
+      tooltip: 'This container is repeatedly crashing and restarting',
+    },
   },
 
   navigation: {

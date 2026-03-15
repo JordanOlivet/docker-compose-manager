@@ -9,6 +9,7 @@
   import BulkContainerUpdateDialog from '$lib/components/update/BulkContainerUpdateDialog.svelte';
   import ActionButton from '$lib/components/common/ActionButton.svelte';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
+  import CrashLoopBadge from '$lib/components/common/CrashLoopBadge.svelte';
   import DraggableTableHeader from '$lib/components/common/DraggableTableHeader.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
@@ -20,6 +21,7 @@
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { containerHasUpdate, setContainerUpdateResult, handleContainerUpdatesCheckedEvent, hasAnyContainerUpdates, containersWithUpdatesCount, reconcileContainerUpdateState } from '$lib/stores/containerUpdate.svelte';
+  import { syncFromContainers } from '$lib/stores/crashLoop.svelte';
   import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
   import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
@@ -83,6 +85,11 @@
     if (data && data.length > 0) {
       reconcileContainerUpdateState(new Set(data.map((c: any) => c.id)));
     }
+  });
+
+  // Sync crash loop state from API data
+  $effect(() => {
+    if (containersQuery.data) syncFromContainers(containersQuery.data);
   });
 
   // Container Mutations
@@ -362,7 +369,10 @@
                       </td>
                     {:else if colId === 'state'}
                       <td class="px-4 py-2 whitespace-nowrap">
-                        <StateBadge status={container.state} size="sm" />
+                        <div class="flex items-center gap-1.5">
+                          <StateBadge status={container.state} size="sm" />
+                          <CrashLoopBadge entityType="container" entityId={container.id} />
+                        </div>
                       </td>
                     {:else if colId === 'status'}
                       <td class="px-4 py-2">

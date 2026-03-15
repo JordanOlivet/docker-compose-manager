@@ -93,7 +93,12 @@ public record ComposeProjectDto(
     /// <summary>
     /// When the last update check was performed (from cache, null if not checked)
     /// </summary>
-    DateTime? LastUpdateCheck = null
+    DateTime? LastUpdateCheck = null,
+
+    /// <summary>
+    /// Whether any service in this project is crash-looping
+    /// </summary>
+    bool IsCrashLooping = false
 );
 
 /// <summary>
@@ -107,7 +112,8 @@ public record ComposeServiceDto(
     string Status, // Up xx minutes
     List<string> Ports,
     string? Health,
-    string? IpAddress = null
+    string? IpAddress = null,
+    bool IsCrashLooping = false
 );
 
 /// <summary>

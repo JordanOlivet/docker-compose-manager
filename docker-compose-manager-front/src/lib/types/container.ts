@@ -10,6 +10,7 @@ export interface Container {
   labels?: Record<string, string>;
   ports?: string[];
   ipAddress?: string;
+  isCrashLooping?: boolean;
 }
 
 export interface ContainerDetails extends Container {

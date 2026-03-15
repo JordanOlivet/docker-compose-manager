@@ -10,6 +10,7 @@ export interface ContainerStateChangedEvent {
   containerId: string;
   containerName: string;
   timestamp: Date;
+  isCrashLooping?: boolean;
 }
 
 export interface ComposeProjectStateChangedEvent {
@@ -19,6 +20,7 @@ export interface ComposeProjectStateChangedEvent {
   containerId: string;
   containerName: string;
   timestamp: Date;
+  isCrashLooping?: boolean;
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';

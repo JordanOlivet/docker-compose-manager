@@ -10,91 +10,45 @@ import {
 import type { OperationUpdateEvent } from '$lib/types';
 import { composeApi } from '$lib/api/compose';
 import { logger } from '$lib/utils/logger';
+import { setCrashLooping, clearCrashLooping, clearAllCrashLooping } from '$lib/stores/crashLoop.svelte';
 import { isBatchOperationActive, isProjectUpdating } from '$lib/stores/batchOperation.svelte';
 
 // Configuration
 const DEBOUNCE_DELAY_MS = 50; // Minimal debounce to batch truly simultaneous events
 const DEDUPE_WINDOW_MS = 1000;
 
-// Crash loop detection
-const CRASH_LOOP_EVENT_COUNT = 6;        // Threshold of events within window
-const CRASH_LOOP_WINDOW_MS = 60_000;     // 60s sliding window
-const CRASH_LOOP_MIN_SPREAD_MS = 15_000; // Min spread to distinguish burst vs loop
-const CRASH_LOOP_THROTTLE_MS = 30_000;   // 1 refresh max per 30s during crash loop
-const CRASH_LOOP_COOLDOWN_MS = 120_000;  // Exit crash loop mode after 2min of silence
+// Crash loop throttle (detection is now backend-side)
+const CRASH_LOOP_THROTTLE_MS = 30_000; // 1 refresh max per 30s during crash loop
 
-interface EntityEventTracker {
-  timestamps: number[];
-  isCrashLooping: boolean;
-  lastThrottledRefreshAt: number;
-  cooldownTimer: ReturnType<typeof setTimeout> | null;
+// Simplified throttle tracker (crash loop detection moved to backend)
+interface ThrottleTracker {
+  lastRefreshAt: number;
 }
-
-const entityTrackers = new Map<string, EntityEventTracker>();
+const throttleTrackers = new Map<string, ThrottleTracker>();
 
 /**
- * Tracks events per entity and detects crash loops.
- * Returns true if the event should be throttled (skipped).
+ * Returns true if the refetch should be throttled for a crash-looping entity.
  */
-function shouldThrottleEntity(entityKey: string): boolean {
+function shouldThrottleRefetch(entityKey: string, isCrashLooping: boolean): boolean {
+  if (!isCrashLooping) {
+    throttleTrackers.delete(entityKey);
+    return false;
+  }
+
+  const tracker = throttleTrackers.get(entityKey);
   const now = Date.now();
 
-  let tracker = entityTrackers.get(entityKey);
   if (!tracker) {
-    tracker = {
-      timestamps: [],
-      isCrashLooping: false,
-      lastThrottledRefreshAt: 0,
-      cooldownTimer: null,
-    };
-    entityTrackers.set(entityKey, tracker);
+    throttleTrackers.set(entityKey, { lastRefreshAt: now });
+    return false; // Allow the first refetch
   }
 
-  // Record this event
-  tracker.timestamps.push(now);
-
-  // Purge timestamps outside the sliding window
-  tracker.timestamps = tracker.timestamps.filter(t => now - t <= CRASH_LOOP_WINDOW_MS);
-
-  // Reset cooldown timer (auto-cleanup after silence)
-  if (tracker.cooldownTimer) {
-    clearTimeout(tracker.cooldownTimer);
-  }
-  tracker.cooldownTimer = setTimeout(() => {
-    logger.log(`[Bridge] Crash loop cooldown expired for ${entityKey}, resetting tracker`);
-    entityTrackers.delete(entityKey);
-  }, CRASH_LOOP_COOLDOWN_MS);
-
-  const count = tracker.timestamps.length;
-  const spread = count >= 2 ? tracker.timestamps[count - 1] - tracker.timestamps[0] : 0;
-
-  // Detect crash loop: enough events AND spread out over time (not a burst)
-  if (count >= CRASH_LOOP_EVENT_COUNT && spread >= CRASH_LOOP_MIN_SPREAD_MS) {
-    if (!tracker.isCrashLooping) {
-      tracker.isCrashLooping = true;
-      logger.log(`[Bridge] Crash loop detected for ${entityKey} (${count} events in ${Math.round(spread / 1000)}s)`);
-      // Allow this first detection event through
-      tracker.lastThrottledRefreshAt = now;
-      return false;
-    }
-
-    // Already in crash loop mode — throttle
-    if (now - tracker.lastThrottledRefreshAt >= CRASH_LOOP_THROTTLE_MS) {
-      tracker.lastThrottledRefreshAt = now;
-      logger.log(`[Bridge] Allowing throttled refresh for ${entityKey}`);
-      return false;
-    }
-
-    logger.log(`[Bridge] Throttling event for ${entityKey} (crash loop)`);
-    return true;
+  if (now - tracker.lastRefreshAt >= CRASH_LOOP_THROTTLE_MS) {
+    tracker.lastRefreshAt = now;
+    return false;
   }
 
-  // Not in crash loop (or recovered) — normal behavior
-  if (tracker.isCrashLooping) {
-    logger.log(`[Bridge] Crash loop ended for ${entityKey}`);
-    tracker.isCrashLooping = false;
-  }
-  return false;
+  return true; // Throttle
 }
 
 // Events that indicate actual state changes (not just signals)
@@ -263,7 +217,18 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
 
     markHandledViaCompose(event.containerId, event.action);
 
-    if (shouldThrottleEntity(`project:${event.projectName}`)) return;
+    // Update crash loop store from SSE event
+    const projectKey = `project:${event.projectName}`;
+    const containerKey = `container:${event.containerId}`;
+    if (event.isCrashLooping) {
+      setCrashLooping(projectKey);
+      setCrashLooping(containerKey);
+    } else {
+      clearCrashLooping(projectKey);
+      clearCrashLooping(containerKey);
+    }
+
+    if (shouldThrottleRefetch(projectKey, !!event.isCrashLooping)) return;
 
     scheduleRefetch([
       ['compose', 'projects'],
@@ -294,7 +259,15 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
       return;
     }
 
-    if (shouldThrottleEntity(`container:${event.containerId}`)) return;
+    // Update crash loop store from SSE event
+    const containerKey = `container:${event.containerId}`;
+    if (event.isCrashLooping) {
+      setCrashLooping(containerKey);
+    } else {
+      clearCrashLooping(containerKey);
+    }
+
+    if (shouldThrottleRefetch(containerKey, !!event.isCrashLooping)) return;
 
     logger.log(`[Bridge] Container event (state-changing): ${event.containerName} - ${event.action}`);
 
@@ -353,9 +326,7 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
     logger.log('[Bridge] Cleaning up SSE-Query bridge');
     unsubscribers.forEach(unsub => unsub());
     recentComposeEvents.clear();
-    for (const tracker of entityTrackers.values()) {
-      if (tracker.cooldownTimer) clearTimeout(tracker.cooldownTimer);
-    }
-    entityTrackers.clear();
+    throttleTrackers.clear();
+    clearAllCrashLooping();
   };
 }

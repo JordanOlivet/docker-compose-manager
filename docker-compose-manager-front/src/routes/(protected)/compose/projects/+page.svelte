@@ -20,6 +20,7 @@
   import type { ColumnDefinition } from '$lib/types/table';
   import { EntityState } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
+  import CrashLoopBadge from '$lib/components/common/CrashLoopBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
@@ -33,6 +34,7 @@
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { projectHasUpdates, hasAnyUpdates, projectsWithUpdatesCount } from '$lib/stores/projectUpdate.svelte';
+  import { syncFromProjects } from '$lib/stores/crashLoop.svelte';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
   import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
 
@@ -50,8 +52,8 @@
     { id: 'image', labelKey: 'containers.image', sortKey: 'image', width: '20%' },
     { id: 'ipAddress', labelKey: 'containers.ipAddress', sortKey: 'ipAddress', width: '10%' },
     { id: 'ports', labelKey: 'containers.ports', sortKey: 'ports', width: '10%' },
-    { id: 'state', labelKey: 'containers.state', sortKey: 'state', width: '10%' },
-    { id: 'status', labelKey: 'containers.status', sortKey: 'status', width: '17%' },
+    { id: 'state', labelKey: 'containers.state', sortKey: 'state', width: '14%' },
+    { id: 'status', labelKey: 'containers.status', sortKey: 'status', width: '13%' },
     { id: 'actions', labelKey: 'containers.actions', width: '9rem' }
   ];
 
@@ -121,6 +123,11 @@
     refetchOnReconnect: false,
     staleTime: 0,
   }));
+
+  // Sync crash loop state from API data
+  $effect(() => {
+    if (projectsQuery.data) syncFromProjects(projectsQuery.data);
+  });
 
     const projectsQueryForceRefetch = createQuery(() => ({
     queryKey: ['compose', 'projects'],
@@ -537,7 +544,10 @@
                     </td>
                   {:else if colId === 'state'}
                     <td class="px-4 py-3">
-                      <StateBadge status={project.state} size="sm" />
+                      <div class="flex items-center gap-1.5">
+                        <StateBadge status={project.state} size="sm" />
+                        <CrashLoopBadge entityType="project" entityId={project.name} />
+                      </div>
                     </td>
                   {:else if colId === 'services'}
                     <td class="px-4 py-3">
@@ -681,7 +691,10 @@
                                     </td>
                                   {:else if colId === 'state'}
                                     <td class="px-4 py-2">
-                                      <StateBadge status={service.state} size="sm" />
+                                      <div class="flex items-center gap-1.5">
+                                        <StateBadge status={service.state} size="sm" />
+                                        <CrashLoopBadge entityType="container" entityId={service.id} />
+                                      </div>
                                     </td>
                                   {:else if colId === 'status'}
                                     <td class="px-4 py-2">

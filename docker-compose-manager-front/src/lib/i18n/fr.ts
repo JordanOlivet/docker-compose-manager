@@ -58,6 +58,10 @@ const fr = {
     selectAll: 'Tout sélectionner',
     deselectAll: 'Tout désélectionner',
     days: 'jours',
+    crashLoop: {
+      label: 'Crash loop',
+      tooltip: 'Ce conteneur redémarre en boucle',
+    },
   },
 
   navigation: {
