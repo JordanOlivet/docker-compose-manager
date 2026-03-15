@@ -4,7 +4,7 @@
   import { t } from '$lib/i18n';
 </script>
 
-<div class="float-right sticky top-2 z-40 ml-4 mb-0">
+<div class="float-right sticky top-1.5 z-40 ml-4 mb-0">
   <button
     onclick={togglePanel}
     class="relative p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl cursor-pointer
