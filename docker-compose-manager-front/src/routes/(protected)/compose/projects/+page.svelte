@@ -34,6 +34,7 @@
   import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { projectHasUpdates, hasAnyUpdates, projectsWithUpdatesCount } from '$lib/stores/projectUpdate.svelte';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
+  import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
 
   // Column definitions for projects table
   const projectColumns: ColumnDefinition[] = [
@@ -517,6 +518,7 @@
                           >
                             {project.name}
                           </button>
+                          <ActionStatusBadge entityType="project" entityId={project.name} />
                           {#if project.path}
                             <span class="text-xs italic text-gray-500 dark:text-gray-400 truncate" title={project.path}>
                               {project.path}

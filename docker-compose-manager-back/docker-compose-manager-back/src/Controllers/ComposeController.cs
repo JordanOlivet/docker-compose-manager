@@ -664,6 +664,12 @@ public class ComposeController : BaseController
                 ));
             }
 
+            // Create operation tracking
+            var operation = await _legacyOperationService.CreateOperationAsync(
+                OperationType.ComposeUp, userId.Value, projectPath: project.Path, projectName: projectName);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
+
             // Execute operation using new service
             OperationResult result = await _operationService.UpAsync(
                 projectName,
@@ -671,10 +677,15 @@ public class ComposeController : BaseController
                 request?.Build ?? false
             );
 
-            // Don't invalidate cache - SSE events will trigger frontend updates
-            // and compose files themselves haven't changed
-            // _discoveryService.InvalidateCache();
-            // _cacheService.Invalidate();
+            // Update operation with result — store actual docker compose output
+            string? logs = ComposeOutputHelper.BuildLogs(result);
+            if (!string.IsNullOrEmpty(logs))
+                await _legacyOperationService.AppendLogsAsync(operation.OperationId, logs);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId,
+                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+                progress: 100,
+                errorMessage: result.Success ? null : result.Error);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -695,7 +706,7 @@ public class ComposeController : BaseController
             }
 
             ComposeOperationResponse response = new(
-                Guid.NewGuid().ToString(), // Generate operation ID for consistency
+                operation.OperationId,
                 result.Success ? OperationStatus.Completed : OperationStatus.Failed,
                 result.Message
             );
@@ -753,16 +764,28 @@ public class ComposeController : BaseController
                 ));
             }
 
+            // Create operation tracking
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
+            var operation = await _legacyOperationService.CreateOperationAsync(
+                OperationType.ComposeDown, userId.Value, projectPath: projectPath, projectName: projectName);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
+
             // Execute operation using new service
             OperationResult result = await _operationService.DownAsync(
                 projectName,
                 request?.RemoveVolumes ?? false
             );
 
-            // Don't invalidate cache - SSE events will trigger frontend updates
-            // and compose files themselves haven't changed
-            // _discoveryService.InvalidateCache();
-            // _cacheService.Invalidate();
+            // Update operation with result — store actual docker compose output
+            string? logs = ComposeOutputHelper.BuildLogs(result);
+            if (!string.IsNullOrEmpty(logs))
+                await _legacyOperationService.AppendLogsAsync(operation.OperationId, logs);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId,
+                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+                progress: 100,
+                errorMessage: result.Success ? null : result.Error);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -783,7 +806,7 @@ public class ComposeController : BaseController
             }
 
             ComposeOperationResponse response = new(
-                Guid.NewGuid().ToString(),
+                operation.OperationId,
                 result.Success ? OperationStatus.Completed : OperationStatus.Failed,
                 result.Message
             );
@@ -1273,6 +1296,22 @@ volumes:
         }
     }
 
+    /// <summary>
+    /// Resolves the project path from the project name for operation tracking.
+    /// </summary>
+    private async Task<string?> ResolveProjectPathAsync(string projectName, int userId)
+    {
+        try
+        {
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
+            return projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase))?.Path;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     #region Helper Methods
 
     /// <summary>
@@ -1404,10 +1443,22 @@ volumes:
                 ));
             }
 
+            // Create operation tracking
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
+            var operation = await _legacyOperationService.CreateOperationAsync(
+                OperationType.ComposeStart, userId.Value, projectPath: projectPath, projectName: projectName);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
+
             OperationResult result = await _operationService.StartAsync(projectName);
-            // Don't invalidate cache - SSE events will trigger frontend updates
-            // _discoveryService.InvalidateCache();
-            // _cacheService.Invalidate();
+
+            if (!string.IsNullOrEmpty(result.Message))
+                await _legacyOperationService.AppendLogsAsync(operation.OperationId, result.Message);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId,
+                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+                progress: 100,
+                errorMessage: result.Success ? null : result.Error);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1419,7 +1470,7 @@ volumes:
             );
 
             ComposeOperationResponse response = new(
-                Guid.NewGuid().ToString(),
+                operation.OperationId,
                 result.Success ? OperationStatus.Completed : OperationStatus.Failed,
                 result.Message
             );
@@ -1474,10 +1525,22 @@ volumes:
                 ));
             }
 
+            // Create operation tracking
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
+            var operation = await _legacyOperationService.CreateOperationAsync(
+                OperationType.ComposeStop, userId.Value, projectPath: projectPath, projectName: projectName);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
+
             OperationResult result = await _operationService.StopAsync(projectName);
-            // Don't invalidate cache - SSE events will trigger frontend updates
-            // _discoveryService.InvalidateCache();
-            // _cacheService.Invalidate();
+
+            if (!string.IsNullOrEmpty(result.Message))
+                await _legacyOperationService.AppendLogsAsync(operation.OperationId, result.Message);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId,
+                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+                progress: 100,
+                errorMessage: result.Success ? null : result.Error);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1489,7 +1552,7 @@ volumes:
             );
 
             ComposeOperationResponse response = new(
-                Guid.NewGuid().ToString(),
+                operation.OperationId,
                 result.Success ? OperationStatus.Completed : OperationStatus.Failed,
                 result.Message
             );
@@ -1544,10 +1607,22 @@ volumes:
                 ));
             }
 
+            // Create operation tracking
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
+            var operation = await _legacyOperationService.CreateOperationAsync(
+                OperationType.ComposeRestart, userId.Value, projectPath: projectPath, projectName: projectName);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
+
             OperationResult result = await _operationService.RestartAsync(projectName);
-            // Don't invalidate cache - SSE events will trigger frontend updates
-            // _discoveryService.InvalidateCache();
-            // _cacheService.Invalidate();
+
+            if (!string.IsNullOrEmpty(result.Message))
+                await _legacyOperationService.AppendLogsAsync(operation.OperationId, result.Message);
+            await _legacyOperationService.UpdateOperationStatusAsync(
+                operation.OperationId,
+                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+                progress: 100,
+                errorMessage: result.Success ? null : result.Error);
 
             await _auditService.LogActionAsync(
                 userId.Value,
@@ -1559,7 +1634,7 @@ volumes:
             );
 
             ComposeOperationResponse response = new(
-                Guid.NewGuid().ToString(),
+                operation.OperationId,
                 result.Success ? OperationStatus.Completed : OperationStatus.Failed,
                 result.Message
             );

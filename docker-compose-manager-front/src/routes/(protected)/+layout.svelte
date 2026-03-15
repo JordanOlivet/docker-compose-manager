@@ -5,11 +5,12 @@
 	import * as auth from '$lib/stores/auth.svelte';
 	import { isAdmin } from '$lib/stores/auth.svelte';
 	import { authApi } from '$lib/api';
-	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode, onProjectUpdatesChecked, onContainerUpdatesChecked } from '$lib/stores/sse.svelte';
+	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode, onProjectUpdatesChecked, onContainerUpdatesChecked, onOperationUpdate } from '$lib/stores/sse.svelte';
 	import { setupSSEQueryBridge } from '$lib/services/sseQueryBridge';
 	import { enterMaintenanceMode, startPeriodicCheck, stopPeriodicCheck } from '$lib/stores/update.svelte';
 	import { handleProjectUpdatesCheckedEvent, loadCachedUpdateStatus } from '$lib/stores/projectUpdate.svelte';
 	import { handleContainerUpdatesCheckedEvent, loadCachedContainerUpdateStatus } from '$lib/stores/containerUpdate.svelte';
+	import { loadInitial as loadActionLog, loadLastByEntity, handleOperationUpdate } from '$lib/stores/actionLog.svelte';
 	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
@@ -18,6 +19,7 @@
 	let cleanupMaintenanceListener: (() => void) | null = null;
 	let cleanupProjectUpdatesListener: (() => void) | null = null;
 	let cleanupContainerUpdatesListener: (() => void) | null = null;
+	let cleanupOperationListener: (() => void) | null = null;
 
 	// Use the singleton QueryClient - same instance used by all components
 	const queryClient = getQueryClient();
@@ -46,6 +48,15 @@
 		cleanupMaintenanceListener = onMaintenanceMode((notification) => {
 			enterMaintenanceMode(notification);
 		});
+
+		// Subscribe to operation updates for action log
+		cleanupOperationListener = onOperationUpdate((event) => {
+			handleOperationUpdate(event);
+		});
+
+		// Load initial action log data
+		await loadActionLog();
+		await loadLastByEntity();
 
 		// Start periodic update checking for admin users
 		if (isAdmin.current) {
@@ -85,6 +96,10 @@
 		// Clean up container updates listener
 		if (cleanupContainerUpdatesListener) {
 			cleanupContainerUpdatesListener();
+		}
+		// Clean up operation listener
+		if (cleanupOperationListener) {
+			cleanupOperationListener();
 		}
 		// Stop periodic update checking
 		stopPeriodicCheck();

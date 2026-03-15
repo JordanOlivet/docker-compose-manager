@@ -22,6 +22,7 @@
   import { containerHasUpdate, setContainerUpdateResult, handleContainerUpdatesCheckedEvent, hasAnyContainerUpdates, containersWithUpdatesCount, reconcileContainerUpdateState } from '$lib/stores/containerUpdate.svelte';
   import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
+  import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
 
   // Column definitions for containers table
   const containerColumns: ColumnDefinition[] = [
@@ -321,13 +322,16 @@
                   {#each columnPrefs.order as colId (colId)}
                     {#if colId === 'name'}
                       <td class="px-4 py-2 whitespace-nowrap">
-                        <button
-                          class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
-                          onclick={() => goto(`/containers/${container.id}`)}
-                          title={$t('containers.viewDetails')}
-                        >
-                          {container.name.startsWith('/') ? container.name.slice(1) : container.name}
-                        </button>
+                        <div class="flex items-center gap-1">
+                          <button
+                            class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+                            onclick={() => goto(`/containers/${container.id}`)}
+                            title={$t('containers.viewDetails')}
+                          >
+                            {container.name.startsWith('/') ? container.name.slice(1) : container.name}
+                          </button>
+                          <ActionStatusBadge entityType="container" entityId={container.id} />
+                        </div>
                         <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                           {container.id.substring(0, 12)}
                         </div>

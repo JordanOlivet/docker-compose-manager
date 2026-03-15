@@ -9,6 +9,7 @@
   import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
   import LanguageSelector from '$lib/components/common/LanguageSelector.svelte';
   import ConnectionStatus from '$lib/components/common/ConnectionStatus.svelte';
+  import ActionLogToggle from './ActionLogToggle.svelte';
   import { t } from '$lib/i18n';
 
   interface Props {
@@ -70,6 +71,7 @@
       {/if}
 
       <ConnectionStatus />
+      <ActionLogToggle />
       <LanguageSelector />
       <ThemeToggle />
 

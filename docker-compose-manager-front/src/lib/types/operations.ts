@@ -7,13 +7,16 @@ export interface Operation {
   userId?: number;
   projectPath?: string;
   projectName?: string;
+  containerId?: string;
+  containerName?: string;
+  username?: string;
   startedAt: string;
   completedAt?: string;
+  errorMessage?: string;
 }
 
 export interface OperationDetails extends Operation {
   logs?: string;
-  errorMessage?: string;
 }
 
 export interface OperationProgress {
@@ -99,4 +102,6 @@ export interface OperationUpdateEvent {
   type?: string;
   projectName?: string;
   projectPath?: string;
+  containerId?: string;
+  containerName?: string;
 }

@@ -28,7 +28,9 @@ public class OperationService
         string type,
         int? userId,
         string? projectPath = null,
-        string? projectName = null)
+        string? projectName = null,
+        string? containerId = null,
+        string? containerName = null)
     {
         try
         {
@@ -40,6 +42,8 @@ public class OperationService
                 UserId = userId,
                 ProjectPath = projectPath,
                 ProjectName = projectName,
+                ContainerId = containerId,
+                ContainerName = containerName,
                 StartedAt = DateTime.UtcNow
             };
 
@@ -128,7 +132,9 @@ public class OperationService
                     errorMessage,
                     type = operation.Type,
                     projectName = operation.ProjectName,
-                    projectPath = operation.ProjectPath
+                    projectPath = operation.ProjectPath,
+                    containerId = operation.ContainerId,
+                    containerName = operation.ContainerName
                 };
 
                 _logger.LogDebug(
@@ -344,6 +350,97 @@ public class OperationService
     }
 
     /// <summary>
+    /// Gets the last operation for each unique project/container entity
+    /// </summary>
+    public async Task<Dictionary<string, Operation>> GetLastOperationByEntitiesAsync()
+    {
+        try
+        {
+            // Get the latest operation IDs per project
+            var projectOpIds = await _context.Operations
+                .Where(o => o.ProjectName != null)
+                .GroupBy(o => o.ProjectName!)
+                .Select(g => g.OrderByDescending(o => o.StartedAt).First().Id)
+                .ToListAsync();
+
+            // Get the latest operation IDs per container
+            var containerOpIds = await _context.Operations
+                .Where(o => o.ContainerId != null)
+                .GroupBy(o => o.ContainerId!)
+                .Select(g => g.OrderByDescending(o => o.StartedAt).First().Id)
+                .ToListAsync();
+
+            var allIds = projectOpIds.Concat(containerOpIds).Distinct().ToList();
+
+            var operations = await _context.Operations
+                .Include(o => o.User)
+                .Where(o => allIds.Contains(o.Id))
+                .ToListAsync();
+
+            var result = new Dictionary<string, Operation>();
+
+            foreach (var op in operations)
+            {
+                if (op.ProjectName != null)
+                {
+                    var key = $"project:{op.ProjectName}";
+                    if (!result.ContainsKey(key) || op.StartedAt > result[key].StartedAt)
+                        result[key] = op;
+                }
+                if (op.ContainerId != null)
+                {
+                    var key = $"container:{op.ContainerId}";
+                    if (!result.ContainsKey(key) || op.StartedAt > result[key].StartedAt)
+                        result[key] = op;
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting last operations by entities");
+            return new Dictionary<string, Operation>();
+        }
+    }
+
+    /// <summary>
+    /// Lists operations with optional filtering including project and container filters
+    /// </summary>
+    public async Task<List<Operation>> ListOperationsFilteredAsync(
+        string? status = null,
+        string? projectName = null,
+        string? containerId = null,
+        int limit = 50)
+    {
+        try
+        {
+            IQueryable<Operation> query = _context.Operations
+                .Include(o => o.User)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(status))
+                query = query.Where(o => o.Status == status);
+
+            if (!string.IsNullOrEmpty(projectName))
+                query = query.Where(o => o.ProjectName == projectName);
+
+            if (!string.IsNullOrEmpty(containerId))
+                query = query.Where(o => o.ContainerId == containerId);
+
+            return await query
+                .OrderByDescending(o => o.StartedAt)
+                .Take(limit)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing operations with filters");
+            return new List<Operation>();
+        }
+    }
+
+    /// <summary>
     /// Gets active (running) operations count
     /// </summary>
     public async Task<int> GetActiveOperationsCountAsync()
@@ -356,6 +453,32 @@ public class OperationService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting active operations count");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Clears all operations from the database
+    /// </summary>
+    public async Task<int> ClearAllOperationsAsync()
+    {
+        try
+        {
+            List<Operation> allOperations = await _context.Operations.ToListAsync();
+            int count = allOperations.Count;
+
+            if (count > 0)
+            {
+                _context.Operations.RemoveRange(allOperations);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Cleared {Count} operations from history", count);
+            }
+
+            return count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing all operations");
             return 0;
         }
     }

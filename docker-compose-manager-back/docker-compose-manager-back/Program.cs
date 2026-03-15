@@ -262,7 +262,7 @@ builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
-builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.TokenCleanupBackgroundService>();
+builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.CleanupBackgroundService>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
