@@ -20,7 +20,6 @@ export const actionLogState = $state({
   statusFilter: 'all' as StatusFilter,
   lastOperationByEntity: new Map<string, EntityStatus>(),
   isLoading: false,
-  seenIds: {} as Record<string, boolean>,
 });
 
 // Derived counts
@@ -33,7 +32,7 @@ export const runningCount = {
 export const unseenFailureCount = {
   get current() {
     return actionLogState.entries.filter(
-      e => e.status === 'failed' && !actionLogState.seenIds[e.operationId]
+      e => e.status === 'failed' && !e.isAcknowledged
     ).length;
   }
 };
@@ -155,25 +154,40 @@ export async function clearHistory() {
     await operationsApi.clearHistory();
     actionLogState.entries = [];
     actionLogState.lastOperationByEntity = new Map();
-    actionLogState.seenIds = {};
   } catch (err) {
     logger.error('[ActionLog] Failed to clear history:', err);
   }
 }
 
-export function isOperationSeen(operationId: string): boolean {
-  return !!actionLogState.seenIds[operationId];
-}
-
-export function acknowledgeOperation(operationId: string) {
-  actionLogState.seenIds[operationId] = true;
-}
-
-export function acknowledgeAll() {
-  for (const entry of actionLogState.entries) {
-    if (entry.status === 'failed') {
-      actionLogState.seenIds[entry.operationId] = true;
+export async function acknowledgeOperation(operationId: string) {
+  // Optimistic update
+  const idx = actionLogState.entries.findIndex(e => e.operationId === operationId);
+  if (idx >= 0) {
+    actionLogState.entries[idx] = { ...actionLogState.entries[idx], isAcknowledged: true };
+  }
+  try {
+    await operationsApi.acknowledgeOperation(operationId);
+  } catch (err) {
+    logger.error('[ActionLog] Failed to acknowledge operation:', err);
+    // Revert on failure
+    if (idx >= 0) {
+      actionLogState.entries[idx] = { ...actionLogState.entries[idx], isAcknowledged: false };
     }
+  }
+}
+
+export async function acknowledgeAll() {
+  // Optimistic update
+  const previousEntries = actionLogState.entries.map(e => ({ ...e }));
+  actionLogState.entries = actionLogState.entries.map(e =>
+    e.status === 'failed' ? { ...e, isAcknowledged: true } : e
+  );
+  try {
+    await operationsApi.acknowledgeAll();
+  } catch (err) {
+    logger.error('[ActionLog] Failed to acknowledge all:', err);
+    // Revert on failure
+    actionLogState.entries = previousEntries;
   }
 }
 

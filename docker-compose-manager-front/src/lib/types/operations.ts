@@ -13,6 +13,7 @@ export interface Operation {
   startedAt: string;
   completedAt?: string;
   errorMessage?: string;
+  isAcknowledged?: boolean;
 }
 
 export interface OperationDetails extends Operation {
@@ -75,7 +76,9 @@ export const OperationType = {
   ContainerRestart: 'container_restart',
   ContainerRemove: 'container_remove',
   ContainerPause: 'container_pause',
-  ContainerUnpause: 'container_unpause'
+  ContainerUnpause: 'container_unpause',
+  ComposeUpdate: 'compose_update',
+  ContainerUpdate: 'container_update'
 } as const;
 
 export type OperationType = typeof OperationType[keyof typeof OperationType];

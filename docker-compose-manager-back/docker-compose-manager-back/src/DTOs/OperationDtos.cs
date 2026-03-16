@@ -15,7 +15,8 @@ public record OperationDto(
     string? Username,
     DateTime StartedAt,
     DateTime? CompletedAt,
-    string? ErrorMessage
+    string? ErrorMessage,
+    bool IsAcknowledged
 );
 
 /// <summary>
@@ -34,7 +35,8 @@ public record OperationDetailsDto(
     string? Logs,
     DateTime StartedAt,
     DateTime? CompletedAt,
-    string? ErrorMessage
+    string? ErrorMessage,
+    bool IsAcknowledged
 );
 
 /// <summary>

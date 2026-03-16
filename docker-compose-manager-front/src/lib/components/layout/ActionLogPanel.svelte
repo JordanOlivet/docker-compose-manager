@@ -9,7 +9,6 @@
     clearHistory,
     acknowledgeOperation,
     acknowledgeAll,
-    isOperationSeen,
     type StatusFilter,
   } from '$lib/stores/actionLog.svelte';
   import { operationsApi } from '$lib/api/operations';
@@ -37,6 +36,8 @@
       container_stop: $t('actionLog.containerStop'),
       container_restart: $t('actionLog.containerRestart'),
       container_remove: $t('actionLog.containerRemove'),
+      compose_update: $t('actionLog.composeUpdate'),
+      container_update: $t('actionLog.containerUpdate'),
     };
     return labels[type] ?? type;
   }
@@ -241,7 +242,7 @@
               <span class="text-xs text-gray-400 whitespace-nowrap">
                 {getRelativeTime(entry.startedAt)}
               </span>
-              {#if entry.status === 'failed' && !isOperationSeen(entry.operationId)}
+              {#if entry.status === 'failed' && !entry.isAcknowledged}
                 <button
                   onclick={(e) => { e.stopPropagation(); acknowledgeOperation(entry.operationId); }}
                   class="p-0.5 rounded hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer"

@@ -30,13 +30,14 @@ public class OperationService
         string? projectPath = null,
         string? projectName = null,
         string? containerId = null,
-        string? containerName = null)
+        string? containerName = null,
+        string? operationId = null)
     {
         try
         {
             Operation operation = new()
             {
-                OperationId = Guid.NewGuid().ToString(),
+                OperationId = operationId ?? Guid.NewGuid().ToString(),
                 Type = type,
                 Status = OperationStatus.Pending,
                 UserId = userId,
@@ -316,6 +317,63 @@ public class OperationService
         {
             _logger.LogError(ex, "Error cancelling operation: {OperationId}", operationId);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Acknowledges a single operation
+    /// </summary>
+    public async Task<bool> AcknowledgeOperationAsync(string operationId)
+    {
+        try
+        {
+            Operation? operation = await _context.Operations
+                .FirstOrDefaultAsync(o => o.OperationId == operationId);
+
+            if (operation == null)
+            {
+                _logger.LogWarning("Operation not found: {OperationId}", operationId);
+                return false;
+            }
+
+            operation.IsAcknowledged = true;
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Acknowledged operation: {OperationId}", operationId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error acknowledging operation: {OperationId}", operationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Acknowledges all failed non-acknowledged operations
+    /// </summary>
+    public async Task<int> AcknowledgeAllFailedAsync()
+    {
+        try
+        {
+            List<Operation> operations = await _context.Operations
+                .Where(o => o.Status == OperationStatus.Failed && !o.IsAcknowledged)
+                .ToListAsync();
+
+            foreach (var operation in operations)
+            {
+                operation.IsAcknowledged = true;
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Acknowledged {Count} failed operations", operations.Count);
+            return operations.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error acknowledging all failed operations");
+            return 0;
         }
     }
 

@@ -536,6 +536,8 @@ const es = {
     containerStop: 'Detener contenedor',
     containerRestart: 'Reiniciar contenedor',
     containerRemove: 'Eliminar contenedor',
+    composeUpdate: 'Actualizar proyecto',
+    containerUpdate: 'Actualizar contenedor',
     markSeen: 'Marcar como visto',
     markAllSeen: 'Marcar todo como visto',
   },

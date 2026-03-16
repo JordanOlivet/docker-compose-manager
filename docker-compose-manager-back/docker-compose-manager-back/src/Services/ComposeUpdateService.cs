@@ -1,3 +1,4 @@
+using System.Text;
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
 using Microsoft.Extensions.Options;
@@ -287,6 +288,8 @@ public class ComposeUpdateService : IComposeUpdateService
         CancellationToken ct = default)
     {
         string operationId = Guid.NewGuid().ToString();
+        bool operationCreated = false;
+        var filteredLogs = new StringBuilder();
 
         try
         {
@@ -336,6 +339,15 @@ public class ComposeUpdateService : IComposeUpdateService
             }
 
             string servicesArg = string.Join(" ", servicesToUpdate);
+
+            // Create operation for action log tracking
+            await _operationService.CreateOperationAsync(
+                Models.OperationType.ComposeUpdate, userId,
+                projectPath: composeFilePath, projectName: projectName,
+                operationId: operationId);
+            operationCreated = true;
+            await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Running);
+            filteredLogs.AppendLine("Pulling images...");
 
             // Reset parser state and initialize progress tracking for all services
             _progressParser.Reset();
@@ -401,6 +413,10 @@ public class ComposeUpdateService : IComposeUpdateService
                 }
                 await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, pullError, restartAfterUpdate);
 
+                filteredLogs.AppendLine($"Pull failed: {pullError}");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 0, errorMessage: $"Failed to pull images: {pullError}");
+
                 return new UpdateTriggerResponse(
                     Success: false,
                     Message: $"Failed to pull images: {pullError}",
@@ -432,6 +448,10 @@ public class ComposeUpdateService : IComposeUpdateService
                     };
                 }
                 await SendProgressUpdateAsync(operationId, projectName, "pull", serviceProgress, "Images updated (containers not restarted)", restartAfterUpdate);
+
+                filteredLogs.AppendLine($"Pull completed for {servicesToUpdate.Count} services (no restart)");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
 
                 // Invalidate cache for this project
                 _cacheService.InvalidateProject(projectName);
@@ -476,9 +496,16 @@ public class ComposeUpdateService : IComposeUpdateService
                 : $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}";
             _logger.LogDebug("Recreating containers - RestartFullProject: {RestartFullProject}, Command args: {Args}", restartFullProject, recreateArgs);
 
+            var recreateLogs = new StringBuilder();
+
             void OnRecreateOutput(string line)
             {
                 lastLogLine = line;
+
+                string trimmed = line.Trim();
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                    recreateLogs.AppendLine(trimmed);
+
                 // For recreate, we just stream the logs without detailed parsing
                 if (DateTime.UtcNow - lastProgressSent > minProgressInterval)
                 {
@@ -510,6 +537,13 @@ public class ComposeUpdateService : IComposeUpdateService
                 }
                 await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, upError, restartAfterUpdate);
 
+                filteredLogs.AppendLine($"Pull completed for {servicesToUpdate.Count} services");
+                filteredLogs.AppendLine("Recreating containers...");
+                filteredLogs.Append(recreateLogs);
+                filteredLogs.AppendLine($"Recreate failed: {upError}");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 50, errorMessage: $"Failed to recreate containers: {upError}");
+
                 return new UpdateTriggerResponse(
                     Success: false,
                     Message: $"Failed to recreate containers: {upError}",
@@ -527,6 +561,13 @@ public class ComposeUpdateService : IComposeUpdateService
                 };
             }
             await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Update completed", restartAfterUpdate);
+
+            filteredLogs.AppendLine($"Pull completed for {servicesToUpdate.Count} services");
+            filteredLogs.AppendLine("Recreating containers...");
+            filteredLogs.Append(recreateLogs);
+            filteredLogs.AppendLine("Update completed successfully");
+            await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+            await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
 
             // Invalidate cache for this project
             _cacheService.InvalidateProject(projectName);
@@ -558,6 +599,20 @@ public class ComposeUpdateService : IComposeUpdateService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating project {ProjectName}", projectName);
+
+            if (operationCreated)
+            {
+                try
+                {
+                    await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                    await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, errorMessage: ex.Message);
+                }
+                catch (Exception opEx)
+                {
+                    _logger.LogWarning(opEx, "Failed to update operation status for {OperationId}", operationId);
+                }
+            }
+
             return new UpdateTriggerResponse(
                 Success: false,
                 Message: $"Error updating project: {ex.Message}",

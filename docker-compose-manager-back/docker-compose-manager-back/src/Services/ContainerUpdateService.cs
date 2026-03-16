@@ -1,3 +1,4 @@
+using System.Text;
 using docker_compose_manager_back.DTOs;
 
 namespace docker_compose_manager_back.Services;
@@ -218,10 +219,21 @@ public class ContainerUpdateService : IContainerUpdateService
     {
         string operationId = Guid.NewGuid().ToString();
         string containerName = container.Name.TrimStart('/');
+        bool operationCreated = false;
+        var filteredLogs = new StringBuilder();
 
         try
         {
             _logger.LogInformation("Updating standalone container {ContainerName} ({Image}), restartAfterUpdate: {RestartAfterUpdate}", containerName, container.Image, restartAfterUpdate);
+
+            // Create operation for action log tracking
+            await _operationService.CreateOperationAsync(
+                Models.OperationType.ContainerUpdate, userId,
+                containerId: container.Id, containerName: containerName,
+                operationId: operationId);
+            operationCreated = true;
+            await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Running);
+            filteredLogs.AppendLine($"Pulling image: {container.Image}");
 
             // Initialize progress tracking with single service entry
             _progressParser.Reset();
@@ -264,6 +276,11 @@ public class ContainerUpdateService : IContainerUpdateService
                     Message = "Pull failed"
                 };
                 await SendStandaloneProgressAsync(operationId, containerName, container.Id, "pull", serviceProgress, pullError, restartAfterUpdate);
+
+                filteredLogs.AppendLine($"Pull failed: {pullError}");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 0, errorMessage: $"Failed to pull image: {pullError}");
+
                 return new UpdateTriggerResponse(false, $"Failed to pull image: {pullError}", operationId);
             }
 
@@ -287,6 +304,10 @@ public class ContainerUpdateService : IContainerUpdateService
                 };
                 await SendStandaloneProgressAsync(operationId, containerName, container.Id, "pull", serviceProgress, "Image updated (container not restarted)", restartAfterUpdate);
 
+                filteredLogs.AppendLine("Pull completed (no restart)");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
+
                 // Audit log
                 await _auditService.LogActionAsync(
                     userId,
@@ -303,6 +324,8 @@ public class ContainerUpdateService : IContainerUpdateService
             }
 
             // 2. Stop and remove old container - switch to recreate phase
+            filteredLogs.AppendLine("Pull completed");
+            filteredLogs.AppendLine("Stopping container...");
             serviceProgress[containerName] = new ServicePullProgress(
                 ServiceName: containerName,
                 Status: "recreating",
@@ -324,9 +347,15 @@ public class ContainerUpdateService : IContainerUpdateService
                     Message = "Failed to stop container"
                 };
                 await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, "Failed to stop container", restartAfterUpdate);
+
+                filteredLogs.AppendLine("Failed to stop container");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 50, errorMessage: "Failed to stop container");
+
                 return new UpdateTriggerResponse(false, "Failed to stop container", operationId);
             }
 
+            filteredLogs.AppendLine("Removing old container...");
             serviceProgress[containerName] = serviceProgress[containerName] with
             {
                 ProgressPercent = 30,
@@ -347,10 +376,16 @@ public class ContainerUpdateService : IContainerUpdateService
                     Message = $"Failed to remove container: {rmError}"
                 };
                 await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, rmError, restartAfterUpdate);
+
+                filteredLogs.AppendLine($"Failed to remove container: {rmError}");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 50, errorMessage: $"Failed to remove container: {rmError}");
+
                 return new UpdateTriggerResponse(false, $"Failed to remove container: {rmError}", operationId);
             }
 
             // 3. Recreate container with same config using docker run
+            filteredLogs.AppendLine("Creating new container...");
             serviceProgress[containerName] = serviceProgress[containerName] with
             {
                 ProgressPercent = 60,
@@ -375,6 +410,11 @@ public class ContainerUpdateService : IContainerUpdateService
                     Message = $"Failed to recreate container: {runError}"
                 };
                 await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, runError, restartAfterUpdate);
+
+                filteredLogs.AppendLine($"Failed to recreate container: {runError}");
+                await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 60, errorMessage: $"Failed to recreate container: {runError}");
+
                 return new UpdateTriggerResponse(false, $"Failed to recreate container: {runError}", operationId);
             }
 
@@ -386,6 +426,10 @@ public class ContainerUpdateService : IContainerUpdateService
                 Message = "Update completed"
             };
             await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, "Update completed", restartAfterUpdate);
+
+            filteredLogs.AppendLine("Update completed successfully");
+            await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+            await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
 
             // Audit log
             await _auditService.LogActionAsync(
@@ -404,6 +448,20 @@ public class ContainerUpdateService : IContainerUpdateService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating standalone container {ContainerName}", container.Name);
+
+            if (operationCreated)
+            {
+                try
+                {
+                    await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
+                    await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, errorMessage: ex.Message);
+                }
+                catch (Exception opEx)
+                {
+                    _logger.LogWarning(opEx, "Failed to update operation status for {OperationId}", operationId);
+                }
+            }
+
             return new UpdateTriggerResponse(false, $"Error updating container: {ex.Message}", operationId);
         }
     }

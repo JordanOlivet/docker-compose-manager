@@ -575,6 +575,8 @@ const fr = {
     containerStop: 'Arrêter le conteneur',
     containerRestart: 'Redémarrer le conteneur',
     containerRemove: 'Supprimer le conteneur',
+    composeUpdate: 'Mise à jour du projet',
+    containerUpdate: 'Mise à jour du conteneur',
     markSeen: 'Marquer comme vu',
     markAllSeen: 'Tout marquer comme vu',
   },

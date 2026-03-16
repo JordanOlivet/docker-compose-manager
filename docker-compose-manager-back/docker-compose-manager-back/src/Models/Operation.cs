@@ -16,6 +16,7 @@ public class Operation
     public string? ErrorMessage { get; set; }
     public string? ContainerId { get; set; }
     public string? ContainerName { get; set; }
+    public bool IsAcknowledged { get; set; } = false;
 
     // Navigation property
     public User? User { get; set; }
@@ -37,6 +38,8 @@ public static class OperationType
     public const string ContainerStop = "container_stop";
     public const string ContainerRestart = "container_restart";
     public const string ContainerRemove = "container_remove";
+    public const string ComposeUpdate = "compose_update";
+    public const string ContainerUpdate = "container_update";
 }
 
 /// <summary>
