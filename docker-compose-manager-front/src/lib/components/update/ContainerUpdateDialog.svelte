@@ -31,7 +31,7 @@
   // Initialize restartAfterUpdate based on container state when checkResult changes
   $effect(() => {
     if (checkResult) {
-      restartAfterUpdate = checkResult.containerState === 'running';
+      restartAfterUpdate = checkResult.containerState?.toLowerCase() === 'running';
     }
   });
 
