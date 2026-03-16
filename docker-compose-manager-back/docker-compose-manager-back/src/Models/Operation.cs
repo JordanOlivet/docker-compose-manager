@@ -37,6 +37,8 @@ public static class OperationType
     public const string ContainerStop = "container_stop";
     public const string ContainerRestart = "container_restart";
     public const string ContainerRemove = "container_remove";
+    public const string ComposeUpdate = "compose_update";
+    public const string ContainerUpdate = "container_update";
 }
 
 /// <summary>

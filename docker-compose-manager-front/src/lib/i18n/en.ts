@@ -575,6 +575,8 @@ export default {
     containerStop: 'Stop Container',
     containerRestart: 'Restart Container',
     containerRemove: 'Remove Container',
+    composeUpdate: 'Update Project',
+    containerUpdate: 'Update Container',
     markSeen: 'Mark as seen',
     markAllSeen: 'Mark all as seen',
   },

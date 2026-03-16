@@ -30,13 +30,14 @@ public class OperationService
         string? projectPath = null,
         string? projectName = null,
         string? containerId = null,
-        string? containerName = null)
+        string? containerName = null,
+        string? operationId = null)
     {
         try
         {
             Operation operation = new()
             {
-                OperationId = Guid.NewGuid().ToString(),
+                OperationId = operationId ?? Guid.NewGuid().ToString(),
                 Type = type,
                 Status = OperationStatus.Pending,
                 UserId = userId,

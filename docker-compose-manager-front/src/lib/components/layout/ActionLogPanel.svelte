@@ -37,6 +37,8 @@
       container_stop: $t('actionLog.containerStop'),
       container_restart: $t('actionLog.containerRestart'),
       container_remove: $t('actionLog.containerRemove'),
+      compose_update: $t('actionLog.composeUpdate'),
+      container_update: $t('actionLog.containerUpdate'),
     };
     return labels[type] ?? type;
   }
