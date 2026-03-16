@@ -13,6 +13,7 @@ export interface Operation {
   startedAt: string;
   completedAt?: string;
   errorMessage?: string;
+  isAcknowledged?: boolean;
 }
 
 export interface OperationDetails extends Operation {

@@ -16,6 +16,7 @@ public class Operation
     public string? ErrorMessage { get; set; }
     public string? ContainerId { get; set; }
     public string? ContainerName { get; set; }
+    public bool IsAcknowledged { get; set; } = false;
 
     // Navigation property
     public User? User { get; set; }

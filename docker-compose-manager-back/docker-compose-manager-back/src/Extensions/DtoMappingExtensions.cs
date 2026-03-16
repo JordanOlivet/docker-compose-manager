@@ -87,7 +87,8 @@ public static class DtoMappingExtensions
             operation.User?.Username,
             operation.StartedAt,
             operation.CompletedAt,
-            operation.ErrorMessage
+            operation.ErrorMessage,
+            operation.IsAcknowledged
         );
     }
 

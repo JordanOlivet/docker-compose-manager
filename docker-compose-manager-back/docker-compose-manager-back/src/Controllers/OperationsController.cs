@@ -117,7 +117,8 @@ public class OperationsController : BaseController
                 operation.Logs,
                 operation.StartedAt,
                 operation.CompletedAt,
-                operation.ErrorMessage
+                operation.ErrorMessage,
+                operation.IsAcknowledged
             );
 
             return Ok(ApiResponse.Ok(dto));
@@ -141,7 +142,8 @@ public class OperationsController : BaseController
         o.User?.Username,
         o.StartedAt,
         o.CompletedAt,
-        o.ErrorMessage
+        o.ErrorMessage,
+        o.IsAcknowledged
     );
 
     /// <summary>
@@ -192,6 +194,48 @@ public class OperationsController : BaseController
         {
             _logger.LogError(ex, "Error getting active operations count");
             return StatusCode(500, ApiResponse.Fail<int>("Error getting count", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Acknowledges a single operation
+    /// </summary>
+    [HttpPost("{operationId}/acknowledge")]
+    public async Task<ActionResult<ApiResponse<bool>>> AcknowledgeOperation(string operationId)
+    {
+        try
+        {
+            bool success = await _operationService.AcknowledgeOperationAsync(operationId);
+
+            if (!success)
+            {
+                return NotFound(ApiResponse.Fail<bool>("Operation not found", "OPERATION_NOT_FOUND"));
+            }
+
+            return Ok(ApiResponse.Ok(true, "Operation acknowledged"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error acknowledging operation: {OperationId}", operationId);
+            return StatusCode(500, ApiResponse.Fail<bool>("Error acknowledging operation", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Acknowledges all failed operations
+    /// </summary>
+    [HttpPost("acknowledge-all")]
+    public async Task<ActionResult<ApiResponse<int>>> AcknowledgeAllFailed()
+    {
+        try
+        {
+            int count = await _operationService.AcknowledgeAllFailedAsync();
+            return Ok(ApiResponse.Ok(count, $"Acknowledged {count} operations"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error acknowledging all failed operations");
+            return StatusCode(500, ApiResponse.Fail<int>("Error acknowledging operations", "SERVER_ERROR"));
         }
     }
 

@@ -59,6 +59,16 @@ export const operationsApi = {
     await apiClient.post<ApiResponseWrapper<void>>(`/operations/${operationId}/cancel`);
   },
 
+  // Acknowledge a single operation
+  acknowledgeOperation: async (operationId: string): Promise<void> => {
+    await apiClient.post(`/operations/${operationId}/acknowledge`);
+  },
+
+  // Acknowledge all failed operations
+  acknowledgeAll: async (): Promise<void> => {
+    await apiClient.post('/operations/acknowledge-all');
+  },
+
   // Clear all operation history
   clearHistory: async (): Promise<number> => {
     const response = await apiClient.post<ApiResponseWrapper<number>>('/operations/clear-history');
