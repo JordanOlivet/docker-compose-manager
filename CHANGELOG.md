@@ -1,3 +1,13 @@
+## Changes in v1.15.1
+
+**Merged Pull Requests:**
+- Fix update real time progress for some specific docker output (#100)
+
+**Commits:**
+- chore: bump version to v1.15.1 [skip ci] (442261a)
+- Fix update real time progress for some specific docker output (#100) (c11e9c9)
+- docs: update CHANGELOG for v1.15.0 [skip ci] (881be55)
+
 ## Changes in v1.15.0
 
 **Merged Pull Requests:**

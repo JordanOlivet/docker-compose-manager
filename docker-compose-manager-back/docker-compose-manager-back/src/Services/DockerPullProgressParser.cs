@@ -34,6 +34,9 @@ public partial class DockerPullProgressParser
     // Track which service is currently being pulled in non-TTY mode
     private string? _currentPullingService;
 
+    // Track total sizes per layer ID for when Docker omits the total in subsequent lines
+    private readonly Dictionary<string, double> _layerTotalSizes = new();
+
     // Regex to strip ANSI escape sequences (cursor movement, colors, erase) from Docker output.
     // Docker Compose v2 may emit these even in non-TTY mode for progress bar updates.
     [GeneratedRegex(@"\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07|\r", RegexOptions.Compiled)]
@@ -77,14 +80,18 @@ public partial class DockerPullProgressParser
 
     // Layer downloading without colon (Docker Compose v2 format):
     // 95e3a87cd9d9 Downloading [=========>  ]  2.596GB/3.193GB
-    // Note: Multiple spaces after ] and size can be attached to unit (2.596GB) or not (2.596 GB)
-    [GeneratedRegex(@"^([a-f0-9]+)\s+Downloading\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    // 95e3a87cd9d9 Downloading 2.596GB/3.193GB  (no progress bar)
+    // 95e3a87cd9d9 Downloading 2.596GB           (no progress bar, no total)
+    // Note: Progress bar [.*?] and /total are optional as Docker omits them in some modes
+    [GeneratedRegex(@"^([a-f0-9]+)\s+Downloading\s+(?:\[.*?\]\s+)?(\d+(?:\.\d+)?)\s*([KMGT]?B)(?:/(\d+(?:\.\d+)?)\s*([KMGT]?B))?", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex LayerDownloadingSizeRegex();
 
     // Layer extracting without colon (Docker Compose v2 format):
     // 95e3a87cd9d9 Extracting [=========>  ]  479.1MB/3.193GB
-    // Note: Multiple spaces after ] and size can be attached to unit (479.1MB) or not (479.1 MB)
-    [GeneratedRegex(@"^([a-f0-9]+)\s+Extracting\s+\[.*?\]\s+(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    // 95e3a87cd9d9 Extracting 479.1MB/3.193GB  (no progress bar)
+    // 95e3a87cd9d9 Extracting 479.1MB           (no progress bar, no total)
+    // Note: Progress bar [.*?] and /total are optional as Docker omits them in some modes
+    [GeneratedRegex(@"^([a-f0-9]+)\s+Extracting\s+(?:\[.*?\]\s+)?(\d+(?:\.\d+)?)\s*([KMGT]?B)(?:/(\d+(?:\.\d+)?)\s*([KMGT]?B))?", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex LayerExtractingSizeRegex();
 
     // Layer already exists: abc123: Already exists OR abc123 Already exists
@@ -126,6 +133,7 @@ public partial class DockerPullProgressParser
     public void Reset()
     {
         _currentPullingService = null;
+        _layerTotalSizes.Clear();
     }
 
     /// <summary>
@@ -209,16 +217,25 @@ public partial class DockerPullProgressParser
 
         // ========== Check for layer downloading with size format (Docker Compose v2) ==========
         // Format: 95e3a87cd9d9 Downloading [====>  ] 2.596GB/3.193GB
+        // Also:   95e3a87cd9d9 Downloading 2.596GB  (no brackets, no total)
         Match downloadSizeMatch = LayerDownloadingSizeRegex().Match(line);
         if (downloadSizeMatch.Success)
         {
+            string layerId = downloadSizeMatch.Groups[1].Value;
             double currentSize = ParseSizeToBytes(downloadSizeMatch.Groups[2].Value, downloadSizeMatch.Groups[3].Value);
-            double totalSize = ParseSizeToBytes(downloadSizeMatch.Groups[4].Value, downloadSizeMatch.Groups[5].Value);
-            double downloadPercent = totalSize > 0 ? (currentSize / totalSize) * 100 : 0;
+            double totalSize = GetLayerTotalSize(layerId, downloadSizeMatch.Groups[4], downloadSizeMatch.Groups[5]);
+            double downloadPercent = totalSize > 0 ? Math.Min(100, (currentSize / totalSize) * 100) : 0;
 
-            _logger.LogDebug("Parsed download size: {Current}/{Total} = {Percent:F1}%", currentSize, totalSize, downloadPercent);
-
-            changed = UpdateDownloadProgress(downloadPercent, trimmedLine, serviceProgress);
+            if (totalSize > 0)
+            {
+                _logger.LogDebug("Parsed download size: {Current}/{Total} = {Percent:F1}%", currentSize, totalSize, downloadPercent);
+                changed = UpdateDownloadProgress(downloadPercent, trimmedLine, serviceProgress);
+            }
+            else
+            {
+                // No total available - use incremental progress
+                changed = UpdateDownloadProgressIncremental(trimmedLine, serviceProgress);
+            }
             if (changed) return changed;
         }
 
@@ -235,28 +252,35 @@ public partial class DockerPullProgressParser
 
         // ========== Check for layer extracting with size format (Docker Compose v2) ==========
         // Format: 95e3a87cd9d9 Extracting [====>  ] 100MB/3.193GB
+        // Also:   95e3a87cd9d9 Extracting 260.7MB  (no brackets, no total)
         Match extractSizeMatch = LayerExtractingSizeRegex().Match(line);
         if (extractSizeMatch.Success)
         {
+            string layerId = extractSizeMatch.Groups[1].Value;
             double currentSize = ParseSizeToBytes(extractSizeMatch.Groups[2].Value, extractSizeMatch.Groups[3].Value);
-            double totalSize = ParseSizeToBytes(extractSizeMatch.Groups[4].Value, extractSizeMatch.Groups[5].Value);
-            double extractPercent = totalSize > 0 ? (currentSize / totalSize) * 100 : 0;
+            double totalSize = GetLayerTotalSize(layerId, extractSizeMatch.Groups[4], extractSizeMatch.Groups[5]);
+            double extractPercent = totalSize > 0 ? Math.Min(100, (currentSize / totalSize) * 100) : 0;
 
-            _logger.LogDebug("Parsed extract size: {Current}/{Total} = {Percent:F1}%", currentSize, totalSize, extractPercent);
-
-            changed = UpdateExtractProgress(extractPercent, trimmedLine, serviceProgress);
+            if (totalSize > 0)
+            {
+                _logger.LogDebug("Parsed extract size: {Current}/{Total} = {Percent:F1}%", currentSize, totalSize, extractPercent);
+                changed = UpdateExtractProgress(extractPercent, trimmedLine, serviceProgress);
+            }
+            else
+            {
+                // No total available - use incremental progress
+                changed = UpdateExtractProgressIncremental(trimmedLine, serviceProgress);
+            }
             if (changed) return changed;
         }
         else if (line.Contains("Extracting", StringComparison.OrdinalIgnoreCase))
         {
-            // Fallback: Try to parse extracting line manually for debugging
+            // Fallback for formats not matched by any regex
             _logger.LogDebug("Extracting line not matched by regex: {Line}", trimmedLine);
 
-            // Try a simple extraction progress update based on the progress bar
-            // This handles cases where the regex doesn't match exactly
             if (_currentPullingService != null || serviceProgress.Count > 0)
             {
-                changed = UpdateExtractProgressFallback(trimmedLine, serviceProgress);
+                changed = UpdateExtractProgressIncremental(trimmedLine, serviceProgress);
                 if (changed) return changed;
             }
         }
@@ -498,59 +522,120 @@ public partial class DockerPullProgressParser
     }
 
     /// <summary>
-    /// Fallback method for updating extract progress when the regex doesn't match.
-    /// Parses the progress bar to estimate percentage.
+    /// Gets the total size for a layer, using the matched groups if available,
+    /// or falling back to a previously stored total for this layer ID.
     /// </summary>
-    private bool UpdateExtractProgressFallback(string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    private double GetLayerTotalSize(string layerId, Group totalSizeGroup, Group totalUnitGroup)
+    {
+        if (totalSizeGroup.Success && totalUnitGroup.Success)
+        {
+            double totalSize = ParseSizeToBytes(totalSizeGroup.Value, totalUnitGroup.Value);
+            if (totalSize > 0)
+            {
+                _layerTotalSizes[layerId] = totalSize;
+            }
+            return totalSize;
+        }
+
+        // Try to use a previously stored total for this layer
+        return _layerTotalSizes.GetValueOrDefault(layerId, 0);
+    }
+
+    /// <summary>
+    /// Incremental download progress update when no total size is available.
+    /// Only reports a change when the progress value actually changes.
+    /// </summary>
+    private bool UpdateDownloadProgressIncremental(string message, Dictionary<string, ServicePullProgress> serviceProgress)
     {
         bool changed = false;
 
-        // Try to find a progress bar pattern like [======>    ]
-        int startBracket = message.IndexOf('[');
-        int endBracket = message.IndexOf(']');
-
-        if (startBracket >= 0 && endBracket > startBracket)
-        {
-            string progressBar = message.Substring(startBracket + 1, endBracket - startBracket - 1);
-            int filledChars = progressBar.Count(c => c == '=' || c == '>');
-            int totalChars = progressBar.Length;
-            double percent = totalChars > 0 ? (filledChars * 100.0 / totalChars) : 50;
-
-            return UpdateExtractProgress(percent, message, serviceProgress);
-        }
-
-        // If no progress bar found, just update status to extracting with incremental progress
         if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
         {
-            if (currentService.Status == "downloading" || currentService.Status == "extracting")
+            if (currentService.Status == "waiting" || currentService.Status == "pulling" || currentService.Status == "downloading")
             {
-                int newProgress = Math.Min(95, currentService.ProgressPercent + 2);
-                serviceProgress[_currentPullingService] = currentService with
+                int newProgress = Math.Min(60, currentService.ProgressPercent + 1);
+                if (newProgress != currentService.ProgressPercent)
                 {
-                    Status = "extracting",
-                    ProgressPercent = newProgress,
-                    Message = message
-                };
-                changed = true;
+                    serviceProgress[_currentPullingService] = currentService with
+                    {
+                        Status = "downloading",
+                        ProgressPercent = newProgress,
+                        Message = message
+                    };
+                    changed = true;
+                }
             }
         }
         else
         {
-            // Update all services in downloading/extracting state
+            foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "waiting" || s.Value.Status == "pulling" || s.Value.Status == "downloading").ToList())
+            {
+                int newProgress = Math.Min(60, kvp.Value.ProgressPercent + 1);
+                if (newProgress != kvp.Value.ProgressPercent)
+                {
+                    serviceProgress[kvp.Key] = kvp.Value with
+                    {
+                        Status = "downloading",
+                        ProgressPercent = newProgress,
+                        Message = message
+                    };
+                    changed = true;
+
+                    if (_currentPullingService == null)
+                    {
+                        _currentPullingService = kvp.Key;
+                    }
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Incremental extract progress update when no total size is available.
+    /// Only reports a change when the progress value actually changes.
+    /// </summary>
+    private bool UpdateExtractProgressIncremental(string message, Dictionary<string, ServicePullProgress> serviceProgress)
+    {
+        bool changed = false;
+
+        if (_currentPullingService != null && serviceProgress.TryGetValue(_currentPullingService, out var currentService))
+        {
+            if (currentService.Status == "downloading" || currentService.Status == "extracting")
+            {
+                int newProgress = Math.Min(95, currentService.ProgressPercent + 1);
+                if (newProgress != currentService.ProgressPercent)
+                {
+                    serviceProgress[_currentPullingService] = currentService with
+                    {
+                        Status = "extracting",
+                        ProgressPercent = newProgress,
+                        Message = message
+                    };
+                    changed = true;
+                }
+            }
+        }
+        else
+        {
             foreach (var kvp in serviceProgress.Where(s => s.Value.Status == "downloading" || s.Value.Status == "extracting").ToList())
             {
-                int newProgress = Math.Min(95, kvp.Value.ProgressPercent + 2);
-                serviceProgress[kvp.Key] = kvp.Value with
+                int newProgress = Math.Min(95, kvp.Value.ProgressPercent + 1);
+                if (newProgress != kvp.Value.ProgressPercent)
                 {
-                    Status = "extracting",
-                    ProgressPercent = newProgress,
-                    Message = message
-                };
-                changed = true;
+                    serviceProgress[kvp.Key] = kvp.Value with
+                    {
+                        Status = "extracting",
+                        ProgressPercent = newProgress,
+                        Message = message
+                    };
+                    changed = true;
 
-                if (_currentPullingService == null)
-                {
-                    _currentPullingService = kvp.Key;
+                    if (_currentPullingService == null)
+                    {
+                        _currentPullingService = kvp.Key;
+                    }
                 }
             }
         }
