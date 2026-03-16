@@ -1,3 +1,13 @@
+## Changes in v1.16.0
+
+**Merged Pull Requests:**
+- Add updates to action logs (#101)
+
+**Commits:**
+- chore: bump version to v1.16.0 [skip ci] (fad3e22)
+- Add updates to action logs (#101) (3765901)
+- docs: update CHANGELOG for v1.15.1 [skip ci] (aa1ab84)
+
 ## Changes in v1.15.1
 
 **Merged Pull Requests:**
