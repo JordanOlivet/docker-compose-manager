@@ -1,3 +1,14 @@
+## Changes in v1.15.0
+
+**Merged Pull Requests:**
+- Fix checkbox Restart after update never pre checked depending on state (#99)
+
+**Commits:**
+- chore: bump version to v1.15.0 [skip ci] (98e74c0)
+- Fix checkbox Restart after update never pre checked depending on state (#99) (874c6f9)
+- Add actions log, status, result, execution time history and crash loop management (#98) (424253a)
+- docs: update CHANGELOG for v1.14.0 [skip ci] (8737c84)
+
 ## Changes in v1.14.0
 
 **Merged Pull Requests:**
