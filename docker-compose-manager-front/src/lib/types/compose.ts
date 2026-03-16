@@ -74,6 +74,8 @@ export interface ComposeProject {
   servicesWithUpdates?: number | null;
   /** When the last update check was performed (from cache, null if not checked) */
   lastUpdateCheck?: string | null;
+  /** Whether any service in this project is crash-looping */
+  isCrashLooping?: boolean;
 }
 
 export interface ComposeService {
@@ -85,6 +87,7 @@ export interface ComposeService {
   ports?: string[];
   health?: string;
   ipAddress?: string;
+  isCrashLooping?: boolean;
 }
 
 export interface ComposeProjectDetailsDto{

@@ -20,6 +20,7 @@
   import type { ColumnDefinition } from '$lib/types/table';
   import { EntityState } from '$lib/types';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
+  import CrashLoopBadge from '$lib/components/common/CrashLoopBadge.svelte';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
@@ -33,7 +34,9 @@
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { projectHasUpdates, hasAnyUpdates, projectsWithUpdatesCount } from '$lib/stores/projectUpdate.svelte';
+  import { syncFromProjects } from '$lib/stores/crashLoop.svelte';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
+  import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
 
   // Column definitions for projects table
   const projectColumns: ColumnDefinition[] = [
@@ -49,8 +52,8 @@
     { id: 'image', labelKey: 'containers.image', sortKey: 'image', width: '20%' },
     { id: 'ipAddress', labelKey: 'containers.ipAddress', sortKey: 'ipAddress', width: '10%' },
     { id: 'ports', labelKey: 'containers.ports', sortKey: 'ports', width: '10%' },
-    { id: 'state', labelKey: 'containers.state', sortKey: 'state', width: '10%' },
-    { id: 'status', labelKey: 'containers.status', sortKey: 'status', width: '17%' },
+    { id: 'state', labelKey: 'containers.state', sortKey: 'state', width: '14%' },
+    { id: 'status', labelKey: 'containers.status', sortKey: 'status', width: '13%' },
     { id: 'actions', labelKey: 'containers.actions', width: '9rem' }
   ];
 
@@ -120,6 +123,11 @@
     refetchOnReconnect: false,
     staleTime: 0,
   }));
+
+  // Sync crash loop state from API data
+  $effect(() => {
+    if (projectsQuery.data) syncFromProjects(projectsQuery.data);
+  });
 
     const projectsQueryForceRefetch = createQuery(() => ({
     queryKey: ['compose', 'projects'],
@@ -410,13 +418,6 @@
           {/if}
         {/if}
         <button
-          onclick={() => projectsQuery.refetch()}
-          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-        >
-          <RefreshCw class="w-3 h-3" />
-          {$t('common.refresh')}
-        </button>
-        <button
           onclick={() => projectsQueryForceRefetch.refetch()}
           class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
         >
@@ -517,6 +518,7 @@
                           >
                             {project.name}
                           </button>
+                          <ActionStatusBadge entityType="project" entityId={project.name} />
                           {#if project.path}
                             <span class="text-xs italic text-gray-500 dark:text-gray-400 truncate" title={project.path}>
                               {project.path}
@@ -535,7 +537,10 @@
                     </td>
                   {:else if colId === 'state'}
                     <td class="px-4 py-3">
-                      <StateBadge status={project.state} size="sm" />
+                      <div class="flex items-center gap-1.5">
+                        <StateBadge status={project.state} size="sm" />
+                        <CrashLoopBadge entityType="project" entityId={project.name} />
+                      </div>
                     </td>
                   {:else if colId === 'services'}
                     <td class="px-4 py-3">
@@ -679,7 +684,10 @@
                                     </td>
                                   {:else if colId === 'state'}
                                     <td class="px-4 py-2">
-                                      <StateBadge status={service.state} size="sm" />
+                                      <div class="flex items-center gap-1.5">
+                                        <StateBadge status={service.state} size="sm" />
+                                        <CrashLoopBadge entityType="container" entityId={service.id} />
+                                      </div>
                                     </td>
                                   {:else if colId === 'status'}
                                     <td class="px-4 py-2">

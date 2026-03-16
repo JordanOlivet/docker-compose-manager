@@ -10,11 +10,46 @@ import {
 import type { OperationUpdateEvent } from '$lib/types';
 import { composeApi } from '$lib/api/compose';
 import { logger } from '$lib/utils/logger';
+import { setCrashLooping, clearCrashLooping, clearAllCrashLooping } from '$lib/stores/crashLoop.svelte';
 import { isBatchOperationActive, isProjectUpdating } from '$lib/stores/batchOperation.svelte';
 
 // Configuration
 const DEBOUNCE_DELAY_MS = 50; // Minimal debounce to batch truly simultaneous events
 const DEDUPE_WINDOW_MS = 1000;
+
+// Crash loop throttle (detection is now backend-side)
+const CRASH_LOOP_THROTTLE_MS = 30_000; // 1 refresh max per 30s during crash loop
+
+// Simplified throttle tracker (crash loop detection moved to backend)
+interface ThrottleTracker {
+  lastRefreshAt: number;
+}
+const throttleTrackers = new Map<string, ThrottleTracker>();
+
+/**
+ * Returns true if the refetch should be throttled for a crash-looping entity.
+ */
+function shouldThrottleRefetch(entityKey: string, isCrashLooping: boolean): boolean {
+  if (!isCrashLooping) {
+    throttleTrackers.delete(entityKey);
+    return false;
+  }
+
+  const tracker = throttleTrackers.get(entityKey);
+  const now = Date.now();
+
+  if (!tracker) {
+    throttleTrackers.set(entityKey, { lastRefreshAt: now });
+    return false; // Allow the first refetch
+  }
+
+  if (now - tracker.lastRefreshAt >= CRASH_LOOP_THROTTLE_MS) {
+    tracker.lastRefreshAt = now;
+    return false;
+  }
+
+  return true; // Throttle
+}
 
 // Events that indicate actual state changes (not just signals)
 const STATE_CHANGING_EVENTS = new Set([
@@ -182,6 +217,19 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
 
     markHandledViaCompose(event.containerId, event.action);
 
+    // Update crash loop store from SSE event
+    const projectKey = `project:${event.projectName}`;
+    const containerKey = `container:${event.containerId}`;
+    if (event.isCrashLooping) {
+      setCrashLooping(projectKey);
+      setCrashLooping(containerKey);
+    } else {
+      clearCrashLooping(projectKey);
+      clearCrashLooping(containerKey);
+    }
+
+    if (shouldThrottleRefetch(projectKey, !!event.isCrashLooping)) return;
+
     scheduleRefetch([
       ['compose', 'projects'],
       ['compose', 'project', event.projectName],
@@ -210,6 +258,16 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
       logger.log(`[Bridge] Skipping container event (already handled via compose): ${event.containerName} - ${event.action}`);
       return;
     }
+
+    // Update crash loop store from SSE event
+    const containerKey = `container:${event.containerId}`;
+    if (event.isCrashLooping) {
+      setCrashLooping(containerKey);
+    } else {
+      clearCrashLooping(containerKey);
+    }
+
+    if (shouldThrottleRefetch(containerKey, !!event.isCrashLooping)) return;
 
     logger.log(`[Bridge] Container event (state-changing): ${event.containerName} - ${event.action}`);
 
@@ -268,5 +326,7 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
     logger.log('[Bridge] Cleaning up SSE-Query bridge');
     unsubscribers.forEach(unsub => unsub());
     recentComposeEvents.clear();
+    throttleTrackers.clear();
+    clearAllCrashLooping();
   };
 }

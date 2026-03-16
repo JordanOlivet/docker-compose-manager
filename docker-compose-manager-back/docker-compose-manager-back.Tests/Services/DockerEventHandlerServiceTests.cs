@@ -9,12 +9,14 @@ namespace docker_compose_manager_back.Tests.Services;
 public class DockerEventHandlerServiceTests
 {
     private readonly SseConnectionManagerService _sseManager;
+    private readonly CrashLoopDetectionService _crashLoopDetection;
     private readonly DockerEventHandlerService _handler;
 
     public DockerEventHandlerServiceTests()
     {
         _sseManager = new SseConnectionManagerService(new NullLogger<SseConnectionManagerService>());
-        _handler = new DockerEventHandlerService(_sseManager, new NullLogger<DockerEventHandlerService>());
+        _crashLoopDetection = new CrashLoopDetectionService(new NullLogger<CrashLoopDetectionService>());
+        _handler = new DockerEventHandlerService(_sseManager, _crashLoopDetection, new NullLogger<DockerEventHandlerService>());
     }
 
     private SseClient AddFakeSseClient()
@@ -226,5 +228,38 @@ public class DockerEventHandlerServiceTests
         Func<Task> act = () => _handler.HandleAsync(message);
 
         await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ContainerEvent_IncludesIsCrashLooping()
+    {
+        var client = AddFakeSseClient();
+        var message = CreateContainerMessage("start", "container123", "my-container");
+
+        await _handler.HandleAsync(message);
+
+        string body = ReadResponseBody(client);
+        body.Should().Contain("\"isCrashLooping\":");
+    }
+
+    [Fact]
+    public async Task HandleAsync_ComposeEvent_IncludesIsCrashLooping()
+    {
+        var client = AddFakeSseClient();
+        var message = CreateContainerMessage("start", "container-id", "myapp-web-1", new Dictionary<string, string>
+        {
+            ["com.docker.compose.project"] = "myapp",
+            ["com.docker.compose.service"] = "web"
+        });
+
+        await _handler.HandleAsync(message);
+
+        string body = ReadResponseBody(client);
+        // Both ContainerStateChanged and ComposeProjectStateChanged should contain isCrashLooping
+        var parts = body.Split("event:");
+        foreach (var part in parts.Where(p => p.Contains("StateChanged")))
+        {
+            part.Should().Contain("\"isCrashLooping\":");
+        }
     }
 }

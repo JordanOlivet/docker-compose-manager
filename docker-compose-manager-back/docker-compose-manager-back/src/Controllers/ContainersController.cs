@@ -16,6 +16,7 @@ public class ContainersController : BaseController
     private readonly IPermissionService _permissionService;
     private readonly IContainerUpdateService _containerUpdateService;
     private readonly ISelfFilterService _selfFilterService;
+    private readonly OperationService _operationTrackingService;
     private readonly ILogger<ContainersController> _logger;
 
     public ContainersController(
@@ -23,12 +24,14 @@ public class ContainersController : BaseController
         IPermissionService permissionService,
         IContainerUpdateService containerUpdateService,
         ISelfFilterService selfFilterService,
+        OperationService operationTrackingService,
         ILogger<ContainersController> logger)
     {
         _dockerService = dockerService;
         _permissionService = permissionService;
         _containerUpdateService = containerUpdateService;
         _selfFilterService = selfFilterService;
+        _operationTrackingService = operationTrackingService;
         _logger = logger;
     }
 
@@ -191,15 +194,37 @@ public class ContainersController : BaseController
                     "PERMISSION_DENIED"));
             }
 
-            bool success = await _dockerService.StartContainerAsync(id);
+            var operation = await _operationTrackingService.CreateOperationAsync(
+                OperationType.ContainerStart, userId,
+                containerId: id, containerName: container.Name);
+            await _operationTrackingService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
 
-            if (!success)
+            try
             {
-                return BadRequest(ApiResponse.Fail<bool>(
-                    "Failed to start container", "DOCKER_OPERATION_FAILED"));
-            }
+                bool success = await _dockerService.StartContainerAsync(id);
 
-            return Ok(ApiResponse.Ok(true, "Container started successfully"));
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    progress: 100,
+                    errorMessage: success ? null : "Failed to start container");
+
+                if (!success)
+                {
+                    return BadRequest(ApiResponse.Fail<bool>(
+                        "Failed to start container", "DOCKER_OPERATION_FAILED"));
+                }
+
+                return Ok(ApiResponse.Ok(true, "Container started successfully"));
+            }
+            catch (Exception innerEx)
+            {
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId, OperationStatus.Failed,
+                    progress: 100, errorMessage: innerEx.Message);
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -248,15 +273,37 @@ public class ContainersController : BaseController
                     "PERMISSION_DENIED"));
             }
 
-            bool success = await _dockerService.StopContainerAsync(id);
+            var operation = await _operationTrackingService.CreateOperationAsync(
+                OperationType.ContainerStop, userId,
+                containerId: id, containerName: container.Name);
+            await _operationTrackingService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
 
-            if (!success)
+            try
             {
-                return BadRequest(ApiResponse.Fail<bool>(
-                    "Failed to stop container", "DOCKER_OPERATION_FAILED"));
-            }
+                bool success = await _dockerService.StopContainerAsync(id);
 
-            return Ok(ApiResponse.Ok(true, "Container stopped successfully"));
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    progress: 100,
+                    errorMessage: success ? null : "Failed to stop container");
+
+                if (!success)
+                {
+                    return BadRequest(ApiResponse.Fail<bool>(
+                        "Failed to stop container", "DOCKER_OPERATION_FAILED"));
+                }
+
+                return Ok(ApiResponse.Ok(true, "Container stopped successfully"));
+            }
+            catch (Exception innerEx)
+            {
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId, OperationStatus.Failed,
+                    progress: 100, errorMessage: innerEx.Message);
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -305,15 +352,37 @@ public class ContainersController : BaseController
                     "PERMISSION_DENIED"));
             }
 
-            bool success = await _dockerService.RestartContainerAsync(id);
+            var operation = await _operationTrackingService.CreateOperationAsync(
+                OperationType.ContainerRestart, userId,
+                containerId: id, containerName: container.Name);
+            await _operationTrackingService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
 
-            if (!success)
+            try
             {
-                return BadRequest(ApiResponse.Fail<bool>(
-                    "Failed to restart container", "DOCKER_OPERATION_FAILED"));
-            }
+                bool success = await _dockerService.RestartContainerAsync(id);
 
-            return Ok(ApiResponse.Ok(true, "Container restarted successfully"));
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    progress: 100,
+                    errorMessage: success ? null : "Failed to restart container");
+
+                if (!success)
+                {
+                    return BadRequest(ApiResponse.Fail<bool>(
+                        "Failed to restart container", "DOCKER_OPERATION_FAILED"));
+                }
+
+                return Ok(ApiResponse.Ok(true, "Container restarted successfully"));
+            }
+            catch (Exception innerEx)
+            {
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId, OperationStatus.Failed,
+                    progress: 100, errorMessage: innerEx.Message);
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -362,15 +431,37 @@ public class ContainersController : BaseController
                     "PERMISSION_DENIED"));
             }
 
-            bool success = await _dockerService.RemoveContainerAsync(id, force);
+            var operation = await _operationTrackingService.CreateOperationAsync(
+                OperationType.ContainerRemove, userId,
+                containerId: id, containerName: container.Name);
+            await _operationTrackingService.UpdateOperationStatusAsync(
+                operation.OperationId, OperationStatus.Running);
 
-            if (!success)
+            try
             {
-                return BadRequest(ApiResponse.Fail<bool>(
-                    "Failed to remove container", "DOCKER_OPERATION_FAILED"));
-            }
+                bool success = await _dockerService.RemoveContainerAsync(id, force);
 
-            return Ok(ApiResponse.Ok(true, "Container removed successfully"));
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId,
+                    success ? OperationStatus.Completed : OperationStatus.Failed,
+                    progress: 100,
+                    errorMessage: success ? null : "Failed to remove container");
+
+                if (!success)
+                {
+                    return BadRequest(ApiResponse.Fail<bool>(
+                        "Failed to remove container", "DOCKER_OPERATION_FAILED"));
+                }
+
+                return Ok(ApiResponse.Ok(true, "Container removed successfully"));
+            }
+            catch (Exception innerEx)
+            {
+                await _operationTrackingService.UpdateOperationStatusAsync(
+                    operation.OperationId, OperationStatus.Failed,
+                    progress: 100, errorMessage: innerEx.Message);
+                throw;
+            }
         }
         catch (Exception ex)
         {

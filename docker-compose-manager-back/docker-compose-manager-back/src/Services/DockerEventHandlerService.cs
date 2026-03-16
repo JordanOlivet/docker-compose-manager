@@ -9,6 +9,7 @@ namespace docker_compose_manager_back.Services;
 public class DockerEventHandlerService
 {
     private readonly SseConnectionManagerService _sseManager;
+    private readonly CrashLoopDetectionService _crashLoopDetection;
     private readonly ILogger<DockerEventHandlerService> _logger;
 
     private static readonly string[] RelevantActions =
@@ -19,9 +20,11 @@ public class DockerEventHandlerService
 
     public DockerEventHandlerService(
         SseConnectionManagerService sseManager,
+        CrashLoopDetectionService crashLoopDetection,
         ILogger<DockerEventHandlerService> logger)
     {
         _sseManager = sseManager;
+        _crashLoopDetection = crashLoopDetection;
         _logger = logger;
     }
 
@@ -57,13 +60,18 @@ public class DockerEventHandlerService
             _logger.LogDebug("Container {ContainerName} labels: {Labels}", containerName, labels);
         }
 
+        // Record event for crash loop detection
+        _crashLoopDetection.RecordEvent(containerId, message.Action);
+        bool isCrashLooping = _crashLoopDetection.IsContainerCrashLooping(containerId);
+
         // Broadcast container state change to all connected SSE clients
         await _sseManager.BroadcastAsync("ContainerStateChanged", new
         {
             action = message.Action,
             containerId = containerId,
             containerName = containerName,
-            timestamp = DateTimeOffset.FromUnixTimeSeconds(message.Time).DateTime
+            timestamp = DateTimeOffset.FromUnixTimeSeconds(message.Time).DateTime,
+            isCrashLooping = isCrashLooping
         });
 
         // Check if this container belongs to a Docker Compose project
@@ -85,7 +93,8 @@ public class DockerEventHandlerService
                 serviceName = message.Actor.Attributes.TryGetValue("com.docker.compose.service", out string? svc) ? svc : null,
                 containerId = containerId,
                 containerName = containerName,
-                timestamp = DateTimeOffset.FromUnixTimeSeconds(message.Time).DateTime
+                timestamp = DateTimeOffset.FromUnixTimeSeconds(message.Time).DateTime,
+                isCrashLooping = isCrashLooping
             });
 
             _logger.LogDebug("Broadcasted compose project state change to all SSE clients");

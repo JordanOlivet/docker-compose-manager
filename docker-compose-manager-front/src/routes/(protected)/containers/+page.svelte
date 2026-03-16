@@ -9,6 +9,7 @@
   import BulkContainerUpdateDialog from '$lib/components/update/BulkContainerUpdateDialog.svelte';
   import ActionButton from '$lib/components/common/ActionButton.svelte';
   import StateBadge from '$lib/components/common/StateBadge.svelte';
+  import CrashLoopBadge from '$lib/components/common/CrashLoopBadge.svelte';
   import DraggableTableHeader from '$lib/components/common/DraggableTableHeader.svelte';
   import Button from '$lib/components/ui/button.svelte';
   import Input from '$lib/components/ui/input.svelte';
@@ -20,8 +21,10 @@
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { createColumnPreferences } from '$lib/stores/columnPreferences.svelte';
   import { containerHasUpdate, setContainerUpdateResult, handleContainerUpdatesCheckedEvent, hasAnyContainerUpdates, containersWithUpdatesCount, reconcileContainerUpdateState } from '$lib/stores/containerUpdate.svelte';
+  import { syncFromContainers } from '$lib/stores/crashLoop.svelte';
   import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
+  import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
 
   // Column definitions for containers table
   const containerColumns: ColumnDefinition[] = [
@@ -42,7 +45,6 @@
   type SortDir = 'asc' | 'desc';
 
   let filters = $state({
-    showAll: true,
     search: '',
     sortKey: 'name' as SortKey,
     sortDir: 'asc' as SortDir
@@ -67,8 +69,8 @@
   // SSE is now handled globally in the protected layout
   // The SSE-Query bridge automatically invalidates queries on events
   const containersQuery = createQuery(() => ({
-    queryKey: ['containers', { all: filters.showAll }],
-    queryFn: () => containersApi.list(filters.showAll),
+    queryKey: ['containers'],
+    queryFn: () => containersApi.list(),
     refetchInterval: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -82,6 +84,11 @@
     if (data && data.length > 0) {
       reconcileContainerUpdateState(new Set(data.map((c: any) => c.id)));
     }
+  });
+
+  // Sync crash loop state from API data
+  $effect(() => {
+    if (containersQuery.data) syncFromContainers(containersQuery.data);
   });
 
   // Container Mutations
@@ -259,9 +266,6 @@
               </button>
             {/if}
           {/if}
-          <Button variant={filters.showAll ? 'default' : 'outline'} onclick={() => filters.showAll = !filters.showAll}>
-            {filters.showAll ? $t('containers.showRunning') : $t('containers.showAll')}
-          </Button>
         </div>
       </div>
     </div>
@@ -321,13 +325,16 @@
                   {#each columnPrefs.order as colId (colId)}
                     {#if colId === 'name'}
                       <td class="px-4 py-2 whitespace-nowrap">
-                        <button
-                          class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
-                          onclick={() => goto(`/containers/${container.id}`)}
-                          title={$t('containers.viewDetails')}
-                        >
-                          {container.name.startsWith('/') ? container.name.slice(1) : container.name}
-                        </button>
+                        <div class="flex items-center gap-1">
+                          <button
+                            class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-none cursor-pointer"
+                            onclick={() => goto(`/containers/${container.id}`)}
+                            title={$t('containers.viewDetails')}
+                          >
+                            {container.name.startsWith('/') ? container.name.slice(1) : container.name}
+                          </button>
+                          <ActionStatusBadge entityType="container" entityId={container.id} />
+                        </div>
                         <div class="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                           {container.id.substring(0, 12)}
                         </div>
@@ -358,7 +365,10 @@
                       </td>
                     {:else if colId === 'state'}
                       <td class="px-4 py-2 whitespace-nowrap">
-                        <StateBadge status={container.state} size="sm" />
+                        <div class="flex items-center gap-1.5">
+                          <StateBadge status={container.state} size="sm" />
+                          <CrashLoopBadge entityType="container" entityId={container.id} />
+                        </div>
                       </td>
                     {:else if colId === 'status'}
                       <td class="px-4 py-2">

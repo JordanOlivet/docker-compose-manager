@@ -9,10 +9,12 @@ public class DockerService
 {
     private readonly DockerClient _dockerClient;
     private readonly ILogger<DockerService> _logger;
+    private readonly CrashLoopDetectionService _crashLoopDetection;
 
-    public DockerService(IConfiguration configuration, ILogger<DockerService> logger)
+    public DockerService(IConfiguration configuration, ILogger<DockerService> logger, CrashLoopDetectionService crashLoopDetection)
     {
         _logger = logger;
+        _crashLoopDetection = crashLoopDetection;
 
         string? dockerHost = configuration["Docker:Host"];
 
@@ -49,7 +51,8 @@ public class DockerService
                 c.Created,
                 c.Labels != null ? new Dictionary<string, string>(c.Labels) : null,
                 Ports: c.Ports?.Where(p => p.PublicPort > 0).Select(p => $"{p.PublicPort}:{p.PrivatePort}").Distinct().ToList(),
-                IpAddress: c.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress
+                IpAddress: c.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress,
+                IsCrashLooping: _crashLoopDetection.IsContainerCrashLooping(c.ID)
             )).ToList();
         }
         catch (Exception ex)
@@ -365,7 +368,8 @@ public class DockerService
                     Status: c.Status ?? "",
                     Ports: ports,
                     Health: health,
-                    IpAddress: c.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress
+                    IpAddress: c.NetworkSettings?.Networks?.Values.FirstOrDefault()?.IPAddress,
+                    IsCrashLooping: _crashLoopDetection.IsContainerCrashLooping(c.ID)
                 );
             }).ToList();
         }

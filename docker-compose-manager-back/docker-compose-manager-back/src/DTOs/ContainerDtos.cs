@@ -9,7 +9,8 @@ public record ContainerDto(
     DateTime Created,
     Dictionary<string, string>? Labels,
     List<string>? Ports = null,
-    string? IpAddress = null
+    string? IpAddress = null,
+    bool IsCrashLooping = false
 );
 
 public record ContainerDetailsDto(

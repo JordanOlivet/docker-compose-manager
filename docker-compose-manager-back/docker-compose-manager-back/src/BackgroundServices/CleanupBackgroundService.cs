@@ -4,15 +4,15 @@ using Microsoft.Extensions.Options;
 
 namespace docker_compose_manager_back.BackgroundServices;
 
-public class TokenCleanupBackgroundService : BackgroundService
+public class CleanupBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<TokenCleanupBackgroundService> _logger;
+    private readonly ILogger<CleanupBackgroundService> _logger;
     private readonly PasswordResetOptions _options;
 
-    public TokenCleanupBackgroundService(
+    public CleanupBackgroundService(
         IServiceProvider serviceProvider,
-        ILogger<TokenCleanupBackgroundService> logger,
+        ILogger<CleanupBackgroundService> logger,
         IOptions<PasswordResetOptions> options)
     {
         _serviceProvider = serviceProvider;
@@ -37,8 +37,8 @@ public class TokenCleanupBackgroundService : BackgroundService
                 _logger.LogInformation("Running password reset token cleanup...");
 
                 // Create a scope to resolve the scoped service
-                using var scope = _serviceProvider.CreateScope();
-                var passwordResetService = scope.ServiceProvider.GetRequiredService<IPasswordResetService>();
+                using IServiceScope scope = _serviceProvider.CreateScope();
+                IPasswordResetService passwordResetService = scope.ServiceProvider.GetRequiredService<IPasswordResetService>();
 
                 var deletedCount = await passwordResetService.CleanupExpiredTokensAsync();
 
@@ -49,6 +49,15 @@ public class TokenCleanupBackgroundService : BackgroundService
                 else
                 {
                     _logger.LogDebug("Token cleanup completed. No expired tokens to delete");
+                }
+
+                // Cleanup old operations (older than 7 days)
+                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+                var operationDeletedCount = await operationService.CleanupOldOperationsAsync(
+                    DateTime.UtcNow.AddDays(-7));
+                if (operationDeletedCount > 0)
+                {
+                    _logger.LogInformation("Operation cleanup completed. Deleted {Count} old operations", operationDeletedCount);
                 }
             }
             catch (OperationCanceledException)

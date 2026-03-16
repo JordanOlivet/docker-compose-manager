@@ -150,7 +150,8 @@ public class ProjectMatchingService : IProjectMatchingService
                     ComposeFilePath = matchedFile.FilePath,
                     HasComposeFile = true,
                     Services = services,
-                    AvailableActions = ComputeAvailableActions(true, project.State)
+                    AvailableActions = ComputeAvailableActions(true, project.State),
+                    IsCrashLooping = services.Any(s => s.IsCrashLooping)
                 };
 
                 enrichedProjects.Add(enrichedProject);
@@ -193,7 +194,8 @@ public class ProjectMatchingService : IProjectMatchingService
                     ComposeFilePath = composeFilePath,
                     HasComposeFile = hasComposeFile,
                     Warning = hasComposeFile ? null : "No compose file found for this project",
-                    AvailableActions = ComputeAvailableActions(hasComposeFile, project.State)
+                    AvailableActions = ComputeAvailableActions(hasComposeFile, project.State),
+                    IsCrashLooping = project.Services.Any(s => s.IsCrashLooping)
                 };
 
                 enrichedProjects.Add(projectWithInfo);

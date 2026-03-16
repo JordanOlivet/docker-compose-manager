@@ -262,7 +262,7 @@ builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
-builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.TokenCleanupBackgroundService>();
+builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.CleanupBackgroundService>();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -274,8 +274,9 @@ builder.Services.ConfigureRateLimiting();
 // Add Request Timeouts (required for UseRequestTimeouts middleware)
 builder.Services.AddRequestTimeouts();
 
-// Add SSE connection manager and event handler (singletons)
+// Add SSE connection manager, event handler, and crash loop detection (singletons)
 builder.Services.AddSingleton<SseConnectionManagerService>();
+builder.Services.AddSingleton<CrashLoopDetectionService>();
 builder.Services.AddSingleton<DockerEventHandlerService>();
 
 // Add controllers with validation filter

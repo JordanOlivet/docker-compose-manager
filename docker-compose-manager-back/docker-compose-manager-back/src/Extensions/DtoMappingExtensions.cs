@@ -82,6 +82,8 @@ public static class DtoMappingExtensions
             operation.Progress,
             operation.ProjectName,
             operation.ProjectPath,
+            operation.ContainerId,
+            operation.ContainerName,
             operation.User?.Username,
             operation.StartedAt,
             operation.CompletedAt,

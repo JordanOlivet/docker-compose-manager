@@ -33,32 +33,28 @@ public class OperationsController : BaseController
     public async Task<ActionResult<ApiResponse<List<OperationDto>>>> ListOperations(
         [FromQuery] string? status = null,
         [FromQuery] int? userId = null,
+        [FromQuery] string? projectName = null,
+        [FromQuery] string? containerId = null,
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
         [FromQuery] int limit = 100)
     {
         try
         {
-            List<Operation> operations = await _operationService.ListOperationsAsync(
-                status,
-                userId,
-                startDate,
-                endDate,
-                limit
-            );
+            List<Operation> operations;
 
-            List<OperationDto> operationDtos = operations.Select(o => new OperationDto(
-                o.OperationId,
-                o.Type,
-                o.Status,
-                o.Progress,
-                o.ProjectName,
-                o.ProjectPath,
-                o.User?.Username,
-                o.StartedAt,
-                o.CompletedAt,
-                o.ErrorMessage
-            )).ToList();
+            if (!string.IsNullOrEmpty(projectName) || !string.IsNullOrEmpty(containerId))
+            {
+                operations = await _operationService.ListOperationsFilteredAsync(
+                    status, projectName, containerId, limit);
+            }
+            else
+            {
+                operations = await _operationService.ListOperationsAsync(
+                    status, userId, startDate, endDate, limit);
+            }
+
+            List<OperationDto> operationDtos = operations.Select(MapToDto).ToList();
 
             return Ok(ApiResponse.Ok(operationDtos));
         }
@@ -66,6 +62,30 @@ public class OperationsController : BaseController
         {
             _logger.LogError(ex, "Error listing operations");
             return StatusCode(500, ApiResponse.Fail<List<OperationDto>>("Error listing operations", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Gets the last operation for each unique project/container
+    /// </summary>
+    [HttpGet("last-by-entity")]
+    public async Task<ActionResult<ApiResponse<Dictionary<string, OperationDto>>>> GetLastOperationByEntity()
+    {
+        try
+        {
+            Dictionary<string, Operation> operations = await _operationService.GetLastOperationByEntitiesAsync();
+
+            Dictionary<string, OperationDto> result = operations.ToDictionary(
+                kvp => kvp.Key,
+                kvp => MapToDto(kvp.Value)
+            );
+
+            return Ok(ApiResponse.Ok(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting last operations by entity");
+            return StatusCode(500, ApiResponse.Fail<Dictionary<string, OperationDto>>("Error getting operations", "SERVER_ERROR"));
         }
     }
 
@@ -91,6 +111,8 @@ public class OperationsController : BaseController
                 operation.Progress,
                 operation.ProjectName,
                 operation.ProjectPath,
+                operation.ContainerId,
+                operation.ContainerName,
                 operation.User?.Username,
                 operation.Logs,
                 operation.StartedAt,
@@ -106,6 +128,21 @@ public class OperationsController : BaseController
             return StatusCode(500, ApiResponse.Fail<OperationDetailsDto>("Error getting operation", "SERVER_ERROR"));
         }
     }
+
+    private static OperationDto MapToDto(Operation o) => new(
+        o.OperationId,
+        o.Type,
+        o.Status,
+        o.Progress,
+        o.ProjectName,
+        o.ProjectPath,
+        o.ContainerId,
+        o.ContainerName,
+        o.User?.Username,
+        o.StartedAt,
+        o.CompletedAt,
+        o.ErrorMessage
+    );
 
     /// <summary>
     /// Cancels a running operation
@@ -155,6 +192,34 @@ public class OperationsController : BaseController
         {
             _logger.LogError(ex, "Error getting active operations count");
             return StatusCode(500, ApiResponse.Fail<int>("Error getting count", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Clears all operation history (also cancels stale running operations)
+    /// </summary>
+    [HttpPost("clear-history")]
+    public async Task<ActionResult<ApiResponse<int>>> ClearHistory()
+    {
+        try
+        {
+            int count = await _operationService.ClearAllOperationsAsync();
+
+            await _auditService.LogActionAsync(
+                GetCurrentUserId(),
+                "operation.clear_history",
+                GetUserIpAddress(),
+                $"Cleared {count} operations from history",
+                resourceType: "operation",
+                resourceId: "all"
+            );
+
+            return Ok(ApiResponse.Ok(count, $"Cleared {count} operations"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing operation history");
+            return StatusCode(500, ApiResponse.Fail<int>("Error clearing history", "SERVER_ERROR"));
         }
     }
 }

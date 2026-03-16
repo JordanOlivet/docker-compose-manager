@@ -166,7 +166,8 @@ public class ComposeDiscoveryService : IComposeDiscoveryService
                         State: projectState.ToStateString(),
                         Services: services,
                         ComposeFiles: configFiles.ToList(),
-                        LastUpdated: DateTime.UtcNow
+                        LastUpdated: DateTime.UtcNow,
+                        IsCrashLooping: services.Any(s => s.IsCrashLooping)
                     ));
 
                     _logger.LogDebug(
