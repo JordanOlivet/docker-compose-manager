@@ -57,7 +57,7 @@
           .map(img => img.serviceName)
       );
       // Set restartAfterUpdate based on whether any service is running
-      const hasRunning = updateCheck.images.some(img => img.containerState === 'running');
+      const hasRunning = updateCheck.images.some(img => img.containerState?.toLowerCase() === 'running');
       restartAfterUpdate = hasRunning;
     }
   });

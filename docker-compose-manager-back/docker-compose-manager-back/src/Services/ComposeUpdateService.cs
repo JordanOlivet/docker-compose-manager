@@ -67,6 +67,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly IComposeFileCacheService _fileCacheService;
     private readonly IProjectMatchingService _projectMatchingService;
     private readonly IAuditService _auditService;
+    private readonly DockerService _dockerService;
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly DockerPullProgressParser _progressParser;
     private readonly OperationService _operationService;
@@ -84,6 +85,7 @@ public class ComposeUpdateService : IComposeUpdateService
         IComposeFileCacheService fileCacheService,
         IProjectMatchingService projectMatchingService,
         IAuditService auditService,
+        DockerService dockerService,
         DockerCommandExecutorService dockerExecutor,
         DockerPullProgressParser progressParser,
         OperationService operationServiceDb,
@@ -98,6 +100,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _fileCacheService = fileCacheService;
         _projectMatchingService = projectMatchingService;
         _auditService = auditService;
+        _dockerService = dockerService;
         _dockerExecutor = dockerExecutor;
         _progressParser = progressParser;
         _operationService = operationServiceDb;
@@ -106,7 +109,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _logger = logger;
     }
 
-    public Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
+    public async Task<ProjectUpdateCheckResponse> CheckProjectUpdatesAsync(
         string projectName,
         bool forceRefresh = false,
         CancellationToken ct = default)
@@ -114,7 +117,10 @@ public class ComposeUpdateService : IComposeUpdateService
         if (forceRefresh)
             _cacheService.InvalidateProject(projectName);
 
-        return CheckProjectUpdatesInternalAsync(projectName, null, ct);
+        ProjectUpdateCheckResponse result = await CheckProjectUpdatesInternalAsync(projectName, null, ct);
+
+        // Enrich images with container state from Docker
+        return await EnrichWithContainerStatesAsync(projectName, result);
     }
 
     private async Task<ProjectUpdateCheckResponse> CheckProjectUpdatesInternalAsync(
@@ -231,6 +237,42 @@ public class ComposeUpdateService : IComposeUpdateService
         finally
         {
             semaphore.Release();
+        }
+    }
+
+    private async Task<ProjectUpdateCheckResponse> EnrichWithContainerStatesAsync(
+        string projectName,
+        ProjectUpdateCheckResponse response)
+    {
+        try
+        {
+            List<ContainerDto> allContainers = await _dockerService.ListContainersAsync();
+            Dictionary<string, string> serviceStateMap = allContainers
+                .Where(c => c.Labels != null
+                    && string.Equals(
+                        c.Labels.GetValueOrDefault("com.docker.compose.project"),
+                        projectName,
+                        StringComparison.OrdinalIgnoreCase))
+                .GroupBy(c => c.Labels!.GetValueOrDefault("com.docker.compose.service") ?? "")
+                .Where(g => !string.IsNullOrEmpty(g.Key))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.First().State,
+                    StringComparer.OrdinalIgnoreCase);
+
+            List<ImageUpdateStatus> enrichedImages = response.Images
+                .Select(img => img with
+                {
+                    ContainerState = serviceStateMap.GetValueOrDefault(img.ServiceName)
+                })
+                .ToList();
+
+            return response with { Images = enrichedImages };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enrich container states for project {ProjectName}", projectName);
+            return response;
         }
     }
 
@@ -668,10 +710,14 @@ public class ComposeUpdateService : IComposeUpdateService
                 int servicesWithUpdates = checkResult.Images
                     .Count(i => i.UpdateAvailable && i.UpdatePolicy != "disabled");
 
+                bool hasRunningServices = project.Services.Any(s =>
+                    string.Equals(s.State, "running", StringComparison.OrdinalIgnoreCase));
+
                 summaries.Add(new ProjectUpdateSummary(
                     ProjectName: project.Name,
                     ServicesWithUpdates: servicesWithUpdates,
-                    LastChecked: checkResult.LastChecked
+                    LastChecked: checkResult.LastChecked,
+                    HasRunningServices: hasRunningServices
                 ));
 
                 totalServicesWithUpdates += servicesWithUpdates;

@@ -155,7 +155,9 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
                 summaries.Add(new ProjectUpdateSummary(
                     ProjectName: cached.ProjectName,
                     ServicesWithUpdates: cached.Images.Count(i => i.UpdateAvailable),
-                    LastChecked: cached.LastChecked
+                    LastChecked: cached.LastChecked,
+                    HasRunningServices: cached.Images.Any(i =>
+                        string.Equals(i.ContainerState, "running", StringComparison.OrdinalIgnoreCase))
                 ));
             }
         }
