@@ -1,3 +1,13 @@
+## Changes in v1.17.0
+
+**Merged Pull Requests:**
+- Add logging to better diagnose because unable to repro (#104)
+
+**Commits:**
+- chore: bump version to v1.17.0 [skip ci] (09abc76)
+- Add logging to better diagnose because unable to repro (#104) (ce7eecf)
+- docs: update CHANGELOG for v1.16.0 [skip ci] (b1c41ed)
+
 ## Changes in v1.16.0
 
 **Merged Pull Requests:**
