@@ -88,6 +88,23 @@ public class DockerCommandExecutorService
     {
         bool isV2 = await IsComposeV2Available();
 
+        // Log Docker auth config state for diagnostic purposes
+        string? dockerConfigEnv = Environment.GetEnvironmentVariable("DOCKER_CONFIG");
+        string? homeEnv = Environment.GetEnvironmentVariable("HOME");
+        string configPath = !string.IsNullOrEmpty(dockerConfigEnv)
+            ? Path.Combine(dockerConfigEnv, "config.json")
+            : !string.IsNullOrEmpty(homeEnv)
+                ? Path.Combine(homeEnv, ".docker", "config.json")
+                : "";
+        bool configExists = !string.IsNullOrEmpty(configPath) && File.Exists(configPath);
+
+        _logger.LogDebug(
+            "Docker auth state - DOCKER_CONFIG: {DockerConfig}, HOME: {Home}, config.json exists: {ConfigExists}, path: {ConfigPath}",
+            dockerConfigEnv ?? "(not set)",
+            homeEnv ?? "(not set)",
+            configExists,
+            configPath);
+
         // Add -f option if compose file is specified
         string fileArg = "";
         if (!string.IsNullOrEmpty(composeFile))
