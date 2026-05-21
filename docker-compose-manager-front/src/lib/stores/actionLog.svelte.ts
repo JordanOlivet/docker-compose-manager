@@ -1,6 +1,7 @@
 import type { Operation, OperationUpdateEvent } from '$lib/types';
 import { operationsApi } from '$lib/api/operations';
 import { logger } from '$lib/utils/logger';
+import { SvelteMap } from 'svelte/reactivity';
 
 const MAX_ENTRIES = 50;
 
@@ -18,7 +19,7 @@ export const actionLogState = $state({
   isOpen: false,
   selectedOperationId: null as string | null,
   statusFilter: 'all' as StatusFilter,
-  lastOperationByEntity: new Map<string, EntityStatus>(),
+  lastOperationByEntity: new SvelteMap<string, EntityStatus>(),
   isLoading: false,
 });
 
@@ -88,7 +89,7 @@ export async function loadInitial() {
 export async function loadLastByEntity() {
   try {
     const data = await operationsApi.getLastOperationByEntity();
-    const map = new Map<string, EntityStatus>();
+    const map = new SvelteMap<string, EntityStatus>();
     for (const [key, op] of Object.entries(data)) {
       map.set(key, {
         status: op.status,
@@ -153,7 +154,7 @@ export async function clearHistory() {
   try {
     await operationsApi.clearHistory();
     actionLogState.entries = [];
-    actionLogState.lastOperationByEntity = new Map();
+    actionLogState.lastOperationByEntity = new SvelteMap();
   } catch (err) {
     logger.error('[ActionLog] Failed to clear history:', err);
   }
