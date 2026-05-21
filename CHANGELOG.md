@@ -1,3 +1,11 @@
+## Changes in v1.18.0
+
+**Merged Pull Requests:**
+- Fix red pill not removed after successful start (#106)
+
+**Commits:**
+
+
 ## Changes in v1.17.0
 
 **Merged Pull Requests:**
