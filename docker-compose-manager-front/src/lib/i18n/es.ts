@@ -348,6 +348,23 @@ const es = {
     projectUpdateCheckDescription: 'Configure la frecuencia con la que el sistema verifica las actualizaciones de imágenes de contenedores en todos los proyectos compose.',
     checkInterval: 'Intervalo de verificación',
     intervalSaved: 'Intervalo de verificación guardado',
+    // Notifications (webhook de Discord)
+    notifications: {
+      discordTitle: 'Notificaciones de Discord',
+      discordDescription:
+        'Reciba un mensaje de Discord cuando se ejecute una actualización automática (autoactualización de la aplicación y de los proyectos compose). Las actualizaciones manuales no generan notificación.',
+      enableLabel: 'Activar las notificaciones de Discord',
+      webhookUrl: 'URL del webhook',
+      webhookPlaceholder: 'https://discord.com/api/webhooks/...',
+      webhookHelp:
+        'Cree un webhook entrante en la configuración de su canal de Discord y pegue su URL aquí. El token se oculta tras guardar.',
+      testButton: 'Enviar prueba',
+      testing: 'Enviando…',
+      testSuccess: 'Notificación de prueba enviada',
+      testFailed: 'Error al enviar la notificación de prueba',
+      saved: 'Configuración de notificaciones guardada',
+      saveFailed: 'Error al guardar la configuración de notificaciones',
+    },
     // General settings (log level)
     general: {
       title: 'Configuración general',

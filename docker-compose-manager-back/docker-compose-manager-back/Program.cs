@@ -273,6 +273,10 @@ builder.Services.AddScoped<IContainerUpdateService, ContainerUpdateService>();
 // Register Registry Credential service
 builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
 
+// Register notification services (Discord webhook)
+builder.Services.AddHttpClient<docker_compose_manager_back.Services.Notifications.INotificationService,
+    docker_compose_manager_back.Services.Notifications.DiscordNotificationService>();
+
 // Register background services
 // DEPRECATED: File discovery service replaced by Docker-only discovery
 // builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.ComposeFileDiscoveryService>();
@@ -281,6 +285,7 @@ builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
 builder.Services.AddHostedService<AutoUpdateComposeBackgroundService>();
 builder.Services.AddHostedService<AutoUpdateAppBackgroundService>();
+builder.Services.AddHostedService<AppUpdateNotificationStartupService>();
 builder.Services.AddHostedService<docker_compose_manager_back.BackgroundServices.CleanupBackgroundService>();
 
 // Add FluentValidation

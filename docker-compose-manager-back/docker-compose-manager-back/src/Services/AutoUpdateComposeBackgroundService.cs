@@ -1,6 +1,7 @@
 using Cronos;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace docker_compose_manager_back.Services;
@@ -114,6 +115,9 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
             IComposeUpdateService composeUpdateService = scope.ServiceProvider.GetRequiredService<IComposeUpdateService>();
             IComposeFileCacheService fileCacheService = scope.ServiceProvider.GetRequiredService<IComposeFileCacheService>();
             IAuditService auditService = scope.ServiceProvider.GetRequiredService<IAuditService>();
+            INotificationService notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var report = new ComposeAutoUpdateReport();
 
             _logger.LogInformation("AutoUpdateCompose cycle started (trigger: {Trigger})", trigger);
             await auditService.LogActionAsync(
@@ -160,6 +164,10 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                     continue;
                 }
 
+                // Capture per-service old/new digests for the notification before updating
+                // (cached check; ProjectUpdateCheckBackgroundService keeps the cache warm).
+                List<ServiceChange> serviceChanges = await CaptureServiceChangesAsync(composeUpdateService, summary.ProjectName, ct);
+
                 try
                 {
                     _logger.LogInformation("Auto-updating project {Project} ({Count} services with updates)",
@@ -174,6 +182,14 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                         userId: 1,
                         ipAddress: "system",
                         ct: ct);
+
+                    report.Projects.Add(new ProjectUpdateResult
+                    {
+                        ProjectName = summary.ProjectName,
+                        Success = response.Success,
+                        Error = response.Success ? null : response.Message,
+                        Services = serviceChanges
+                    });
 
                     if (response.Success)
                     {
@@ -196,17 +212,72 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error auto-updating project {Project}", summary.ProjectName);
+                    report.Projects.Add(new ProjectUpdateResult
+                    {
+                        ProjectName = summary.ProjectName,
+                        Success = false,
+                        Error = ex.Message,
+                        Services = serviceChanges
+                    });
                 }
             }
 
             _logger.LogInformation(
                 "AutoUpdateCompose cycle complete: {Updated} updated, {SkippedFlag} skipped via x-auto-update, {Total} projects checked",
                 updated, skippedFlag, checkResult.ProjectsChecked);
+
+            // One summary notification per cycle (only when something was attempted).
+            if (report.HasEntries)
+            {
+                await notificationService.NotifyComposeAutoUpdateAsync(report, ct);
+            }
         }
         finally
         {
             _cycleLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Reads the cached per-service update check for a project and maps services
+    /// with an available update into <see cref="ServiceChange"/> (image + short
+    /// old/new digests) for the notification. Best-effort: returns an empty list on error.
+    /// </summary>
+    private async Task<List<ServiceChange>> CaptureServiceChangesAsync(
+        IComposeUpdateService composeUpdateService, string projectName, CancellationToken ct)
+    {
+        try
+        {
+            DTOs.ProjectUpdateCheckResponse check = await composeUpdateService.CheckProjectUpdatesAsync(projectName, forceRefresh: false, ct);
+            return check.Images
+                .Where(i => i.UpdateAvailable && i.UpdatePolicy != "disabled")
+                .Select(i => new ServiceChange
+                {
+                    ServiceName = i.ServiceName,
+                    Image = i.Image,
+                    OldDigestShort = ShortDigest(i.LocalDigest),
+                    NewDigestShort = ShortDigest(i.RemoteDigest)
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to capture service changes for {Project}", projectName);
+            return new List<ServiceChange>();
+        }
+    }
+
+    /// <summary>Trims a digest to a short form (drops "sha256:" prefix, keeps 12 chars).</summary>
+    private static string? ShortDigest(string? digest)
+    {
+        if (string.IsNullOrWhiteSpace(digest))
+        {
+            return null;
+        }
+
+        int colon = digest.IndexOf(':');
+        string hex = colon >= 0 ? digest[(colon + 1)..] : digest;
+        return hex.Length > 12 ? hex[..12] : hex;
     }
 
     private async Task ConsumePendingAutoUpdateFlagAsync(CancellationToken ct)
