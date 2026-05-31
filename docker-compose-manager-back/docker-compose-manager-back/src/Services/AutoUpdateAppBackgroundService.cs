@@ -1,6 +1,7 @@
 using Cronos;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace docker_compose_manager_back.Services;
@@ -89,6 +90,7 @@ public class AutoUpdateAppBackgroundService : BackgroundService
         using IServiceScope scope = _serviceProvider.CreateScope();
         ISelfUpdateService selfUpdate = scope.ServiceProvider.GetRequiredService<ISelfUpdateService>();
         IAuditService audit = scope.ServiceProvider.GetRequiredService<IAuditService>();
+        INotificationService notify = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
         try
         {
@@ -105,6 +107,8 @@ public class AutoUpdateAppBackgroundService : BackgroundService
 
             // Set pending flag so compose auto-update replays after restart
             await SetPendingComposeAutoUpdateFlagAsync(scope, true, ct);
+            // Record the target version so the new instance can confirm completion
+            await SetPendingAppUpdateNotificationAsync(scope, check.LatestVersion, ct);
 
             DTOs.UpdateTriggerResponse trigger = await selfUpdate.TriggerUpdateAsync(
                 userId: 1,
@@ -121,11 +125,17 @@ public class AutoUpdateAppBackgroundService : BackgroundService
                 resourceType: "auto_update",
                 resourceId: "app");
 
-            if (!trigger.Success)
+            if (trigger.Success)
+            {
+                await notify.NotifyAppUpdateStartedAsync(check.CurrentVersion, check.LatestVersion, ct);
+            }
+            else
             {
                 _logger.LogWarning("AutoUpdateApp: trigger returned failure: {Message}", trigger.Message);
-                // Roll back the pending flag if the update did not actually start
+                // Roll back the pending flags if the update did not actually start
                 await SetPendingComposeAutoUpdateFlagAsync(scope, false, ct);
+                await SetPendingAppUpdateNotificationAsync(scope, null, ct);
+                await notify.NotifyAppUpdateFailedAsync(check.CurrentVersion, check.LatestVersion, trigger.Message, ct);
             }
         }
         catch (Exception ex)
@@ -175,6 +185,39 @@ public class AutoUpdateAppBackgroundService : BackgroundService
         else
         {
             setting.Value = value ? "true" : "false";
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Upserts (or clears, when <paramref name="targetVersion"/> is null) the
+    /// pending app-update notification flag so the new instance can confirm the
+    /// update completed after restart.
+    /// </summary>
+    private static async Task SetPendingAppUpdateNotificationAsync(IServiceScope scope, string? targetVersion, CancellationToken ct)
+    {
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        AppSetting? setting = await db.AppSettings.FirstOrDefaultAsync(
+            s => s.Key == AppUpdateNotificationStartupService.PendingKey, ct);
+
+        if (string.IsNullOrWhiteSpace(targetVersion))
+        {
+            if (setting != null)
+            {
+                db.AppSettings.Remove(setting);
+                await db.SaveChangesAsync(ct);
+            }
+            return;
+        }
+
+        if (setting == null)
+        {
+            setting = new AppSetting { Key = AppUpdateNotificationStartupService.PendingKey, Value = targetVersion };
+            db.AppSettings.Add(setting);
+        }
+        else
+        {
+            setting.Value = targetVersion;
         }
         await db.SaveChangesAsync(ct);
     }

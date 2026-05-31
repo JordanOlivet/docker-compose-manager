@@ -375,7 +375,25 @@ export default {
       general: 'General',
       appUpdate: 'App Update',
       projectUpdate: 'Project Updates',
+      notifications: 'Notifications',
       registry: 'Registry Management',
+    },
+    // Notifications (Discord webhook)
+    notifications: {
+      discordTitle: 'Discord Notifications',
+      discordDescription:
+        'Receive a Discord message when an automatic update runs (app self-update and compose auto-update). Manual updates are not notified.',
+      enableLabel: 'Enable Discord notifications',
+      webhookUrl: 'Webhook URL',
+      webhookPlaceholder: 'https://discord.com/api/webhooks/...',
+      webhookHelp:
+        'Create an incoming webhook in your Discord channel settings and paste its URL here. The token is hidden after saving.',
+      testButton: 'Send test',
+      testing: 'Sending…',
+      testSuccess: 'Test notification sent',
+      testFailed: 'Failed to send test notification',
+      saved: 'Notification settings saved',
+      saveFailed: 'Failed to save notification settings',
     },
     // General settings (log level)
     general: {

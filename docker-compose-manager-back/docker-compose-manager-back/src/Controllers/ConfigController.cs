@@ -3,6 +3,7 @@ using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services;
+using docker_compose_manager_back.Services.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -257,7 +258,11 @@ public class ConfigController : BaseController
         try
         {
             var settings = await _context.AppSettings.ToListAsync();
-            Dictionary<string, string> settingsDict = settings.ToDictionary(s => s.Key, s => s.Value);
+            Dictionary<string, string> settingsDict = settings.ToDictionary(
+                s => s.Key,
+                s => s.Key == DiscordNotificationService.WebhookUrlKey
+                    ? (DiscordWebhookUrl.Mask(s.Value) ?? s.Value)
+                    : s.Value);
 
             return Ok(ApiResponse.Ok(settingsDict, "Settings retrieved successfully"));
         }
@@ -431,6 +436,25 @@ public class ConfigController : BaseController
             {
                 return $"Invalid cron expression for '{key}': {ex.Message}";
             }
+        }
+
+        if (key == DiscordNotificationService.EnabledKey)
+        {
+            if (!bool.TryParse(value, out _))
+            {
+                return $"Value for '{key}' must be 'true' or 'false'";
+            }
+            return null;
+        }
+
+        if (key == DiscordNotificationService.WebhookUrlKey)
+        {
+            // Empty is allowed (clears the webhook); otherwise must be a valid Discord webhook URL.
+            if (!string.IsNullOrWhiteSpace(value) && !DiscordWebhookUrl.IsValid(value))
+            {
+                return "Invalid Discord webhook URL. Expected https://discord.com/api/webhooks/{id}/{token}";
+            }
+            return null;
         }
 
         return null;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle, Check, X } from 'lucide-svelte';
+  import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle, Check, X, Bell, Send } from 'lucide-svelte';
   import { updateApi } from '$lib/api/update';
   import configApi from '$lib/api/config';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -28,6 +28,13 @@
     saveAutoUpdateSetting,
     AUTO_UPDATE_KEYS
   } from '$lib/stores/autoUpdate.svelte';
+  import {
+    notificationsState,
+    loadNotificationSettings,
+    saveNotificationSetting,
+    testDiscordWebhook,
+    NOTIF_KEYS
+  } from '$lib/stores/notifications.svelte';
   import { validateCron, formatNextRun, formatCountdown } from '$lib/utils/cron';
 
   const queryClient = useQueryClient();
@@ -192,8 +199,15 @@
   );
   let appCountdown = $derived(formatCountdown(appCronValidation.nextRun, countdownLabels, now));
 
+  // Discord notification state
+  // Webhook URL is write-only: the API returns it masked, so we only persist a
+  // new value once the user actually edits the field.
+  let webhookDirty = $state(false);
+  let testingWebhook = $state(false);
+
   onMount(() => {
     void loadAutoUpdateSettings();
+    void loadNotificationSettings();
     const timer = setInterval(() => {
       now = new Date();
     }, 30000);
@@ -245,6 +259,60 @@
     if (!appCronValidation.valid) return;
     await persistSetting(AUTO_UPDATE_KEYS.appCron, autoUpdateState.appCron.trim());
   }
+
+  async function persistNotificationSetting(key: string, value: string) {
+    savingKey = key;
+    const result = await saveNotificationSetting(key, value);
+    savingKey = null;
+    if (result.ok) {
+      toast.success($t('settings.notifications.saved'));
+    } else {
+      toast.error(result.error || $t('settings.notifications.saveFailed'));
+    }
+    return result.ok;
+  }
+
+  async function toggleDiscordEnabled(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const previous = notificationsState.discordEnabled;
+    notificationsState.discordEnabled = checked;
+    const ok = await persistNotificationSetting(
+      NOTIF_KEYS.discordEnabled,
+      checked ? 'true' : 'false'
+    );
+    if (!ok) notificationsState.discordEnabled = previous;
+  }
+
+  function onWebhookInput(e: Event) {
+    notificationsState.discordWebhookUrl = (e.target as HTMLInputElement).value;
+    webhookDirty = true;
+  }
+
+  async function commitWebhook() {
+    if (!webhookDirty) return;
+    const ok = await persistNotificationSetting(
+      NOTIF_KEYS.discordWebhookUrl,
+      notificationsState.discordWebhookUrl.trim()
+    );
+    if (ok) {
+      webhookDirty = false;
+      // Reload to display the freshly masked value from the server.
+      void loadNotificationSettings();
+    }
+  }
+
+  async function handleTestWebhook() {
+    testingWebhook = true;
+    // If the user typed a new (unsaved) URL, test that; otherwise test the saved one.
+    const override = webhookDirty ? notificationsState.discordWebhookUrl.trim() : undefined;
+    const result = await testDiscordWebhook(override);
+    testingWebhook = false;
+    if (result.ok) {
+      toast.success($t('settings.notifications.testSuccess'));
+    } else {
+      toast.error(result.error || $t('settings.notifications.testFailed'));
+    }
+  }
 </script>
 
 <div class="space-y-6">
@@ -266,6 +334,9 @@
         </TabsTrigger>
         <TabsTrigger value="projectUpdate" active={activeTab === 'projectUpdate'} onclick={() => activeTab = 'projectUpdate'}>
           {$t('settings.tabs.projectUpdate')}
+        </TabsTrigger>
+        <TabsTrigger value="notifications" active={activeTab === 'notifications'} onclick={() => activeTab = 'notifications'}>
+          {$t('settings.tabs.notifications')}
         </TabsTrigger>
         <TabsTrigger value="registry" active={activeTab === 'registry'} onclick={() => activeTab = 'registry'}>
           {$t('settings.tabs.registry')}
@@ -621,6 +692,83 @@
                     {$t('settings.autoUpdate.cronInvalid')}
                   </p>
                 {/if}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <!-- Notifications Tab -->
+      <TabsContent value="notifications" active={activeTab === 'notifications'}>
+        <Card>
+          <CardHeader>
+            <div class="flex items-center gap-2">
+              <Bell class="w-5 h-5 text-gray-500" />
+              <CardTitle>{$t('settings.notifications.discordTitle')}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {$t('settings.notifications.discordDescription')}
+            </p>
+
+            <div class="space-y-4">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notificationsState.discordEnabled}
+                  onchange={toggleDiscordEnabled}
+                  disabled={savingKey === NOTIF_KEYS.discordEnabled}
+                  class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.notifications.enableLabel')}
+                </span>
+                {#if savingKey === NOTIF_KEYS.discordEnabled}
+                  <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                {/if}
+              </label>
+
+              <div class="flex flex-col gap-1">
+                <label for="discord-webhook" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.notifications.webhookUrl')}
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="discord-webhook"
+                    type="text"
+                    value={notificationsState.discordWebhookUrl}
+                    oninput={onWebhookInput}
+                    onblur={commitWebhook}
+                    placeholder={$t('settings.notifications.webhookPlaceholder')}
+                    disabled={savingKey === NOTIF_KEYS.discordWebhookUrl}
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                  />
+                  {#if savingKey === NOTIF_KEYS.discordWebhookUrl}
+                    <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                  {/if}
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {$t('settings.notifications.webhookHelp')}
+                </p>
+              </div>
+
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onclick={handleTestWebhook}
+                  disabled={testingWebhook || (!notificationsState.discordWebhookUrl && !webhookDirty)}
+                  class="cursor-pointer"
+                >
+                  {#if testingWebhook}
+                    <RefreshCw class="w-4 h-4 mr-2 animate-spin" />
+                    {$t('settings.notifications.testing')}
+                  {:else}
+                    <Send class="w-4 h-4 mr-2" />
+                    {$t('settings.notifications.testButton')}
+                  {/if}
+                </Button>
               </div>
             </div>
           </CardContent>
