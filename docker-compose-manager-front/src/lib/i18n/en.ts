@@ -346,6 +346,22 @@ export default {
     projectUpdateCheckDescription: 'Configure how often the system checks for container image updates across all compose projects.',
     checkInterval: 'Check Interval',
     intervalSaved: 'Check interval saved',
+    // Auto-update settings
+    autoUpdate: {
+      composeTitle: 'Auto Update',
+      composeDescription: 'Automatically pull updated images and recreate containers for compose projects on a schedule. Exclude a project by adding "x-auto-update: false" at the root of its compose file.',
+      composeEnableLabel: 'Enable automatic project updates',
+      composeCronLabel: 'Schedule (cron expression)',
+      appTitle: 'Auto Update',
+      appDescription: 'Automatically check GitHub for a new application release on a schedule. When an update is available, the application is updated and restarted.',
+      appEnableLabel: 'Enable automatic application updates',
+      appCronLabel: 'Schedule (cron expression)',
+      cronPlaceholder: 'e.g. 0 2 * * * (every day at 02:00)',
+      cronInvalid: 'Invalid cron expression',
+      nextRun: 'Next run',
+      saved: 'Setting saved',
+      saveFailed: 'Failed to save setting',
+    },
     // Tabs
     tabs: {
       appUpdate: 'App Update',

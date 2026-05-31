@@ -407,4 +407,10 @@ public static class AuditActions
     public const string AppUpdateCheck = "app.update_check";
     public const string AppUpdate = "app.update";
     public const string AppRollback = "app.rollback";
+
+    // Auto-Update
+    public const string AutoUpdateComposeStarted = "auto_update.compose_started";
+    public const string AutoUpdateComposeProjectUpdated = "auto_update.compose_project_updated";
+    public const string AutoUpdateComposeSkipped = "auto_update.compose_skipped";
+    public const string AutoUpdateAppTriggered = "auto_update.app_triggered";
 }

@@ -243,13 +243,22 @@
                 {getRelativeTime(entry.startedAt)}
               </span>
               {#if entry.status === 'failed' && !entry.isAcknowledged}
-                <button
+                <span
+                  role="button"
+                  tabindex="0"
                   onclick={(e) => { e.stopPropagation(); acknowledgeOperation(entry.operationId); }}
-                  class="p-0.5 rounded hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer"
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      acknowledgeOperation(entry.operationId);
+                    }
+                  }}
+                  class="p-0.5 rounded hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer inline-flex items-center"
                   title={$t('actionLog.markSeen')}
                 >
                   <Eye class="w-3.5 h-3.5 text-gray-400 hover:text-green-500" />
-                </button>
+                </span>
               {/if}
             </div>
           </button>

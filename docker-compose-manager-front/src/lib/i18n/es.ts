@@ -346,6 +346,22 @@ const es = {
     projectUpdateCheckDescription: 'Configure la frecuencia con la que el sistema verifica las actualizaciones de imágenes de contenedores en todos los proyectos compose.',
     checkInterval: 'Intervalo de verificación',
     intervalSaved: 'Intervalo de verificación guardado',
+    // Auto-update settings
+    autoUpdate: {
+      composeTitle: 'Actualización automática',
+      composeDescription: 'Actualiza automáticamente las imágenes y recrea los contenedores de los proyectos compose según una programación. Para excluir un proyecto, añada "x-auto-update: false" en la raíz de su archivo compose.',
+      composeEnableLabel: 'Activar la actualización automática de proyectos',
+      composeCronLabel: 'Programación (expresión cron)',
+      appTitle: 'Actualización automática',
+      appDescription: 'Verifica automáticamente GitHub según una programación. Si hay una nueva versión, la aplicación se actualiza y reinicia.',
+      appEnableLabel: 'Activar la actualización automática de la aplicación',
+      appCronLabel: 'Programación (expresión cron)',
+      cronPlaceholder: 'ej. 0 2 * * * (cada día a las 02:00)',
+      cronInvalid: 'Expresión cron inválida',
+      nextRun: 'Próxima ejecución',
+      saved: 'Configuración guardada',
+      saveFailed: 'Error al guardar la configuración',
+    },
   },
   
   audit: {

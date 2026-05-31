@@ -302,6 +302,77 @@ services:
     }
 
     [Fact]
+    public async Task ValidateAndParseComposeFileAsync_ExtractsAutoUpdateFlag_True()
+    {
+        var composeContent = @"
+x-auto-update: true
+services:
+  web:
+    image: nginx:latest
+";
+        var filePath = Path.Combine(_testRoot, "docker-compose.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        result.Should().NotBeNull();
+        result!.AutoUpdateEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_ExtractsAutoUpdateFlag_False()
+    {
+        var composeContent = @"
+x-auto-update: false
+services:
+  web:
+    image: nginx:latest
+";
+        var filePath = Path.Combine(_testRoot, "docker-compose.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        result.Should().NotBeNull();
+        result!.AutoUpdateEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_ExtractsAutoUpdateFlag_DefaultsToTrue()
+    {
+        var composeContent = @"
+services:
+  web:
+    image: nginx:latest
+";
+        var filePath = Path.Combine(_testRoot, "docker-compose.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        result.Should().NotBeNull();
+        result!.AutoUpdateEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAndParseComposeFileAsync_AutoUpdateFlag_InvalidValueDefaultsToTrue()
+    {
+        var composeContent = @"
+x-auto-update: maybe
+services:
+  web:
+    image: nginx:latest
+";
+        var filePath = Path.Combine(_testRoot, "docker-compose.yml");
+        await File.WriteAllTextAsync(filePath, composeContent);
+
+        var result = await _scanner.ValidateAndParseComposeFileAsync(filePath);
+
+        result.Should().NotBeNull();
+        result!.AutoUpdateEnabled.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task ValidateAndParseComposeFileAsync_ExtractsServiceList()
     {
         // Arrange

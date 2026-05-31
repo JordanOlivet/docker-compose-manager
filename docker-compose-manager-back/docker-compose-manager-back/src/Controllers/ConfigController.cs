@@ -1,6 +1,8 @@
+using Cronos;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -271,6 +273,13 @@ public class ConfigController : BaseController
     [ProducesResponseType(typeof(ApiResponse<AppSetting>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<AppSetting>>> UpdateSetting(string key, [FromBody] UpdateSettingRequest request)
     {
+        // Validate Auto-Update related settings
+        var validationError = ValidateAutoUpdateSetting(key, request.Value);
+        if (validationError != null)
+        {
+            return BadRequest(ApiResponse.Fail<AppSetting>(validationError));
+        }
+
         try
         {
             var setting = await _context.AppSettings.FirstOrDefaultAsync(s => s.Key == key);
@@ -339,6 +348,44 @@ public class ConfigController : BaseController
     }
 
     #endregion
+
+    /// <summary>
+    /// Validates Auto-Update setting values. Returns error message if invalid, null if OK.
+    /// </summary>
+    private static string? ValidateAutoUpdateSetting(string key, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        if (key == AutoUpdateComposeBackgroundService.EnabledKey
+            || key == AutoUpdateAppBackgroundService.EnabledKey)
+        {
+            if (!bool.TryParse(value, out _))
+            {
+                return $"Value for '{key}' must be 'true' or 'false'";
+            }
+            return null;
+        }
+
+        if (key == AutoUpdateComposeBackgroundService.CronKey
+            || key == AutoUpdateAppBackgroundService.CronKey)
+        {
+            try
+            {
+                CronFormat format = value.Trim().Split(' ').Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+                CronExpression.Parse(value, format);
+                return null;
+            }
+            catch (CronFormatException ex)
+            {
+                return $"Invalid cron expression for '{key}': {ex.Message}";
+            }
+        }
+
+        return null;
+    }
 }
 
 // DTOs for Config endpoints

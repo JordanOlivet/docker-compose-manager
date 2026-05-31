@@ -346,6 +346,22 @@ const fr = {
     projectUpdateCheckDescription: 'Configurez la fréquence de vérification des mises à jour des images de conteneurs pour tous les projets compose.',
     checkInterval: 'Intervalle de vérification',
     intervalSaved: 'Intervalle de vérification enregistré',
+    // Auto-update settings
+    autoUpdate: {
+      composeTitle: 'Mise à jour automatique',
+      composeDescription: 'Met à jour automatiquement les images et recrée les conteneurs des projets compose selon une planification. Pour exclure un projet, ajoutez "x-auto-update: false" à la racine de son fichier compose.',
+      composeEnableLabel: 'Activer la mise à jour automatique des projets',
+      composeCronLabel: 'Planification (expression cron)',
+      appTitle: 'Mise à jour automatique',
+      appDescription: 'Vérifie automatiquement GitHub à intervalle planifié. Si une nouvelle version est disponible, l\'application est mise à jour puis redémarrée.',
+      appEnableLabel: 'Activer la mise à jour automatique de l\'application',
+      appCronLabel: 'Planification (expression cron)',
+      cronPlaceholder: 'ex. 0 2 * * * (chaque jour à 02:00)',
+      cronInvalid: 'Expression cron invalide',
+      nextRun: 'Prochaine exécution',
+      saved: 'Paramètre enregistré',
+      saveFailed: 'Échec de l\'enregistrement',
+    },
     // Tabs
     tabs: {
       appUpdate: 'Mise à jour',
