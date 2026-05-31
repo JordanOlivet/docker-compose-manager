@@ -375,7 +375,25 @@ const fr = {
       general: 'Général',
       appUpdate: 'Mise à jour',
       projectUpdate: 'Mises à jour projets',
+      notifications: 'Notifications',
       registry: 'Registres',
+    },
+    // Notifications (webhook Discord)
+    notifications: {
+      discordTitle: 'Notifications Discord',
+      discordDescription:
+        "Recevez un message Discord lorsqu'une mise à jour automatique s'exécute (mise à jour automatique de l'application et des projets compose). Les mises à jour manuelles ne déclenchent pas de notification.",
+      enableLabel: 'Activer les notifications Discord',
+      webhookUrl: 'URL du webhook',
+      webhookPlaceholder: 'https://discord.com/api/webhooks/...',
+      webhookHelp:
+        "Créez un webhook entrant dans les paramètres de votre salon Discord et collez son URL ici. Le jeton est masqué après l'enregistrement.",
+      testButton: 'Envoyer un test',
+      testing: 'Envoi…',
+      testSuccess: 'Notification de test envoyée',
+      testFailed: "Échec de l'envoi de la notification de test",
+      saved: 'Paramètres de notification enregistrés',
+      saveFailed: "Échec de l'enregistrement des paramètres de notification",
     },
     // General settings (log level)
     general: {
