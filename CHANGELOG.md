@@ -1,3 +1,11 @@
+## Changes in v1.22.0
+
+**Merged Pull Requests:**
+- Fix failed tag not removed after successfully start (#112)
+
+**Commits:**
+
+
 ## Changes in v1.21.0
 
 **Merged Pull Requests:**
