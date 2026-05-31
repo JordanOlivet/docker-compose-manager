@@ -27,7 +27,7 @@
     saveAutoUpdateSetting,
     AUTO_UPDATE_KEYS
   } from '$lib/stores/autoUpdate.svelte';
-  import { validateCron, formatNextRun } from '$lib/utils/cron';
+  import { validateCron, formatNextRun, formatCountdown } from '$lib/utils/cron';
 
   const queryClient = useQueryClient();
 
@@ -155,8 +155,25 @@
   let composeCronValidation = $derived(validateCron(autoUpdateState.composeCron, cronstrueLocale));
   let appCronValidation = $derived(validateCron(autoUpdateState.appCron, cronstrueLocale));
 
+  // Live clock to drive the "time remaining" countdown (ticks every 30s)
+  let now = $state(new Date());
+  let countdownLabels = $derived({
+    day: $t('settings.autoUpdate.countdownDay'),
+    hour: $t('settings.autoUpdate.countdownHour'),
+    minute: $t('settings.autoUpdate.countdownMinute'),
+    soon: $t('settings.autoUpdate.countdownSoon')
+  });
+  let composeCountdown = $derived(
+    formatCountdown(composeCronValidation.nextRun, countdownLabels, now)
+  );
+  let appCountdown = $derived(formatCountdown(appCronValidation.nextRun, countdownLabels, now));
+
   onMount(() => {
     void loadAutoUpdateSettings();
+    const timer = setInterval(() => {
+      now = new Date();
+    }, 30000);
+    return () => clearInterval(timer);
   });
 
   async function persistSetting(key: string, value: string) {
@@ -423,7 +440,13 @@
                     {appCronValidation.humanReadable ?? ''}
                     {#if appCronValidation.nextRun}
                       — {$t('settings.autoUpdate.nextRun')}: {formatNextRun(appCronValidation.nextRun)}
+                      {#if appCountdown}
+                        <span class="text-gray-400 dark:text-gray-500">({$t('settings.autoUpdate.countdownIn')} {appCountdown})</span>
+                      {/if}
                     {/if}
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {$t('settings.autoUpdate.cronUtcHint')}
                   </p>
                 {:else}
                   <p class="text-xs text-red-600 dark:text-red-400 mt-1">
@@ -524,7 +547,13 @@
                     {composeCronValidation.humanReadable ?? ''}
                     {#if composeCronValidation.nextRun}
                       — {$t('settings.autoUpdate.nextRun')}: {formatNextRun(composeCronValidation.nextRun)}
+                      {#if composeCountdown}
+                        <span class="text-gray-400 dark:text-gray-500">({$t('settings.autoUpdate.countdownIn')} {composeCountdown})</span>
+                      {/if}
                     {/if}
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {$t('settings.autoUpdate.cronUtcHint')}
                   </p>
                 {:else}
                   <p class="text-xs text-red-600 dark:text-red-400 mt-1">
