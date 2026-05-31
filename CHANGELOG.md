@@ -1,3 +1,11 @@
+## Changes in v1.21.0
+
+**Merged Pull Requests:**
+- Add discord notifications when auto update happens (#111)
+
+**Commits:**
+
+
 ## Changes in v1.20.0
 
 **Merged Pull Requests:**
