@@ -348,9 +348,26 @@ const fr = {
     intervalSaved: 'Intervalle de vérification enregistré',
     // Tabs
     tabs: {
+      general: 'Général',
       appUpdate: 'Mise à jour',
       projectUpdate: 'Mises à jour projets',
       registry: 'Registres',
+    },
+    // General settings (log level)
+    general: {
+      title: 'Paramètres généraux',
+      logLevel: "Niveau de log de l'application",
+      logLevelDescription:
+        "Sélectionnez le niveau le plus détaillé à afficher dans les logs de l'application. Tout log plus détaillé que le niveau choisi est supprimé immédiatement, sans redémarrer l'application.",
+      logLevelSaved: 'Niveau de log mis à jour',
+      levels: {
+        verbose: 'Verbose (Trace)',
+        debug: 'Debug',
+        information: 'Information',
+        warning: 'Warning',
+        error: 'Error',
+        fatal: 'Fatal (Critical)',
+      },
     },
     // Registry management
     registry: {

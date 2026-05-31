@@ -346,6 +346,22 @@ const es = {
     projectUpdateCheckDescription: 'Configure la frecuencia con la que el sistema verifica las actualizaciones de imágenes de contenedores en todos los proyectos compose.',
     checkInterval: 'Intervalo de verificación',
     intervalSaved: 'Intervalo de verificación guardado',
+    // General settings (log level)
+    general: {
+      title: 'Configuración general',
+      logLevel: 'Nivel de registro de la aplicación',
+      logLevelDescription:
+        'Seleccione el nivel más detallado que se mostrará en los registros de la aplicación. Cualquier registro más detallado que el nivel seleccionado se suprime de inmediato, sin reiniciar la aplicación.',
+      logLevelSaved: 'Nivel de registro actualizado',
+      levels: {
+        verbose: 'Verbose (Trace)',
+        debug: 'Debug',
+        information: 'Information',
+        warning: 'Warning',
+        error: 'Error',
+        fatal: 'Fatal (Critical)',
+      },
+    },
   },
   
   audit: {

@@ -1,6 +1,7 @@
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
+using docker_compose_manager_back.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,11 +18,13 @@ public class ConfigController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly ILogger<ConfigController> _logger;
+    private readonly LogLevelService _logLevelService;
 
-    public ConfigController(AppDbContext context, ILogger<ConfigController> logger)
+    public ConfigController(AppDbContext context, ILogger<ConfigController> logger, LogLevelService logLevelService)
     {
         _context = context;
         _logger = logger;
+        _logLevelService = logLevelService;
     }
 
     #region Compose Paths Management
@@ -339,12 +342,61 @@ public class ConfigController : BaseController
     }
 
     #endregion
+
+    #region Log Level
+
+    /// <summary>
+    /// Get the current application log level and the available levels
+    /// </summary>
+    [HttpGet("log-level")]
+    [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status200OK)]
+    public ActionResult<ApiResponse<LogLevelInfo>> GetLogLevel()
+    {
+        var info = new LogLevelInfo(
+            _logLevelService.GetCurrentLevel(),
+            LogLevelService.GetAvailableLevels());
+
+        return Ok(ApiResponse.Ok(info, "Log level retrieved successfully"));
+    }
+
+    /// <summary>
+    /// Update the application log level. Takes effect immediately (no restart).
+    /// </summary>
+    [HttpPut("log-level")]
+    [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<LogLevelInfo>>> UpdateLogLevel([FromBody] UpdateLogLevelRequest request)
+    {
+        try
+        {
+            await _logLevelService.SetLevelAsync(request.Value);
+
+            var info = new LogLevelInfo(
+                _logLevelService.GetCurrentLevel(),
+                LogLevelService.GetAvailableLevels());
+
+            return Ok(ApiResponse.Ok(info, "Log level updated successfully"));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse.Fail<LogLevelInfo>(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating log level");
+            return StatusCode(500, ApiResponse.Fail<LogLevelInfo>("Failed to update log level"));
+        }
+    }
+
+    #endregion
 }
 
 // DTOs for Config endpoints
 public record AddComposePathRequest(string Path, bool IsReadOnly = false);
 public record UpdateComposePathRequest(bool? IsReadOnly, bool? IsEnabled);
 public record UpdateSettingRequest(string Value, string? Description = null);
+public record UpdateLogLevelRequest(string Value);
+public record LogLevelInfo(string Current, IReadOnlyList<string> Available);
 
 // DTOs for Directory Browser
 public class DirectoryBrowseResult
