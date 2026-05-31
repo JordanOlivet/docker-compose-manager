@@ -37,7 +37,7 @@ jobs:
     with:
       version: ${{ needs.release.outputs.version }}
       working-directory: docker-compose-manager-front
-      node-version: '24'
+      node-version: '20'
       run-tests: true
       test-command: 'test -- --run'
     secrets: inherit

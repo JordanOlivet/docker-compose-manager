@@ -21,7 +21,7 @@ RUN dotnet publish -c Release -o /app/backend \
     echo "${VERSION}" > /app/backend/VERSION
 
 # Stage 2: Build Frontend
-FROM node:24-alpine AS frontend-build
+FROM node:20-alpine AS frontend-build
 WORKDIR /app
 
 # Copy frontend package files and install dependencies
