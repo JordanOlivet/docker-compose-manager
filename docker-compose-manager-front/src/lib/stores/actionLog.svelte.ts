@@ -1,4 +1,7 @@
 import type { Operation, OperationUpdateEvent } from '$lib/types';
+import { EntityState } from '$lib/types';
+import type { ComposeProject } from '$lib/types/compose';
+import type { Container } from '$lib/types/container';
 import { operationsApi } from '$lib/api/operations';
 import { logger } from '$lib/utils/logger';
 import { SvelteMap } from 'svelte/reactivity';
@@ -210,4 +213,38 @@ export async function acknowledgeAll() {
 
 export function getEntityStatus(type: 'project' | 'container', id: string): EntityStatus | undefined {
   return actionLogState.lastOperationByEntity.get(`${type}:${id}`);
+}
+
+/**
+ * Clears a stale "failed" badge once the entity is actually Running again.
+ *
+ * The per-entity map holds the *last* operation status. A `failed` entry is terminal
+ * and only overwritten by a new operation for that exact entity — so a project that
+ * later recovers to Running (started by other means, or whose containers came up
+ * despite the operation being marked failed) would keep its red badge forever.
+ * Only `failed` is cleared; in-flight `running`/`pending` spinners are left alone.
+ */
+function clearFailedIfRunning(type: 'project' | 'container', id: string): void {
+  const key = `${type}:${id}`;
+  const entry = actionLogState.lastOperationByEntity.get(key);
+  if (entry?.status === 'failed') {
+    actionLogState.lastOperationByEntity.delete(key);
+  }
+}
+
+/** Drop stale "failed" badges for projects/services that are now Running. */
+export function syncBadgesFromProjects(projects: ComposeProject[]): void {
+  for (const p of projects) {
+    if (p.state === EntityState.Running) clearFailedIfRunning('project', p.name);
+    for (const s of p.services ?? []) {
+      if (s.state === EntityState.Running) clearFailedIfRunning('container', s.id);
+    }
+  }
+}
+
+/** Drop stale "failed" badges for containers that are now Running. */
+export function syncBadgesFromContainers(containers: Container[]): void {
+  for (const c of containers) {
+    if (c.state === EntityState.Running) clearFailedIfRunning('container', c.id);
+  }
 }

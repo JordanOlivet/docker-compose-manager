@@ -38,6 +38,7 @@
   import { syncFromProjects } from '$lib/stores/crashLoop.svelte';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
   import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
+  import { syncBadgesFromProjects } from '$lib/stores/actionLog.svelte';
 
   // Column definitions for projects table
   const projectColumns: ColumnDefinition[] = [
@@ -127,7 +128,10 @@
 
   // Sync crash loop state from API data
   $effect(() => {
-    if (projectsQuery.data) syncFromProjects(projectsQuery.data);
+    if (projectsQuery.data) {
+      syncFromProjects(projectsQuery.data);
+      syncBadgesFromProjects(projectsQuery.data);
+    }
   });
 
     const projectsQueryForceRefetch = createQuery(() => ({
