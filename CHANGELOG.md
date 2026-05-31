@@ -1,3 +1,11 @@
+## Changes in v1.19.0
+
+**Merged Pull Requests:**
+- Add log level configuration via in app conf and live changes applied instantly (#109)
+
+**Commits:**
+
+
 ## Changes in v1.18.0
 
 **Merged Pull Requests:**
