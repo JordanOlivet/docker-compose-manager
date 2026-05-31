@@ -25,6 +25,7 @@
   import type { ContainerUpdateCheckResponse, ContainerUpdatesCheckedEvent } from '$lib/types/update';
   import { compareIpAddress, comparePorts } from '$lib/utils/sortUtils';
   import ActionStatusBadge from '$lib/components/common/ActionStatusBadge.svelte';
+  import { syncBadgesFromContainers } from '$lib/stores/actionLog.svelte';
 
   // Column definitions for containers table
   const containerColumns: ColumnDefinition[] = [
@@ -88,7 +89,10 @@
 
   // Sync crash loop state from API data
   $effect(() => {
-    if (containersQuery.data) syncFromContainers(containersQuery.data);
+    if (containersQuery.data) {
+      syncFromContainers(containersQuery.data);
+      syncBadgesFromContainers(containersQuery.data);
+    }
   });
 
   // Container Mutations
