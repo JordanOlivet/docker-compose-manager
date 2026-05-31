@@ -2,6 +2,7 @@
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
   import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle } from 'lucide-svelte';
   import { updateApi } from '$lib/api/update';
+  import configApi from '$lib/api/config';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import ChangelogDisplay from '$lib/components/update/ChangelogDisplay.svelte';
   import RegistryManagement from '$lib/components/registry/RegistryManagement.svelte';
@@ -24,7 +25,30 @@
   const queryClient = useQueryClient();
 
   // Tab state
-  let activeTab = $state('update');
+  let activeTab = $state('general');
+
+  // Log level (General tab)
+  const logLevelQuery = createQuery(() => ({
+    queryKey: ['log-level'],
+    queryFn: () => configApi.getLogLevel(),
+  }));
+
+  const updateLogLevelMutation = createMutation(() => ({
+    mutationFn: (value: string) => configApi.updateLogLevel(value),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['log-level'], data);
+      toast.success($t('settings.general.logLevelSaved'));
+    },
+    onError: () => {
+      toast.error($t('errors.generic'));
+      queryClient.invalidateQueries({ queryKey: ['log-level'] });
+    },
+  }));
+
+  function handleLogLevelChange(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    updateLogLevelMutation.mutate(select.value);
+  }
 
   // Update-related state
   let updateConfirmDialog = $state({ open: false });
@@ -149,6 +173,9 @@
     <!-- Tabs Navigation -->
     <Tabs bind:value={activeTab}>
       <TabsList>
+        <TabsTrigger value="general" active={activeTab === 'general'} onclick={() => activeTab = 'general'}>
+          {$t('settings.tabs.general')}
+        </TabsTrigger>
         <TabsTrigger value="update" active={activeTab === 'update'} onclick={() => activeTab = 'update'}>
           {$t('settings.tabs.appUpdate')}
         </TabsTrigger>
@@ -159,6 +186,40 @@
           {$t('settings.tabs.registry')}
         </TabsTrigger>
       </TabsList>
+
+      <!-- General Tab -->
+      <TabsContent value="general" active={activeTab === 'general'}>
+        <Card>
+          <CardHeader>
+            <CardTitle>{$t('settings.general.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {$t('settings.general.logLevelDescription')}
+            </p>
+
+            <div class="flex items-center gap-4">
+              <label for="log-level" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {$t('settings.general.logLevel')}
+              </label>
+              <select
+                id="log-level"
+                value={logLevelQuery.data?.current}
+                onchange={handleLogLevelChange}
+                disabled={logLevelQuery.isLoading || updateLogLevelMutation.isPending}
+                class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 cursor-pointer"
+              >
+                {#each logLevelQuery.data?.available ?? [] as level (level)}
+                  <option value={level}>{$t(`settings.general.levels.${level.toLowerCase()}`)}</option>
+                {/each}
+              </select>
+              {#if updateLogLevelMutation.isPending}
+                <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+              {/if}
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
       <!-- App Update Tab -->
       <TabsContent value="update" active={activeTab === 'update'}>

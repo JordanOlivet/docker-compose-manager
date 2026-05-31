@@ -423,7 +423,7 @@ Cors__Origins__0="http://localhost:5173"
 ComposeDiscovery__RootPath="/app/compose-files"
 ComposeDiscovery__ScanDepthLimit=5
 
-# Logging
+# Logging (initial level only; configurable live via UI: Settings > General)
 Serilog__MinimumLevel__Default="Information"
 ```
 

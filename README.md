@@ -141,10 +141,16 @@ For Windows hosts, replace the Docker socket volume with:
 |----------|-------------|---------|
 | `Jwt__Secret` | JWT signing key (min 32 chars) | **Required** |
 | `Docker__Host` | Docker daemon connection | `unix:///var/run/docker.sock` |
-| `Serilog__MinimumLevel__Default` | Log level | `Information` |
+| `Serilog__MinimumLevel__Default` | Initial log level (see note below) | `Information` |
 | `ComposeDiscovery__RootPath` | Compose files directory | `/app/compose-files` |
 | `ComposeDiscovery__ScanDepthLimit` | Max directory depth | `5` |
 | `ComposeDiscovery__CacheDurationSeconds` | File cache TTL | `10` |
+
+> **Log level:** `Serilog__MinimumLevel__Default` only sets the level at first
+> startup. After that, the level is configurable at runtime from the UI
+> (**Settings → General**), takes effect immediately (no restart), and is
+> persisted in the database — the stored value overrides this variable on later
+> startups.
 
 ### JWT Secret (Required)
 

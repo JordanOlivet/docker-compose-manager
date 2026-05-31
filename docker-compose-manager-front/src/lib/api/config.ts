@@ -34,6 +34,11 @@ export interface DirectoryBrowseResult {
   directories: DirectoryInfo[];
 }
 
+export interface LogLevelInfo {
+  current: string;
+  available: string[];
+}
+
 const configApi = {
   /**
    * Get all compose paths
@@ -86,6 +91,22 @@ const configApi = {
    */
   deleteSetting: async (key: string): Promise<void> => {
     await apiClient.delete(`/config/settings/${key}`);
+  },
+
+  /**
+   * Get current application log level and available levels
+   */
+  getLogLevel: async (): Promise<LogLevelInfo> => {
+    const response = await apiClient.get('/config/log-level');
+    return response.data.data;
+  },
+
+  /**
+   * Update application log level (takes effect immediately)
+   */
+  updateLogLevel: async (value: string): Promise<LogLevelInfo> => {
+    const response = await apiClient.put('/config/log-level', { value });
+    return response.data.data;
   },
 
   /**
