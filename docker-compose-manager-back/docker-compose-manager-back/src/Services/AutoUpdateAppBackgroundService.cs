@@ -16,8 +16,10 @@ public class AutoUpdateAppBackgroundService : BackgroundService
     public const string CronKey = "AutoUpdateAppCron";
     public const string DefaultCron = "0 2 * * *";
 
-    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan MaxSleep = TimeSpan.FromHours(1);
+    // Short fixed tick: every tick we check whether a cron occurrence fell within the
+    // elapsed window. This never misses the scheduled minute and picks up enable/cron
+    // changes within one tick (unlike a blind Task.Delay until the next occurrence).
+    private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(20);
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AutoUpdateAppBackgroundService> _logger;
@@ -34,47 +36,40 @@ public class AutoUpdateAppBackgroundService : BackgroundService
     {
         _logger.LogInformation("AutoUpdateAppBackgroundService starting");
 
+        // Window anchor: we fire when a cron occurrence falls in (lastCheckUtc, nowUtc].
+        DateTime lastCheckUtc = DateTime.UtcNow;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                await Task.Delay(TickInterval, stoppingToken);
+
                 (bool enabled, string cron) = await ReadSettingsAsync(stoppingToken);
+                DateTime nowUtc = DateTime.UtcNow;
 
                 if (!enabled)
                 {
-                    await Task.Delay(IdlePollInterval, stoppingToken);
+                    // Advance the window so occurrences during the disabled period don't fire later
+                    lastCheckUtc = nowUtc;
                     continue;
                 }
 
                 if (!TryParseCron(cron, out CronExpression? expression))
                 {
-                    _logger.LogWarning("Invalid cron expression '{Cron}' for AutoUpdateApp. Sleeping {Seconds}s.",
-                        cron, IdlePollInterval.TotalSeconds);
-                    await Task.Delay(IdlePollInterval, stoppingToken);
+                    _logger.LogWarning("Invalid cron expression '{Cron}' for AutoUpdateApp.", cron);
+                    lastCheckUtc = nowUtc;
                     continue;
                 }
 
-                DateTime nowUtc = DateTime.UtcNow;
-                DateTime? next = expression!.GetNextOccurrence(nowUtc);
-                if (next == null)
+                DateTime? occurrence = expression!.GetNextOccurrence(lastCheckUtc, inclusive: false);
+                if (occurrence.HasValue && occurrence.Value <= nowUtc)
                 {
-                    await Task.Delay(IdlePollInterval, stoppingToken);
-                    continue;
+                    _logger.LogInformation("AutoUpdateApp: scheduled occurrence {Occurrence:O} is due, running check/update", occurrence.Value);
+                    await RunCheckAndUpdateAsync(stoppingToken);
                 }
 
-                TimeSpan wait = next.Value - nowUtc;
-                if (wait > MaxSleep) wait = MaxSleep;
-                if (wait < TimeSpan.Zero) wait = TimeSpan.Zero;
-
-                _logger.LogDebug("Next AutoUpdateApp check at {Next:O} (sleeping {Wait})", next.Value, wait);
-                await Task.Delay(wait, stoppingToken);
-
-                if (DateTime.UtcNow < next.Value)
-                {
-                    continue;
-                }
-
-                await RunCheckAndUpdateAsync(stoppingToken);
+                lastCheckUtc = nowUtc;
             }
             catch (OperationCanceledException)
             {
@@ -83,7 +78,6 @@ public class AutoUpdateAppBackgroundService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in AutoUpdateAppBackgroundService loop");
-                await Task.Delay(IdlePollInterval, stoppingToken);
             }
         }
 
