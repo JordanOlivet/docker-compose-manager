@@ -372,9 +372,26 @@ export default {
     },
     // Tabs
     tabs: {
+      general: 'General',
       appUpdate: 'App Update',
       projectUpdate: 'Project Updates',
       registry: 'Registry Management',
+    },
+    // General settings (log level)
+    general: {
+      title: 'General Settings',
+      logLevel: 'Application Log Level',
+      logLevelDescription:
+        'Select the most detailed level shown in the application logs. Any log more detailed than the selected level is suppressed immediately, without restarting the application.',
+      logLevelSaved: 'Log level updated',
+      levels: {
+        verbose: 'Verbose (Trace)',
+        debug: 'Debug',
+        information: 'Information',
+        warning: 'Warning',
+        error: 'Error',
+        fatal: 'Fatal (Critical)',
+      },
     },
     // Registry management
     registry: {

@@ -348,7 +348,22 @@ const es = {
     projectUpdateCheckDescription: 'Configure la frecuencia con la que el sistema verifica las actualizaciones de imágenes de contenedores en todos los proyectos compose.',
     checkInterval: 'Intervalo de verificación',
     intervalSaved: 'Intervalo de verificación guardado',
-    // Auto-update settings
+    // General settings (log level)
+    general: {
+      title: 'Configuración general',
+      logLevel: 'Nivel de registro de la aplicación',
+      logLevelDescription:
+        'Seleccione el nivel más detallado que se mostrará en los registros de la aplicación. Cualquier registro más detallado que el nivel seleccionado se suprime de inmediato, sin reiniciar la aplicación.',
+      logLevelSaved: 'Nivel de registro actualizado',
+      levels: {
+        verbose: 'Verbose (Trace)',
+        debug: 'Debug',
+        information: 'Information',
+        warning: 'Warning',
+        error: 'Error',
+        fatal: 'Fatal (Critical)',
+      },
+        // Auto-update settings
     autoUpdate: {
       composeTitle: 'Actualización automática',
       composeDescription: 'Actualiza automáticamente las imágenes y recrea los contenedores de los proyectos compose según una programación. Para excluir un proyecto, añada "x-auto-update: false" en la raíz de su archivo compose.',
@@ -585,6 +600,6 @@ const es = {
     lastOutput: 'Última salida',
     hint: 'Después de "Forzar desactualizado", ejecuta "Verificar MAJ" en la página principal para ver dcm-test-nginx y dcm-test-redis marcados como necesitando actualización.',
   },
-};
-
+}
+}
 export default es;

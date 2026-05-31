@@ -19,11 +19,13 @@ public class ConfigController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly ILogger<ConfigController> _logger;
+    private readonly LogLevelService _logLevelService;
 
-    public ConfigController(AppDbContext context, ILogger<ConfigController> logger)
+    public ConfigController(AppDbContext context, ILogger<ConfigController> logger, LogLevelService logLevelService)
     {
         _context = context;
         _logger = logger;
+        _logLevelService = logLevelService;
     }
 
     #region Compose Paths Management
@@ -152,7 +154,7 @@ public class ConfigController : BaseController
                 }
             }
 
-            var result = new DirectoryBrowseResult
+            DirectoryBrowseResult result = new DirectoryBrowseResult
             {
                 CurrentPath = currentPath,
                 Directories = new List<DirectoryBrowseInfo>()
@@ -163,7 +165,7 @@ public class ConfigController : BaseController
                 // Return root drives/directories
                 if (OperatingSystem.IsWindows())
                 {
-                    var drives = DriveInfo.GetDrives()
+                    List<DirectoryBrowseInfo> drives = DriveInfo.GetDrives()
                         .Where(d => d.IsReady)
                         .Select(d => new DirectoryBrowseInfo
                         {
@@ -186,7 +188,7 @@ public class ConfigController : BaseController
             {
                 try
                 {
-                    var dirInfo = new System.IO.DirectoryInfo(currentPath);
+                    DirectoryInfo dirInfo = new System.IO.DirectoryInfo(currentPath);
 
                     // Get parent directory info
                     if (dirInfo.Parent != null)
@@ -195,7 +197,7 @@ public class ConfigController : BaseController
                     }
 
                     // Get subdirectories
-                    var directories = dirInfo.GetDirectories()
+                    List<DirectoryBrowseInfo> directories = dirInfo.GetDirectories()
                         .OrderBy(d => d.Name)
                         .Select(d =>
                         {
@@ -255,7 +257,7 @@ public class ConfigController : BaseController
         try
         {
             var settings = await _context.AppSettings.ToListAsync();
-            var settingsDict = settings.ToDictionary(s => s.Key, s => s.Value);
+            Dictionary<string, string> settingsDict = settings.ToDictionary(s => s.Key, s => s.Value);
 
             return Ok(ApiResponse.Ok(settingsDict, "Settings retrieved successfully"));
         }
@@ -349,6 +351,53 @@ public class ConfigController : BaseController
 
     #endregion
 
+    #region Log Level
+
+    /// <summary>
+    /// Get the current application log level and the available levels
+    /// </summary>
+    [HttpGet("log-level")]
+    [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status200OK)]
+    public ActionResult<ApiResponse<LogLevelInfo>> GetLogLevel()
+    {
+        LogLevelInfo info = new LogLevelInfo(
+            _logLevelService.GetCurrentLevel(),
+            LogLevelService.GetAvailableLevels());
+
+        return Ok(ApiResponse.Ok(info, "Log level retrieved successfully"));
+    }
+
+    /// <summary>
+    /// Update the application log level. Takes effect immediately (no restart).
+    /// </summary>
+    [HttpPut("log-level")]
+    [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<LogLevelInfo>>> UpdateLogLevel([FromBody] UpdateLogLevelRequest request)
+    {
+        try
+        {
+            await _logLevelService.SetLevelAsync(request.Value);
+
+            LogLevelInfo info = new LogLevelInfo(
+                _logLevelService.GetCurrentLevel(),
+                LogLevelService.GetAvailableLevels());
+
+            return Ok(ApiResponse.Ok(info, "Log level updated successfully"));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse.Fail<LogLevelInfo>(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating log level");
+            return StatusCode(500, ApiResponse.Fail<LogLevelInfo>("Failed to update log level"));
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// Validates Auto-Update setting values. Returns error message if invalid, null if OK.
     /// </summary>
@@ -392,6 +441,8 @@ public class ConfigController : BaseController
 public record AddComposePathRequest(string Path, bool IsReadOnly = false);
 public record UpdateComposePathRequest(bool? IsReadOnly, bool? IsEnabled);
 public record UpdateSettingRequest(string Value, string? Description = null);
+public record UpdateLogLevelRequest(string Value);
+public record LogLevelInfo(string Current, IReadOnlyList<string> Available);
 
 // DTOs for Directory Browser
 public class DirectoryBrowseResult

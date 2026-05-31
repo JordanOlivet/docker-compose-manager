@@ -84,11 +84,18 @@ docker compose up -d
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `Docker__Host` | Docker daemon connection | `unix:///var/run/docker.sock` |
-| `Serilog__MinimumLevel__Default` | Log level | `Information` |
+| `Serilog__MinimumLevel__Default` | Initial log level (see note below) | `Information` |
 | `ComposeDiscovery__RootPath` | Compose files directory | `/app/compose-files` |
 | `ComposeDiscovery__ScanDepthLimit` | Directory scan depth | `5` |
 | `ComposeDiscovery__CacheDurationSeconds` | File cache TTL | `10` |
 | `ComposeDiscovery__MaxFileSizeKB` | Max compose file size | `1024` |
+
+> **Log level:** `Serilog__MinimumLevel__Default` sets the level only at first
+> startup. The level is then managed at runtime from the UI (**Settings →
+> General**): changes apply immediately (no restart) and are persisted in the
+> database, overriding this variable on subsequent startups. Framework noise
+> (`Microsoft`, `System`) stays capped at `Warning` regardless of the selected
+> level.
 
 ### Volumes
 

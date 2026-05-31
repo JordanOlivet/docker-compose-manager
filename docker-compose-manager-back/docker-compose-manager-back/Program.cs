@@ -16,6 +16,15 @@ using System.Text;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+// Runtime-controllable minimum log level. Seeded from configuration (env/appsettings),
+// later overridden by the persisted value and by the Settings UI. Mutating
+// MinimumLevel takes effect immediately across the whole Serilog pipeline.
+string? configuredLevel = builder.Configuration["Serilog:MinimumLevel:Default"];
+Serilog.Core.LoggingLevelSwitch logLevelSwitch = new(
+    Enum.TryParse(configuredLevel, ignoreCase: true, out Serilog.Events.LogEventLevel parsedLevel)
+        ? parsedLevel
+        : Serilog.Events.LogEventLevel.Information);
+
 // Configure Serilog with explicit assemblies (single-file publish safe)
 try
 {
@@ -26,18 +35,26 @@ try
 
     Log.Logger = new LoggerConfiguration()
         .ReadFrom.Configuration(builder.Configuration, readerOptions)
+        // Override the global Default level with the switch while keeping the
+        // namespaced Override entries (Microsoft/System -> Warning) from config.
+        .MinimumLevel.ControlledBy(logLevelSwitch)
         .CreateLogger();
 }
 catch (Exception ex)
 {
     // Fallback minimal logger if configuration loading fails
     Log.Logger = new LoggerConfiguration()
+        .MinimumLevel.ControlledBy(logLevelSwitch)
         .WriteTo.Console()
         .CreateLogger();
     Log.Error(ex, "Failed to initialize Serilog from configuration; fallback console logger in use");
 }
 
 builder.Host.UseSerilog();
+
+// Register the level switch and the service that drives it at runtime.
+builder.Services.AddSingleton(logLevelSwitch);
+builder.Services.AddSingleton<LogLevelService>();
 
 // Ensure log directories exist for any configured file sinks
 try
@@ -320,6 +337,9 @@ using (IServiceScope scope = app.Services.CreateScope())
         Log.Error(ex, "Error applying database migrations");
     }
 }
+
+// Apply the persisted log level (if any) now that migrations have run.
+await app.Services.GetRequiredService<LogLevelService>().InitializeFromDatabaseAsync();
 
 // Ensure compose files directory exists
 IOptions<ComposeDiscoveryOptions> composeOptions = app.Services.GetRequiredService<IOptions<docker_compose_manager_back.Configuration.ComposeDiscoveryOptions>>();
