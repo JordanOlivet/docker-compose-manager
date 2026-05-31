@@ -125,7 +125,11 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                 resourceId: "compose"
             );
 
-            DTOs.CheckAllUpdatesResponse checkResult = await composeUpdateService.CheckAllProjectsUpdatesAsync(userId: 1, forceRefresh: true, ct);
+            // Use cached check results (forceRefresh: false) to avoid hammering registries
+            // with ~N manifest requests every cycle. ProjectUpdateCheckBackgroundService keeps
+            // the cache warm; uncached projects are still checked on demand. This sharply cuts
+            // Docker Hub anonymous-rate-limit pressure during the bulk update that follows.
+            DTOs.CheckAllUpdatesResponse checkResult = await composeUpdateService.CheckAllProjectsUpdatesAsync(userId: 1, forceRefresh: false, ct);
 
             List<DiscoveredComposeFile> files = await fileCacheService.GetOrScanAsync();
             Dictionary<string, DiscoveredComposeFile> filesByProject = files

@@ -399,6 +399,8 @@ public class ComposeUpdateService : IComposeUpdateService
             {
                 _logger.LogError("Pull failed for {ProjectName}: {Error}", projectName, pullError);
 
+                string friendlyPullError = BuildPullErrorMessage(pullError);
+
                 // Mark all services as error
                 foreach (string serviceName in servicesToUpdate)
                 {
@@ -415,11 +417,11 @@ public class ComposeUpdateService : IComposeUpdateService
 
                 filteredLogs.AppendLine($"Pull failed: {pullError}");
                 await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
-                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 0, errorMessage: $"Failed to pull images: {pullError}");
+                await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Failed, progress: 0, errorMessage: friendlyPullError);
 
                 return new UpdateTriggerResponse(
                     Success: false,
-                    Message: $"Failed to pull images: {pullError}",
+                    Message: friendlyPullError,
                     OperationId: operationId
                 );
             }
@@ -729,6 +731,36 @@ public class ComposeUpdateService : IComposeUpdateService
     {
         _cacheService.InvalidateAll();
         _logger.LogDebug("Update check cache cleared");
+    }
+
+    /// <summary>
+    /// Turns a raw `docker compose pull` error into an actionable message. Docker reports
+    /// rate-limit and auth failures generically ("toomanyrequests", "unauthorized"); when a
+    /// registry credential is invalid or expired the pull silently falls back to anonymous,
+    /// so a configured-but-stale login surfaces here as a rate-limit error. The raw error is
+    /// kept appended for diagnostics.
+    /// </summary>
+    private static string BuildPullErrorMessage(string pullError)
+    {
+        string raw = (pullError ?? string.Empty).Trim();
+        string lower = raw.ToLowerInvariant();
+
+        if (lower.Contains("toomanyrequests") || lower.Contains("pull rate limit") || lower.Contains("429"))
+        {
+            return "Docker registry pull rate limit reached. If a registry is configured, its "
+                + "credentials may be invalid or expired (the pull then falls back to anonymous) — "
+                + "re-authenticate in Settings → Registry Management. Otherwise wait for the limit to "
+                + $"reset or add credentials to raise it. Details: {raw}";
+        }
+
+        if (lower.Contains("unauthorized") || lower.Contains("authentication required")
+            || lower.Contains("access denied") || lower.Contains("denied: requested access"))
+        {
+            return "Registry authentication failed — the stored credentials are missing, invalid, or "
+                + $"lack access to this image. Re-authenticate in Settings → Registry Management. Details: {raw}";
+        }
+
+        return $"Failed to pull images: {raw}";
     }
 
     public async Task<CheckAllUpdatesResponse> CheckAllProjectsUpdatesAsync(
