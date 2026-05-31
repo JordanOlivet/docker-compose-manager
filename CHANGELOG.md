@@ -1,3 +1,11 @@
+## Changes in v1.20.0
+
+**Merged Pull Requests:**
+- Add app self auto update and compose auto update (#108)
+
+**Commits:**
+
+
 ## Changes in v1.19.0
 
 **Merged Pull Requests:**
