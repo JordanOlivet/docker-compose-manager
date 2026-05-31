@@ -151,7 +151,8 @@ public class ProjectMatchingService : IProjectMatchingService
                     HasComposeFile = true,
                     Services = services,
                     AvailableActions = ComputeAvailableActions(true, project.State),
-                    IsCrashLooping = services.Any(s => s.IsCrashLooping)
+                    IsCrashLooping = services.Any(s => s.IsCrashLooping),
+                    AutoUpdateEnabled = matchedFile.AutoUpdateEnabled
                 };
 
                 enrichedProjects.Add(enrichedProject);
@@ -261,7 +262,8 @@ public class ProjectMatchingService : IProjectMatchingService
                 ComposeFilePath: unmatchedFile.FilePath,
                 HasComposeFile: true,
                 Warning: unmatchedFile.IsDisabled ? "Project is disabled (x-disabled: true)" : null,
-                AvailableActions: ComputeAvailableActions(true, notStartedState)
+                AvailableActions: ComputeAvailableActions(true, notStartedState),
+                AutoUpdateEnabled: unmatchedFile.AutoUpdateEnabled
             );
 
             enrichedProjects.Add(notStartedProject);

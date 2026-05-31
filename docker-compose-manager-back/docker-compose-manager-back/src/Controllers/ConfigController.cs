@@ -1,3 +1,4 @@
+using Cronos;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.DTOs;
 using docker_compose_manager_back.Models;
@@ -153,7 +154,7 @@ public class ConfigController : BaseController
                 }
             }
 
-            var result = new DirectoryBrowseResult
+            DirectoryBrowseResult result = new DirectoryBrowseResult
             {
                 CurrentPath = currentPath,
                 Directories = new List<DirectoryBrowseInfo>()
@@ -164,7 +165,7 @@ public class ConfigController : BaseController
                 // Return root drives/directories
                 if (OperatingSystem.IsWindows())
                 {
-                    var drives = DriveInfo.GetDrives()
+                    List<DirectoryBrowseInfo> drives = DriveInfo.GetDrives()
                         .Where(d => d.IsReady)
                         .Select(d => new DirectoryBrowseInfo
                         {
@@ -187,7 +188,7 @@ public class ConfigController : BaseController
             {
                 try
                 {
-                    var dirInfo = new System.IO.DirectoryInfo(currentPath);
+                    DirectoryInfo dirInfo = new System.IO.DirectoryInfo(currentPath);
 
                     // Get parent directory info
                     if (dirInfo.Parent != null)
@@ -196,7 +197,7 @@ public class ConfigController : BaseController
                     }
 
                     // Get subdirectories
-                    var directories = dirInfo.GetDirectories()
+                    List<DirectoryBrowseInfo> directories = dirInfo.GetDirectories()
                         .OrderBy(d => d.Name)
                         .Select(d =>
                         {
@@ -256,7 +257,7 @@ public class ConfigController : BaseController
         try
         {
             var settings = await _context.AppSettings.ToListAsync();
-            var settingsDict = settings.ToDictionary(s => s.Key, s => s.Value);
+            Dictionary<string, string> settingsDict = settings.ToDictionary(s => s.Key, s => s.Value);
 
             return Ok(ApiResponse.Ok(settingsDict, "Settings retrieved successfully"));
         }
@@ -274,6 +275,13 @@ public class ConfigController : BaseController
     [ProducesResponseType(typeof(ApiResponse<AppSetting>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<AppSetting>>> UpdateSetting(string key, [FromBody] UpdateSettingRequest request)
     {
+        // Validate Auto-Update related settings
+        var validationError = ValidateAutoUpdateSetting(key, request.Value);
+        if (validationError != null)
+        {
+            return BadRequest(ApiResponse.Fail<AppSetting>(validationError));
+        }
+
         try
         {
             var setting = await _context.AppSettings.FirstOrDefaultAsync(s => s.Key == key);
@@ -352,7 +360,7 @@ public class ConfigController : BaseController
     [ProducesResponseType(typeof(ApiResponse<LogLevelInfo>), StatusCodes.Status200OK)]
     public ActionResult<ApiResponse<LogLevelInfo>> GetLogLevel()
     {
-        var info = new LogLevelInfo(
+        LogLevelInfo info = new LogLevelInfo(
             _logLevelService.GetCurrentLevel(),
             LogLevelService.GetAvailableLevels());
 
@@ -371,7 +379,7 @@ public class ConfigController : BaseController
         {
             await _logLevelService.SetLevelAsync(request.Value);
 
-            var info = new LogLevelInfo(
+            LogLevelInfo info = new LogLevelInfo(
                 _logLevelService.GetCurrentLevel(),
                 LogLevelService.GetAvailableLevels());
 
@@ -389,6 +397,44 @@ public class ConfigController : BaseController
     }
 
     #endregion
+
+    /// <summary>
+    /// Validates Auto-Update setting values. Returns error message if invalid, null if OK.
+    /// </summary>
+    private static string? ValidateAutoUpdateSetting(string key, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        if (key == AutoUpdateComposeBackgroundService.EnabledKey
+            || key == AutoUpdateAppBackgroundService.EnabledKey)
+        {
+            if (!bool.TryParse(value, out _))
+            {
+                return $"Value for '{key}' must be 'true' or 'false'";
+            }
+            return null;
+        }
+
+        if (key == AutoUpdateComposeBackgroundService.CronKey
+            || key == AutoUpdateAppBackgroundService.CronKey)
+        {
+            try
+            {
+                CronFormat format = value.Trim().Split(' ').Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+                CronExpression.Parse(value, format);
+                return null;
+            }
+            catch (CronFormatException ex)
+            {
+                return $"Invalid cron expression for '{key}': {ex.Message}";
+            }
+        }
+
+        return null;
+    }
 }
 
 // DTOs for Config endpoints

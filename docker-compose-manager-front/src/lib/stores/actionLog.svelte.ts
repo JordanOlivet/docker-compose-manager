@@ -103,6 +103,22 @@ export async function loadLastByEntity() {
   }
 }
 
+/**
+ * Re-pull authoritative operation state after an SSE reconnect.
+ *
+ * While the SSE stream is down, terminal operation events can be missed — e.g. when
+ * the reverse proxy / tunnel that carries the SSE connection is itself recreated by a
+ * compose update, the operation finishes server-side but the browser never receives
+ * the final "completed" event, leaving a spinner stuck on "running". Re-fetching the
+ * server state (both the flat list and the per-entity map) settles those spinners.
+ */
+export async function reconcileAfterReconnect() {
+  // Nothing was in-flight, so no stuck spinner to settle — skip the extra round-trips.
+  if (runningCount.current === 0) return;
+  logger.log('[ActionLog] Reconciling operation state after SSE reconnect');
+  await Promise.all([loadInitial(), loadLastByEntity()]);
+}
+
 export function handleOperationUpdate(event: OperationUpdateEvent) {
   // Update or add in entries list
   const idx = actionLogState.entries.findIndex(e => e.operationId === event.operationId);

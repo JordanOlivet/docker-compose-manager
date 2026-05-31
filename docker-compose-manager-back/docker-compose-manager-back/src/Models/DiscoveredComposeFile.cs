@@ -41,6 +41,12 @@ public class DiscoveredComposeFile
     public bool IsDisabled { get; set; }
 
     /// <summary>
+    /// Indicates whether automatic updates apply to this compose file.
+    /// Defaults to true; set to false by adding x-auto-update: false in the compose file.
+    /// </summary>
+    public bool AutoUpdateEnabled { get; set; } = true;
+
+    /// <summary>
     /// List of service names defined in the compose file
     /// </summary>
     public List<string> Services { get; set; } = new();

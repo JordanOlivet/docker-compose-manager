@@ -10,7 +10,8 @@
     Search,
     ChevronRight,
     Download,
-    Loader2
+    Loader2,
+    RefreshCwOff
   } from 'lucide-svelte';
   import { composeApi } from '$lib/api/compose';
   import { containersApi } from '$lib/api/containers';
@@ -540,6 +541,15 @@
                       <div class="flex items-center gap-1.5">
                         <StateBadge status={project.state} size="sm" />
                         <CrashLoopBadge entityType="project" entityId={project.name} />
+                        {#if project.autoUpdateEnabled === false}
+                          <span
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                            title={$t('compose.autoUpdateDisabledHint')}
+                          >
+                            <RefreshCwOff class="w-3 h-3" />
+                            {$t('compose.autoUpdateDisabled')}
+                          </span>
+                        {/if}
                       </div>
                     </td>
                   {:else if colId === 'services'}

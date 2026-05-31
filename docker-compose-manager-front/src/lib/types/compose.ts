@@ -76,6 +76,8 @@ export interface ComposeProject {
   lastUpdateCheck?: string | null;
   /** Whether any service in this project is crash-looping */
   isCrashLooping?: boolean;
+  /** Whether automatic updates are enabled (false if compose has x-auto-update: false) */
+  autoUpdateEnabled?: boolean;
 }
 
 export interface ComposeService {

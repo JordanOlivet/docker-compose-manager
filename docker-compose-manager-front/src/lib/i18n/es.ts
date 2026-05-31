@@ -218,6 +218,8 @@ const es = {
   },
   
   compose: {
+    autoUpdateDisabled: 'Auto-actualización desactivada',
+    autoUpdateDisabledHint: 'Este proyecto está excluido de las actualizaciones automáticas (x-auto-update: false en su archivo compose).',
     loadingDetails: 'Cargando detalles del proyecto...',
     confirmRemoveWithName: '¿Eliminar el proyecto compose {name}?',
     confirmRemoveRunningWithName: 'El proyecto compose {name} está en ejecución. ¿Forzar eliminación?',
@@ -361,6 +363,27 @@ const es = {
         error: 'Error',
         fatal: 'Fatal (Critical)',
       },
+        // Auto-update settings
+    autoUpdate: {
+      composeTitle: 'Actualización automática',
+      composeDescription: 'Actualiza automáticamente las imágenes y recrea los contenedores de los proyectos compose según una programación. Para excluir un proyecto, añada "x-auto-update: false" en la raíz de su archivo compose.',
+      composeEnableLabel: 'Activar la actualización automática de proyectos',
+      composeCronLabel: 'Programación (expresión cron)',
+      appTitle: 'Actualización automática',
+      appDescription: 'Verifica automáticamente GitHub según una programación. Si hay una nueva versión, la aplicación se actualiza y reinicia.',
+      appEnableLabel: 'Activar la actualización automática de la aplicación',
+      appCronLabel: 'Programación (expresión cron)',
+      cronPlaceholder: 'ej. 0 2 * * * (cada día a las 02:00)',
+      cronInvalid: 'Expresión cron inválida',
+      nextRun: 'Próxima ejecución',
+      countdownIn: 'en',
+      countdownDay: 'd',
+      countdownHour: 'h',
+      countdownMinute: 'min',
+      countdownSoon: 'pronto',
+      cronUtcHint: 'La programación se evalúa en UTC (hora del servidor); la hora mostrada arriba está convertida a su hora local.',
+      saved: 'Configuración guardada',
+      saveFailed: 'Error al guardar la configuración',
     },
   },
   
@@ -577,6 +600,6 @@ const es = {
     lastOutput: 'Última salida',
     hint: 'Después de "Forzar desactualizado", ejecuta "Verificar MAJ" en la página principal para ver dcm-test-nginx y dcm-test-redis marcados como necesitando actualización.',
   },
-};
-
+}
+}
 export default es;

@@ -219,7 +219,10 @@ public class ComposeFileScannerService : IComposeFileScanner
             // 6. Extract x-disabled attribute
             var isDisabled = ExtractDisabledFlag(composeContent);
 
-            // 7. Extract list of service names
+            // 7. Extract x-auto-update attribute (defaults to true if absent)
+            var autoUpdateEnabled = ExtractAutoUpdateFlag(composeContent);
+
+            // 8. Extract list of service names
             List<string?> serviceNames = services.Keys.Select(k => k.ToString()).Where(s => s != null).ToList()!;
 
             return new DiscoveredComposeFile
@@ -230,6 +233,7 @@ public class ComposeFileScannerService : IComposeFileScanner
                 LastModified = fileInfo.LastWriteTimeUtc,
                 IsValid = true,
                 IsDisabled = isDisabled,
+                AutoUpdateEnabled = autoUpdateEnabled,
                 Services = serviceNames
             };
         }
@@ -319,5 +323,25 @@ public class ComposeFileScannerService : IComposeFileScanner
         }
 
         return false; // Default to not disabled
+    }
+
+    /// <summary>
+    /// Extracts the x-auto-update flag from compose file content.
+    /// Defaults to true (auto-update applies) when the key is absent or the value is unparseable.
+    /// </summary>
+    private bool ExtractAutoUpdateFlag(Dictionary<string, object> composeContent)
+    {
+        if (composeContent.ContainsKey("x-auto-update"))
+        {
+            var value = composeContent["x-auto-update"];
+
+            if (value is bool boolValue)
+                return boolValue;
+
+            if (value is string stringValue && bool.TryParse(stringValue, out var parsed))
+                return parsed;
+        }
+
+        return true;
     }
 }

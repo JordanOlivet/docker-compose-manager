@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle } from 'lucide-svelte';
+  import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle, Check, X } from 'lucide-svelte';
   import { updateApi } from '$lib/api/update';
   import configApi from '$lib/api/config';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -16,11 +17,18 @@
   import TabsList from '$lib/components/ui/tabs-list.svelte';
   import TabsTrigger from '$lib/components/ui/tabs-trigger.svelte';
   import TabsContent from '$lib/components/ui/tabs-content.svelte';
-  import { t } from '$lib/i18n';
+  import { t, locale } from '$lib/i18n';
   import { toast } from 'svelte-sonner';
   import { isAdmin } from '$lib/stores/auth.svelte';
   import { updateState, checkForUpdates } from '$lib/stores/update.svelte';
   import { projectUpdateState, saveIntervalToSettings } from '$lib/stores/projectUpdate.svelte';
+  import {
+    autoUpdateState,
+    loadAutoUpdateSettings,
+    saveAutoUpdateSetting,
+    AUTO_UPDATE_KEYS
+  } from '$lib/stores/autoUpdate.svelte';
+  import { validateCron, formatNextRun, formatCountdown } from '$lib/utils/cron';
 
   const queryClient = useQueryClient();
 
@@ -160,6 +168,83 @@
     }
     return formatVersionDate(updateState.updateInfo.latestVersionPublishedAt);
   });
+
+  // Auto-update state
+  let savingKey = $state<string | null>(null);
+
+  let cronstrueLocale = $derived(
+    $locale === 'fr' ? 'fr' : $locale === 'es' ? 'es' : 'en'
+  );
+
+  let composeCronValidation = $derived(validateCron(autoUpdateState.composeCron, cronstrueLocale));
+  let appCronValidation = $derived(validateCron(autoUpdateState.appCron, cronstrueLocale));
+
+  // Live clock to drive the "time remaining" countdown (ticks every 30s)
+  let now = $state(new Date());
+  let countdownLabels = $derived({
+    day: $t('settings.autoUpdate.countdownDay'),
+    hour: $t('settings.autoUpdate.countdownHour'),
+    minute: $t('settings.autoUpdate.countdownMinute'),
+    soon: $t('settings.autoUpdate.countdownSoon')
+  });
+  let composeCountdown = $derived(
+    formatCountdown(composeCronValidation.nextRun, countdownLabels, now)
+  );
+  let appCountdown = $derived(formatCountdown(appCronValidation.nextRun, countdownLabels, now));
+
+  onMount(() => {
+    void loadAutoUpdateSettings();
+    const timer = setInterval(() => {
+      now = new Date();
+    }, 30000);
+    return () => clearInterval(timer);
+  });
+
+  async function persistSetting(key: string, value: string) {
+    savingKey = key;
+    const result = await saveAutoUpdateSetting(key, value);
+    savingKey = null;
+    if (result.ok) {
+      toast.success($t('settings.autoUpdate.saved'));
+    } else {
+      toast.error(result.error || $t('settings.autoUpdate.saveFailed'));
+    }
+    return result.ok;
+  }
+
+  async function toggleComposeEnabled(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const previous = autoUpdateState.composeEnabled;
+    autoUpdateState.composeEnabled = checked;
+    const ok = await persistSetting(AUTO_UPDATE_KEYS.composeEnabled, checked ? 'true' : 'false');
+    if (!ok) autoUpdateState.composeEnabled = previous;
+  }
+
+  async function toggleAppEnabled(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const previous = autoUpdateState.appEnabled;
+    autoUpdateState.appEnabled = checked;
+    const ok = await persistSetting(AUTO_UPDATE_KEYS.appEnabled, checked ? 'true' : 'false');
+    if (!ok) autoUpdateState.appEnabled = previous;
+  }
+
+  function onComposeCronInput(e: Event) {
+    autoUpdateState.composeCron = (e.target as HTMLInputElement).value;
+  }
+
+  function onAppCronInput(e: Event) {
+    autoUpdateState.appCron = (e.target as HTMLInputElement).value;
+  }
+
+  async function commitComposeCron() {
+    if (!composeCronValidation.valid) return;
+    await persistSetting(AUTO_UPDATE_KEYS.composeCron, autoUpdateState.composeCron.trim());
+  }
+
+  async function commitAppCron() {
+    if (!appCronValidation.valid) return;
+    await persistSetting(AUTO_UPDATE_KEYS.appCron, autoUpdateState.appCron.trim());
+  }
 </script>
 
 <div class="space-y-6">
@@ -360,6 +445,79 @@
             </div>
           </CardContent>
         </Card>
+
+        <!-- App Auto Update Card -->
+        <Card class="mt-6">
+          <CardHeader>
+            <CardTitle>{$t('settings.autoUpdate.appTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {$t('settings.autoUpdate.appDescription')}
+            </p>
+
+            <div class="space-y-4">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoUpdateState.appEnabled}
+                  onchange={toggleAppEnabled}
+                  disabled={savingKey === AUTO_UPDATE_KEYS.appEnabled}
+                  class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.autoUpdate.appEnableLabel')}
+                </span>
+                {#if savingKey === AUTO_UPDATE_KEYS.appEnabled}
+                  <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                {/if}
+              </label>
+
+              <div class="flex flex-col gap-1">
+                <label for="app-cron" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.autoUpdate.appCronLabel')}
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="app-cron"
+                    type="text"
+                    value={autoUpdateState.appCron}
+                    oninput={onAppCronInput}
+                    onblur={commitAppCron}
+                    placeholder={$t('settings.autoUpdate.cronPlaceholder')}
+                    disabled={!autoUpdateState.appEnabled || savingKey === AUTO_UPDATE_KEYS.appCron}
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                  />
+                  {#if savingKey === AUTO_UPDATE_KEYS.appCron}
+                    <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                  {:else if appCronValidation.valid}
+                    <Check class="w-4 h-4 text-green-600 dark:text-green-400" />
+                  {:else}
+                    <X class="w-4 h-4 text-red-600 dark:text-red-400" />
+                  {/if}
+                </div>
+                {#if appCronValidation.valid}
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {appCronValidation.humanReadable ?? ''}
+                    {#if appCronValidation.nextRun}
+                      — {$t('settings.autoUpdate.nextRun')}: {formatNextRun(appCronValidation.nextRun)}
+                      {#if appCountdown}
+                        <span class="text-gray-400 dark:text-gray-500">({$t('settings.autoUpdate.countdownIn')} {appCountdown})</span>
+                      {/if}
+                    {/if}
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {$t('settings.autoUpdate.cronUtcHint')}
+                  </p>
+                {:else}
+                  <p class="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {$t('settings.autoUpdate.cronInvalid')}
+                  </p>
+                {/if}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <!-- Project Update Check Tab -->
@@ -391,6 +549,79 @@
               {#if isSavingInterval}
                 <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
               {/if}
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Compose Auto Update Card -->
+        <Card class="mt-6">
+          <CardHeader>
+            <CardTitle>{$t('settings.autoUpdate.composeTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {$t('settings.autoUpdate.composeDescription')}
+            </p>
+
+            <div class="space-y-4">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoUpdateState.composeEnabled}
+                  onchange={toggleComposeEnabled}
+                  disabled={savingKey === AUTO_UPDATE_KEYS.composeEnabled}
+                  class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.autoUpdate.composeEnableLabel')}
+                </span>
+                {#if savingKey === AUTO_UPDATE_KEYS.composeEnabled}
+                  <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                {/if}
+              </label>
+
+              <div class="flex flex-col gap-1">
+                <label for="compose-cron" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.autoUpdate.composeCronLabel')}
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="compose-cron"
+                    type="text"
+                    value={autoUpdateState.composeCron}
+                    oninput={onComposeCronInput}
+                    onblur={commitComposeCron}
+                    placeholder={$t('settings.autoUpdate.cronPlaceholder')}
+                    disabled={!autoUpdateState.composeEnabled || savingKey === AUTO_UPDATE_KEYS.composeCron}
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                  />
+                  {#if savingKey === AUTO_UPDATE_KEYS.composeCron}
+                    <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                  {:else if composeCronValidation.valid}
+                    <Check class="w-4 h-4 text-green-600 dark:text-green-400" />
+                  {:else}
+                    <X class="w-4 h-4 text-red-600 dark:text-red-400" />
+                  {/if}
+                </div>
+                {#if composeCronValidation.valid}
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {composeCronValidation.humanReadable ?? ''}
+                    {#if composeCronValidation.nextRun}
+                      — {$t('settings.autoUpdate.nextRun')}: {formatNextRun(composeCronValidation.nextRun)}
+                      {#if composeCountdown}
+                        <span class="text-gray-400 dark:text-gray-500">({$t('settings.autoUpdate.countdownIn')} {composeCountdown})</span>
+                      {/if}
+                    {/if}
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {$t('settings.autoUpdate.cronUtcHint')}
+                  </p>
+                {:else}
+                  <p class="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {$t('settings.autoUpdate.cronInvalid')}
+                  </p>
+                {/if}
+              </div>
             </div>
           </CardContent>
         </Card>
