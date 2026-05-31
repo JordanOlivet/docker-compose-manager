@@ -5,12 +5,12 @@
 	import * as auth from '$lib/stores/auth.svelte';
 	import { isAdmin } from '$lib/stores/auth.svelte';
 	import { authApi } from '$lib/api';
-	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode, onProjectUpdatesChecked, onContainerUpdatesChecked, onOperationUpdate } from '$lib/stores/sse.svelte';
+	import { initializeSSEConnection, stopSSEConnection, onMaintenanceMode, onProjectUpdatesChecked, onContainerUpdatesChecked, onOperationUpdate, onReconnected } from '$lib/stores/sse.svelte';
 	import { setupSSEQueryBridge } from '$lib/services/sseQueryBridge';
 	import { enterMaintenanceMode, startPeriodicCheck, stopPeriodicCheck } from '$lib/stores/update.svelte';
 	import { handleProjectUpdatesCheckedEvent, loadCachedUpdateStatus } from '$lib/stores/projectUpdate.svelte';
 	import { handleContainerUpdatesCheckedEvent, loadCachedContainerUpdateStatus } from '$lib/stores/containerUpdate.svelte';
-	import { loadInitial as loadActionLog, loadLastByEntity, handleOperationUpdate } from '$lib/stores/actionLog.svelte';
+	import { loadInitial as loadActionLog, loadLastByEntity, handleOperationUpdate, reconcileAfterReconnect } from '$lib/stores/actionLog.svelte';
 	import { getQueryClient } from '$lib/queryClient';
 
 	let { children } = $props();
@@ -20,6 +20,7 @@
 	let cleanupProjectUpdatesListener: (() => void) | null = null;
 	let cleanupContainerUpdatesListener: (() => void) | null = null;
 	let cleanupOperationListener: (() => void) | null = null;
+	let cleanupReconnectListener: (() => void) | null = null;
 
 	// Use the singleton QueryClient - same instance used by all components
 	const queryClient = getQueryClient();
@@ -52,6 +53,13 @@
 		// Subscribe to operation updates for action log
 		cleanupOperationListener = onOperationUpdate((event) => {
 			handleOperationUpdate(event);
+		});
+
+		// On SSE reconnect, re-pull authoritative operation state. Terminal events can be
+		// missed while the stream is down (e.g. the tunnel carrying SSE is recreated by an
+		// update), which would otherwise leave spinners stuck on "running".
+		cleanupReconnectListener = onReconnected(() => {
+			void reconcileAfterReconnect();
 		});
 
 		// Load initial action log data
@@ -100,6 +108,10 @@
 		// Clean up operation listener
 		if (cleanupOperationListener) {
 			cleanupOperationListener();
+		}
+		// Clean up reconnect reconciliation listener
+		if (cleanupReconnectListener) {
+			cleanupReconnectListener();
 		}
 		// Stop periodic update checking
 		stopPeriodicCheck();
