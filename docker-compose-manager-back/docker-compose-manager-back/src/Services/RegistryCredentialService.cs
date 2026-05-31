@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using docker_compose_manager_back.DTOs;
 
 namespace docker_compose_manager_back.Services;
@@ -246,6 +247,15 @@ public class RegistryCredentialService : IRegistryCredentialService
                 _logger.LogInformation("Successfully logged in to registry {Registry} as {Username}",
                     normalizedUrl, username);
 
+                // `docker login` may store the Docker Hub credential under a non-canonical key,
+                // which the Docker CLI / Compose plugin then ignore when pulling docker.io images
+                // (falling back to anonymous and hitting the unauthenticated rate limit). Make sure
+                // it is also present under the canonical IndexServer key.
+                if (normalizedUrl == DockerHubCanonicalKey)
+                {
+                    await EnsureDockerHubCanonicalKeyAsync();
+                }
+
                 return new RegistryLoginResult(
                     Success: true,
                     Message: $"Successfully logged in to {normalizedUrl}"
@@ -449,6 +459,57 @@ public class RegistryCredentialService : IRegistryCredentialService
         {
             _logger.LogDebug(ex, "Failed to get raw credentials for registry {Registry}", registryKey);
             return null;
+        }
+    }
+
+    // Canonical Docker Hub auth key (IndexServer). The Docker CLI / Compose plugin resolve
+    // credentials for docker.io images under this exact key only.
+    private const string DockerHubCanonicalKey = "https://index.docker.io/v1/";
+
+    /// <summary>
+    /// Ensures the Docker Hub credential is also stored under the canonical IndexServer key
+    /// ("https://index.docker.io/v1/"). Some Docker versions store a Hub login under the bare
+    /// host "index.docker.io", which `docker compose pull` does not match for docker.io images,
+    /// causing anonymous pulls and unauthenticated rate-limit failures. Mirrors the inline auth
+    /// onto the canonical key while preserving every other entry (ghcr, credHelpers, ...).
+    /// </summary>
+    private async Task EnsureDockerHubCanonicalKeyAsync()
+    {
+        try
+        {
+            string configPath = GetDockerConfigPath();
+            if (!File.Exists(configPath)) return;
+
+            string content = await File.ReadAllTextAsync(configPath);
+            if (JsonNode.Parse(content) is not JsonObject root) return;
+            if (root["auths"] is not JsonObject auths) return;
+
+            // Already present under the canonical key with an inline auth → nothing to do.
+            if (auths[DockerHubCanonicalKey] is JsonObject existing
+                && !string.IsNullOrEmpty(existing["auth"]?.ToString()))
+            {
+                return;
+            }
+
+            // Mirror the first Hub-equivalent inline auth onto the canonical key.
+            foreach (string alias in new[] { "index.docker.io", "registry-1.docker.io", "docker.io" })
+            {
+                if (auths[alias] is JsonObject aliasEntry
+                    && !string.IsNullOrEmpty(aliasEntry["auth"]?.ToString()))
+                {
+                    auths[DockerHubCanonicalKey] = aliasEntry.DeepClone();
+                    await File.WriteAllTextAsync(configPath,
+                        root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                    _logger.LogInformation(
+                        "Mirrored Docker Hub credential onto canonical key {Key} for compose compatibility",
+                        DockerHubCanonicalKey);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to ensure canonical Docker Hub credential key");
         }
     }
 
