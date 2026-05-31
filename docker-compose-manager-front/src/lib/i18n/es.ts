@@ -218,6 +218,8 @@ const es = {
   },
   
   compose: {
+    autoUpdateDisabled: 'Auto-actualización desactivada',
+    autoUpdateDisabledHint: 'Este proyecto está excluido de las actualizaciones automáticas (x-auto-update: false en su archivo compose).',
     loadingDetails: 'Cargando detalles del proyecto...',
     confirmRemoveWithName: '¿Eliminar el proyecto compose {name}?',
     confirmRemoveRunningWithName: 'El proyecto compose {name} está en ejecución. ¿Forzar eliminación?',

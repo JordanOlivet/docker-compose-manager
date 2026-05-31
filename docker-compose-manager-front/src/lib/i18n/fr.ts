@@ -218,6 +218,8 @@ const fr = {
   },
   
   compose: {
+    autoUpdateDisabled: 'Auto-MAJ désactivée',
+    autoUpdateDisabledHint: 'Ce projet est exclu des mises à jour automatiques (x-auto-update: false dans son fichier compose).',
     loadingDetails: 'Chargement des détails du projet...',
     confirmRemoveWithName: 'Supprimer le projet compose {name} ?',
     confirmRemoveRunningWithName: 'Le projet compose {name} est en cours d\'exécution. Forcer la suppression ?',

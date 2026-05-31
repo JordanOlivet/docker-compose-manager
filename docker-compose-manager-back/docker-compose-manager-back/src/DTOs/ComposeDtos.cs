@@ -98,7 +98,13 @@ public record ComposeProjectDto(
     /// <summary>
     /// Whether any service in this project is crash-looping
     /// </summary>
-    bool IsCrashLooping = false
+    bool IsCrashLooping = false,
+
+    /// <summary>
+    /// Whether automatic updates are enabled for this project (false if the
+    /// compose file is flagged with x-auto-update: false). Defaults to true.
+    /// </summary>
+    bool AutoUpdateEnabled = true
 );
 
 /// <summary>

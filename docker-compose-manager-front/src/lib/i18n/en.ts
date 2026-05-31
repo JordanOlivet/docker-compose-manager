@@ -218,6 +218,8 @@ export default {
   },
   
   compose: {
+    autoUpdateDisabled: 'Auto-update off',
+    autoUpdateDisabledHint: 'This project is excluded from automatic updates (x-auto-update: false in its compose file).',
     loadingDetails: 'Loading project details...',
     confirmRemoveWithName: 'Remove compose project {name}?',
     confirmRemoveRunningWithName: 'Compose project {name} is running. Force remove it?',
