@@ -411,6 +411,17 @@ export default {
         fatal: 'Fatal (Critical)',
       },
     },
+    // Global compose env file
+    composeEnv: {
+      title: 'Global Compose Env File',
+      description:
+        'Path to an extra .env file applied to every "up" and image update. Use this when your projects rely on a shared .env that lives outside the compose file directory — Docker does not remember the --env-file used to first start a project, so it would otherwise be lost when the manager recreates containers.',
+      pathLabel: 'Env file path',
+      pathPlaceholder: '/path/to/global.env',
+      help: 'Leave empty to disable. A missing file is ignored (logged) rather than failing the operation. A project-local .env, when present, takes precedence over this global file.',
+      saved: 'Global env file saved',
+      saveFailed: 'Failed to save global env file',
+    },
     // Registry management
     registry: {
       knownRegistries: 'Known Registries',

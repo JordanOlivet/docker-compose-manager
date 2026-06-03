@@ -348,6 +348,14 @@ const es = {
     projectUpdateCheckDescription: 'Configure la frecuencia con la que el sistema verifica las actualizaciones de imágenes de contenedores en todos los proyectos compose.',
     checkInterval: 'Intervalo de verificación',
     intervalSaved: 'Intervalo de verificación guardado',
+    // Tabs
+    tabs: {
+      general: 'General',
+      appUpdate: 'Actualización de la app',
+      projectUpdate: 'Actualizaciones de proyectos',
+      notifications: 'Notificaciones',
+      registry: 'Gestión de registros',
+    },
     // Notifications (webhook de Discord)
     notifications: {
       discordTitle: 'Notificaciones de Discord',
@@ -380,7 +388,19 @@ const es = {
         error: 'Error',
         fatal: 'Fatal (Critical)',
       },
-        // Auto-update settings
+    },
+    // Global compose env file
+    composeEnv: {
+      title: 'Archivo .env global de Compose',
+      description:
+        'Ruta a un archivo .env adicional aplicado en cada «up» y en cada actualización de imagen. Úselo cuando sus proyectos dependan de un .env compartido ubicado fuera del directorio del archivo compose: Docker no recuerda el --env-file usado al iniciar un proyecto por primera vez, por lo que se perdería cuando el gestor recrea los contenedores.',
+      pathLabel: 'Ruta del archivo .env',
+      pathPlaceholder: '/ruta/al/global.env',
+      help: 'Déjelo vacío para desactivarlo. Un archivo inexistente se ignora (se registra) en lugar de hacer fallar la operación. Un .env local del proyecto, si existe, tiene prioridad sobre este archivo global.',
+      saved: 'Archivo .env global guardado',
+      saveFailed: 'Error al guardar el archivo .env global',
+    },
+    // Auto-update settings
     autoUpdate: {
       composeTitle: 'Actualización automática',
       composeDescription: 'Actualiza automáticamente las imágenes y recrea los contenedores de los proyectos compose según una programación. Para excluir un proyecto, añada "x-auto-update: false" en la raíz de su archivo compose.',
@@ -402,8 +422,39 @@ const es = {
       saved: 'Configuración guardada',
       saveFailed: 'Error al guardar la configuración',
     },
+    // Registry management
+    registry: {
+      knownRegistries: 'Registros conocidos',
+      customRegistries: 'Registros personalizados',
+      configured: 'Configurado',
+      notConfigured: 'No configurado',
+      configure: 'Configurar',
+      testConnection: 'Probar conexión',
+      connectionSuccess: 'Conexión exitosa',
+      connectionFailed: 'Error de conexión',
+      connectionReachable: 'El registro es accesible',
+      authenticatedConnection: 'Autenticado correctamente',
+      loginTo: 'Iniciar sesión en',
+      loginSuccess: 'Sesión iniciada correctamente',
+      loginFailed: 'Error al iniciar sesión',
+      logoutSuccess: 'Sesión cerrada correctamente',
+      logoutFailed: 'Error al cerrar sesión',
+      loggedInAs: 'Sesión iniciada como',
+      addRegistry: 'Agregar registro',
+      addCustomRegistry: 'Agregar registro personalizado',
+      noCustomRegistries: 'No hay registros personalizados configurados',
+      addCustomRegistryHint: 'Agregue un registro personalizado para autenticarse con registros privados',
+      remove: 'Eliminar',
+      registryUrl: 'URL del registro',
+      urlRequired: 'La URL del registro es obligatoria',
+      authType: 'Tipo de autenticación',
+      usernamePassword: 'Usuario / Contraseña',
+      accessToken: 'Token de acceso',
+      tokenUsernamePlaceholder: 'Normalmente su usuario o déjelo vacío',
+      tokenUsernameHint: 'Algunos registros requieren un usuario con autenticación por token (p. ej., GitHub usa su nombre de usuario)',
+    },
   },
-  
+
   audit: {
     title: 'Registros de auditoría',
     subtitle: 'Rastree actividades y cambios del sistema',
@@ -617,6 +668,5 @@ const es = {
     lastOutput: 'Última salida',
     hint: 'Después de "Forzar desactualizado", ejecuta "Verificar MAJ" en la página principal para ver dcm-test-nginx y dcm-test-redis marcados como necesitando actualización.',
   },
-}
 }
 export default es;

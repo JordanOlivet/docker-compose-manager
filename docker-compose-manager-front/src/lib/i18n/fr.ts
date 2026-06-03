@@ -411,6 +411,17 @@ const fr = {
         fatal: 'Fatal (Critical)',
       },
     },
+    // Global compose env file
+    composeEnv: {
+      title: 'Fichier .env global Compose',
+      description:
+        "Chemin vers un fichier .env supplémentaire appliqué à chaque « up » et à chaque mise à jour d'image. À utiliser lorsque vos projets dépendent d'un .env partagé situé hors du dossier du fichier compose : Docker ne mémorise pas le --env-file utilisé au premier démarrage d'un projet, il serait donc perdu lorsque le gestionnaire recrée les conteneurs.",
+      pathLabel: 'Chemin du fichier .env',
+      pathPlaceholder: '/chemin/vers/global.env',
+      help: "Laissez vide pour désactiver. Un fichier introuvable est ignoré (journalisé) plutôt que de faire échouer l'opération. Un .env local au projet, s'il existe, est prioritaire sur ce fichier global.",
+      saved: 'Fichier .env global enregistré',
+      saveFailed: "Échec de l'enregistrement du fichier .env global",
+    },
     // Registry management
     registry: {
       knownRegistries: 'Registres connus',

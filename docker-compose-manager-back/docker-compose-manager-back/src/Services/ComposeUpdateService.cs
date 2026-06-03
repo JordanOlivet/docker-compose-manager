@@ -70,6 +70,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly IAuditService _auditService;
     private readonly DockerService _dockerService;
     private readonly DockerCommandExecutorService _dockerExecutor;
+    private readonly IComposeEnvFileResolver _envFileResolver;
     private readonly DockerPullProgressParser _progressParser;
     private readonly OperationService _operationService;
     private readonly SseConnectionManagerService _sseManager;
@@ -88,6 +89,7 @@ public class ComposeUpdateService : IComposeUpdateService
         IAuditService auditService,
         DockerService dockerService,
         DockerCommandExecutorService dockerExecutor,
+        IComposeEnvFileResolver envFileResolver,
         DockerPullProgressParser progressParser,
         OperationService operationServiceDb,
         SseConnectionManagerService sseManager,
@@ -103,6 +105,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _auditService = auditService;
         _dockerService = dockerService;
         _dockerExecutor = dockerExecutor;
+        _envFileResolver = envFileResolver;
         _progressParser = progressParser;
         _operationService = operationServiceDb;
         _sseManager = sseManager;
@@ -313,6 +316,13 @@ public class ComposeUpdateService : IComposeUpdateService
 
             _logger.LogDebug("Found compose file for project {ProjectName}: {FilePath}", projectName, composeFilePath);
 
+            // Run compose from the compose file's directory so docker auto-loads the adjacent .env
+            // (compose discovers .env from the working directory, not the -f file's directory), and
+            // re-apply any configured global env file since docker does not persist the --env-file
+            // originally used to start the project.
+            string composeDirectory = Path.GetDirectoryName(composeFilePath) ?? "/";
+            string envFileArgs = await _envFileResolver.BuildEnvFileArgsAsync(composeDirectory, ct);
+
             // Determine which services to update
             List<string> servicesToUpdate;
             if (updateAll || services == null || services.Count == 0)
@@ -390,10 +400,11 @@ public class ComposeUpdateService : IComposeUpdateService
 
             (int pullExitCode, string pullOutput, string pullError) = await _dockerExecutor.ExecuteWithStreamingAsync(
                 "docker",
-                $"compose -f \"{composeFilePath}\" pull {servicesArg}",
+                $"compose {envFileArgs}-f \"{composeFilePath}\" pull {servicesArg}",
                 OnPullOutput,
                 OnPullOutput, // Also capture stderr as it may contain progress info
-                ct);
+                ct,
+                workingDirectory: composeDirectory);
 
             if (pullExitCode != 0)
             {
@@ -494,8 +505,8 @@ public class ComposeUpdateService : IComposeUpdateService
 
             // Recreate containers with new images
             string recreateArgs = restartFullProject
-                ? $"compose -f \"{composeFilePath}\" up -d --force-recreate"
-                : $"compose -f \"{composeFilePath}\" up -d --force-recreate {servicesArg}";
+                ? $"compose {envFileArgs}-f \"{composeFilePath}\" up -d --force-recreate"
+                : $"compose {envFileArgs}-f \"{composeFilePath}\" up -d --force-recreate {servicesArg}";
             _logger.LogDebug("Recreating containers - RestartFullProject: {RestartFullProject}, Command args: {Args}", restartFullProject, recreateArgs);
 
             var recreateLogs = new StringBuilder();
@@ -522,7 +533,8 @@ public class ComposeUpdateService : IComposeUpdateService
                 recreateArgs,
                 OnRecreateOutput,
                 OnRecreateOutput,
-                ct);
+                ct,
+                workingDirectory: composeDirectory);
 
             if (upExitCode != 0)
             {

@@ -205,9 +205,36 @@
   let webhookDirty = $state(false);
   let testingWebhook = $state(false);
 
+  // Global compose env file (General tab)
+  const COMPOSE_GLOBAL_ENV_FILE_KEY = 'ComposeGlobalEnvFile';
+  let globalEnvFile = $state('');
+  let savingGlobalEnvFile = $state(false);
+
+  async function loadGlobalEnvFile() {
+    try {
+      const settings = await configApi.getSettings();
+      globalEnvFile = settings[COMPOSE_GLOBAL_ENV_FILE_KEY] ?? '';
+    } catch {
+      // Non-blocking: leave the field empty if settings cannot be loaded.
+    }
+  }
+
+  async function saveGlobalEnvFile() {
+    savingGlobalEnvFile = true;
+    try {
+      await configApi.updateSetting(COMPOSE_GLOBAL_ENV_FILE_KEY, { value: globalEnvFile.trim() });
+      toast.success($t('settings.composeEnv.saved'));
+    } catch {
+      toast.error($t('settings.composeEnv.saveFailed'));
+    } finally {
+      savingGlobalEnvFile = false;
+    }
+  }
+
   onMount(() => {
     void loadAutoUpdateSettings();
     void loadNotificationSettings();
+    void loadGlobalEnvFile();
     const timer = setInterval(() => {
       now = new Date();
     }, 30000);
@@ -373,6 +400,40 @@
                 <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
               {/if}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card class="mt-6">
+          <CardHeader>
+            <CardTitle>{$t('settings.composeEnv.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {$t('settings.composeEnv.description')}
+            </p>
+
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label for="global-env-file" class="text-sm font-medium text-gray-700 dark:text-gray-300 sm:w-48">
+                {$t('settings.composeEnv.pathLabel')}
+              </label>
+              <input
+                id="global-env-file"
+                type="text"
+                bind:value={globalEnvFile}
+                placeholder={$t('settings.composeEnv.pathPlaceholder')}
+                disabled={savingGlobalEnvFile}
+                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              />
+              <Button onclick={saveGlobalEnvFile} disabled={savingGlobalEnvFile}>
+                {#if savingGlobalEnvFile}
+                  <RefreshCw class="w-4 h-4 animate-spin mr-2" />
+                {/if}
+                {$t('common.save')}
+              </Button>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {$t('settings.composeEnv.help')}
+            </p>
           </CardContent>
         </Card>
       </TabsContent>

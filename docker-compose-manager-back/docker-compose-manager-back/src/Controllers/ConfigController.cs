@@ -457,6 +457,13 @@ public class ConfigController : BaseController
             return null;
         }
 
+        if (key == ComposeEnvFileResolver.ComposeGlobalEnvFileKey)
+        {
+            // Empty disables it. A non-empty path is accepted even when the file does not yet exist
+            // (it may appear later); a missing file is logged and skipped at use time, not rejected here.
+            return null;
+        }
+
         return null;
     }
 }
