@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle, Check, X, Bell, Send } from 'lucide-svelte';
+  import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle, Check, X, Bell, Send, FolderOpen } from 'lucide-svelte';
   import { updateApi } from '$lib/api/update';
   import configApi from '$lib/api/config';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import FilePicker from '$lib/components/common/FilePicker.svelte';
   import ChangelogDisplay from '$lib/components/update/ChangelogDisplay.svelte';
   import RegistryManagement from '$lib/components/registry/RegistryManagement.svelte';
   import Button from '$lib/components/ui/button.svelte';
@@ -208,21 +209,42 @@
   // Global compose env file (General tab)
   const COMPOSE_GLOBAL_ENV_FILE_KEY = 'ComposeGlobalEnvFile';
   let globalEnvFile = $state('');
+  let lastSavedEnvFile = $state('');
   let savingGlobalEnvFile = $state(false);
+  let showEnvFilePicker = $state(false);
+  // Root the picker at a managed compose folder so the user lands where their compose files live.
+  let envPickerInitialPath = $state('');
 
   async function loadGlobalEnvFile() {
     try {
       const settings = await configApi.getSettings();
       globalEnvFile = settings[COMPOSE_GLOBAL_ENV_FILE_KEY] ?? '';
+      lastSavedEnvFile = globalEnvFile;
     } catch {
       // Non-blocking: leave the field empty if settings cannot be loaded.
+    }
+  }
+
+  async function loadEnvPickerInitialPath() {
+    try {
+      const paths = await configApi.getPaths();
+      // Prefer an enabled managed path; fall back to the first one if none is flagged enabled.
+      const preferred = paths.find((p) => p.isEnabled) ?? paths[0];
+      if (preferred) {
+        envPickerInitialPath = preferred.path;
+      }
+    } catch {
+      // Non-blocking: the picker just opens at the filesystem root instead.
     }
   }
 
   async function saveGlobalEnvFile() {
     savingGlobalEnvFile = true;
     try {
-      await configApi.updateSetting(COMPOSE_GLOBAL_ENV_FILE_KEY, { value: globalEnvFile.trim() });
+      const value = globalEnvFile.trim();
+      await configApi.updateSetting(COMPOSE_GLOBAL_ENV_FILE_KEY, { value });
+      lastSavedEnvFile = value;
+      globalEnvFile = value;
       toast.success($t('settings.composeEnv.saved'));
     } catch {
       toast.error($t('settings.composeEnv.saveFailed'));
@@ -231,10 +253,24 @@
     }
   }
 
+  // Persist manual edits when the field loses focus (only when actually changed).
+  function handleEnvFileBlur() {
+    if (globalEnvFile.trim() !== lastSavedEnvFile) {
+      void saveGlobalEnvFile();
+    }
+  }
+
+  function handleEnvFileSelected(path: string) {
+    globalEnvFile = path;
+    showEnvFilePicker = false;
+    void saveGlobalEnvFile();
+  }
+
   onMount(() => {
     void loadAutoUpdateSettings();
     void loadNotificationSettings();
     void loadGlobalEnvFile();
+    void loadEnvPickerInitialPath();
     const timer = setInterval(() => {
       now = new Date();
     }, 30000);
@@ -420,15 +456,18 @@
                 id="global-env-file"
                 type="text"
                 bind:value={globalEnvFile}
+                onblur={handleEnvFileBlur}
                 placeholder={$t('settings.composeEnv.pathPlaceholder')}
                 disabled={savingGlobalEnvFile}
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               />
-              <Button onclick={saveGlobalEnvFile} disabled={savingGlobalEnvFile}>
+              <Button onclick={() => (showEnvFilePicker = true)} disabled={savingGlobalEnvFile}>
                 {#if savingGlobalEnvFile}
                   <RefreshCw class="w-4 h-4 animate-spin mr-2" />
+                {:else}
+                  <FolderOpen class="w-4 h-4 mr-2" />
                 {/if}
-                {$t('common.save')}
+                {$t('settings.composeEnv.browse')}
               </Button>
             </div>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -864,3 +903,11 @@
   onconfirm={confirmUpdate}
   oncancel={() => updateConfirmDialog.open = false}
 />
+
+{#if showEnvFilePicker}
+  <FilePicker
+    initialPath={envPickerInitialPath}
+    onSelect={handleEnvFileSelected}
+    onCancel={() => (showEnvFilePicker = false)}
+  />
+{/if}

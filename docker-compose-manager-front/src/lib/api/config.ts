@@ -32,6 +32,7 @@ export interface DirectoryBrowseResult {
   currentPath: string;
   parentPath?: string;
   directories: DirectoryInfo[];
+  files: DirectoryInfo[];
 }
 
 export interface LogLevelInfo {
@@ -112,11 +113,14 @@ const configApi = {
   /**
    * Browse filesystem directories
    */
-  browseDirectories: async (path?: string): Promise<DirectoryBrowseResult> => {
+  browseDirectories: async (path?: string, includeFiles = false): Promise<DirectoryBrowseResult> => {
     // Use URLSearchParams to properly encode the path parameter
     const params = new URLSearchParams();
     if (path) {
       params.append('path', path);
+    }
+    if (includeFiles) {
+      params.append('includeFiles', 'true');
     }
     const queryString = params.toString();
     const url = queryString ? `/config/browse?${queryString}` : '/config/browse';
