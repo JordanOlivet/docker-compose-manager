@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -49,7 +50,83 @@ public class DockerHubRegistryClient : IRegistryClient
         string architecture,
         CancellationToken cancellationToken = default)
     {
-        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(image, tag, architecture, cancellationToken);
+        try
+        {
+            string? token = await GetAuthTokenAsync(image, cancellationToken);
+            if (token == null)
+            {
+                _logger.LogWarning("Failed to get auth token for image {Image}", image);
+                return null;
+            }
+
+            return await FetchManifestDigestViaHeadAsync(image, tag, architecture, token, cancellationToken);
+        }
+        catch (RegistryRateLimitException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the manifest digest with a HEAD request. Docker Hub does not count HEAD manifest
+    /// requests against the pull-rate limit, so this is used for the periodic "did it change" check.
+    /// Falls back to GET when the registry rejects HEAD or omits the digest header.
+    /// </summary>
+    private async Task<string?> FetchManifestDigestViaHeadAsync(
+        string repository,
+        string tag,
+        string architecture,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        string url = $"{RegistryUrl}/{repository}/manifests/{tag}";
+
+        using HttpRequestMessage request = new(HttpMethod.Head, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+
+        HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            LogRateLimitHeaders(response, repository, tag, "HEAD");
+            throw RegistryRateLimitException.FromResponse(response);
+        }
+
+        // Some registries don't allow HEAD on manifests → fall back to the GET path.
+        if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
+        {
+            _logger.LogDebug("HEAD not supported for {Repository}:{Tag} ({StatusCode}); falling back to GET",
+                repository, tag, response.StatusCode);
+            var (fallbackDigest, _) = await FetchManifestDigestAndConfigAsync(repository, tag, architecture, token, cancellationToken);
+            return fallbackDigest;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Manifest HEAD request failed for {Repository}:{Tag} with status {StatusCode}",
+                repository, tag, response.StatusCode);
+            return null;
+        }
+
+        // HEAD returns the rate-limit headers without consuming a pull → ideal place to log the tier.
+        LogRateLimitHeaders(response, repository, tag, "HEAD");
+
+        if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
+        {
+            return digestValues.FirstOrDefault();
+        }
+
+        // No digest header (unexpected) → fall back to GET.
+        var (digest, _) = await FetchManifestDigestAndConfigAsync(repository, tag, architecture, token, cancellationToken);
         return digest;
     }
 
@@ -86,6 +163,10 @@ public class DockerHubRegistryClient : IRegistryClient
 
             return (digest, createdAt);
         }
+        catch (RegistryRateLimitException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
@@ -110,10 +191,22 @@ public class DockerHubRegistryClient : IRegistryClient
                 string basicAuth = Convert.ToBase64String(
                     Encoding.UTF8.GetBytes($"{credentials.Value.Username}:{credentials.Value.Password}"));
                 tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-                _logger.LogDebug("Using authenticated Docker Hub token request for {Repository}", repository);
+                _logger.LogDebug("Using authenticated Docker Hub token request for {Repository} (user: {User})",
+                    repository, credentials.Value.Username);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "No Docker Hub credentials resolved for {Repository}; using anonymous token (guest rate limits apply)",
+                    repository);
             }
 
             HttpResponseMessage response = await _httpClient.SendAsync(tokenRequest, cancellationToken);
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                throw RegistryRateLimitException.FromResponse(response);
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -130,6 +223,10 @@ public class DockerHubRegistryClient : IRegistryClient
             }
 
             return null;
+        }
+        catch (RegistryRateLimitException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -158,12 +255,20 @@ public class DockerHubRegistryClient : IRegistryClient
 
         HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
 
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            LogRateLimitHeaders(response, repository, tag, "GET");
+            throw RegistryRateLimitException.FromResponse(response);
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Manifest request failed for {Repository}:{Tag} with status {StatusCode}",
                 repository, tag, response.StatusCode);
             return (null, null);
         }
+
+        LogRateLimitHeaders(response, repository, tag, "GET");
 
         string contentType = response.Content.Headers.ContentType?.MediaType ?? "";
         string content = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -354,5 +459,84 @@ public class DockerHubRegistryClient : IRegistryClient
             _logger.LogError(ex, "Error parsing manifest list");
             return null;
         }
+    }
+
+    // Throttle for the low-remaining warning, shared across concurrent checks (UtcTicks; 0 = never).
+    private static long _lastLowRemainingWarnTicks;
+    private const int LowRemainingThreshold = 10;
+    private static readonly TimeSpan LowRemainingWarnInterval = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Logs Docker Hub's rate-limit headers at Debug so the authenticated tier can be confirmed
+    /// (limit 100 = anonymous, 200 = authenticated free, absent = unlimited/Pro). Emits a single
+    /// throttled Warning when the remaining budget runs low. Header values use the "N;w=window" form.
+    /// </summary>
+    private void LogRateLimitHeaders(HttpResponseMessage response, string repository, string tag, string phase)
+    {
+        string? limit = FirstHeader(response, "ratelimit-limit");
+        string? remaining = FirstHeader(response, "ratelimit-remaining");
+        string? source = FirstHeader(response, "docker-ratelimit-source");
+
+        if (limit == null && remaining == null)
+        {
+            // No rate-limit headers → either a Pro/Team (unlimited) account or the registry didn't report.
+            _logger.LogDebug(
+                "Docker Hub rate limit for {Repository}:{Tag} ({Phase}): no rate-limit headers (unlimited/Pro or not reported)",
+                repository, tag, phase);
+            return;
+        }
+
+        int? limitValue = ParseLeadingInt(limit);
+        string tier = limitValue switch
+        {
+            null => "unknown",
+            <= 100 => "anonymous (guest)",
+            _ => "authenticated"
+        };
+
+        _logger.LogDebug(
+            "Docker Hub rate limit for {Repository}:{Tag} ({Phase}): tier={Tier}, limit={Limit}, remaining={Remaining}, source={Source}",
+            repository, tag, phase, tier, limit ?? "n/a", remaining ?? "n/a", source ?? "n/a");
+
+        int? remainingValue = ParseLeadingInt(remaining);
+        if (remainingValue is { } rem && rem < LowRemainingThreshold)
+        {
+            WarnLowRemainingThrottled(rem, limitValue, tier);
+        }
+    }
+
+    private void WarnLowRemainingThrottled(int remaining, int? limit, string tier)
+    {
+        long now = DateTimeOffset.UtcNow.UtcTicks;
+        long last = Interlocked.Read(ref _lastLowRemainingWarnTicks);
+        if (last != 0 && new DateTimeOffset(now, TimeSpan.Zero) - new DateTimeOffset(last, TimeSpan.Zero) < LowRemainingWarnInterval)
+        {
+            return;
+        }
+        if (Interlocked.CompareExchange(ref _lastLowRemainingWarnTicks, now, last) != last)
+        {
+            return; // another thread already warned
+        }
+
+        _logger.LogWarning(
+            "Docker Hub pull quota nearly exhausted: {Remaining} of {Limit} remaining ({Tier}). " +
+            "Authenticate with a Docker Hub account in Registry Management (or raise the check interval) to avoid 429s.",
+            remaining, limit?.ToString() ?? "?", tier);
+    }
+
+    private static string? FirstHeader(HttpResponseMessage response, string name)
+        => response.Headers.TryGetValues(name, out IEnumerable<string>? values) ? values.FirstOrDefault() : null;
+
+    /// <summary>Parses the leading integer from a header value like "198;w=21600" → 198.</summary>
+    private static int? ParseLeadingInt(string? headerValue)
+    {
+        if (string.IsNullOrWhiteSpace(headerValue))
+        {
+            return null;
+        }
+
+        int semicolon = headerValue.IndexOf(';');
+        string number = (semicolon >= 0 ? headerValue[..semicolon] : headerValue).Trim();
+        return int.TryParse(number, out int value) ? value : null;
     }
 }

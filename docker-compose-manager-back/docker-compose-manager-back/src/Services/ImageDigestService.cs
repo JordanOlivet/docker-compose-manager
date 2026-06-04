@@ -49,6 +49,7 @@ public class ImageDigestService : IImageDigestService
 {
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly IRegistryClientFactory _registryClientFactory;
+    private readonly IRegistryRateLimitGate _rateLimitGate;
     private readonly ILogger<ImageDigestService> _logger;
     private readonly UpdateCheckOptions _options;
 
@@ -57,11 +58,13 @@ public class ImageDigestService : IImageDigestService
     public ImageDigestService(
         DockerCommandExecutorService dockerExecutor,
         IRegistryClientFactory registryClientFactory,
+        IRegistryRateLimitGate rateLimitGate,
         IOptions<UpdateCheckOptions> options,
         ILogger<ImageDigestService> logger)
     {
         _dockerExecutor = dockerExecutor;
         _registryClientFactory = registryClientFactory;
+        _rateLimitGate = rateLimitGate;
         _options = options.Value;
         _logger = logger;
     }
@@ -229,7 +232,17 @@ public class ImageDigestService : IImageDigestService
         }
     }
 
-    public async Task<ImageDigestInfo> GetRemoteDigestAsync(string image, string architecture, CancellationToken ct = default)
+    public Task<ImageDigestInfo> GetRemoteDigestAsync(string image, string architecture, CancellationToken ct = default)
+        => GetRemoteDigestAsync(image, architecture, includeCreatedAt: false, ct);
+
+    /// <summary>
+    /// Fetches the remote digest. By default uses a HEAD request (digest only, not counted against
+    /// Docker Hub's pull-rate limit); pass <paramref name="includeCreatedAt"/> to use a GET that also
+    /// returns the image creation date — only worth doing once an update has been detected.
+    /// Rethrows <see cref="RegistryRateLimitException"/> so the caller can trip the cooldown gate.
+    /// </summary>
+    private async Task<ImageDigestInfo> GetRemoteDigestAsync(
+        string image, string architecture, bool includeCreatedAt, CancellationToken ct)
     {
         try
         {
@@ -253,13 +266,20 @@ public class ImageDigestService : IImageDigestService
             // Get appropriate registry client
             IRegistryClient client = _registryClientFactory.GetClient(imageRef.Registry);
 
-            // Fetch manifest digest and creation date
-            var (digest, createdAt) = await client.GetManifestDigestAndCreatedAtAsync(
-                imageRef.Repository,
-                imageRef.Tag,
-                architecture,
-                ct
-            );
+            string? digest;
+            DateTime? createdAt = null;
+            if (includeCreatedAt)
+            {
+                // GET: also returns the creation date (counts against the pull-rate limit).
+                (digest, createdAt) = await client.GetManifestDigestAndCreatedAtAsync(
+                    imageRef.Repository, imageRef.Tag, architecture, ct);
+            }
+            else
+            {
+                // HEAD: digest only, not counted against the pull-rate limit.
+                digest = await client.GetManifestDigestAsync(
+                    imageRef.Repository, imageRef.Tag, architecture, ct);
+            }
 
             return new ImageDigestInfo(
                 Image: image,
@@ -270,6 +290,11 @@ public class ImageDigestService : IImageDigestService
                 IsPinnedDigest: false,
                 Error: digest == null ? "Failed to fetch remote digest" : null
             );
+        }
+        catch (RegistryRateLimitException)
+        {
+            // Surfaced to CheckImageUpdateAsync, which trips the shared cooldown gate.
+            throw;
         }
         catch (Exception ex)
         {
@@ -335,8 +360,28 @@ public class ImageDigestService : IImageDigestService
                 );
             }
 
-            // Get remote digest
-            ImageDigestInfo remoteInfo = await GetRemoteDigestAsync(image, hostArch, ct);
+            // Skip the registry entirely while a rate-limit cooldown is active (set after a 429),
+            // so a burst of checks doesn't keep extending the ban.
+            if (_rateLimitGate.IsCoolingDown(out TimeSpan remaining))
+            {
+                _logger.LogDebug(
+                    "Skipping remote digest for {Image}: registry cooling down ({Seconds:0}s left)",
+                    image, remaining.TotalSeconds);
+                return RateLimitedStatus(image, serviceName, hostArch, localInfo);
+            }
+
+            // Get remote digest via HEAD (not counted against the pull-rate limit)
+            ImageDigestInfo remoteInfo;
+            try
+            {
+                remoteInfo = await GetRemoteDigestAsync(image, hostArch, includeCreatedAt: false, ct);
+            }
+            catch (RegistryRateLimitException ex)
+            {
+                _rateLimitGate.Trip(ex.RetryAfter);
+                _logger.LogWarning("Registry rate limit reached while checking {Image}; pausing remote checks", image);
+                return RateLimitedStatus(image, serviceName, hostArch, localInfo);
+            }
 
             // Compare digests
             bool updateAvailable = false;
@@ -348,6 +393,23 @@ public class ImageDigestService : IImageDigestService
             // Determine if multi-arch is supported (we got a valid remote digest)
             bool multiArchSupported = remoteInfo.Digest != null;
 
+            // The HEAD check above does not fetch the creation date; only when an update is detected
+            // do we spend one GET (counted) request to populate RemoteCreatedAt for display.
+            DateTime? remoteCreatedAt = null;
+            if (updateAvailable)
+            {
+                try
+                {
+                    ImageDigestInfo withCreated = await GetRemoteDigestAsync(image, hostArch, includeCreatedAt: true, ct);
+                    remoteCreatedAt = withCreated.CreatedAt;
+                }
+                catch (RegistryRateLimitException ex)
+                {
+                    // The update itself is still valid; just skip the (optional) creation date.
+                    _rateLimitGate.Trip(ex.RetryAfter);
+                }
+            }
+
             string? error = localInfo.Error ?? remoteInfo.Error;
 
             return new ImageUpdateStatus(
@@ -357,7 +419,7 @@ public class ImageDigestService : IImageDigestService
                 LocalDigest: localInfo.Digest,
                 RemoteDigest: remoteInfo.Digest,
                 LocalCreatedAt: localInfo.CreatedAt,
-                RemoteCreatedAt: remoteInfo.CreatedAt,
+                RemoteCreatedAt: remoteCreatedAt,
                 UpdateAvailable: updateAvailable,
                 MultiArchSupported: multiArchSupported,
                 UpdatePolicy: null, // Will be set by ComposeUpdateService based on x-update-policy
@@ -387,5 +449,29 @@ public class ImageDigestService : IImageDigestService
                 Error: ex.Message
             );
         }
+    }
+
+    /// <summary>
+    /// Builds an update status for an image that could not be checked because the registry is
+    /// rate-limiting us. Keeps the local digest so the project stays visible; marks no update.
+    /// </summary>
+    private static ImageUpdateStatus RateLimitedStatus(
+        string image, string serviceName, string hostArch, ImageDigestInfo localInfo)
+    {
+        return new ImageUpdateStatus(
+            Image: image,
+            ServiceName: serviceName,
+            HostArchitecture: hostArch,
+            LocalDigest: localInfo.Digest,
+            RemoteDigest: null,
+            LocalCreatedAt: localInfo.CreatedAt,
+            RemoteCreatedAt: null,
+            UpdateAvailable: false,
+            MultiArchSupported: false,
+            UpdatePolicy: null,
+            IsLocalBuild: false,
+            IsPinnedDigest: false,
+            Error: "Registry rate limited; will retry after cooldown"
+        );
     }
 }

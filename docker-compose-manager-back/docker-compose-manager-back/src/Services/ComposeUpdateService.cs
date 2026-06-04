@@ -974,8 +974,23 @@ public class ComposeUpdateService : IComposeUpdateService
     {
         try
         {
-            // Use the ProjectMatchingService to get the unified project list
-            // This uses the same matching strategies (by name, by path, by filename+directory)
+            // Fast path: most projects map to a discovered file whose ProjectName matches directly
+            // (this is the dominant "Match found by project name" case). Resolving it from the cached
+            // discovery avoids rebuilding the whole unified project list (docker compose ls + matching
+            // + per-project cache scan) just to find one project's compose file.
+            List<Models.DiscoveredComposeFile> discoveredFiles = await _fileCacheService.GetOrScanAsync();
+            Models.DiscoveredComposeFile? directMatch = discoveredFiles.FirstOrDefault(f =>
+                f.ProjectName.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+            if (directMatch != null && !string.IsNullOrEmpty(directMatch.FilePath))
+            {
+                _logger.LogDebug(
+                    "Found compose file by name for project {ProjectName}: {FilePath}",
+                    projectName, directMatch.FilePath);
+                return directMatch.FilePath;
+            }
+
+            // Fallback: the full unified list handles edge cases the direct lookup misses
+            // (path-based / filename+directory matching, Docker project name differing from the file name).
             // We use userId 1 (default admin) since this is only called from admin endpoints
             const int systemAdminUserId = 1;
             List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(systemAdminUserId);
