@@ -1,3 +1,11 @@
+## Changes in v1.23.1
+
+**Merged Pull Requests:**
+- Switch request from GET to HEAD + handle 429 + throttle + log auth tier (#115)
+
+**Commits:**
+
+
 ## Changes in v1.23.0
 
 **Merged Pull Requests:**
