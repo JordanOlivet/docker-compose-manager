@@ -13,9 +13,10 @@ public class UpdateCheckOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Duration in minutes to cache update check results.
+    /// Fallback cache lifetime in minutes for update check results, used only before the effective
+    /// check interval has been published. Normally the cache tracks the check interval.
     /// </summary>
-    public int CacheDurationMinutes { get; set; } = 60;
+    public int CacheDurationMinutes { get; set; } = 720;
 
     /// <summary>
     /// Maximum number of concurrent image update checks.
@@ -44,10 +45,10 @@ public class UpdateCheckOptions
     public List<string> ExcludedImages { get; set; } = new();
 
     /// <summary>
-    /// Interval in minutes between automatic update checks.
+    /// Interval in minutes between automatic update checks. Defaults to 12h to keep registry load low.
     /// Can be overridden via AppSettings key "ProjectUpdateCheckIntervalMinutes".
     /// </summary>
-    public int CheckIntervalMinutes { get; set; } = 10;
+    public int CheckIntervalMinutes { get; set; } = 720;
 
     /// <summary>
     /// Delay in seconds before the first automatic update check after startup.

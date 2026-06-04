@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using docker_compose_manager_back.Configuration;
@@ -39,8 +40,109 @@ public class GenericOciRegistryClient : IRegistryClient
         string architecture,
         CancellationToken cancellationToken = default)
     {
-        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(image, tag, architecture, cancellationToken);
-        return digest;
+        try
+        {
+            string registry = ExtractRegistry(image);
+            string repository = ExtractRepository(image);
+            string registryUrl = $"https://{registry}/v2";
+
+            // Try HEAD anonymously first (HEAD is not counted against pull-rate limits).
+            string? digest = await TryFetchDigestViaHeadAsync(
+                registryUrl, repository, tag, architecture, null, cancellationToken);
+            if (digest != null)
+            {
+                return digest;
+            }
+
+            string? token = await GetTokenViaWwwAuthenticateAsync(registryUrl, repository, cancellationToken);
+            if (token != null)
+            {
+                return await TryFetchDigestViaHeadAsync(
+                    registryUrl, repository, tag, architecture, token, cancellationToken);
+            }
+
+            return null;
+        }
+        catch (RegistryRateLimitException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the manifest digest with a HEAD request. Falls back to the GET path when the registry
+    /// rejects HEAD or omits the digest header. Throws <see cref="RegistryRateLimitException"/> on 429.
+    /// </summary>
+    private async Task<string?> TryFetchDigestViaHeadAsync(
+        string registryUrl,
+        string repository,
+        string tag,
+        string architecture,
+        string? token,
+        CancellationToken cancellationToken)
+    {
+        // Remove tag from repository if present
+        int colonIndex = repository.LastIndexOf(':');
+        if (colonIndex > 0 && !repository.Substring(colonIndex).Contains('/'))
+        {
+            repository = repository.Substring(0, colonIndex);
+        }
+
+        string url = $"{registryUrl}/{repository}/manifests/{tag}";
+
+        using HttpRequestMessage request = new(HttpMethod.Head, url);
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+
+        try
+        {
+            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                throw RegistryRateLimitException.FromResponse(response);
+            }
+
+            // Registry doesn't support HEAD → fall back to the GET path.
+            if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
+            {
+                var (fallbackDigest, _) = await TryFetchManifestAndCreatedAtAsync(
+                    registryUrl, repository, tag, architecture, token, cancellationToken);
+                return fallbackDigest;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogDebug("Manifest HEAD request failed for {Url} with status {StatusCode}", url, response.StatusCode);
+                return null;
+            }
+
+            if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
+            {
+                return digestValues.FirstOrDefault();
+            }
+
+            // No digest header → fall back to GET.
+            var (digest, _) = await TryFetchManifestAndCreatedAtAsync(
+                registryUrl, repository, tag, architecture, token, cancellationToken);
+            return digest;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogDebug(ex, "HTTP HEAD request failed for {Url}", url);
+            return null;
+        }
     }
 
     public async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
@@ -77,6 +179,10 @@ public class GenericOciRegistryClient : IRegistryClient
             }
 
             return (null, null);
+        }
+        catch (RegistryRateLimitException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -386,6 +492,11 @@ public class GenericOciRegistryClient : IRegistryClient
         try
         {
             HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                throw RegistryRateLimitException.FromResponse(response);
+            }
 
             if (!response.IsSuccessStatusCode)
             {

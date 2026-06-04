@@ -264,7 +264,11 @@ builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegist
 builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GhcrRegistryClient>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClient, docker_compose_manager_back.Services.Registry.GenericOciRegistryClient>();
 builder.Services.AddScoped<docker_compose_manager_back.Services.Registry.IRegistryClientFactory, docker_compose_manager_back.Services.Registry.RegistryClientFactory>();
+// Shared across scoped registry clients and successive check cycles → singleton.
+builder.Services.AddSingleton<docker_compose_manager_back.Services.Registry.IRegistryRateLimitGate, docker_compose_manager_back.Services.Registry.RegistryRateLimitGate>();
 builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
+// Shared interval published by the periodic check and consumed by the cache service → singleton.
+builder.Services.AddSingleton<UpdateCheckIntervalState>();
 builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
 builder.Services.AddSingleton<IContainerUpdateCacheService, ContainerUpdateCacheService>();
 builder.Services.AddSingleton<DockerPullProgressParser>();

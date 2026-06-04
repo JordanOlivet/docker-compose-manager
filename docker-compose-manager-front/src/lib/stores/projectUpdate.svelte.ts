@@ -19,8 +19,8 @@ export const projectUpdateState = $state({
   // Loading states
   isCheckingAll: false,
 
-  // Configuration
-  checkIntervalMinutes: 60,
+  // Configuration (default 12h to keep registry load low; user-overridable in Settings)
+  checkIntervalMinutes: 720,
 
   // Errors
   checkError: null as string | null

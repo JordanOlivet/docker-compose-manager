@@ -40,6 +40,7 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
 {
     private readonly IMemoryCache _cache;
     private readonly UpdateCheckOptions _options;
+    private readonly UpdateCheckIntervalState _intervalState;
     private readonly ILogger<ImageUpdateCacheService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -51,12 +52,31 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
 
     public ImageUpdateCacheService(
         IMemoryCache cache,
+        UpdateCheckIntervalState intervalState,
         IOptions<UpdateCheckOptions> options,
         ILogger<ImageUpdateCacheService> logger)
     {
         _cache = cache;
+        _intervalState = intervalState;
         _options = options.Value;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Cache lifetime for a project's check result. Tracks the effective check interval (so cached
+    /// status survives until the next check, whatever interval the user picks) plus 0–20% random
+    /// jitter so the projects cached in one cycle don't all expire on the same minute.
+    /// </summary>
+    private TimeSpan GetCacheLifetime()
+    {
+        int intervalMinutes = _intervalState.IntervalMinutes;
+        if (intervalMinutes <= 0)
+        {
+            intervalMinutes = _options.CacheDurationMinutes;
+        }
+
+        double jitterFactor = 1.0 + (Random.Shared.NextDouble() * 0.2);
+        return TimeSpan.FromMinutes(intervalMinutes * jitterFactor);
     }
 
     public ProjectUpdateCheckResponse? GetCachedCheck(string projectName)
@@ -77,10 +97,12 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
     {
         string cacheKey = GetCacheKey(projectName);
 
+        TimeSpan lifetime = GetCacheLifetime();
         var cacheOptions = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(_options.CacheDurationMinutes),
-            SlidingExpiration = TimeSpan.FromMinutes(_options.CacheDurationMinutes / 2)
+            // No sliding expiration: the entry should live ~one check interval and then be refreshed
+            // by the next cycle, not be kept alive indefinitely by dashboard reads.
+            AbsoluteExpirationRelativeToNow = lifetime
         };
 
         // Set up removal callback to clean up tracking
@@ -102,8 +124,8 @@ public class ImageUpdateCacheService : IImageUpdateCacheService
             _cachedProjects.Add(projectName);
         }
 
-        _logger.LogDebug("Cached update check for project {ProjectName}, expires in {Minutes} minutes",
-            projectName, _options.CacheDurationMinutes);
+        _logger.LogDebug("Cached update check for project {ProjectName}, expires in {Minutes:0.0} minutes",
+            projectName, lifetime.TotalMinutes);
     }
 
     public void InvalidateProject(string projectName)

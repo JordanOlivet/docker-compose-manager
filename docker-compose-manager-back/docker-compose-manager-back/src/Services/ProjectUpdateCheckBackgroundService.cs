@@ -15,17 +15,20 @@ public class ProjectUpdateCheckBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly SseConnectionManagerService _sseManager;
+    private readonly UpdateCheckIntervalState _intervalState;
     private readonly ILogger<ProjectUpdateCheckBackgroundService> _logger;
     private readonly UpdateCheckOptions _options;
 
     public ProjectUpdateCheckBackgroundService(
         IServiceProvider serviceProvider,
         SseConnectionManagerService sseManager,
+        UpdateCheckIntervalState intervalState,
         IOptions<UpdateCheckOptions> options,
         ILogger<ProjectUpdateCheckBackgroundService> logger)
     {
         _serviceProvider = serviceProvider;
         _sseManager = sseManager;
+        _intervalState = intervalState;
         _options = options.Value;
         _logger = logger;
     }
@@ -115,6 +118,7 @@ public class ProjectUpdateCheckBackgroundService : BackgroundService
 
     private async Task<int> GetCheckIntervalAsync(CancellationToken ct)
     {
+        int interval = _options.CheckIntervalMinutes;
         try
         {
             using IServiceScope scope = _serviceProvider.CreateScope();
@@ -123,9 +127,9 @@ public class ProjectUpdateCheckBackgroundService : BackgroundService
             AppSetting? setting = await dbContext.AppSettings
                 .FirstOrDefaultAsync(s => s.Key == "ProjectUpdateCheckIntervalMinutes", ct);
 
-            if (setting != null && int.TryParse(setting.Value, out int interval) && interval >= 5)
+            if (setting != null && int.TryParse(setting.Value, out int dbInterval) && dbInterval >= 5)
             {
-                return interval;
+                interval = dbInterval;
             }
         }
         catch (Exception ex)
@@ -133,6 +137,8 @@ public class ProjectUpdateCheckBackgroundService : BackgroundService
             _logger.LogWarning(ex, "Failed to read check interval from database, using config default");
         }
 
-        return _options.CheckIntervalMinutes;
+        // Publish so the cache service can size entries to match the effective interval.
+        _intervalState.IntervalMinutes = interval;
+        return interval;
     }
 }

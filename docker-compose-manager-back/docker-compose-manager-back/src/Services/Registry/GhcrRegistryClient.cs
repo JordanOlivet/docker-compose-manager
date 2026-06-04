@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using docker_compose_manager_back.Configuration;
@@ -42,7 +43,126 @@ public class GhcrRegistryClient : IRegistryClient
         string architecture,
         CancellationToken cancellationToken = default)
     {
-        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(image, tag, architecture, cancellationToken);
+        try
+        {
+            string? token = GetAuthToken();
+            return await FetchManifestDigestViaHeadAsync(image, tag, architecture, token, cancellationToken);
+        }
+        catch (RegistryRateLimitException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting manifest digest (HEAD) for ghcr.io/{Image}:{Tag}", image, tag);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the manifest digest via HEAD (not counted against pull-rate limits), handling the
+    /// anonymous-token 401 challenge. Falls back to GET when HEAD is unsupported or omits the digest.
+    /// </summary>
+    private async Task<string?> FetchManifestDigestViaHeadAsync(
+        string repository,
+        string tag,
+        string architecture,
+        string? token,
+        CancellationToken cancellationToken)
+    {
+        string url = $"{RegistryUrl}/{repository}/manifests/{tag}";
+
+        using HttpRequestMessage request = new(HttpMethod.Head, url);
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+
+        HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            throw RegistryRateLimitException.FromResponse(response);
+        }
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            string? newToken = await HandleUnauthorizedAsync(response, repository, cancellationToken);
+            if (newToken == null)
+            {
+                return null;
+            }
+            return await FetchManifestDigestViaHeadWithTokenAsync(repository, tag, architecture, newToken, cancellationToken);
+        }
+
+        if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
+        {
+            var (fallbackDigest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+            return fallbackDigest;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Manifest HEAD request failed for ghcr.io/{Repository}:{Tag} with status {StatusCode}",
+                repository, tag, response.StatusCode);
+            return null;
+        }
+
+        if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
+        {
+            return digestValues.FirstOrDefault();
+        }
+
+        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+        return digest;
+    }
+
+    private async Task<string?> FetchManifestDigestViaHeadWithTokenAsync(
+        string repository,
+        string tag,
+        string architecture,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        string url = $"{RegistryUrl}/{repository}/manifests/{tag}";
+
+        using HttpRequestMessage request = new(HttpMethod.Head, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+
+        HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            throw RegistryRateLimitException.FromResponse(response);
+        }
+
+        if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
+        {
+            var (fallbackDigest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+            return fallbackDigest;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Manifest HEAD (token) request failed for ghcr.io/{Repository}:{Tag} with status {StatusCode}",
+                repository, tag, response.StatusCode);
+            return null;
+        }
+
+        if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
+        {
+            return digestValues.FirstOrDefault();
+        }
+
+        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
         return digest;
     }
 
@@ -58,6 +178,10 @@ public class GhcrRegistryClient : IRegistryClient
             string? token = GetAuthToken();
 
             return await FetchManifestDigestAndCreatedAtAsync(image, tag, architecture, token, cancellationToken);
+        }
+        catch (RegistryRateLimitException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -89,7 +213,12 @@ public class GhcrRegistryClient : IRegistryClient
 
         HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
 
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            throw RegistryRateLimitException.FromResponse(response);
+        }
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
             string? newToken = await HandleUnauthorizedAsync(response, repository, cancellationToken);
             if (newToken != null)
@@ -127,6 +256,11 @@ public class GhcrRegistryClient : IRegistryClient
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
 
         HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            throw RegistryRateLimitException.FromResponse(response);
+        }
 
         if (!response.IsSuccessStatusCode)
         {
