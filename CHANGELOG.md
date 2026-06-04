@@ -1,3 +1,11 @@
+## Changes in v1.23.0
+
+**Merged Pull Requests:**
+- Add the possibility to define a global .env file used on every compose up and pull (#114)
+
+**Commits:**
+
+
 ## Changes in v1.22.0
 
 **Merged Pull Requests:**
