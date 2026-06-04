@@ -9,15 +9,18 @@ public class ComposeOperationService : IComposeOperationService
 {
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly IComposeDiscoveryService _discoveryService;
+    private readonly IComposeEnvFileResolver _envFileResolver;
     private readonly ILogger<ComposeOperationService> _logger;
 
     public ComposeOperationService(
         DockerCommandExecutorService dockerExecutor,
         IComposeDiscoveryService discoveryService,
+        IComposeEnvFileResolver envFileResolver,
         ILogger<ComposeOperationService> logger)
     {
         _dockerExecutor = dockerExecutor;
         _discoveryService = discoveryService;
+        _envFileResolver = envFileResolver;
         _logger = logger;
     }
 
@@ -82,10 +85,11 @@ public class ComposeOperationService : IComposeOperationService
                 };
             }
 
-            // Execute docker compose -f <file> up -d [--build]
+            // Execute docker compose -f <file> [--env-file ...] up -d [--build]
             string workingDirectory = Path.GetDirectoryName(composeFilePath) ?? "/";
+            string envFileArgs = await _envFileResolver.BuildEnvFileArgsAsync(workingDirectory, cancellationToken);
             string buildArg = build ? "--build" : "";
-            string arguments = $"up -d {buildArg}".Trim();
+            string arguments = $"{envFileArgs}up -d {buildArg}".Trim();
 
             _logger.LogDebug(
                 "Executing 'up' with compose file '{ComposeFile}' in '{WorkingDir}'",

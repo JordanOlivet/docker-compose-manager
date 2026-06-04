@@ -237,7 +237,8 @@ public class DockerCommandExecutorService
         string arguments,
         Action<string>? onOutputLine,
         Action<string>? onErrorLine,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? workingDirectory = null)
     {
         ProcessStartInfo psi = new()
         {
@@ -248,6 +249,13 @@ public class DockerCommandExecutorService
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        // Set the working directory so docker compose discovers the adjacent .env file
+        // (compose loads .env from the current working directory, not the -f file's directory).
+        if (!string.IsNullOrEmpty(workingDirectory))
+        {
+            psi.WorkingDirectory = workingDirectory;
+        }
 
         StringBuilder output = new();
         StringBuilder error = new();

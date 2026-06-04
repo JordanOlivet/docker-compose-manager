@@ -130,7 +130,9 @@ public class ConfigController : BaseController
     /// </summary>
     [HttpGet("browse")]
     [ProducesResponseType(typeof(ApiResponse<DirectoryBrowseResult>), StatusCodes.Status200OK)]
-    public ActionResult<ApiResponse<DirectoryBrowseResult>> BrowseDirectories([FromQuery] string? path = null)
+    public ActionResult<ApiResponse<DirectoryBrowseResult>> BrowseDirectories(
+        [FromQuery] string? path = null,
+        [FromQuery] bool includeFiles = false)
     {
         try
         {
@@ -223,6 +225,20 @@ public class ConfigController : BaseController
                         .ToList();
 
                     result.Directories = directories;
+
+                    // Optionally list files (used by the file picker, e.g. selecting a global .env file)
+                    if (includeFiles)
+                    {
+                        result.Files = dirInfo.GetFiles()
+                            .OrderBy(f => f.Name)
+                            .Select(f => new DirectoryBrowseInfo
+                            {
+                                Name = f.Name,
+                                Path = f.FullName,
+                                IsAccessible = true
+                            })
+                            .ToList();
+                    }
                 }
                 catch (UnauthorizedAccessException)
                 {
@@ -457,6 +473,13 @@ public class ConfigController : BaseController
             return null;
         }
 
+        if (key == ComposeEnvFileResolver.ComposeGlobalEnvFileKey)
+        {
+            // Empty disables it. A non-empty path is accepted even when the file does not yet exist
+            // (it may appear later); a missing file is logged and skipped at use time, not rejected here.
+            return null;
+        }
+
         return null;
     }
 }
@@ -474,6 +497,9 @@ public class DirectoryBrowseResult
     public string CurrentPath { get; set; } = string.Empty;
     public string? ParentPath { get; set; }
     public List<DirectoryBrowseInfo> Directories { get; set; } = new();
+
+    /// <summary>Files in the current directory. Only populated when the caller requests includeFiles.</summary>
+    public List<DirectoryBrowseInfo> Files { get; set; } = new();
 }
 
 public class DirectoryBrowseInfo

@@ -13,6 +13,7 @@ export { default as PasswordInput } from './common/PasswordInput.svelte';
 export { default as HealthItem } from './common/HealthItem.svelte';
 export { default as ActivityItem } from './common/ActivityItem.svelte';
 export { default as FolderPicker } from './common/FolderPicker.svelte';
+export { default as FilePicker } from './common/FilePicker.svelte';
 export { default as InfoCard } from './common/InfoCard.svelte';
 export type { InfoSection } from './common/InfoCard.svelte';
 

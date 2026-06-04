@@ -234,6 +234,7 @@ builder.Services.AddSingleton<DockerService>();
 
 // Register Docker Compose services (new architecture)
 builder.Services.AddSingleton<DockerCommandExecutorService>();
+builder.Services.AddSingleton<IComposeEnvFileResolver, ComposeEnvFileResolver>();
 builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
 builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
 
