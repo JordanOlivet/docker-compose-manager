@@ -1,3 +1,11 @@
+## Changes in v1.23.2
+
+**Merged Pull Requests:**
+- Add retry and delay to prevent too many request response when auto updating a lot of projects (#116)
+
+**Commits:**
+
+
 ## Changes in v1.23.1
 
 **Merged Pull Requests:**
