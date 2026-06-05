@@ -1,6 +1,7 @@
 using System.Text;
 using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.DTOs;
+using docker_compose_manager_back.Services.Registry;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 
@@ -74,6 +75,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly DockerPullProgressParser _progressParser;
     private readonly OperationService _operationService;
     private readonly SseConnectionManagerService _sseManager;
+    private readonly IRegistryRateLimitGate _rateLimitGate;
     private readonly ILogger<ComposeUpdateService> _logger;
     private readonly UpdateCheckOptions _options;
 
@@ -93,6 +95,7 @@ public class ComposeUpdateService : IComposeUpdateService
         DockerPullProgressParser progressParser,
         OperationService operationServiceDb,
         SseConnectionManagerService sseManager,
+        IRegistryRateLimitGate rateLimitGate,
         IOptions<UpdateCheckOptions> options,
         ILogger<ComposeUpdateService> logger)
     {
@@ -109,6 +112,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _progressParser = progressParser;
         _operationService = operationServiceDb;
         _sseManager = sseManager;
+        _rateLimitGate = rateLimitGate;
         _options = options.Value;
         _logger = logger;
     }
@@ -398,13 +402,74 @@ public class ComposeUpdateService : IComposeUpdateService
                 }
             }
 
-            (int pullExitCode, string pullOutput, string pullError) = await _dockerExecutor.ExecuteWithStreamingAsync(
-                "docker",
-                $"compose {envFileArgs}-f \"{composeFilePath}\" pull {servicesArg}",
-                OnPullOutput,
-                OnPullOutput, // Also capture stderr as it may contain progress info
-                ct,
-                workingDirectory: composeDirectory);
+            string pullCommandArgs = $"compose {envFileArgs}-f \"{composeFilePath}\" pull {servicesArg}";
+
+            // Retry a rate-limited pull (HTTP 429 / toomanyrequests). ghcr.io and similar token-bucket
+            // limiters report a sub-millisecond Retry-After, so the daemon's single attempt fails even
+            // though an immediate retry with a small floor delay usually succeeds. We also honor and
+            // trip the shared cooldown gate so concurrent/next work backs off too.
+            int pullExitCode = 0;
+            string pullOutput = string.Empty;
+            string pullError = string.Empty;
+            int maxPullAttempts = Math.Max(1, _options.PullRetryAttempts + 1);
+            TimeSpan pullMaxDelay = TimeSpan.FromSeconds(_options.PullRetryMaxDelaySeconds);
+
+            for (int attempt = 1; attempt <= maxPullAttempts; attempt++)
+            {
+                // Honor a cooldown set by an earlier 429 (this pull or a concurrent digest check),
+                // bounded so a long cooldown never stalls the update indefinitely.
+                if (_rateLimitGate.IsCoolingDown(out TimeSpan cooldown))
+                {
+                    TimeSpan wait = cooldown < pullMaxDelay ? cooldown : pullMaxDelay;
+                    if (wait > TimeSpan.Zero)
+                    {
+                        _logger.LogInformation(
+                            "Registry cooling down ({Cooldown:0}s); waiting {Wait:0}s before pulling {Project}",
+                            cooldown.TotalSeconds, wait.TotalSeconds, projectName);
+                        await Task.Delay(wait, ct);
+                    }
+                }
+
+                // Reset streaming progress for a clean retry (layers re-report from scratch).
+                if (attempt > 1)
+                {
+                    _progressParser.Reset();
+                    serviceProgress = _progressParser.InitializeProgress(servicesToUpdate);
+                    lastProgressSent = DateTime.MinValue;
+                }
+
+                (pullExitCode, pullOutput, pullError) = await _dockerExecutor.ExecuteWithStreamingAsync(
+                    "docker",
+                    pullCommandArgs,
+                    OnPullOutput,
+                    OnPullOutput, // Also capture stderr as it may contain progress info
+                    ct,
+                    workingDirectory: composeDirectory);
+
+                if (pullExitCode == 0)
+                {
+                    break;
+                }
+
+                bool isRateLimited = RegistryPullRetry.IsRateLimitError(pullError)
+                    || RegistryPullRetry.IsRateLimitError(pullOutput);
+                if (isRateLimited && attempt < maxPullAttempts)
+                {
+                    TimeSpan backoff = RegistryPullRetry.ComputeBackoff(
+                        attempt,
+                        TimeSpan.FromSeconds(_options.PullRetryBaseDelaySeconds),
+                        pullMaxDelay);
+                    _rateLimitGate.Trip(backoff);
+                    _logger.LogWarning(
+                        "Pull for {Project} hit registry rate limit (attempt {Attempt}/{Max}); retrying in {Delay:0}s",
+                        projectName, attempt, maxPullAttempts, backoff.TotalSeconds);
+                    await Task.Delay(backoff, ct);
+                    continue;
+                }
+
+                // Non-retryable error, or out of attempts.
+                break;
+            }
 
             if (pullExitCode != 0)
             {

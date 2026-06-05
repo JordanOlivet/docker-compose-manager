@@ -1,8 +1,10 @@
 using Cronos;
+using docker_compose_manager_back.Configuration;
 using docker_compose_manager_back.Data;
 using docker_compose_manager_back.Models;
 using docker_compose_manager_back.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace docker_compose_manager_back.Services;
 
@@ -25,14 +27,17 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(20);
 
     private readonly IServiceProvider _serviceProvider;
+    private readonly UpdateCheckOptions _options;
     private readonly ILogger<AutoUpdateComposeBackgroundService> _logger;
     private readonly SemaphoreSlim _cycleLock = new(1, 1);
 
     public AutoUpdateComposeBackgroundService(
         IServiceProvider serviceProvider,
+        IOptions<UpdateCheckOptions> options,
         ILogger<AutoUpdateComposeBackgroundService> logger)
     {
         _serviceProvider = serviceProvider;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -142,6 +147,8 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
 
             int updated = 0;
             int skippedFlag = 0;
+            bool anyUpdateAttempted = false;
+            TimeSpan projectDelay = TimeSpan.FromSeconds(Math.Max(0, _options.AutoUpdateProjectDelaySeconds));
 
             foreach (DTOs.ProjectUpdateSummary summary in checkResult.Projects)
             {
@@ -163,6 +170,15 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                     );
                     continue;
                 }
+
+                // Space pulls out across projects so a burst of `docker compose pull` calls does not
+                // trip per-minute registry rate limits (ghcr.io in particular). First update runs
+                // immediately; subsequent ones wait the configured delay.
+                if (anyUpdateAttempted && projectDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(projectDelay, ct);
+                }
+                anyUpdateAttempted = true;
 
                 // Capture per-service old/new digests for the notification before updating
                 // (cached check; ProjectUpdateCheckBackgroundService keeps the cache warm).
