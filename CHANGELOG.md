@@ -1,3 +1,11 @@
+## Changes in v1.23.3
+
+**Merged Pull Requests:**
+- Try to fix ghcr burst attempt provoking auto update fail (#122)
+
+**Commits:**
+
+
 ## Changes in v1.23.2
 
 **Merged Pull Requests:**
