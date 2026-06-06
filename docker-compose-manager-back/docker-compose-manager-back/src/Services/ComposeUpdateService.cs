@@ -455,16 +455,31 @@ public class ComposeUpdateService : IComposeUpdateService
                     || RegistryPullRetry.IsRateLimitError(pullOutput);
                 if (isRateLimited && attempt < maxPullAttempts)
                 {
-                    TimeSpan backoff = RegistryPullRetry.ComputeBackoff(
-                        attempt,
-                        TimeSpan.FromSeconds(_options.PullRetryBaseDelaySeconds),
-                        pullMaxDelay);
+                    // ghcr.io meters per minute and reports a bogus sub-millisecond Retry-After, so
+                    // we back off on our own schedule (sized to span a minute) with jitter to avoid
+                    // re-bursting in lockstep across projects.
+                    TimeSpan backoff = RegistryPullRetry.ApplyJitter(
+                        RegistryPullRetry.ComputeBackoff(
+                            attempt,
+                            TimeSpan.FromSeconds(_options.PullRetryBaseDelaySeconds),
+                            pullMaxDelay),
+                        _options.PullRetryJitterFactor);
                     _rateLimitGate.Trip(backoff);
                     _logger.LogWarning(
                         "Pull for {Project} hit registry rate limit (attempt {Attempt}/{Max}); retrying in {Delay:0}s",
                         projectName, attempt, maxPullAttempts, backoff.TotalSeconds);
                     await Task.Delay(backoff, ct);
                     continue;
+                }
+
+                if (isRateLimited)
+                {
+                    // Out of attempts and still rate limited: trip a real cooldown so the remaining
+                    // projects in this cycle back off instead of bursting the registry again.
+                    _rateLimitGate.Trip(pullMaxDelay);
+                    _logger.LogWarning(
+                        "Pull for {Project} still rate limited after {Max} attempts; pausing further pulls for {Delay:0}s",
+                        projectName, maxPullAttempts, pullMaxDelay.TotalSeconds);
                 }
 
                 // Non-retryable error, or out of attempts.

@@ -44,4 +44,29 @@ public static class RegistryPullRetry
         TimeSpan delay = TimeSpan.FromSeconds(seconds);
         return delay > maxDelay ? maxDelay : delay;
     }
+
+    /// <summary>
+    /// Applies random jitter to <paramref name="delay"/> of ±<paramref name="factor"/> (e.g. 0.2 =
+    /// ±20%) so concurrent or back-to-back retries don't re-burst the registry in lockstep.
+    /// <paramref name="factor"/> is clamped to [0, 1); the result is never negative.
+    /// </summary>
+    public static TimeSpan ApplyJitter(TimeSpan delay, double factor, Random? random = null)
+    {
+        if (factor <= 0 || delay <= TimeSpan.Zero)
+        {
+            return delay;
+        }
+
+        if (factor >= 1)
+        {
+            factor = 0.999;
+        }
+
+        random ??= Random.Shared;
+
+        // Uniform multiplier in [1 - factor, 1 + factor].
+        double multiplier = 1 + ((random.NextDouble() * 2 - 1) * factor);
+        double seconds = delay.TotalSeconds * multiplier;
+        return seconds <= 0 ? TimeSpan.Zero : TimeSpan.FromSeconds(seconds);
+    }
 }
