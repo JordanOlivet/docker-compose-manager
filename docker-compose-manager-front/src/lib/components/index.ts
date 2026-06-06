@@ -29,8 +29,5 @@ export { default as MainLayout } from './layout/MainLayout.svelte';
 export { default as Header } from './layout/Header.svelte';
 export { default as Sidebar } from './layout/Sidebar.svelte';
 
-// Charts
-export * from './charts';
-
 // Monaco Editor
 export { default as MonacoEditor } from './MonacoEditor.svelte';
