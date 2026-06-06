@@ -401,6 +401,52 @@ sudo chmod 666 /var/run/docker.sock
 # Check "Expose daemon on tcp://localhost:2375" in settings
 ```
 
+### Registry Rate Limit (`toomanyrequests`) During Pulls / Auto-Update
+
+Symptom in logs:
+
+```
+toomanyrequests: retry-after: 246.822µs, allowed: 44000/minute
+Pull failed for <project>: ... toomanyrequests ...
+```
+
+This is **not** a volume problem. `allowed: 44000/minute` is the registry's
+advertised limit, not your request count — even updating 2 projects with no
+prior activity can trip it. The trigger is a **concurrency burst**: a single
+`docker compose pull` fetches image layers in parallel (the Docker daemon
+defaults to 3 concurrent downloads) and fires manifest + config-blob requests
+almost simultaneously. ghcr.io uses a token bucket with a small instantaneous
+capacity, so the burst empties it and returns HTTP 429. The reported
+`retry-after` (microseconds) is bogus; repeated 429s in quick succession make
+ghcr.io extend the penalty.
+
+The application already retries rate-limited pulls with a jittered backoff sized
+to span ghcr.io's per-minute reset (`UpdateCheck:PullRetry*` options), which
+avoids escalating the penalty. To remove the trigger entirely, **cap the
+daemon's concurrent downloads on the host** (this is a daemon-level setting;
+`docker compose pull` has no equivalent flag):
+
+```json
+// /etc/docker/daemon.json   (Linux host — NOT inside the app container)
+{
+  "max-concurrent-downloads": 1
+}
+```
+
+Then restart the daemon:
+
+```bash
+sudo systemctl restart docker
+```
+
+On Docker Desktop (Windows/Mac), set the same key via **Settings → Docker Engine**
+and apply. With low concurrency the burst disappears, so low-volume update cycles
+stop hitting 429 altogether.
+
+Authenticating to ghcr.io (**Settings → Registry Management**) raises the limit
+but does **not** prevent burst trips on its own — combine it with
+`max-concurrent-downloads` for the most reliable result.
+
 ### Database Locked
 
 SQLite can have issues with concurrent access:

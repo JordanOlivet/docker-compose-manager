@@ -63,4 +63,34 @@ public class RegistryPullRetryTests
         RegistryPullRetry.ComputeBackoff(0, baseDelay, max).Should().Be(baseDelay);
         RegistryPullRetry.ComputeBackoff(-5, baseDelay, max).Should().Be(baseDelay);
     }
+
+    [Fact]
+    public void ApplyJitter_StaysWithinFactorBounds()
+    {
+        TimeSpan delay = TimeSpan.FromSeconds(40);
+        double factor = 0.2;
+        var random = new Random(12345);
+
+        for (int i = 0; i < 1000; i++)
+        {
+            TimeSpan jittered = RegistryPullRetry.ApplyJitter(delay, factor, random);
+            jittered.Should().BeGreaterThanOrEqualTo(TimeSpan.FromSeconds(32)); // 40 * 0.8
+            jittered.Should().BeLessThanOrEqualTo(TimeSpan.FromSeconds(48));    // 40 * 1.2
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-0.5)]
+    public void ApplyJitter_ReturnsDelayUnchangedForNonPositiveFactor(double factor)
+    {
+        TimeSpan delay = TimeSpan.FromSeconds(10);
+        RegistryPullRetry.ApplyJitter(delay, factor).Should().Be(delay);
+    }
+
+    [Fact]
+    public void ApplyJitter_ReturnsZeroForZeroDelay()
+    {
+        RegistryPullRetry.ApplyJitter(TimeSpan.Zero, 0.2).Should().Be(TimeSpan.Zero);
+    }
 }
