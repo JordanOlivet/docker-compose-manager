@@ -57,23 +57,31 @@ public class UpdateCheckOptions
 
     /// <summary>
     /// Number of extra attempts for a `docker compose pull` that fails with a registry rate limit
-    /// (HTTP 429 / toomanyrequests). The first attempt is not counted, so a value of 3 means up to
-    /// 4 total attempts. Registry token-bucket limiters often report a sub-millisecond Retry-After,
-    /// so an immediate retry with a small floor delay usually succeeds.
+    /// (HTTP 429 / toomanyrequests). The first attempt is not counted, so a value of 4 means up to
+    /// 5 total attempts. ghcr.io meters per minute (its reported sub-millisecond Retry-After is
+    /// bogus), so the backoff is sized to span a full minute and let the per-minute bucket reset.
     /// </summary>
-    public int PullRetryAttempts { get; set; } = 3;
+    public int PullRetryAttempts { get; set; } = 4;
 
     /// <summary>
     /// Base/floor delay in seconds for the exponential backoff between rate-limited pull retries.
     /// Used instead of the (often bogus, sub-millisecond) Retry-After reported by the registry.
     /// </summary>
-    public int PullRetryBaseDelaySeconds { get; set; } = 3;
+    public int PullRetryBaseDelaySeconds { get; set; } = 5;
 
     /// <summary>
     /// Maximum delay in seconds for a single pull-retry backoff, and the cap on how long the pull
-    /// path will wait for an active rate-limit cooldown before proceeding anyway.
+    /// path will wait for an active rate-limit cooldown before proceeding anyway. Sized so the total
+    /// retry window crosses ghcr.io's per-minute rate-limit reset.
     /// </summary>
-    public int PullRetryMaxDelaySeconds { get; set; } = 30;
+    public int PullRetryMaxDelaySeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Random jitter applied to each rate-limited pull-retry backoff, as a fraction of the backoff
+    /// (0.2 = ±20%). Spreads retries so concurrent/sequential projects don't re-burst the registry
+    /// in lockstep. Clamped to [0, 1).
+    /// </summary>
+    public double PullRetryJitterFactor { get; set; } = 0.2;
 
     /// <summary>
     /// Delay in seconds inserted between projects during an automatic compose update cycle, to
