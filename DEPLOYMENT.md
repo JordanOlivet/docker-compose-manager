@@ -205,13 +205,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # WebSocket support for SignalR
-    location /hub/ {
+    # Server-Sent Events (SSE) stream - disable buffering so events flush live
+    location /api/events/ {
         proxy_pass http://app:80;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
     }
 }
 ```
@@ -462,12 +464,13 @@ ls -la ./data/
 docker compose start
 ```
 
-### WebSocket Connection Failed
+### Real-Time (SSE) Connection Failed
 
 If real-time updates don't work:
 
-1. Check reverse proxy WebSocket configuration
-2. Ensure `/hub/*` paths are proxied with upgrade headers
+1. Ensure the reverse proxy forwards `/api/events/*` with `proxy_buffering off`
+   (SSE needs an unbuffered, long-lived response)
+2. Check that intermediate proxies/timeouts aren't closing the stream early
 3. Check browser console for connection errors
 
 ### Health Check Failing

@@ -1,0 +1,11 @@
+# Sample compose file so the Compose Discovery feature has something to show
+# in local development. The dev-setup scripts point HostPathMapping at this
+# folder. Drop your own .yml/.yaml files here to experiment.
+name: demo-stack
+services:
+  whoami:
+    image: traefik/whoami:latest
+    container_name: demo-whoami
+    ports:
+      - "8088:80"
+    restart: unless-stopped

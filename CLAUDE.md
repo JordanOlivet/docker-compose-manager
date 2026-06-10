@@ -11,7 +11,7 @@ This repository contains a Docker Compose management system deployed as a **unif
 
 The system provides a web-based interface for managing Docker containers and compose files, with features including user authentication, role-based access control, real-time updates via SSE (Server-Sent Events), a compose file editor, and self-update capabilities.
 
-**Current Version**: See `VERSION` file (currently v1.9.2)
+**Current Version**: See `VERSION` file
 
 **Deployment Architecture**: The production deployment uses a single Docker image containing both frontend and backend, managed by Supervisor with Nginx as a reverse proxy. See [DEPLOYMENT.md](DEPLOYMENT.md) for details.
 
@@ -54,7 +54,7 @@ dotnet ef database update --project docker-compose-manager-back
 dotnet ef migrations remove --project docker-compose-manager-back
 ```
 
-Backend runs at `https://localhost:5050` with Swagger UI at `https://localhost:5050/swagger`
+Backend runs at `http://localhost:5050` (http launch profile). Swagger is disabled by default; use the `GET /health` endpoint to verify it's up.
 
 ### Frontend (docker-compose-manager-front)
 
@@ -222,7 +222,7 @@ src/
 | Monaco Editor | 0.55+ | Code editor for compose files |
 | Axios | 1.x | HTTP client |
 | Zod | 4.x | Schema validation |
-| i18next | 24.x | Internationalization |
+| i18next | 26.x | Internationalization |
 
 **Real-Time Updates (SSE):**
 
@@ -316,17 +316,17 @@ The application can update itself via GitHub releases:
 ### Local Development (Without Docker)
 
 1. **Backend**:
-   - Configure `appsettings.Development.json`
-   - Run `dotnet ef database update` to create database
-   - Run `dotnet watch run` for hot-reload
-   - Access Swagger UI at `https://localhost:5050/swagger`
+   - Per-developer overrides go in the gitignored `appsettings.Development.local.json`
+   - Migrations apply automatically on startup (no manual `dotnet ef database update` needed)
+   - Run `dotnet watch run --project docker-compose-manager-back --launch-profile http` for hot-reload
+   - Verify with `GET http://localhost:5050/health` (Swagger is disabled by default)
 
 2. **Frontend**:
-   - Optionally create `.env.development` with `VITE_API_URL=https://localhost:5050`
+   - Create `.env.development` with `VITE_API_URL=http://localhost:5050` (dev runs over HTTP)
    - Run `npm install` then `npm run dev`
    - Access at `http://localhost:5173`
 
-3. **Default Credentials**: Username `admin`, password `admin`
+3. **Default Credentials**: Username `admin`, password `adminadmin` (must be changed on first login)
 
 ### Dev Test Page
 

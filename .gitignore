@@ -13,6 +13,10 @@ docker-compose-manager-front/.vite/
 # Environment files
 .env
 !.env.example
+docker-compose-manager-front/.env.development
+
+# Generated per-developer dev config (see dev-setup/)
+**/appsettings.Development.local.json
 
 # IDE
 .vs/
@@ -40,3 +44,8 @@ docker-compose-manager-back/docker-compose-manager-back/obj
 *.bat
 *.sh
 *.ps1
+# ...but keep the tracked project scripts (dev-setup scripts re-included via dev-setup/.gitignore)
+!build-check.sh
+!build-check.ps1
+!run.sh
+!run.ps1

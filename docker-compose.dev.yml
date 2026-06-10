@@ -25,5 +25,5 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - Serilog__MinimumLevel__Default=Debug
     volumes:
-      # Montage du bureau pour tester la découverte de fichiers compose
-      - C:\Users\Lakio\Desktop:/app/compose-files
+      # Sample compose files for testing discovery (override with your own path if needed)
+      - ./dev-setup/sample-compose-files:/app/compose-files

@@ -1,0 +1,3 @@
+# Re-include the dev bootstrap scripts (root .gitignore ignores *.ps1 / *.sh)
+!setup.ps1
+!setup.sh

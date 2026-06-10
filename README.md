@@ -129,7 +129,7 @@ For Windows hosts, replace the Docker socket volume with:
 - **Update policy support** - Control updates per-service via `x-update-policy` in compose files
 
 ### Real-Time Updates
-- Live container status via SignalR WebSockets
+- Live container status via Server-Sent Events (SSE)
 - Real-time log streaming
 - Instant notifications for operations
 
@@ -243,19 +243,24 @@ volumes:
 
 ### Prerequisites
 - Docker Desktop or Docker Engine
-- .NET 9 SDK
+- .NET 10 SDK
 - Node.js 20+
+
+> **Fastest path:** run `dev-setup/setup.ps1` (Windows) or `dev-setup/setup.sh`
+> (Linux/macOS) to install prerequisites and configure everything, then `run.ps1`
+> / `run.sh` to build and launch both apps. See [dev-setup/README.md](dev-setup/README.md)
+> and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Backend
 
 ```bash
 cd docker-compose-manager-back
 
-# Restore and run
+# Restore and run (HTTP dev profile on http://localhost:5050)
 dotnet restore
-dotnet watch run
+dotnet watch run --project docker-compose-manager-back --launch-profile http
 
-# Access Swagger UI at http://localhost:5050/swagger
+# Health check: http://localhost:5050/health
 ```
 
 ### Frontend
@@ -294,7 +299,7 @@ docker compose up --build
 │           ▼                               ▼                 │
 │  ┌─────────────────┐            ┌─────────────────┐         │
 │  │   Frontend      │            │    Backend      │         │
-│  │   (SvelteKit)   │  /api/*    │   (.NET 9)      │         │
+│  │   (SvelteKit)   │  /api/*    │   (.NET 10)     │         │
 │  │   Static Files  │ ─────────► │   :5050         │         │
 │  └─────────────────┘            └────────┬────────┘         │
 │                                          │                  │
@@ -308,11 +313,11 @@ docker compose up --build
 
 ### Technology Stack
 
-**Backend (.NET 9)**
+**Backend (.NET 10)**
 - ASP.NET Core Web API
 - Entity Framework Core + SQLite
 - Docker.DotNet for Docker API
-- SignalR for real-time updates
+- Server-Sent Events (SSE) for real-time updates
 - Serilog for logging
 
 **Frontend (SvelteKit 2)**
@@ -353,6 +358,8 @@ You will be required to change the password on first login.
 
 ## Documentation
 
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contributor & dev workflow guide
+- [dev-setup/README.md](dev-setup/README.md) - One-shot dev environment bootstrap
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
 - [SPECS.md](SPECS.md) - Technical specifications
 - [CHANGELOG.md](CHANGELOG.md) - Version history
