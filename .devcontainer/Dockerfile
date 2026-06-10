@@ -38,4 +38,4 @@ RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || true \
 # Add user to docker group (will be created if socket is mounted)
 RUN groupadd -f docker && usermod -aG docker $USERNAME
 
-USER $USERNAME
+USER vscode
