@@ -19,7 +19,7 @@ services:
         VITE_APP_VERSION: 0.0.1-dev
         VITE_BUILD_DATE: "2026-01-27"
         VITE_GIT_COMMIT: dev
-    image: docker-compose-manager:dev
+    image: lighthouse:dev
     environment:
       # Configuration pour le développement
       - ASPNETCORE_ENVIRONMENT=Development

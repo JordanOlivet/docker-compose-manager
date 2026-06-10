@@ -25,7 +25,7 @@ jobs:
     uses: JordanOlivet/ci-workflows/.github/workflows/build-dotnet.yml@v1
     with:
       version: ${{ needs.release.outputs.version }}
-      project-path: docker-compose-manager-back
+      project-path: lighthouse-back
       dotnet-version: '9.0.x'
       run-tests: true
     secrets: inherit
@@ -36,7 +36,7 @@ jobs:
     uses: JordanOlivet/ci-workflows/.github/workflows/build-node.yml@v1
     with:
       version: ${{ needs.release.outputs.version }}
-      working-directory: docker-compose-manager-front
+      working-directory: lighthouse-front
       node-version: '20'
       run-tests: true
       test-command: 'test -- --run'
@@ -48,7 +48,7 @@ jobs:
     uses: JordanOlivet/ci-workflows/.github/workflows/build-docker.yml@v1
     with:
       version: ${{ needs.release.outputs.version }}
-      image-name: docker-compose-manager
+      image-name: lighthouse
       dockerfile: Dockerfile
       context: .
       platforms: linux/amd64

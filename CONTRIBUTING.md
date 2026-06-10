@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to Docker Compose Manager! This guide gets you from a
+Thanks for contributing to Lighthouse! This guide gets you from a
 fresh clone to a working dev loop and explains how changes get merged and released.
 
 ## 1. Get set up
@@ -43,8 +43,8 @@ You can also run each app on its own — see [dev-setup/README.md](dev-setup/REA
 ## 3. Project layout
 
 ```
-docker-compose-manager-back/     .NET 10 Web API (Controllers, Services, Data, ...)
-docker-compose-manager-front/    SvelteKit + Svelte 5 frontend (routes, lib, ...)
+lighthouse-back/     .NET 10 Web API (Controllers, Services, Data, ...)
+lighthouse-front/    SvelteKit + Svelte 5 frontend (routes, lib, ...)
 dev-setup/                       Dev bootstrap scripts + sample compose files
 run.{ps1,sh}                     Build + launch both apps
 run.cmd                          Windows double-click launcher for run.ps1
@@ -62,7 +62,7 @@ Run the build/check script and the backend tests:
 
 ```bash
 .\build-check.ps1            # or ./build-check.sh  -> Backend build + Frontend check
-cd docker-compose-manager-back && dotnet test
+cd lighthouse-back && dotnet test
 ```
 
 > **Windows tip:** if you'd rather double-click than run it from a terminal, use
@@ -70,7 +70,7 @@ cd docker-compose-manager-back && dotnet test
 > (or "Run with PowerShell") tends to close the window instantly on error;
 > `build-check.cmd` keeps it open until you press a key, whatever happens.
 
-- Backend tests live in `docker-compose-manager-back.Tests/` (xUnit + Moq +
+- Backend tests live in `lighthouse-back.Tests/` (xUnit + Moq +
   FluentAssertions). Add tests for new services/controllers.
 - The frontend has no automated test suite yet; run `npm run check` (also covered
   by `build-check`) and verify manually.
@@ -81,8 +81,8 @@ Migrations apply automatically on startup. You only need the EF CLI to **author*
 a migration:
 
 ```bash
-cd docker-compose-manager-back
-dotnet ef migrations add MyMigration --project docker-compose-manager-back
+cd lighthouse-back
+dotnet ef migrations add MyMigration --project lighthouse-back
 ```
 
 `dev-setup` can install the `dotnet-ef` tool for you on request.

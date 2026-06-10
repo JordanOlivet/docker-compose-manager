@@ -9,8 +9,8 @@
 set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACK_DIR="$REPO_ROOT/docker-compose-manager-back"
-FRONT_DIR="$REPO_ROOT/docker-compose-manager-front"
+BACK_DIR="$REPO_ROOT/lighthouse-back"
+FRONT_DIR="$REPO_ROOT/lighthouse-front"
 
 CYAN='\033[0;36m'; GREEN='\033[0;32m'; RED='\033[0;31m'; WHITE='\033[0;37m'; YELLOW='\033[0;33m'; NC='\033[0m'
 
@@ -30,7 +30,7 @@ header "Build frontend (SvelteKit)"
 # ----- Launch ----------------------------------------------------------------
 header "Launch"
 
-BACK_CMD="cd '$BACK_DIR' && dotnet watch run --project docker-compose-manager-back --launch-profile http"
+BACK_CMD="cd '$BACK_DIR' && dotnet watch run --project lighthouse-back --launch-profile http"
 FRONT_CMD="cd '$FRONT_DIR' && npm run dev"
 
 # Try to open each app in its own GUI terminal window. Returns 0 on success.
@@ -80,7 +80,7 @@ else
     # Kill the whole process group (both servers and their children) on exit/Ctrl-C.
     trap 'echo -e "\n${YELLOW}Stopping...${NC}"; kill 0' SIGINT SIGTERM EXIT
 
-    ( cd "$BACK_DIR" && exec dotnet watch run --project docker-compose-manager-back --launch-profile http ) &
+    ( cd "$BACK_DIR" && exec dotnet watch run --project lighthouse-back --launch-profile http ) &
     ( cd "$FRONT_DIR" && exec npm run dev ) &
     wait
 fi

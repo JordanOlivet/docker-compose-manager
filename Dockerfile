@@ -4,11 +4,11 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS backend-build
 WORKDIR /src
 
 # Copy backend project file and restore dependencies
-COPY docker-compose-manager-back/docker-compose-manager-back/*.csproj ./
+COPY lighthouse-back/lighthouse-back/*.csproj ./
 RUN dotnet restore
 
 # Copy backend source and build
-COPY docker-compose-manager-back/docker-compose-manager-back/ ./
+COPY lighthouse-back/lighthouse-back/ ./
 ARG VERSION=0.0.0
 ARG ASSEMBLY_VERSION=0.0.0
 ARG BUILD_DATE
@@ -25,11 +25,11 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app
 
 # Copy frontend package files and install dependencies
-COPY docker-compose-manager-front/package*.json ./
+COPY lighthouse-front/package*.json ./
 RUN npm ci
 
 # Copy frontend source and build
-COPY docker-compose-manager-front/ ./
+COPY lighthouse-front/ ./
 ARG VITE_APP_VERSION
 ARG VITE_BUILD_DATE
 ARG VITE_GIT_COMMIT

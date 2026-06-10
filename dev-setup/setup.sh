@@ -1,5 +1,5 @@
 #!/bin/bash
-# Dev environment bootstrap for Docker Compose Manager (Linux / macOS).
+# Dev environment bootstrap for Lighthouse (Linux / macOS).
 # Detects prerequisites, prompts before installing any missing ones, generates
 # gitignored local dev config, and installs project dependencies.
 # This script NEVER launches the app - use ../run.sh to build and run.
@@ -12,9 +12,9 @@ trap 'echo; read -rsn1 -p "Press any key to close..."; echo' EXIT
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BACK_DIR="$REPO_ROOT/docker-compose-manager-back"
-BACK_PROJ="$BACK_DIR/docker-compose-manager-back"
-FRONT_DIR="$REPO_ROOT/docker-compose-manager-front"
+BACK_DIR="$REPO_ROOT/lighthouse-back"
+BACK_PROJ="$BACK_DIR/lighthouse-back"
+FRONT_DIR="$REPO_ROOT/lighthouse-front"
 SAMPLE_DIR="$SCRIPT_DIR/sample-compose-files"
 
 CYAN='\033[0;36m'; GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; NC='\033[0m'

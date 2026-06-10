@@ -1,5 +1,5 @@
 {
-  "name": "Docker Compose Manager",
+  "name": "Lighthouse",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "."
@@ -22,7 +22,7 @@
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
-        "dotnet.defaultSolution": "docker-compose-manager-back/docker-compose-manager-back.sln",
+        "dotnet.defaultSolution": "lighthouse-back/lighthouse-back.sln",
         "editor.formatOnSave": true,
         "[csharp]": {
           "editor.defaultFormatter": "ms-dotnettools.csharp"
@@ -57,7 +57,7 @@
     }
   },
 
-  "postCreateCommand": "cd docker-compose-manager-back && dotnet restore && cd ../docker-compose-manager-front && npm install",
+  "postCreateCommand": "cd lighthouse-back && dotnet restore && cd ../lighthouse-front && npm install",
 
   "mounts": [
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"

@@ -18,7 +18,7 @@ echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}  Backend Build (.NET)${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
-pushd docker-compose-manager-back > /dev/null
+pushd lighthouse-back > /dev/null
 dotnet build --nologo -v q || backend_result=$?
 popd > /dev/null
 
@@ -26,7 +26,7 @@ echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}  Frontend Check (SvelteKit)${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
-pushd docker-compose-manager-front > /dev/null
+pushd lighthouse-front > /dev/null
 npm run check || frontend_result=$?
 popd > /dev/null
 

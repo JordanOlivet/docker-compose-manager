@@ -3,13 +3,13 @@
 #   IMAGE_TAG=1.2.0-my-branch docker compose -f docker-compose.vs-debug.yml up --build
 
 services:
-  docker-compose-manager:
+  lighthouse:
     build:
       context: .
       dockerfile: debug/Dockerfile.debug
       args:
         IMAGE_TAG: latest-dev
-    container_name: dcm-debug
+    container_name: lighthouse-debug
     ports:
       - "7070:80"
     environment:

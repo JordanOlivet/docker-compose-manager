@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Dev environment bootstrap for Docker Compose Manager (Windows).
+# Dev environment bootstrap for Lighthouse (Windows).
 # Detects prerequisites, prompts before installing any missing ones, generates
 # gitignored local dev config, and installs project dependencies.
 # This script NEVER launches the app - use ../run.ps1 to build and run.
@@ -17,9 +17,9 @@ trap {
 }
 
 $RepoRoot   = Split-Path -Parent $PSScriptRoot
-$BackDir    = Join-Path $RepoRoot "docker-compose-manager-back"
-$BackProj   = Join-Path $BackDir "docker-compose-manager-back"
-$FrontDir   = Join-Path $RepoRoot "docker-compose-manager-front"
+$BackDir    = Join-Path $RepoRoot "lighthouse-back"
+$BackProj   = Join-Path $BackDir "lighthouse-back"
+$FrontDir   = Join-Path $RepoRoot "lighthouse-front"
 $SampleDir  = Join-Path $PSScriptRoot "sample-compose-files"
 
 function Write-Header($text) {

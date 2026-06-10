@@ -3,13 +3,13 @@ ARG IMAGE_TAG=latest-dev
 # Stage 1: Rebuild backend in Debug mode from local source
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS backend-debug
 WORKDIR /src
-COPY docker-compose-manager-back/docker-compose-manager-back/docker-compose-manager-back.csproj ./docker-compose-manager-back/
-RUN dotnet restore ./docker-compose-manager-back/docker-compose-manager-back.csproj
-COPY docker-compose-manager-back/docker-compose-manager-back/ ./docker-compose-manager-back/
-RUN dotnet publish ./docker-compose-manager-back/docker-compose-manager-back.csproj -c Debug -o /app/backend
+COPY lighthouse-back/lighthouse-back/lighthouse-back.csproj ./lighthouse-back/
+RUN dotnet restore ./lighthouse-back/lighthouse-back.csproj
+COPY lighthouse-back/lighthouse-back/ ./lighthouse-back/
+RUN dotnet publish ./lighthouse-back/lighthouse-back.csproj -c Debug -o /app/backend
 
 # Stage 2: Extend GHCR image with vsdbg + Debug backend
-FROM ghcr.io/jordanolivet/docker-compose-manager:${IMAGE_TAG}
+FROM ghcr.io/jordanolivet/lighthouse:${IMAGE_TAG}
 
 # Install vsdbg (Visual Studio remote debugger for .NET)
 RUN apt-get update \
