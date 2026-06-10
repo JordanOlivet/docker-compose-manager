@@ -3,6 +3,9 @@
 
 set -e
 
+# Keep the terminal open on exit (success or failure) when double-clicked.
+trap 'echo; read -rsn1 -p "Press any key to close..."; echo' EXIT
+
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'

@@ -7,7 +7,7 @@ Docker Compose Manager is a web-based application for managing Docker containers
 ### Architecture
 
 The application is deployed as a **single unified container** containing:
-- **Backend**: .NET 9 Web API
+- **Backend**: .NET 10 Web API
 - **Frontend**: SvelteKit static files
 - **Reverse Proxy**: Nginx
 - **Process Manager**: Supervisor
@@ -16,7 +16,7 @@ The application is deployed as a **single unified container** containing:
 
 - Cross-platform support (Linux, Windows)
 - Automatic compose file discovery
-- Real-time updates via SignalR WebSockets
+- Real-time updates via Server-Sent Events (SSE)
 - Role-based access control
 - Comprehensive audit logging
 
@@ -50,7 +50,7 @@ The production deployment uses a single Docker image managed by Supervisor:
 └─────────────────────────────────────────────┘
 ```
 
-### Backend (.NET 9)
+### Backend (.NET 10)
 
 Layered architecture with clear separation of concerns:
 
@@ -172,14 +172,14 @@ When multiple files share a project name:
 
 | Component | Technology |
 |-----------|------------|
-| Framework | .NET 9 (ASP.NET Core) |
-| Language | C# 12 |
-| ORM | Entity Framework Core 9 |
+| Framework | .NET 10 (ASP.NET Core) |
+| Language | C# 13 |
+| ORM | Entity Framework Core 10 |
 | Database | SQLite 3 |
 | Docker Client | Docker.DotNet |
 | Authentication | JWT (BCrypt for passwords) |
 | Validation | FluentValidation |
-| WebSocket | ASP.NET Core SignalR |
+| Real-time | Server-Sent Events (SSE) |
 | Logging | Serilog (structured JSON) |
 | YAML | YamlDotNet |
 | Testing | xUnit, Moq, FluentAssertions |
@@ -210,7 +210,7 @@ When multiple files share a project name:
 | Container | Docker |
 | Process Manager | Supervisor |
 | Reverse Proxy | Nginx |
-| Base Image | .NET 9 ASP.NET + Node.js |
+| Base Image | .NET 10 ASP.NET + Node.js |
 
 ---
 
@@ -344,8 +344,7 @@ Content-Security-Policy: default-src 'self'
 
 | Endpoint | Protocol | Purpose |
 |----------|----------|---------|
-| `/hub/containers` | SignalR | Container status updates |
-| `/hub/logs` | SignalR | Log streaming |
+| `/api/events/stream` | SSE | Container, compose, operation & maintenance events |
 
 ---
 

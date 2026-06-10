@@ -29,7 +29,7 @@
       },
       "publishAllPorts": true,
       "useSSL": false,
-      "containerRunArguments": "--rm -p 5050:8080 -v /var/run/docker.sock:/var/run/docker.sock -v C:\\Users\\Lakio\\Desktop:/app/compose-files"
+      "containerRunArguments": "--rm -p 5050:8080 -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/dev-setup/sample-compose-files:/app/compose-files"
     },
     "WSL": {
       "commandName": "WSL2",
