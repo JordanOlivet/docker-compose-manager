@@ -50,15 +50,21 @@ anytime without re-running setup):
 ./run.sh      # Linux / macOS
 ```
 
-These **build both apps**, then **launch both** with live logs in one terminal:
+These **build both apps**, then **launch each in its own terminal window** (so
+the logs stay separate):
 
 | App      | Command                                                              | URL                     |
 |----------|---------------------------------------------------------------------|-------------------------|
 | Backend  | `dotnet watch run --launch-profile http`                            | <http://localhost:5050> |
 | Frontend | `npm run dev`                                                       | <http://localhost:5173> |
 
-Press **Ctrl-C once** to stop both. The backend auto-applies EF migrations on
-startup and seeds the default admin user.
+Close a window (or press **Ctrl-C** in it) to stop that app. The backend
+auto-applies EF migrations on startup and seeds the default admin user.
+
+> **macOS / Linux:** separate windows require a GUI terminal (Terminal.app, or
+> `gnome-terminal`/`konsole`/`xterm`). With no graphical session (e.g. SSH), the
+> script falls back to running both in the current terminal with combined logs —
+> there, **Ctrl-C stops both**.
 
 ### Running each app manually
 

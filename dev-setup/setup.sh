@@ -6,6 +6,10 @@
 
 set -u
 
+# Keep the terminal open on exit (success or failure) so the output stays
+# readable when launched by double-click instead of from a shell.
+trap 'echo; read -rsn1 -p "Press any key to close..."; echo' EXIT
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACK_DIR="$REPO_ROOT/docker-compose-manager-back"

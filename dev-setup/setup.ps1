@@ -6,6 +6,16 @@
 
 $ErrorActionPreference = "Stop"
 
+# Keep the window open if anything throws, so the error stays readable
+# (important when launched by double-click instead of from a terminal).
+trap {
+    Write-Host "`nSetup FAILED:" -ForegroundColor Red
+    Write-Host "  $_" -ForegroundColor Red
+    Write-Host ""
+    Read-Host "Press Enter to close"
+    exit 1
+}
+
 $RepoRoot   = Split-Path -Parent $PSScriptRoot
 $BackDir    = Join-Path $RepoRoot "docker-compose-manager-back"
 $BackProj   = Join-Path $BackDir "docker-compose-manager-back"
@@ -141,7 +151,7 @@ $localSettings = Join-Path $BackProj "appsettings.Development.local.json"
 if (Test-Path $localSettings) {
     Write-Host "  appsettings.Development.local.json already exists - leaving as is." -ForegroundColor Yellow
 } else {
-    $hostPath = $SampleDir -replace '\\','\\'
+    $hostPath = $SampleDir.Replace('\', '\\')  # escape backslashes for JSON
     @"
 {
   "ComposeDiscovery": {
@@ -201,3 +211,4 @@ Write-Host ""
 Write-Host "  App URLs:  backend http://localhost:5050   frontend http://localhost:5173" -ForegroundColor White
 Write-Host "  Login:     admin / adminadmin   (must change on first login)" -ForegroundColor White
 Write-Host ""
+Read-Host "Press Enter to close"

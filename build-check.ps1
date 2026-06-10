@@ -43,8 +43,10 @@ Write-Host ""
 
 if ($backendResult -eq 0 -and $frontendResult -eq 0) {
     Write-Host "All checks passed!" -ForegroundColor Green
+    Read-Host "Press Enter to close"
     exit 0
 } else {
     Write-Host "Some checks failed." -ForegroundColor Red
+    Read-Host "Press Enter to close"
     exit 1
 }

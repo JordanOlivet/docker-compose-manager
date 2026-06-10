@@ -27,7 +27,8 @@ Prerequisites it checks/installs: **Git**, **.NET SDK 10**, **Node.js 20+**,
 ./run.sh      # Linux / macOS
 ```
 
-This builds both apps then launches them together (Ctrl-C stops both):
+This builds both apps then launches each in its own terminal window (so logs stay
+separate; on macOS/Linux without a GUI terminal it falls back to combined logs):
 
 - Backend → <http://localhost:5050> (`dotnet watch run`, HTTP dev profile)
 - Frontend → <http://localhost:5173> (`npm run dev`)

@@ -1,10 +1,20 @@
 #!/usr/bin/env pwsh
-# Build then launch both apps for local development (Windows).
+# Build both apps, then launch each in its own terminal window (Windows).
 # Backend:  dotnet watch run (http profile, http://localhost:5050)
 # Frontend: npm run dev (http://localhost:5173)
-# Press Ctrl-C once to stop both. Run dev-setup\setup.ps1 first if you haven't.
+# Close a window (or Ctrl-C inside it) to stop that app.
+# Run dev-setup\setup.ps1 first if you haven't.
 
 $ErrorActionPreference = "Stop"
+
+# Keep the window open on unexpected errors (e.g. launched by double-click).
+trap {
+    Write-Host "`nFAILED:" -ForegroundColor Red
+    Write-Host "  $_" -ForegroundColor Red
+    Write-Host ""
+    Read-Host "Press Enter to close"
+    exit 1
+}
 
 $RepoRoot = $PSScriptRoot
 $BackDir  = Join-Path $RepoRoot "docker-compose-manager-back"
@@ -22,45 +32,33 @@ Push-Location $BackDir
 dotnet build --nologo -v q
 $backBuild = $LASTEXITCODE
 Pop-Location
-if ($backBuild -ne 0) { Write-Host "Backend build FAILED." -ForegroundColor Red; exit 1 }
+if ($backBuild -ne 0) { Write-Host "Backend build FAILED." -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
 
 Write-Header "Build frontend (SvelteKit)"
 Push-Location $FrontDir
 npm run build
 $frontBuild = $LASTEXITCODE
 Pop-Location
-if ($frontBuild -ne 0) { Write-Host "Frontend build FAILED." -ForegroundColor Red; exit 1 }
+if ($frontBuild -ne 0) { Write-Host "Frontend build FAILED." -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
 
-# ----- Launch ----------------------------------------------------------------
-Write-Header "Launch (Ctrl-C to stop both)"
-Write-Host "  backend  -> http://localhost:5050" -ForegroundColor White
-Write-Host "  frontend -> http://localhost:5173" -ForegroundColor White
-Write-Host "  login     : admin / adminadmin`n" -ForegroundColor White
+# ----- Launch (each in its own window) ---------------------------------------
+Write-Header "Launch (each app in its own window)"
 
-$procs = @()
-try {
-    $backend = Start-Process -FilePath "dotnet" `
-        -ArgumentList "watch","run","--project","docker-compose-manager-back","--launch-profile","http" `
-        -WorkingDirectory $BackDir -NoNewWindow -PassThru
-    $procs += $backend
+# Backend window
+Start-Process -FilePath "powershell" -ArgumentList @(
+    "-NoExit", "-Command",
+    "`$host.UI.RawUI.WindowTitle='Backend (.NET)'; Set-Location '$BackDir'; dotnet watch run --project docker-compose-manager-back --launch-profile http"
+)
 
-    $frontend = Start-Process -FilePath "cmd.exe" `
-        -ArgumentList "/c","npm run dev" `
-        -WorkingDirectory $FrontDir -NoNewWindow -PassThru
-    $procs += $frontend
+# Frontend window
+Start-Process -FilePath "powershell" -ArgumentList @(
+    "-NoExit", "-Command",
+    "`$host.UI.RawUI.WindowTitle='Frontend (SvelteKit)'; Set-Location '$FrontDir'; npm run dev"
+)
 
-    # Wait until either process exits (or Ctrl-C lands in finally).
-    while ($true) {
-        Start-Sleep -Milliseconds 500
-        if ($backend.HasExited -or $frontend.HasExited) { break }
-    }
-}
-finally {
-    Write-Host "`nStopping..." -ForegroundColor Yellow
-    foreach ($p in $procs) {
-        if ($p -and -not $p.HasExited) {
-            # Kill the whole process tree (npm/dotnet spawn children).
-            taskkill /PID $p.Id /T /F *> $null
-        }
-    }
-}
+Write-Host "  backend  -> http://localhost:5050   (window: 'Backend (.NET)')" -ForegroundColor White
+Write-Host "  frontend -> http://localhost:5173   (window: 'Frontend (SvelteKit)')" -ForegroundColor White
+Write-Host "  login     : admin / adminadmin" -ForegroundColor White
+Write-Host "`n  Two new windows opened. Close a window (or Ctrl-C in it) to stop that app." -ForegroundColor White
+Write-Host ""
+Read-Host "Press Enter to close this launcher"
