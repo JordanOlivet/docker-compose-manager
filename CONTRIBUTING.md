@@ -44,6 +44,7 @@ docker-compose-manager-front/    SvelteKit + Svelte 5 frontend (routes, lib, ...
 dev-setup/                       Dev bootstrap scripts + sample compose files
 run.{ps1,sh}                     Build + launch both apps
 build-check.{ps1,sh}             Compile backend + type-check frontend
+build-check.cmd                  Windows double-click launcher for build-check.ps1
 ```
 
 Architecture, key services, and conventions are documented in
@@ -58,6 +59,11 @@ Run the build/check script and the backend tests:
 .\build-check.ps1            # or ./build-check.sh  -> Backend build + Frontend check
 cd docker-compose-manager-back && dotnet test
 ```
+
+> **Windows tip:** if you'd rather double-click than run it from a terminal, use
+> `build-check.cmd` instead of the `.ps1`. Double-clicking the `.ps1` directly
+> (or "Run with PowerShell") tends to close the window instantly on error;
+> `build-check.cmd` keeps it open until you press a key, whatever happens.
 
 - Backend tests live in `docker-compose-manager-back.Tests/` (xUnit + Moq +
   FluentAssertions). Add tests for new services/controllers.
