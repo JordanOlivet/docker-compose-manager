@@ -1,3 +1,11 @@
+## Changes in v1.24.1
+
+**Merged Pull Requests:**
+- ci: bump Node 20 -> 24 (CI, Docker, scripts, docs) (#126)
+
+**Commits:**
+
+
 ## Changes in v1.24.0
 
 **Merged Pull Requests:**
