@@ -1,10 +1,10 @@
-# Docker Compose Manager
+# Lighthouse
 
 A web-based interface for managing Docker containers and Docker Compose projects.
 
 ## Overview
 
-Docker Compose Manager provides a modern web UI for managing your Docker infrastructure. It allows you to:
+Lighthouse provides a modern web UI for managing your Docker infrastructure. It allows you to:
 
 - View and control Docker containers
 - Manage Docker Compose projects with automatic file discovery
@@ -27,9 +27,9 @@ mkdir compose-files
 # 2. Create docker-compose.yml
 cat > docker-compose.yml << 'EOF'
 services:
-  docker-compose-manager:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
-    container_name: docker-compose-manager
+  lighthouse:
+    image: ghcr.io/jordanolivet/lighthouse:latest
+    container_name: lighthouse
     ports:
       - "3030:80"
     environment:
@@ -254,11 +254,11 @@ volumes:
 ### Backend
 
 ```bash
-cd docker-compose-manager-back
+cd lighthouse-back
 
 # Restore and run (HTTP dev profile on http://localhost:5050)
 dotnet restore
-dotnet watch run --project docker-compose-manager-back --launch-profile http
+dotnet watch run --project lighthouse-back --launch-profile http
 
 # Health check: http://localhost:5050/health
 ```
@@ -266,7 +266,7 @@ dotnet watch run --project docker-compose-manager-back --launch-profile http
 ### Frontend
 
 ```bash
-cd docker-compose-manager-front
+cd lighthouse-front
 
 # Install and run
 npm install

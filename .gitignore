@@ -1,19 +1,19 @@
 # Backend
-docker-compose-manager-back/bin/
-docker-compose-manager-back/obj/
-docker-compose-manager-back/Data/*.db
-docker-compose-manager-back/Data/*.db-*
-docker-compose-manager-back/logs/
+lighthouse-back/bin/
+lighthouse-back/obj/
+lighthouse-back/Data/*.db
+lighthouse-back/Data/*.db-*
+lighthouse-back/logs/
 
 # Frontend
-docker-compose-manager-front/node_modules/
-docker-compose-manager-front/dist/
-docker-compose-manager-front/.vite/
+lighthouse-front/node_modules/
+lighthouse-front/dist/
+lighthouse-front/.vite/
 
 # Environment files
 .env
 !.env.example
-docker-compose-manager-front/.env.development
+lighthouse-front/.env.development
 
 # Generated per-developer dev config (see dev-setup/)
 **/appsettings.Development.local.json
@@ -27,17 +27,17 @@ docker-compose-manager-front/.env.development
 # OS
 .DS_Store
 Thumbs.db
-docker-compose-manager-front/.vscode/chrome-debug-profile
+lighthouse-front/.vscode/chrome-debug-profile
 user-password-maker/bin
 user-password-maker/obj
 NUL
 node_modules
 logs
-docker-compose-manager-front/.vscode/chrome-debug-profile
-docker-compose-manager-back/docker-compose-manager-back.Tests/obj
-docker-compose-manager-back/docker-compose-manager-back.Tests/bin
-docker-compose-manager-back/docker-compose-manager-back/bin
-docker-compose-manager-back/docker-compose-manager-back/obj
+lighthouse-front/.vscode/chrome-debug-profile
+lighthouse-back/lighthouse-back.Tests/obj
+lighthouse-back/lighthouse-back.Tests/bin
+lighthouse-back/lighthouse-back/bin
+lighthouse-back/lighthouse-back/obj
 
 
 # Misc

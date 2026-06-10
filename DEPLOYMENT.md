@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-This guide covers deploying Docker Compose Manager in production environments.
+This guide covers deploying Lighthouse in production environments.
 
 ## Prerequisites
 
@@ -16,8 +16,8 @@ This guide covers deploying Docker Compose Manager in production environments.
 ```yaml
 services:
   app:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
-    container_name: docker-compose-manager
+    image: ghcr.io/jordanolivet/lighthouse:latest
+    container_name: lighthouse
     ports:
       - "3030:80"
     environment:
@@ -120,7 +120,7 @@ Standard deployment with Unix socket:
 ```yaml
 services:
   app:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    image: ghcr.io/jordanolivet/lighthouse:latest
     ports:
       - "3030:80"
     environment:
@@ -143,7 +143,7 @@ Using named pipe for Docker Desktop:
 ```yaml
 services:
   app:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    image: ghcr.io/jordanolivet/lighthouse:latest
     ports:
       - "3030:80"
     environment:
@@ -167,7 +167,7 @@ If running behind an existing Nginx:
 # docker-compose.yml
 services:
   app:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    image: ghcr.io/jordanolivet/lighthouse:latest
     # No ports exposed - accessed via reverse proxy
     environment:
       - Jwt__Secret=${JWT_SECRET}
@@ -223,7 +223,7 @@ server {
 ```yaml
 services:
   app:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
+    image: ghcr.io/jordanolivet/lighthouse:latest
     environment:
       - Jwt__Secret=${JWT_SECRET}
     volumes:
@@ -331,7 +331,7 @@ docker compose logs -f app
 docker compose stop
 
 # Copy database file
-docker cp docker-compose-manager:/app/data/app.db ./backup/app.db
+docker cp lighthouse:/app/data/app.db ./backup/app.db
 
 # Restart
 docker compose start
@@ -344,7 +344,7 @@ BACKUP_DIR="/backup/docker-manager"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p $BACKUP_DIR
-docker cp docker-compose-manager:/app/data/app.db "$BACKUP_DIR/app_$DATE.db"
+docker cp lighthouse:/app/data/app.db "$BACKUP_DIR/app_$DATE.db"
 
 # Keep last 7 days
 find $BACKUP_DIR -name "app_*.db" -mtime +7 -delete
@@ -357,7 +357,7 @@ find $BACKUP_DIR -name "app_*.db" -mtime +7 -delete
 docker compose stop
 
 # Restore database
-docker cp ./backup/app.db docker-compose-manager:/app/data/app.db
+docker cp ./backup/app.db lighthouse:/app/data/app.db
 
 # Start container
 docker compose start
@@ -530,5 +530,5 @@ Check running version:
 curl http://localhost:3030/api/system/version
 
 # Or check container labels
-docker inspect docker-compose-manager --format '{{.Config.Labels}}'
+docker inspect lighthouse --format '{{.Config.Labels}}'
 ```

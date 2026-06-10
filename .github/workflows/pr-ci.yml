@@ -36,10 +36,10 @@ jobs:
       - name: Setup .NET 9
         uses: ./.github/actions/setup-dotnet
       - name: Restore dependencies
-        working-directory: ./docker-compose-manager-back
+        working-directory: ./lighthouse-back
         run: dotnet restore
       - name: Build backend
-        working-directory: ./docker-compose-manager-back
+        working-directory: ./lighthouse-back
         run: |
           dotnet build --configuration Release --no-restore \
             -p:Version=${{ needs.extract-version.outputs.assembly_version }} \
@@ -47,7 +47,7 @@ jobs:
             -p:FileVersion=${{ needs.extract-version.outputs.assembly_version }} \
             -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
       - name: Run backend tests
-        working-directory: ./docker-compose-manager-back
+        working-directory: ./lighthouse-back
         run: dotnet test --no-build --configuration Release --verbosity minimal
 
   frontend-build-test:
@@ -60,10 +60,10 @@ jobs:
       - name: Setup Node.js 20
         uses: ./.github/actions/setup-node
       - name: Install dependencies
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./lighthouse-front
         run: npm ci
       - name: Build frontend
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./lighthouse-front
         env:
           VITE_API_URL: /api
           VITE_APP_VERSION: ${{ needs.extract-version.outputs.version }}
@@ -71,7 +71,7 @@ jobs:
           VITE_GIT_COMMIT: ${{ needs.extract-version.outputs.vcs_ref }}
         run: npm run build
       - name: Run frontend type checking
-        working-directory: ./docker-compose-manager-front
+        working-directory: ./lighthouse-front
         run: npm run check
 
   docker-build-push:

@@ -1,7 +1,7 @@
 services:
-  docker-compose-manager:
-    image: ghcr.io/jordanolivet/docker-compose-manager:latest
-    container_name: docker-compose-manager
+  lighthouse:
+    image: ghcr.io/jordanolivet/lighthouse:latest
+    container_name: lighthouse
     ports:
       - "3030:80"
     environment:
@@ -12,12 +12,12 @@ services:
       - Docker__Host=${DOCKER_HOST:-unix:///var/run/docker.sock} # For linux host
       # - Docker__Host=${DOCKER_HOST:-npipe://./pipe/docker_engine} # For windows host
       # Application base URL (used in emails for password reset links)
-      # Set this to the external URL users access the app from (e.g., https://dcm.example.com)
+      # Set this to the external URL users access the app from (e.g., https://lighthouse.example.com)
       - Email__AppBaseUrl=${APP_BASE_URL:-http://localhost:3030}
       # Logging (initial level only; change it live from the UI: Settings > General)
       - Serilog__MinimumLevel__Default=${LOG_LEVEL:-Information}
       # Application base URL (used in emails for password reset links)                                                                                                                                                                                                                                       
-      # Set this to the external URL users access the app from (e.g., https://dcm.example.com)                                                                                                                                                                                                                     
+      # Set this to the external URL users access the app from (e.g., https://lighthouse.example.com)                                                                                                                                                                                                                     
       - Email__AppBaseUrl=${APP_BASE_URL:-http://localhost:3030}
     volumes:
       # Database persistence

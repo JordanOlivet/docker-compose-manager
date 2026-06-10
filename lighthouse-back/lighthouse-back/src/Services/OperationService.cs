@@ -1,0 +1,568 @@
+using Lighthouse.Data;
+using Lighthouse.DTOs;
+using Lighthouse.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Lighthouse.Services;
+
+public class OperationService
+{
+    private readonly AppDbContext _context;
+    private readonly ILogger<OperationService> _logger;
+    private readonly SseConnectionManagerService _sseManager;
+
+    public OperationService(
+        AppDbContext context,
+        ILogger<OperationService> logger,
+        SseConnectionManagerService sseManager)
+    {
+        _context = context;
+        _logger = logger;
+        _sseManager = sseManager;
+    }
+
+    /// <summary>
+    /// Creates a new operation
+    /// </summary>
+    public async Task<Operation> CreateOperationAsync(
+        string type,
+        int? userId,
+        string? projectPath = null,
+        string? projectName = null,
+        string? containerId = null,
+        string? containerName = null,
+        string? operationId = null)
+    {
+        try
+        {
+            Operation operation = new()
+            {
+                OperationId = operationId ?? Guid.NewGuid().ToString(),
+                Type = type,
+                Status = OperationStatus.Pending,
+                UserId = userId,
+                ProjectPath = projectPath,
+                ProjectName = projectName,
+                ContainerId = containerId,
+                ContainerName = containerName,
+                StartedAt = DateTime.UtcNow
+            };
+
+            _context.Operations.Add(operation);
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug(
+                "Created operation: {OperationId}, Type: {Type}, User: {UserId}",
+                operation.OperationId,
+                type,
+                userId
+            );
+
+            return operation;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating operation");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Updates operation status
+    /// </summary>
+    public async Task<bool> UpdateOperationStatusAsync(
+        string operationId,
+        string status,
+        int? progress = null,
+        string? errorMessage = null)
+    {
+        try
+        {
+            Operation? operation = await _context.Operations
+                .FirstOrDefaultAsync(o => o.OperationId == operationId);
+
+            if (operation == null)
+            {
+                _logger.LogWarning("Operation not found: {OperationId}", operationId);
+                return false;
+            }
+
+            // Log if a final status is being set again
+            bool isFinalStatus = status == OperationStatus.Completed || status == OperationStatus.Failed || status == OperationStatus.Cancelled;
+            bool wasFinalStatus = operation.Status == OperationStatus.Completed || operation.Status == OperationStatus.Failed || operation.Status == OperationStatus.Cancelled;
+
+            if (isFinalStatus && wasFinalStatus)
+            {
+                _logger.LogWarning("[DUPLICATE NOTIFICATION] Operation {OperationId} already had final status {OldStatus}, now set again to {NewStatus}", operationId, operation.Status, status);
+            }
+
+            operation.Status = status;
+
+            if (progress.HasValue)
+            {
+                operation.Progress = progress.Value;
+            }
+
+            if (errorMessage != null)
+            {
+                operation.ErrorMessage = errorMessage;
+            }
+
+            if (isFinalStatus)
+            {
+                operation.CompletedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug(
+                "Updated operation {OperationId}: Status={Status}, Progress={Progress}",
+                operationId,
+                status,
+                progress
+            );
+
+            // Send SSE notification
+            try
+            {
+                var notification = new
+                {
+                    operationId,
+                    status,
+                    progress = progress ?? operation.Progress,
+                    errorMessage,
+                    type = operation.Type,
+                    projectName = operation.ProjectName,
+                    projectPath = operation.ProjectPath,
+                    containerId = operation.ContainerId,
+                    containerName = operation.ContainerName
+                };
+
+                _logger.LogDebug(
+                    "Sending SSE notification - OperationId: {OperationId}, Type: {Type}, Status: {Status}, ProjectName: {ProjectName}",
+                    operationId, operation.Type, status, operation.ProjectName
+                );
+
+                await _sseManager.BroadcastAsync("OperationUpdate", notification);
+
+                _logger.LogDebug("SSE notification sent successfully for operation {OperationId}", operationId);
+            }
+            catch (Exception sseEx)
+            {
+                _logger.LogWarning(sseEx, "Failed to send SSE notification for operation {OperationId}", operationId);
+                // Don't fail the operation if SSE notification fails
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating operation status: {OperationId}", operationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Appends logs to an operation
+    /// </summary>
+    public async Task<bool> AppendLogsAsync(string operationId, string logs)
+    {
+        try
+        {
+            Operation? operation = await _context.Operations
+                .FirstOrDefaultAsync(o => o.OperationId == operationId);
+
+            if (operation == null)
+            {
+                _logger.LogWarning("Operation not found: {OperationId}", operationId);
+                return false;
+            }
+
+            operation.Logs = string.IsNullOrEmpty(operation.Logs)
+                ? logs
+                : operation.Logs + "\n" + logs;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error appending logs to operation: {OperationId}", operationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets an operation by ID
+    /// </summary>
+    public async Task<Operation?> GetOperationAsync(string operationId)
+    {
+        try
+        {
+            return await _context.Operations
+                .Include(o => o.User)
+                .FirstOrDefaultAsync(o => o.OperationId == operationId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving operation: {OperationId}", operationId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets an operation by database ID
+    /// </summary>
+    public async Task<Operation?> GetOperationByIdAsync(int id)
+    {
+        try
+        {
+            return await _context.Operations
+                .Include(o => o.User)
+                .FirstOrDefaultAsync(o => o.Id == id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving operation: {Id}", id);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Lists operations with optional filtering
+    /// </summary>
+    public async Task<List<Operation>> ListOperationsAsync(
+        string? status = null,
+        int? userId = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        int limit = 100)
+    {
+        try
+        {
+            IQueryable<Operation> query = _context.Operations
+                .Include(o => o.User)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(o => o.Status == status);
+            }
+
+            if (userId.HasValue)
+            {
+                query = query.Where(o => o.UserId == userId.Value);
+            }
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(o => o.StartedAt >= startDate.Value);
+            }
+
+            if (endDate.HasValue)
+            {
+                query = query.Where(o => o.StartedAt <= endDate.Value);
+            }
+
+            return await query
+                .OrderByDescending(o => o.StartedAt)
+                .Take(limit)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing operations");
+            return new List<Operation>();
+        }
+    }
+
+    /// <summary>
+    /// Cancels an operation
+    /// </summary>
+    public async Task<bool> CancelOperationAsync(string operationId)
+    {
+        try
+        {
+            Operation? operation = await _context.Operations
+                .FirstOrDefaultAsync(o => o.OperationId == operationId);
+
+            if (operation == null)
+            {
+                _logger.LogWarning("Operation not found: {OperationId}", operationId);
+                return false;
+            }
+
+            if (operation.Status != OperationStatus.Pending &&
+                operation.Status != OperationStatus.Running)
+            {
+                _logger.LogWarning(
+                    "Cannot cancel operation {OperationId} with status {Status}",
+                    operationId,
+                    operation.Status
+                );
+                return false;
+            }
+
+            operation.Status = OperationStatus.Cancelled;
+            operation.CompletedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Cancelled operation: {OperationId}", operationId);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling operation: {OperationId}", operationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Acknowledges a single operation
+    /// </summary>
+    public async Task<bool> AcknowledgeOperationAsync(string operationId)
+    {
+        try
+        {
+            Operation? operation = await _context.Operations
+                .FirstOrDefaultAsync(o => o.OperationId == operationId);
+
+            if (operation == null)
+            {
+                _logger.LogWarning("Operation not found: {OperationId}", operationId);
+                return false;
+            }
+
+            operation.IsAcknowledged = true;
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Acknowledged operation: {OperationId}", operationId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error acknowledging operation: {OperationId}", operationId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Acknowledges all failed non-acknowledged operations
+    /// </summary>
+    public async Task<int> AcknowledgeAllFailedAsync()
+    {
+        try
+        {
+            List<Operation> operations = await _context.Operations
+                .Where(o => o.Status == OperationStatus.Failed && !o.IsAcknowledged)
+                .ToListAsync();
+
+            foreach (var operation in operations)
+            {
+                operation.IsAcknowledged = true;
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Acknowledged {Count} failed operations", operations.Count);
+            return operations.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error acknowledging all failed operations");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Cleans up old completed operations (for maintenance)
+    /// </summary>
+    public async Task<int> CleanupOldOperationsAsync(DateTime beforeDate)
+    {
+        try
+        {
+            List<Operation> oldOperations = await _context.Operations
+                .Where(o => o.CompletedAt != null && o.CompletedAt < beforeDate)
+                .ToListAsync();
+
+            int count = oldOperations.Count;
+
+            if (count > 0)
+            {
+                _context.Operations.RemoveRange(oldOperations);
+                await _context.SaveChangesAsync();
+
+                _logger.LogDebug("Cleaned up {Count} old operations before {Date}", count, beforeDate);
+            }
+
+            return count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cleaning up old operations");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets the last operation for each unique project/container entity
+    /// </summary>
+    public async Task<Dictionary<string, Operation>> GetLastOperationByEntitiesAsync()
+    {
+        try
+        {
+            // Get the latest operation IDs per project
+            var projectOpIds = await _context.Operations
+                .Where(o => o.ProjectName != null)
+                .GroupBy(o => o.ProjectName!)
+                .Select(g => g.OrderByDescending(o => o.StartedAt).First().Id)
+                .ToListAsync();
+
+            // Get the latest operation IDs per container
+            var containerOpIds = await _context.Operations
+                .Where(o => o.ContainerId != null)
+                .GroupBy(o => o.ContainerId!)
+                .Select(g => g.OrderByDescending(o => o.StartedAt).First().Id)
+                .ToListAsync();
+
+            var allIds = projectOpIds.Concat(containerOpIds).Distinct().ToList();
+
+            var operations = await _context.Operations
+                .Include(o => o.User)
+                .Where(o => allIds.Contains(o.Id))
+                .ToListAsync();
+
+            var result = new Dictionary<string, Operation>();
+
+            foreach (var op in operations)
+            {
+                if (op.ProjectName != null)
+                {
+                    var key = $"project:{op.ProjectName}";
+                    if (!result.ContainsKey(key) || op.StartedAt > result[key].StartedAt)
+                        result[key] = op;
+                }
+                if (op.ContainerId != null)
+                {
+                    var key = $"container:{op.ContainerId}";
+                    if (!result.ContainsKey(key) || op.StartedAt > result[key].StartedAt)
+                        result[key] = op;
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting last operations by entities");
+            return new Dictionary<string, Operation>();
+        }
+    }
+
+    /// <summary>
+    /// Lists operations with optional filtering including project and container filters
+    /// </summary>
+    public async Task<List<Operation>> ListOperationsFilteredAsync(
+        string? status = null,
+        string? projectName = null,
+        string? containerId = null,
+        int limit = 50)
+    {
+        try
+        {
+            IQueryable<Operation> query = _context.Operations
+                .Include(o => o.User)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(status))
+                query = query.Where(o => o.Status == status);
+
+            if (!string.IsNullOrEmpty(projectName))
+                query = query.Where(o => o.ProjectName == projectName);
+
+            if (!string.IsNullOrEmpty(containerId))
+                query = query.Where(o => o.ContainerId == containerId);
+
+            return await query
+                .OrderByDescending(o => o.StartedAt)
+                .Take(limit)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing operations with filters");
+            return new List<Operation>();
+        }
+    }
+
+    /// <summary>
+    /// Gets active (running) operations count
+    /// </summary>
+    public async Task<int> GetActiveOperationsCountAsync()
+    {
+        try
+        {
+            return await _context.Operations
+                .CountAsync(o => o.Status == OperationStatus.Running || o.Status == OperationStatus.Pending);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting active operations count");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Clears all operations from the database
+    /// </summary>
+    public async Task<int> ClearAllOperationsAsync()
+    {
+        try
+        {
+            List<Operation> allOperations = await _context.Operations.ToListAsync();
+            int count = allOperations.Count;
+
+            if (count > 0)
+            {
+                _context.Operations.RemoveRange(allOperations);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Cleared {Count} operations from history", count);
+            }
+
+            return count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing all operations");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Sends a pull progress update via SignalR for real-time UI updates.
+    /// </summary>
+    public async Task SendPullProgressAsync(UpdateProgressEvent progress)
+    {
+        try
+        {
+            _logger.LogDebug(
+                "Sending pull progress - Operation: {OperationId}, Project: {ProjectName}, Phase: {Phase}, Progress: {Progress}%",
+                progress.OperationId,
+                progress.ProjectName,
+                progress.Phase,
+                progress.OverallProgress
+            );
+
+            // Send to all connected clients
+            await _sseManager.BroadcastAsync("PullProgressUpdate", progress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send pull progress update for operation {OperationId}", progress.OperationId);
+            // Don't fail the operation if SignalR notification fails
+        }
+    }
+}

@@ -24,8 +24,8 @@ trap {
 }
 
 $RepoRoot = $PSScriptRoot
-$BackDir  = Join-Path $RepoRoot "docker-compose-manager-back"
-$FrontDir = Join-Path $RepoRoot "docker-compose-manager-front"
+$BackDir  = Join-Path $RepoRoot "lighthouse-back"
+$FrontDir = Join-Path $RepoRoot "lighthouse-front"
 
 function Write-Header($text) {
     Write-Host "`n========================================" -ForegroundColor Cyan
@@ -54,7 +54,7 @@ Write-Header "Launch (each app in its own window)"
 # Backend window
 Start-Process -FilePath "powershell" -ArgumentList @(
     "-NoExit", "-Command",
-    "`$host.UI.RawUI.WindowTitle='Backend (.NET)'; Set-Location '$BackDir'; dotnet watch run --project docker-compose-manager-back --launch-profile http"
+    "`$host.UI.RawUI.WindowTitle='Backend (.NET)'; Set-Location '$BackDir'; dotnet watch run --project lighthouse-back --launch-profile http"
 )
 
 # Frontend window

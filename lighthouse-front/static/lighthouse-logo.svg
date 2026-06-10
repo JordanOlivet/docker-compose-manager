@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0f1e"/><stop offset="100%" stop-color="#141b2d"/>
+    </linearGradient>
+    <linearGradient id="beamRight" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#fde68a" stop-opacity="0.4"/><stop offset="100%" stop-color="#fde68a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamLeft" x1="1" y1="0.5" x2="0" y2="0.5">
+      <stop offset="0%" stop-color="#fde68a" stop-opacity="0.4"/><stop offset="100%" stop-color="#fde68a" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="ambientGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#fef3c7" stop-opacity="0.12"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="strongGlow"><feGaussianBlur stdDeviation="10" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/></filter>
+    <clipPath id="frameClip"><rect x="16" y="16" width="480" height="480" rx="96" ry="96"/></clipPath>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="url(#bgGrad)"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="none" stroke="#fcd34d" stroke-opacity="0.3" stroke-width="2"/>
+  <ellipse cx="256" cy="220" rx="200" ry="180" fill="url(#ambientGlow)"/>
+
+  <g fill="#fde68a">
+    <circle cx="367" cy="57" r="0.6" opacity="0.32"/><circle cx="165" cy="86" r="0.8" opacity="0.32"/>
+    <circle cx="386" cy="168" r="0.6" opacity="0.27"/><circle cx="56" cy="36" r="0.6" opacity="0.15"/>
+    <circle cx="298" cy="183" r="0.6" opacity="0.26"/><circle cx="406" cy="168" r="1.2" opacity="0.15"/>
+    <circle cx="341" cy="100" r="0.6" opacity="0.32"/><circle cx="121" cy="137" r="1.0" opacity="0.17"/>
+    <circle cx="150" cy="115" r="0.6" opacity="0.11"/><circle cx="89" cy="120" r="1.0" opacity="0.27"/>
+    <circle cx="453" cy="40" r="1.2" opacity="0.25"/><circle cx="233" cy="49" r="1.0" opacity="0.35"/>
+    <circle cx="356" cy="121" r="0.8" opacity="0.31"/><circle cx="63" cy="87" r="1.0" opacity="0.4"/>
+    <circle cx="159" cy="54" r="1.2" opacity="0.17"/><circle cx="365" cy="122" r="0.8" opacity="0.2"/>
+    <circle cx="147" cy="97" r="0.6" opacity="0.27"/><circle cx="127" cy="165" r="0.8" opacity="0.13"/>
+    <circle cx="234" cy="98" r="0.8" opacity="0.3"/><circle cx="471" cy="43" r="0.8" opacity="0.34"/>
+    <circle cx="452" cy="109" r="1.2" opacity="0.17"/><circle cx="148" cy="174" r="1.0" opacity="0.15"/>
+    <circle cx="295" cy="130" r="1.2" opacity="0.13"/><circle cx="111" cy="92" r="1.0" opacity="0.32"/>
+    <circle cx="259" cy="178" r="1.2" opacity="0.2"/><circle cx="110" cy="159" r="1.2" opacity="0.11"/>
+    <circle cx="64" cy="57" r="0.8" opacity="0.28"/><circle cx="445" cy="137" r="0.6" opacity="0.2"/>
+    <circle cx="345" cy="148" r="1.0" opacity="0.39"/><circle cx="45" cy="58" r="1.0" opacity="0.33"/>
+    <circle cx="214" cy="57" r="1.0" opacity="0.22"/><circle cx="272" cy="29" r="1.0" opacity="0.39"/>
+    <circle cx="430" cy="74" r="0.6" opacity="0.36"/><circle cx="192" cy="158" r="0.8" opacity="0.13"/>
+    <circle cx="290" cy="33" r="0.6" opacity="0.38"/><circle cx="465" cy="107" r="0.8" opacity="0.1"/>
+    <circle cx="330" cy="49" r="0.6" opacity="0.31"/><circle cx="457" cy="46" r="0.8" opacity="0.12"/>
+    <circle cx="283" cy="169" r="0.8" opacity="0.16"/><circle cx="54" cy="137" r="0.8" opacity="0.22"/>
+    <circle cx="480" cy="84" r="1.0" opacity="0.18"/><circle cx="32" cy="101" r="0.6" opacity="0.35"/>
+    <circle cx="410" cy="44" r="0.8" opacity="0.28"/>
+  </g>
+
+  <g clip-path="url(#frameClip)">
+    <g opacity="0.35">
+      <polygon points="256,177 500,20 500,90" fill="url(#beamRight)"/>
+      <polygon points="256,177 500,120 500,200" fill="url(#beamRight)"/>
+      <polygon points="256,177 500,240 500,320" fill="url(#beamRight)" opacity="0.25"/>
+      <polygon points="256,177 500,360 500,440" fill="url(#beamRight)" opacity="0.1"/>
+      <polygon points="256,177 12,20 12,90" fill="url(#beamLeft)"/>
+      <polygon points="256,177 12,120 12,200" fill="url(#beamLeft)"/>
+      <polygon points="256,177 12,240 12,320" fill="url(#beamLeft)" opacity="0.25"/>
+      <polygon points="256,177 12,360 12,440" fill="url(#beamLeft)" opacity="0.1"/>
+    </g>
+  </g>
+
+  <g>
+    <polygon points="236.0,338.0 316.0,298.0 276.0,278.0 196.0,318.0" fill="#4a5f7a" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="236.0,374.0 196.0,354.0 196.0,318.0 236.0,338.0" fill="#3b4d63" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="236.0,374.0 316.0,334.0 316.0,298.0 236.0,338.0" fill="#4a5f7a" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+  </g>
+  <g>
+    <polygon points="239.0,300.5 307.0,266.5 273.0,249.5 205.0,283.5" fill="#4f6b5c" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="239.0,333.5 205.0,316.5 205.0,283.5 239.0,300.5" fill="#3d5448" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="239.0,333.5 307.0,299.5 307.0,266.5 239.0,300.5" fill="#4f6b5c" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+  </g>
+  <g>
+    <polygon points="242.0,266.0 298.0,238.0 270.0,224.0 214.0,252.0" fill="#6d4548" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="242.0,296.0 214.0,282.0 214.0,252.0 242.0,266.0" fill="#553537" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="242.0,296.0 298.0,268.0 298.0,238.0 242.0,266.0" fill="#6d4548" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+  </g>
+  <g>
+    <polygon points="245.0,234.5 289.0,212.5 267.0,201.5 223.0,223.5" fill="#7a6040" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="245.0,261.5 223.0,250.5 223.0,223.5 245.0,234.5" fill="#624d33" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+    <polygon points="245.0,261.5 289.0,239.5 289.0,212.5 245.0,234.5" fill="#7a6040" stroke="#1a2634" stroke-width="1.2" opacity="0.85"/>
+  </g>
+  <g>
+    <polygon points="252.0,223.0 274.0,212.0 260.0,205.0 238.0,216.0" fill="#1e293b" stroke="#fcd34d" stroke-width="0.8" opacity="0.8"/>
+    <polygon points="252.0,227.0 238.0,220.0 238.0,216.0 252.0,223.0" fill="#0f172a" stroke="#fcd34d" stroke-width="0.8" opacity="0.7"/>
+    <polygon points="252.0,227.0 274.0,216.0 274.0,212.0 252.0,223.0" fill="#1e293b" stroke="#fcd34d" stroke-width="0.8" opacity="0.75"/>
+  </g>
+  <g>
+    <polygon points="254.5,196.2 264.5,191.2 257.5,187.8 247.5,192.8" fill="#fef3c7" opacity="0.95"/>
+    <polygon points="254.5,218.2 247.5,214.8 247.5,192.8 254.5,196.2" fill="#d97706" opacity="0.8"/>
+    <polygon points="254.5,218.2 264.5,213.2 264.5,191.2 254.5,196.2" fill="#fef3c7" opacity="0.9"/>
+  </g>
+    <line x1="254.5" y1="196.2" x2="254.5" y2="218.2" stroke="#78350f" stroke-width="1.0" opacity="0.35"/>
+    <line x1="257.0" y1="195.0" x2="257.0" y2="217.0" stroke="#78350f" stroke-width="1.0" opacity="0.35"/>
+    <line x1="259.5" y1="193.8" x2="259.5" y2="215.8" stroke="#78350f" stroke-width="1.0" opacity="0.35"/>
+    <line x1="262.0" y1="192.5" x2="262.0" y2="214.5" stroke="#78350f" stroke-width="1.0" opacity="0.35"/>
+    <line x1="264.5" y1="191.2" x2="264.5" y2="213.2" stroke="#78350f" stroke-width="1.0" opacity="0.35"/>
+  <polygon points="256.0,180.2 264.5,191.2 254.5,196.2" fill="#1e293b" stroke="#fcd34d" stroke-width="0.8" opacity="0.9"/>
+  <polygon points="256.0,180.2 264.5,191.2 257.5,187.8" fill="#0f172a" stroke="#fcd34d" stroke-width="0.8" opacity="0.85"/>
+  <polygon points="256.0,180.2 257.5,187.8 247.5,192.8" fill="#1e293b" stroke="#fcd34d" stroke-width="0.8" opacity="0.85"/>
+  <polygon points="256.0,180.2 247.5,192.8 254.5,196.2" fill="#0f172a" stroke="#fcd34d" stroke-width="0.8" opacity="0.9"/>
+
+  <g>
+    <circle cx="256" cy="176" r="5" fill="#fef3c7" opacity="0.95"/>
+    <circle cx="256" cy="176" r="14" fill="#fde68a" opacity="0.12"/>
+  </g>
+
+  <g clip-path="url(#frameClip)">
+    <path d="M 16 410 Q 80 395 140 410 Q 200 425 260 410 Q 320 395 380 410 Q 440 425 496 410 L 496 496 L 16 496 Z" fill="#fcd34d" opacity="0.06"/>
+    <path d="M 16 430 Q 100 415 180 430 Q 260 445 340 430 Q 420 415 496 430 L 496 496 L 16 496 Z" fill="#fbbf24" opacity="0.04"/>
+  </g>
+  <text x="260" y="478" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" letter-spacing="5" fill="#fcd34d" opacity="0.35">LIGHTHOUSE</text>
+</svg>

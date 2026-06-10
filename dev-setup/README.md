@@ -1,7 +1,7 @@
 # Dev Setup
 
 One-shot bootstrap to go from a fresh machine to a working development environment
-for Docker Compose Manager. Cross-platform: **Windows**, **Linux**, **macOS**.
+for Lighthouse. Cross-platform: **Windows**, **Linux**, **macOS**.
 
 ## TL;DR
 
@@ -30,10 +30,10 @@ Then open <http://localhost:5173> and log in with **`admin` / `adminadmin`**
    `apt`/`dnf`/`pacman` on Linux. If no package manager is found it prints the
    manual download link instead.
 3. **Generates gitignored local dev config** (idempotent — existing files are kept):
-   - `docker-compose-manager-back/docker-compose-manager-back/appsettings.Development.local.json`
+   - `lighthouse-back/lighthouse-back/appsettings.Development.local.json`
      with `ComposeDiscovery:HostPathMapping` pointing at
      `dev-setup/sample-compose-files`.
-   - `docker-compose-manager-front/.env.development` with
+   - `lighthouse-front/.env.development` with
      `VITE_API_URL=http://localhost:5050`.
 4. **Installs dependencies**: `dotnet restore` (backend) and `npm install` (frontend).
 5. **Optional prompts**: install the `dotnet-ef` global tool (only needed to *author*
@@ -70,11 +70,11 @@ auto-applies EF migrations on startup and seeds the default admin user.
 
 ```bash
 # Backend
-cd docker-compose-manager-back
-dotnet watch run --project docker-compose-manager-back --launch-profile http
+cd lighthouse-back
+dotnet watch run --project lighthouse-back --launch-profile http
 
 # Frontend (separate terminal)
-cd docker-compose-manager-front
+cd lighthouse-front
 npm run dev
 ```
 
@@ -105,7 +105,7 @@ Then create the two config files listed in step 3 above and run
   `appsettings.Development.json`). On Linux you may need
   `sudo chmod 666 /var/run/docker.sock` or to be in the `docker` group.
 - **Frontend can't reach the backend** — dev runs over **HTTP**; confirm
-  `docker-compose-manager-front/.env.development` has
+  `lighthouse-front/.env.development` has
   `VITE_API_URL=http://localhost:5050` and that the backend is started with the
   `http` launch profile. If you prefer HTTPS, trust the dev cert
   (`dotnet dev-certs https --trust`) and set the URL to `https://localhost:5050`.

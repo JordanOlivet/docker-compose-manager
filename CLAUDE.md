@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains a Docker Compose management system deployed as a **unified single-container application**:
 
-- **docker-compose-manager-back**: .NET 10 Web API backend that interfaces with Docker Engine
-- **docker-compose-manager-front**: SvelteKit frontend with bits-ui components
+- **lighthouse-back**: .NET 10 Web API backend that interfaces with Docker Engine
+- **lighthouse-front**: SvelteKit frontend with bits-ui components
 
 The system provides a web-based interface for managing Docker containers and compose files, with features including user authentication, role-based access control, real-time updates via SSE (Server-Sent Events), a compose file editor, and self-update capabilities.
 
@@ -17,23 +17,23 @@ The system provides a web-based interface for managing Docker containers and com
 
 ## Development Commands
 
-### Backend (docker-compose-manager-back)
+### Backend (lighthouse-back)
 
-Solution located in `./docker-compose-manager-back/` with the following structure:
-- `docker-compose-manager-back/` - Main API project
-- `docker-compose-manager-back.Tests/` - Test project (xUnit + Moq + FluentAssertions)
+Solution located in `./lighthouse-back/` with the following structure:
+- `lighthouse-back/` - Main API project
+- `lighthouse-back.Tests/` - Test project (xUnit + Moq + FluentAssertions)
 
 ```bash
-# All commands run from ./docker-compose-manager-back/ (solution root)
+# All commands run from ./lighthouse-back/ (solution root)
 
 # Restore dependencies
 dotnet restore
 
 # Run in development mode with hot-reload
-dotnet watch run --project docker-compose-manager-back
+dotnet watch run --project lighthouse-back
 
 # Run without hot-reload
-dotnet run --project docker-compose-manager-back
+dotnet run --project lighthouse-back
 
 # Build the project
 dotnet build -c Release
@@ -45,20 +45,20 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~ServiceName"
 
 # Create database migration (from solution root)
-dotnet ef migrations add MigrationName --project docker-compose-manager-back
+dotnet ef migrations add MigrationName --project lighthouse-back
 
 # Apply database migrations
-dotnet ef database update --project docker-compose-manager-back
+dotnet ef database update --project lighthouse-back
 
 # Remove last migration (if not applied)
-dotnet ef migrations remove --project docker-compose-manager-back
+dotnet ef migrations remove --project lighthouse-back
 ```
 
 Backend runs at `http://localhost:5050` (http launch profile). Swagger is disabled by default; use the `GET /health` endpoint to verify it's up.
 
-### Frontend (docker-compose-manager-front)
+### Frontend (lighthouse-front)
 
-Located in `./docker-compose-manager-front/`
+Located in `./lighthouse-front/`
 
 ```bash
 # Install dependencies
@@ -318,7 +318,7 @@ The application can update itself via GitHub releases:
 1. **Backend**:
    - Per-developer overrides go in the gitignored `appsettings.Development.local.json`
    - Migrations apply automatically on startup (no manual `dotnet ef database update` needed)
-   - Run `dotnet watch run --project docker-compose-manager-back --launch-profile http` for hot-reload
+   - Run `dotnet watch run --project lighthouse-back --launch-profile http` for hot-reload
    - Verify with `GET http://localhost:5050/health` (Swagger is disabled by default)
 
 2. **Frontend**:
@@ -351,7 +351,7 @@ Access `/dev` (development only) for testing features:
 
 ### Backend Tests
 
-Located in `docker-compose-manager-back.Tests/`:
+Located in `lighthouse-back.Tests/`:
 
 ```
 Controllers/

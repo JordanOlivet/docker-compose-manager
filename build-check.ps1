@@ -13,7 +13,7 @@ try {
     Write-Host "  Backend Build (.NET)" -ForegroundColor Cyan
     Write-Host "========================================`n" -ForegroundColor Cyan
 
-    Push-Location docker-compose-manager-back
+    Push-Location lighthouse-back
     dotnet build --nologo -v q
     $backendResult = $LASTEXITCODE
     Pop-Location
@@ -22,7 +22,7 @@ try {
     Write-Host "  Frontend Check (SvelteKit)" -ForegroundColor Cyan
     Write-Host "========================================`n" -ForegroundColor Cyan
 
-    Push-Location docker-compose-manager-front
+    Push-Location lighthouse-front
     npm run check
     $frontendResult = $LASTEXITCODE
     Pop-Location

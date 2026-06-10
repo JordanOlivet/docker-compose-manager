@@ -1,8 +1,8 @@
-# Docker Compose Manager - Technical Specifications
+# Lighthouse - Technical Specifications
 
 ## 1. Overview
 
-Docker Compose Manager is a web-based application for managing Docker containers and Docker Compose projects. It provides a unified interface for viewing, controlling, and monitoring your Docker infrastructure.
+Lighthouse is a web-based application for managing Docker containers and Docker Compose projects. It provides a unified interface for viewing, controlling, and monitoring your Docker infrastructure.
 
 ### Architecture
 
@@ -353,7 +353,7 @@ Content-Security-Policy: default-src 'self'
 ### Backend Commands
 
 ```bash
-cd docker-compose-manager-back
+cd lighthouse-back
 
 dotnet restore           # Restore dependencies
 dotnet watch run         # Run with hot-reload
@@ -368,7 +368,7 @@ dotnet ef database update
 ### Frontend Commands
 
 ```bash
-cd docker-compose-manager-front
+cd lighthouse-front
 
 npm install      # Install dependencies
 npm run dev      # Development server
