@@ -23,9 +23,13 @@ Prerequisites it checks/installs: **Git**, **.NET SDK 10**, **Node.js 20+**,
 ## 2. Run the app
 
 ```bash
-.\run.ps1     # Windows
+.\run.ps1     # Windows (or double-click run.cmd)
 ./run.sh      # Linux / macOS
 ```
+
+> **Windows tip:** to launch by double-clicking, use `run.cmd` rather than the
+> `.ps1`. Double-clicking the `.ps1` (or "Run with PowerShell") tends to close the
+> window instantly on error; `run.cmd` keeps it open until you press a key.
 
 This builds both apps then launches each in its own terminal window (so logs stay
 separate; on macOS/Linux without a GUI terminal it falls back to combined logs):
@@ -43,6 +47,7 @@ docker-compose-manager-back/     .NET 10 Web API (Controllers, Services, Data, .
 docker-compose-manager-front/    SvelteKit + Svelte 5 frontend (routes, lib, ...)
 dev-setup/                       Dev bootstrap scripts + sample compose files
 run.{ps1,sh}                     Build + launch both apps
+run.cmd                          Windows double-click launcher for run.ps1
 build-check.{ps1,sh}             Compile backend + type-check frontend
 build-check.cmd                  Windows double-click launcher for build-check.ps1
 ```

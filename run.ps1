@@ -5,14 +5,21 @@
 # Close a window (or Ctrl-C inside it) to stop that app.
 # Run dev-setup\setup.ps1 first if you haven't.
 
+# -NoPause is passed by run.cmd, which handles the "press a key" pause itself.
+param([switch]$NoPause)
+
 $ErrorActionPreference = "Stop"
+
+function Wait-BeforeClose {
+    if (-not $NoPause) { Read-Host "Press Enter to close" }
+}
 
 # Keep the window open on unexpected errors (e.g. launched by double-click).
 trap {
     Write-Host "`nFAILED:" -ForegroundColor Red
     Write-Host "  $_" -ForegroundColor Red
     Write-Host ""
-    Read-Host "Press Enter to close"
+    Wait-BeforeClose
     exit 1
 }
 
@@ -32,14 +39,14 @@ Push-Location $BackDir
 dotnet build --nologo -v q
 $backBuild = $LASTEXITCODE
 Pop-Location
-if ($backBuild -ne 0) { Write-Host "Backend build FAILED." -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
+if ($backBuild -ne 0) { Write-Host "Backend build FAILED." -ForegroundColor Red; Wait-BeforeClose; exit 1 }
 
 Write-Header "Build frontend (SvelteKit)"
 Push-Location $FrontDir
 npm run build
 $frontBuild = $LASTEXITCODE
 Pop-Location
-if ($frontBuild -ne 0) { Write-Host "Frontend build FAILED." -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
+if ($frontBuild -ne 0) { Write-Host "Frontend build FAILED." -ForegroundColor Red; Wait-BeforeClose; exit 1 }
 
 # ----- Launch (each in its own window) ---------------------------------------
 Write-Header "Launch (each app in its own window)"
@@ -61,4 +68,4 @@ Write-Host "  frontend -> http://localhost:5173   (window: 'Frontend (SvelteKit)
 Write-Host "  login     : admin / adminadmin" -ForegroundColor White
 Write-Host "`n  Two new windows opened. Close a window (or Ctrl-C in it) to stop that app." -ForegroundColor White
 Write-Host ""
-Read-Host "Press Enter to close this launcher"
+if (-not $NoPause) { Read-Host "Press Enter to close this launcher" }
