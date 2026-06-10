@@ -17,7 +17,7 @@ chmod +x dev-setup/setup.sh run.sh   # first time only
 ./dev-setup/setup.sh
 ```
 
-Prerequisites it checks/installs: **Git**, **.NET SDK 10**, **Node.js 20+**,
+Prerequisites it checks/installs: **Git**, **.NET SDK 10**, **Node.js 24+**,
 **Docker**. Details and manual steps: [dev-setup/README.md](dev-setup/README.md).
 
 ## 2. Run the app

@@ -248,7 +248,7 @@ volumes:
 ### Prerequisites
 - Docker Desktop or Docker Engine
 - .NET 10 SDK
-- Node.js 20+
+- Node.js 24+
 
 > **Fastest path:** run `dev-setup/setup.ps1` (Windows) or `dev-setup/setup.sh`
 > (Linux/macOS) to install prerequisites and configure everything, then `run.ps1`
