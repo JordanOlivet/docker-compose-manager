@@ -83,10 +83,10 @@ fi
 node_ok=0
 if has node; then
     nver="$(node -v)"; nver="${nver#v}"; nmaj="${nver%%.*}"
-    if [ "$nmaj" -ge 20 ] 2>/dev/null; then
+    if [ "$nmaj" -ge 24 ] 2>/dev/null; then
         echo -e "  Node      ${GREEN}OK${NC}   v$nver"; node_ok=1
     else
-        echo -e "  Node      ${RED}TOO OLD${NC} (v$nver, need >= 20)"; missing+=("node")
+        echo -e "  Node      ${RED}TOO OLD${NC} (v$nver, need >= 24)"; missing+=("node")
     fi
 else
     echo -e "  Node      ${RED}MISSING${NC}"; missing+=("node")
@@ -110,7 +110,7 @@ if [ "${#missing[@]}" -gt 0 ]; then
         case "$tool" in
             git)    brew_p="git";          apt_p="git";          dnf_p="git";          pac_p="git";          url="https://git-scm.com/downloads" ;;
             dotnet) brew_p="dotnet-sdk";   apt_p="dotnet-sdk-10.0"; dnf_p="dotnet-sdk-10.0"; pac_p="dotnet-sdk"; url="https://dotnet.microsoft.com/download/dotnet/10.0" ;;
-            node)   brew_p="node@20";      apt_p="nodejs npm";   dnf_p="nodejs";       pac_p="nodejs npm";   url="https://nodejs.org/" ;;
+            node)   brew_p="node@24";      apt_p="nodejs npm";   dnf_p="nodejs";       pac_p="nodejs npm";   url="https://nodejs.org/" ;;
             docker) brew_p="--cask docker"; apt_p="docker.io";   dnf_p="docker";       pac_p="docker";       url="https://docs.docker.com/engine/install/" ;;
         esac
         if read_yesno "  Install '$tool' now?"; then

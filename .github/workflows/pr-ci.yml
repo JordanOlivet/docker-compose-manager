@@ -57,7 +57,7 @@ jobs:
     steps:
       - name: Checkout frontend
         uses: actions/checkout@v4
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: ./.github/actions/setup-node
       - name: Install dependencies
         working-directory: ./lighthouse-front
