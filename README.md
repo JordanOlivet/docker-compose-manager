@@ -1,6 +1,10 @@
-# Lighthouse
+<div align="center">
+  <img src="resources/lighthouse-logo.svg" alt="Lighthouse logo" width="128" height="128" />
 
-A web-based interface for managing Docker containers and Docker Compose projects.
+  <h1>Lighthouse</h1>
+
+  <p>A web-based interface for managing Docker containers and Docker Compose projects.</p>
+</div>
 
 ## Overview
 
