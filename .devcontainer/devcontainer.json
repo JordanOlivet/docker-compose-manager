@@ -11,6 +11,12 @@
     }
   },
 
+  "containerEnv": {
+    // inotify instances are a per-uid host-wide kernel limit (128 by default);
+    // several workspaces/watchers easily exhaust it. Poll instead.
+    "DOTNET_USE_POLLING_FILE_WATCHER": "1"
+  },
+
   "customizations": {
     "vscode": {
       "extensions": [
