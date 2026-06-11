@@ -10,22 +10,16 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retryCount?: number;
 }
 
-// Use relative URL in production (nginx proxy), or env variable for development
-// In production (built in Docker), VITE_API_URL should be empty/undefined to use nginx proxy
+// Use relative URL by default so requests are proxied (Vite proxy in dev, nginx in prod).
+// Override by setting VITE_API_URL (e.g. in .env.development.local for a remote backend).
 const getApiUrl = () => {
   if (!browser) return '';
 
   const viteApiUrl = import.meta.env.VITE_API_URL;
-  // If VITE_API_URL is explicitly set (even if empty string), use it
   if (viteApiUrl !== undefined && viteApiUrl !== '') {
     return viteApiUrl;
   }
-  // In production build, use empty string for relative URLs (nginx proxy)
-  if (import.meta.env.PROD) {
-    return '';
-  }
-  // In development, default to local backend (HTTP — dev backend serves plain HTTP)
-  return 'http://localhost:5050';
+  return '';
 };
 
 const API_URL = getApiUrl();

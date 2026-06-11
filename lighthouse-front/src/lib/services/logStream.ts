@@ -11,10 +11,7 @@ const getApiUrl = () => {
 	if (viteApiUrl !== undefined && viteApiUrl !== '') {
 		return viteApiUrl;
 	}
-	if (import.meta.env.PROD) {
-		return '';
-	}
-	return 'https://localhost:5050';
+	return '';
 };
 
 export interface LogEntry {

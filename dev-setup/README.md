@@ -104,11 +104,17 @@ Then create the two config files listed in step 3 above and run
   Windows uses `npipe://./pipe/docker_engine` (already set in
   `appsettings.Development.json`). On Linux you may need
   `sudo chmod 666 /var/run/docker.sock` or to be in the `docker` group.
-- **Frontend can't reach the backend** — dev runs over **HTTP**; confirm
-  `lighthouse-front/.env.development` has
-  `VITE_API_URL=http://localhost:5050` and that the backend is started with the
-  `http` launch profile. If you prefer HTTPS, trust the dev cert
-  (`dotnet dev-certs https --trust`) and set the URL to `https://localhost:5050`.
+- **Frontend can't reach the backend** — API calls are proxied through the Vite
+  dev server to `http://localhost:5050` (see `vite.config.ts`). Make sure the
+  backend is started with the `http` launch profile. To override the backend URL
+  (e.g. for a remote host), set `VITE_API_URL=http://my-host:5050` in the
+  gitignored `lighthouse-front/.env.development.local`.
+- **"Blocked request" / Vite host check in a cloud/remote dev environment** —
+  add your domain to the gitignored `lighthouse-front/.env.development.local`:
+  ```
+  ALLOWED_HOSTS=.your-domain.com
+  ```
+  Multiple hosts are comma-separated: `ALLOWED_HOSTS=.foo.com,.bar.io`.
 - **"Database is locked"** — SQLite is single-writer; close any tool (e.g. DB
   Browser) holding `Data/app.db`.
 - **PATH not updated after install** — open a new terminal and re-run the setup script.
