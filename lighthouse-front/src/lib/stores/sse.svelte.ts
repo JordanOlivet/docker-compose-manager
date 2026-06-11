@@ -95,7 +95,7 @@ function isTokenExpired(token: string): boolean {
  * Returns the new access token, or null if refresh failed.
  */
 async function ensureFreshToken(): Promise<string | null> {
-  let token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem('accessToken');
 
   if (token && !isTokenExpired(token)) {
     return token;

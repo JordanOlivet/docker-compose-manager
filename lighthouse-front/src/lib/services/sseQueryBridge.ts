@@ -103,7 +103,7 @@ function createDebouncedRefetcher(
   queryClient: QueryClient,
   delayMs: number
 ): (queryKeys: string[][]) => void {
-  let pendingKeys: Set<string> = new Set();
+  const pendingKeys: Set<string> = new Set();
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let isExecuting = false;
 

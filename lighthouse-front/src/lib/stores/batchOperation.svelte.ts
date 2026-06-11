@@ -5,10 +5,10 @@
  */
 
 // Set of active operation IDs
-let activeOperations = $state<Set<string>>(new Set());
+const activeOperations = $state<Set<string>>(new Set());
 
 // Projects currently being updated
-let updatingProjects = $state<Set<string>>(new Set());
+const updatingProjects = $state<Set<string>>(new Set());
 
 /**
  * Check if any batch operation is currently in progress

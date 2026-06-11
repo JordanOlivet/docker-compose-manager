@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout backend
         uses: actions/checkout@v4
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: ./.github/actions/setup-dotnet
       - name: Restore dependencies
         working-directory: ./lighthouse-back
@@ -73,6 +73,12 @@ jobs:
       - name: Run frontend type checking
         working-directory: ./lighthouse-front
         run: npm run check
+      - name: Lint frontend
+        working-directory: ./lighthouse-front
+        run: npm run lint
+      - name: Run frontend tests
+        working-directory: ./lighthouse-front
+        run: npm run test
 
   docker-build-push:
     name: Docker - Build & Push
