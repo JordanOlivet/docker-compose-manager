@@ -1,12 +1,11 @@
 <script lang="ts">
   import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
-  import { ClipboardList, Search, Filter, Trash2, BarChart3, RefreshCw } from 'lucide-svelte';
+  import { ClipboardList, Search, Filter, Trash2, RefreshCw } from 'lucide-svelte';
   import { auditApi } from '$lib/api';
   import type { AuditLog } from '$lib/types';
   import { AuditSortField, SortOrder } from '$lib/types/audit';
   import LoadingState from '$lib/components/common/LoadingState.svelte';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
-  import StatsCard from '$lib/components/common/StatsCard.svelte';
   import Input from '$lib/components/ui/input.svelte';
   import Select from '$lib/components/ui/select.svelte';
   import Badge from '$lib/components/ui/badge.svelte';
@@ -57,12 +56,6 @@
     queryKey: ['audit', 'distinctResourceTypes'],
     queryFn: () => auditApi.getDistinctResourceTypes(),
   }));
-
-  // TODO: Implement /api/audit/stats endpoint in backend
-  // const statsQuery = createQuery(() => ({
-  //   queryKey: ['audit', 'stats'],
-  //   queryFn: () => auditApi.getAuditStats(),
-  // }));
 
   const purgeMutation = createMutation(() => ({
     mutationFn: (daysOld: number) => auditApi.purgeOldLogs({ olderThanDays: daysOld }),
@@ -150,33 +143,6 @@
       </Button>
     </div>
   </div>
-
-  <!-- Statistics -->
-  <!-- TODO: Uncomment when /api/audit/stats endpoint is implemented in backend -->
-  <!-- {#if statsQuery.data}
-    <div class="grid gap-4 md:grid-cols-4">
-      <StatsCard
-        title="Total Logs"
-        value={statsQuery.data.totalLogs.toString()}
-        icon={BarChart3}
-      />
-      <StatsCard
-        title="Today"
-        value={statsQuery.data.logsToday.toString()}
-        icon={ClipboardList}
-      />
-      <StatsCard
-        title="This Week"
-        value={statsQuery.data.logsThisWeek.toString()}
-        icon={ClipboardList}
-      />
-      <StatsCard
-        title="This Month"
-        value={statsQuery.data.logsThisMonth.toString()}
-        icon={ClipboardList}
-      />
-    </div>
-  {/if} -->
 
   <!-- Filter Panel -->
   <div class="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg">
