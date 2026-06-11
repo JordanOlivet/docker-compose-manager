@@ -133,10 +133,25 @@ src/
 ├── Configuration/   → Options classes for appsettings
 ├── Validators/      → FluentValidation validators
 ├── Filters/         → Action filters
-├── Extensions/      → Extension methods
+├── Extensions/      → Extension methods (incl. ServiceCollectionExtensions DI registration)
+├── Exceptions/      → Domain exception hierarchy (AppException + NotFound/Forbidden/...)
+├── Constants/       → Shared constants (ErrorCodes)
 ├── Security/        → Security-related services
 └── Utils/           → Utility classes
 ```
+
+**Composition root:** `Program.cs` is kept thin — service registrations live in
+per-subsystem extension methods in `Extensions/ServiceCollectionExtensions.cs`
+(`AddApplicationServices()`, `AddComposeServices()`, `AddImageUpdateServices()`, ...).
+
+**Compose controllers:** the compose API is split by concern across
+`ComposeController` (project lifecycle), `ComposeFilesController` (discovery /
+conflicts / health), and `ComposeUpdatesController` (image-update endpoints), all
+sharing the `api/compose` route prefix.
+
+**Error handling:** `ErrorHandlingMiddleware` maps exceptions to `ApiResponse.Fail`.
+Domain code can throw `AppException` subclasses (`NotFoundException`,
+`ForbiddenException`, ...) which carry their HTTP status + `ErrorCode`.
 
 **Key Services:**
 
