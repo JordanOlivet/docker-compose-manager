@@ -1,12 +1,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
-# Install common dev tools, Node.js 22, and Docker CLI
+# Install common dev tools, Node.js 24, and Docker CLI
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
         git curl wget sudo ca-certificates gnupg2 \
         procps lsb-release openssh-client socat \
-    # Add NodeSource repo for Node.js 22
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    # Add NodeSource repo for Node.js 24
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     # Add Docker CLI (detect distro automatically)
     && install -m 0755 -d /etc/apt/keyrings \
@@ -38,4 +38,6 @@ RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || true \
 # Add user to docker group (will be created if socket is mounted)
 RUN groupadd -f docker && usermod -aG docker $USERNAME
 
+# Literal user name: kaniko/envbuilder stores USER with unexpanded ARG in the
+# image config, which breaks envbuilder's user lookup ("unknown user $USERNAME").
 USER vscode
