@@ -38,6 +38,10 @@ RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || true \
 # Add user to docker group (will be created if socket is mounted)
 RUN groupadd -f docker && usermod -aG docker $USERNAME
 
+# Claude Code CLI (installed via npm rather than the devcontainer feature,
+# which is unreliable under envbuilder/kaniko)
+RUN npm install -g @anthropic-ai/claude-code
+
 # Literal user name: kaniko/envbuilder stores USER with unexpanded ARG in the
 # image config, which breaks envbuilder's user lookup ("unknown user $USERNAME").
 USER vscode
