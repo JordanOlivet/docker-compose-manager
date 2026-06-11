@@ -320,7 +320,7 @@ docker compose pull
 docker compose up -d
 
 # Check logs for issues
-docker compose logs -f app
+docker compose logs -f lighthouse
 ```
 
 ### Backup
@@ -369,7 +369,7 @@ Logs are written to `/app/logs` with daily rotation (30 days retention).
 
 ```bash
 # View logs
-docker compose logs -f app
+docker compose logs -f lighthouse
 
 # Or access log files directly
 ls -la ./logs/
@@ -384,7 +384,7 @@ tail -f ./logs/app-*.log
 
 ```bash
 # Check logs
-docker compose logs app
+docker compose logs lighthouse
 
 # Common issues:
 # - Missing JWT_SECRET
@@ -477,10 +477,10 @@ If real-time updates don't work:
 
 ```bash
 # Test health endpoint
-docker compose exec app curl http://localhost/health
+docker compose exec lighthouse curl http://localhost/health
 
 # Check application logs
-docker compose logs --tail 100 app
+docker compose logs --tail 100 lighthouse
 ```
 
 ---

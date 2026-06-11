@@ -26,7 +26,7 @@ jobs:
     with:
       version: ${{ needs.release.outputs.version }}
       project-path: lighthouse-back
-      dotnet-version: '9.0.x'
+      dotnet-version: '10.0.x'
       run-tests: true
     secrets: inherit
 
