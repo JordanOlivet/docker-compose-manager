@@ -104,6 +104,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
         services.AddSingleton<IContainerUpdateCacheService, ContainerUpdateCacheService>();
         services.AddSingleton<DockerPullProgressParser>();
+        services.AddScoped<IComposeUpdateChecker, ComposeUpdateChecker>();
         services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
         services.AddScoped<IContainerUpdateService, ContainerUpdateService>();
         return services;
