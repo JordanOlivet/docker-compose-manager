@@ -164,31 +164,6 @@ export interface ComposeLogsResponse {
   hasMore: boolean;
 }
 
-// Compose Path Types (for validation)
-export interface ComposePath {
-  id: number;
-  path: string;
-  description?: string;
-  isEnabled: boolean;
-  isRecursive: boolean;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-export interface CreateComposePathRequest {
-  path: string;
-  description?: string;
-  isEnabled?: boolean;
-  isRecursive?: boolean;
-}
-
-export interface UpdateComposePathRequest {
-  path?: string;
-  description?: string;
-  isEnabled?: boolean;
-  isRecursive?: boolean;
-}
-
 // Compose File Parsed Details Types
 export interface ComposeFileDetails {
   projectName: string;
