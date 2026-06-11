@@ -9,39 +9,19 @@ namespace Lighthouse.DTOs;
 /// Used by the GET /api/compose/files endpoint to list all discovered compose files.
 /// </summary>
 public record DiscoveredComposeFileDto(
-    /// <summary>
-    /// Full absolute path to the compose file
-    /// </summary>
+    // Full absolute path to the compose file
     string FilePath,
-
-    /// <summary>
-    /// Project name (from 'name:' attribute or directory name)
-    /// </summary>
+    // Project name (from 'name:' attribute or directory name)
     string ProjectName,
-
-    /// <summary>
-    /// Directory containing the compose file
-    /// </summary>
+    // Directory containing the compose file
     string DirectoryPath,
-
-    /// <summary>
-    /// Last modification timestamp
-    /// </summary>
+    // Last modification timestamp
     DateTime LastModified,
-
-    /// <summary>
-    /// Whether the file is valid YAML with required structure
-    /// </summary>
+    // Whether the file is valid YAML with required structure
     bool IsValid,
-
-    /// <summary>
-    /// Whether the file is marked with x-disabled: true
-    /// </summary>
+    // Whether the file is marked with x-disabled: true
     bool IsDisabled,
-
-    /// <summary>
-    /// List of service names in the compose file
-    /// </summary>
+    // List of service names in the compose file
     List<string> Services
 );
 
@@ -54,19 +34,11 @@ public record DiscoveredComposeFileDto(
 /// Used by the GET /api/compose/health endpoint.
 /// </summary>
 public record ComposeHealthDto(
-    /// <summary>
-    /// Overall system status: "healthy", "degraded", or "critical"
-    /// </summary>
+    // Overall system status: "healthy", "degraded", or "critical"
     string Status,
-
-    /// <summary>
-    /// Compose discovery subsystem status
-    /// </summary>
+    // Compose discovery subsystem status
     ComposeHealthStatusDto ComposeDiscovery,
-
-    /// <summary>
-    /// Docker daemon connection status
-    /// </summary>
+    // Docker daemon connection status
     DockerDaemonStatusDto DockerDaemon
 );
 
@@ -74,39 +46,19 @@ public record ComposeHealthDto(
 /// Status information for the compose file discovery subsystem
 /// </summary>
 public record ComposeHealthStatusDto(
-    /// <summary>
-    /// Status: "healthy" or "degraded"
-    /// </summary>
+    // Status: "healthy" or "degraded"
     string Status,
-
-    /// <summary>
-    /// Configured root path for compose files
-    /// </summary>
+    // Configured root path for compose files
     string RootPath,
-
-    /// <summary>
-    /// Whether the root path exists on filesystem
-    /// </summary>
+    // Whether the root path exists on filesystem
     bool Exists,
-
-    /// <summary>
-    /// Whether the root path is accessible (readable)
-    /// </summary>
+    // Whether the root path is accessible (readable)
     bool Accessible,
-
-    /// <summary>
-    /// Whether the system is running in degraded mode (compose discovery disabled)
-    /// </summary>
+    // Whether the system is running in degraded mode (compose discovery disabled)
     bool DegradedMode,
-
-    /// <summary>
-    /// Optional message explaining degraded status
-    /// </summary>
+    // Optional message explaining degraded status
     string? Message = null,
-
-    /// <summary>
-    /// Description of the impact when in degraded mode
-    /// </summary>
+    // Description of the impact when in degraded mode
     string? Impact = null
 );
 
@@ -114,29 +66,15 @@ public record ComposeHealthStatusDto(
 /// Status information for the Docker daemon connection
 /// </summary>
 public record DockerDaemonStatusDto(
-    /// <summary>
-    /// Status: "healthy" or "unhealthy"
-    /// </summary>
+    // Status: "healthy" or "unhealthy"
     string Status,
-
-    /// <summary>
-    /// Whether connected to Docker daemon
-    /// </summary>
+    // Whether connected to Docker daemon
     bool Connected,
-
-    /// <summary>
-    /// Docker version (if connected)
-    /// </summary>
+    // Docker version (if connected)
     string? Version = null,
-
-    /// <summary>
-    /// Docker API version (if connected)
-    /// </summary>
+    // Docker API version (if connected)
     string? ApiVersion = null,
-
-    /// <summary>
-    /// Error message if connection failed
-    /// </summary>
+    // Error message if connection failed
     string? Error = null
 );
 
@@ -149,24 +87,13 @@ public record DockerDaemonStatusDto(
 /// Used by the GET /api/compose/conflicts endpoint.
 /// </summary>
 public record ConflictErrorDto(
-    /// <summary>
-    /// The project name that has conflicts
-    /// </summary>
+    // The project name that has conflicts
     string ProjectName,
-
-    /// <summary>
-    /// List of file paths that conflict (all have same project name, none are disabled)
-    /// </summary>
+    // List of file paths that conflict (all have same project name, none are disabled)
     List<string> ConflictingFiles,
-
-    /// <summary>
-    /// User-friendly error message
-    /// </summary>
+    // User-friendly error message
     string Message,
-
-    /// <summary>
-    /// Step-by-step instructions to resolve the conflict
-    /// </summary>
+    // Step-by-step instructions to resolve the conflict
     List<string> ResolutionSteps
 );
 
@@ -174,13 +101,8 @@ public record ConflictErrorDto(
 /// Response wrapper for the conflicts endpoint
 /// </summary>
 public record ConflictsResponse(
-    /// <summary>
-    /// List of all detected conflicts
-    /// </summary>
+    // List of all detected conflicts
     List<ConflictErrorDto> Conflicts,
-
-    /// <summary>
-    /// Whether any conflicts exist
-    /// </summary>
+    // Whether any conflicts exist
     bool HasConflicts
 );
