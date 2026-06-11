@@ -11,11 +11,8 @@ namespace Lighthouse.Services.Registry;
 /// <summary>
 /// Registry client for Docker Hub (docker.io / registry.hub.docker.com).
 /// </summary>
-public class DockerHubRegistryClient : IRegistryClient
+public class DockerHubRegistryClient : RegistryClientBase
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<DockerHubRegistryClient> _logger;
-    private readonly UpdateCheckOptions _options;
     private readonly IRegistryCredentialService _credentialService;
 
     private const string AuthUrl = "https://auth.docker.io/token";
@@ -27,16 +24,12 @@ public class DockerHubRegistryClient : IRegistryClient
         IOptions<UpdateCheckOptions> options,
         IRegistryCredentialService credentialService,
         ILogger<DockerHubRegistryClient> logger)
+        : base(httpClient, logger, options.Value.TimeoutSeconds)
     {
-        _httpClient = httpClient;
-        _options = options.Value;
         _credentialService = credentialService;
-        _logger = logger;
-
-        _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
     }
 
-    public bool CanHandle(string registry)
+    public override bool CanHandle(string registry)
     {
         return registry == "docker.io" ||
                registry == "registry-1.docker.io" ||
@@ -44,7 +37,7 @@ public class DockerHubRegistryClient : IRegistryClient
                registry == "index.docker.io";
     }
 
-    public async Task<string?> GetManifestDigestAsync(
+    public override async Task<string?> GetManifestDigestAsync(
         string image,
         string tag,
         string architecture,
@@ -55,7 +48,7 @@ public class DockerHubRegistryClient : IRegistryClient
             string? token = await GetAuthTokenAsync(image, cancellationToken);
             if (token == null)
             {
-                _logger.LogWarning("Failed to get auth token for image {Image}", image);
+                Logger.LogWarning("Failed to get auth token for image {Image}", image);
                 return null;
             }
 
@@ -67,7 +60,7 @@ public class DockerHubRegistryClient : IRegistryClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
             return null;
         }
     }
@@ -88,12 +81,9 @@ public class DockerHubRegistryClient : IRegistryClient
 
         using HttpRequestMessage request = new(HttpMethod.Head, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+        AddManifestAcceptHeaders(request);
 
-        HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+        HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
@@ -104,7 +94,7 @@ public class DockerHubRegistryClient : IRegistryClient
         // Some registries don't allow HEAD on manifests → fall back to the GET path.
         if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
         {
-            _logger.LogDebug("HEAD not supported for {Repository}:{Tag} ({StatusCode}); falling back to GET",
+            Logger.LogDebug("HEAD not supported for {Repository}:{Tag} ({StatusCode}); falling back to GET",
                 repository, tag, response.StatusCode);
             var (fallbackDigest, _) = await FetchManifestDigestAndConfigAsync(repository, tag, architecture, token, cancellationToken);
             return fallbackDigest;
@@ -112,7 +102,7 @@ public class DockerHubRegistryClient : IRegistryClient
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogWarning("Manifest HEAD request failed for {Repository}:{Tag} with status {StatusCode}",
+            Logger.LogWarning("Manifest HEAD request failed for {Repository}:{Tag} with status {StatusCode}",
                 repository, tag, response.StatusCode);
             return null;
         }
@@ -130,7 +120,7 @@ public class DockerHubRegistryClient : IRegistryClient
         return digest;
     }
 
-    public async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
+    public override async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
         string image,
         string tag,
         string architecture,
@@ -138,15 +128,13 @@ public class DockerHubRegistryClient : IRegistryClient
     {
         try
         {
-            // Get authentication token
             string? token = await GetAuthTokenAsync(image, cancellationToken);
             if (token == null)
             {
-                _logger.LogWarning("Failed to get auth token for image {Image}", image);
+                Logger.LogWarning("Failed to get auth token for image {Image}", image);
                 return (null, null);
             }
 
-            // Fetch manifest and get digest + config digest
             var (digest, configDigest) = await FetchManifestDigestAndConfigAsync(image, tag, architecture, token, cancellationToken);
 
             if (digest == null)
@@ -154,11 +142,10 @@ public class DockerHubRegistryClient : IRegistryClient
                 return (null, null);
             }
 
-            // Fetch creation date from config blob
             DateTime? createdAt = null;
             if (configDigest != null)
             {
-                createdAt = await FetchConfigCreatedAtAsync(image, configDigest, token, cancellationToken);
+                createdAt = await FetchConfigCreatedAtAsync(RegistryUrl, image, configDigest, token, cancellationToken);
             }
 
             return (digest, createdAt);
@@ -169,7 +156,7 @@ public class DockerHubRegistryClient : IRegistryClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
             return (null, null);
         }
     }
@@ -191,17 +178,17 @@ public class DockerHubRegistryClient : IRegistryClient
                 string basicAuth = Convert.ToBase64String(
                     Encoding.UTF8.GetBytes($"{credentials.Value.Username}:{credentials.Value.Password}"));
                 tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-                _logger.LogDebug("Using authenticated Docker Hub token request for {Repository} (user: {User})",
+                Logger.LogDebug("Using authenticated Docker Hub token request for {Repository} (user: {User})",
                     repository, credentials.Value.Username);
             }
             else
             {
-                _logger.LogDebug(
+                Logger.LogDebug(
                     "No Docker Hub credentials resolved for {Repository}; using anonymous token (guest rate limits apply)",
                     repository);
             }
 
-            HttpResponseMessage response = await _httpClient.SendAsync(tokenRequest, cancellationToken);
+            HttpResponseMessage response = await HttpClient.SendAsync(tokenRequest, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -210,7 +197,7 @@ public class DockerHubRegistryClient : IRegistryClient
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Auth token request failed with status {StatusCode}", response.StatusCode);
+                Logger.LogWarning("Auth token request failed with status {StatusCode}", response.StatusCode);
                 return null;
             }
 
@@ -230,7 +217,7 @@ public class DockerHubRegistryClient : IRegistryClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get Docker Hub auth token for {Repository}", repository);
+            Logger.LogError(ex, "Failed to get Docker Hub auth token for {Repository}", repository);
             return null;
         }
     }
@@ -246,14 +233,9 @@ public class DockerHubRegistryClient : IRegistryClient
 
         using HttpRequestMessage request = new(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        AddManifestAcceptHeaders(request);
 
-        // Accept manifest list (multi-arch) and single manifest types
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
-
-        HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+        HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
@@ -263,7 +245,7 @@ public class DockerHubRegistryClient : IRegistryClient
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogWarning("Manifest request failed for {Repository}:{Tag} with status {StatusCode}",
+            Logger.LogWarning("Manifest request failed for {Repository}:{Tag} with status {StatusCode}",
                 repository, tag, response.StatusCode);
             return (null, null);
         }
@@ -273,28 +255,25 @@ public class DockerHubRegistryClient : IRegistryClient
         string contentType = response.Content.Headers.ContentType?.MediaType ?? "";
         string content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        // Get the digest from Docker-Content-Digest header - this is what Docker stores locally
-        // For multi-arch images, this is the manifest list digest
-        // For single-arch images, this is the manifest digest
+        // Get the digest from Docker-Content-Digest header - this is what Docker stores locally.
+        // For multi-arch images this is the manifest list digest; for single-arch the manifest digest.
         string? digest = null;
         if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
         {
             digest = digestValues.FirstOrDefault();
         }
 
-        // Check if it's a manifest list (multi-arch)
         if (contentType.Contains("manifest.list") || contentType.Contains("image.index"))
         {
-            // For multi-arch, we use the manifest list digest (from header above) for comparison
-            // But we need to fetch the architecture-specific manifest to get the config for creation date
+            // For multi-arch we use the manifest list digest (from header) for comparison, but fetch
+            // the architecture-specific manifest to get the config digest for the creation date.
             string? archManifestDigest = ExtractDigestFromManifestList(content, architecture);
             if (archManifestDigest == null)
             {
                 return (digest, null);
             }
 
-            // Fetch the architecture-specific manifest to get config digest
-            string? configDigest = await FetchConfigDigestFromManifestAsync(repository, archManifestDigest, token, cancellationToken);
+            string? configDigest = await FetchConfigDigestFromManifestAsync(RegistryUrl, repository, archManifestDigest, token, cancellationToken);
             return (digest, configDigest);
         }
 
@@ -302,163 +281,6 @@ public class DockerHubRegistryClient : IRegistryClient
         string? singleConfigDigest = ExtractConfigDigestFromManifest(content);
 
         return (digest, singleConfigDigest);
-    }
-
-    private async Task<string?> FetchConfigDigestFromManifestAsync(
-        string repository,
-        string manifestDigest,
-        string token,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            string url = $"{RegistryUrl}/{repository}/manifests/{manifestDigest}";
-
-            using HttpRequestMessage request = new(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
-
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-            return ExtractConfigDigestFromManifest(content);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to fetch config digest from manifest {Digest}", manifestDigest);
-            return null;
-        }
-    }
-
-    private string? ExtractConfigDigestFromManifest(string manifestJson)
-    {
-        try
-        {
-            using JsonDocument doc = JsonDocument.Parse(manifestJson);
-
-            if (doc.RootElement.TryGetProperty("config", out JsonElement config) &&
-                config.TryGetProperty("digest", out JsonElement digestElement))
-            {
-                return digestElement.GetString();
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private async Task<DateTime?> FetchConfigCreatedAtAsync(
-        string repository,
-        string configDigest,
-        string token,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            string url = $"{RegistryUrl}/{repository}/blobs/{configDigest}";
-
-            using HttpRequestMessage request = new(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogDebug("Failed to fetch config blob {ConfigDigest}", configDigest);
-                return null;
-            }
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-            using JsonDocument doc = JsonDocument.Parse(content);
-
-            if (doc.RootElement.TryGetProperty("created", out JsonElement createdElement))
-            {
-                string? createdStr = createdElement.GetString();
-                if (!string.IsNullOrEmpty(createdStr) && DateTime.TryParse(createdStr, out DateTime created))
-                {
-                    return created;
-                }
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to fetch config created date for {ConfigDigest}", configDigest);
-            return null;
-        }
-    }
-
-    private string? ExtractDigestFromManifestList(string manifestListJson, string architecture)
-    {
-        try
-        {
-            using JsonDocument doc = JsonDocument.Parse(manifestListJson);
-
-            if (!doc.RootElement.TryGetProperty("manifests", out JsonElement manifests))
-            {
-                return null;
-            }
-
-            foreach (JsonElement manifest in manifests.EnumerateArray())
-            {
-                if (!manifest.TryGetProperty("platform", out JsonElement platform))
-                    continue;
-
-                string? arch = platform.TryGetProperty("architecture", out JsonElement archElement)
-                    ? archElement.GetString()
-                    : null;
-
-                string? os = platform.TryGetProperty("os", out JsonElement osElement)
-                    ? osElement.GetString()
-                    : null;
-
-                // Match architecture and OS (default to linux)
-                if (arch == architecture && (os == "linux" || os == null))
-                {
-                    if (manifest.TryGetProperty("digest", out JsonElement digestElement))
-                    {
-                        return digestElement.GetString();
-                    }
-                }
-            }
-
-            // If no exact match, try to find any linux manifest for the architecture
-            foreach (JsonElement manifest in manifests.EnumerateArray())
-            {
-                if (!manifest.TryGetProperty("platform", out JsonElement platform))
-                    continue;
-
-                string? arch = platform.TryGetProperty("architecture", out JsonElement archElement)
-                    ? archElement.GetString()
-                    : null;
-
-                if (arch == architecture)
-                {
-                    if (manifest.TryGetProperty("digest", out JsonElement digestElement))
-                    {
-                        return digestElement.GetString();
-                    }
-                }
-            }
-
-            _logger.LogDebug("No manifest found for architecture {Architecture}", architecture);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error parsing manifest list");
-            return null;
-        }
     }
 
     // Throttle for the low-remaining warning, shared across concurrent checks (UtcTicks; 0 = never).
@@ -480,7 +302,7 @@ public class DockerHubRegistryClient : IRegistryClient
         if (limit == null && remaining == null)
         {
             // No rate-limit headers → either a Pro/Team (unlimited) account or the registry didn't report.
-            _logger.LogDebug(
+            Logger.LogDebug(
                 "Docker Hub rate limit for {Repository}:{Tag} ({Phase}): no rate-limit headers (unlimited/Pro or not reported)",
                 repository, tag, phase);
             return;
@@ -494,7 +316,7 @@ public class DockerHubRegistryClient : IRegistryClient
             _ => "authenticated"
         };
 
-        _logger.LogDebug(
+        Logger.LogDebug(
             "Docker Hub rate limit for {Repository}:{Tag} ({Phase}): tier={Tier}, limit={Limit}, remaining={Remaining}, source={Source}",
             repository, tag, phase, tier, limit ?? "n/a", remaining ?? "n/a", source ?? "n/a");
 
@@ -518,7 +340,7 @@ public class DockerHubRegistryClient : IRegistryClient
             return; // another thread already warned
         }
 
-        _logger.LogWarning(
+        Logger.LogWarning(
             "Docker Hub pull quota nearly exhausted: {Remaining} of {Limit} remaining ({Tier}). " +
             "Authenticate with a Docker Hub account in Registry Management (or raise the check interval) to avoid 429s.",
             remaining, limit?.ToString() ?? "?", tier);

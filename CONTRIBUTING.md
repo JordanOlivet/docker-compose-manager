@@ -72,6 +72,11 @@ cd lighthouse-back && dotnet test
 
 - Backend tests live in `lighthouse-back.Tests/` (xUnit + Moq +
   FluentAssertions). Add tests for new services/controllers.
+- Some tests hit real external services and are **skipped by default** (so CI and
+  a plain `dotnet test` stay offline). The registry clients have opt-in
+  integration tests — see
+  [`lighthouse-back.Tests/Services/Registry/README.md`](lighthouse-back/lighthouse-back.Tests/Services/Registry/README.md)
+  for how to run them (`RUN_REGISTRY_INTEGRATION=1 dotnet test --filter Category=RegistryIntegration`).
 - The frontend has no automated test suite yet; run `npm run check` (also covered
   by `build-check`) and verify manually.
 

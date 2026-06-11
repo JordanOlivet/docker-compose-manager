@@ -10,31 +10,23 @@ namespace Lighthouse.Services.Registry;
 /// Generic registry client for OCI-compliant registries.
 /// Used as a fallback for registries without specific implementations.
 /// </summary>
-public class GenericOciRegistryClient : IRegistryClient
+public class GenericOciRegistryClient : RegistryClientBase
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<GenericOciRegistryClient> _logger;
-    private readonly UpdateCheckOptions _options;
-
     public GenericOciRegistryClient(
         HttpClient httpClient,
         IOptions<UpdateCheckOptions> options,
         ILogger<GenericOciRegistryClient> logger)
+        : base(httpClient, logger, options.Value.TimeoutSeconds)
     {
-        _httpClient = httpClient;
-        _options = options.Value;
-        _logger = logger;
-
-        _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
     }
 
-    public bool CanHandle(string registry)
+    public override bool CanHandle(string registry)
     {
         // This is the fallback client, so it can handle any registry
         return true;
     }
 
-    public async Task<string?> GetManifestDigestAsync(
+    public override async Task<string?> GetManifestDigestAsync(
         string image,
         string tag,
         string architecture,
@@ -69,7 +61,7 @@ public class GenericOciRegistryClient : IRegistryClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
             return null;
         }
     }
@@ -86,13 +78,7 @@ public class GenericOciRegistryClient : IRegistryClient
         string? token,
         CancellationToken cancellationToken)
     {
-        // Remove tag from repository if present
-        int colonIndex = repository.LastIndexOf(':');
-        if (colonIndex > 0 && !repository.Substring(colonIndex).Contains('/'))
-        {
-            repository = repository.Substring(0, colonIndex);
-        }
-
+        repository = StripTag(repository);
         string url = $"{registryUrl}/{repository}/manifests/{tag}";
 
         using HttpRequestMessage request = new(HttpMethod.Head, url);
@@ -100,14 +86,11 @@ public class GenericOciRegistryClient : IRegistryClient
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+        AddManifestAcceptHeaders(request);
 
         try
         {
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+            HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -124,7 +107,7 @@ public class GenericOciRegistryClient : IRegistryClient
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogDebug("Manifest HEAD request failed for {Url} with status {StatusCode}", url, response.StatusCode);
+                Logger.LogDebug("Manifest HEAD request failed for {Url} with status {StatusCode}", url, response.StatusCode);
                 return null;
             }
 
@@ -140,12 +123,12 @@ public class GenericOciRegistryClient : IRegistryClient
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogDebug(ex, "HTTP HEAD request failed for {Url}", url);
+            Logger.LogDebug(ex, "HTTP HEAD request failed for {Url}", url);
             return null;
         }
     }
 
-    public async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
+    public override async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
         string image,
         string tag,
         string architecture,
@@ -167,7 +150,7 @@ public class GenericOciRegistryClient : IRegistryClient
             }
 
             // If that fails, try to get a token via WWW-Authenticate challenge
-            _logger.LogDebug("Anonymous access failed for {Registry}/{Repository}, attempting token auth", registry, repository);
+            Logger.LogDebug("Anonymous access failed for {Registry}/{Repository}, attempting token auth", registry, repository);
 
             string? token = await GetTokenViaWwwAuthenticateAsync(
                 registryUrl, repository, cancellationToken);
@@ -186,7 +169,7 @@ public class GenericOciRegistryClient : IRegistryClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
             return (null, null);
         }
     }
@@ -226,69 +209,15 @@ public class GenericOciRegistryClient : IRegistryClient
         return image;
     }
 
-    private async Task<string?> TryFetchManifestAsync(
-        string registryUrl,
-        string repository,
-        string tag,
-        string architecture,
-        string? token,
-        CancellationToken cancellationToken)
+    /// <summary>Removes a trailing <c>:tag</c> from a repository segment, if present.</summary>
+    private static string StripTag(string repository)
     {
-        // Remove tag from repository if present
         int colonIndex = repository.LastIndexOf(':');
         if (colonIndex > 0 && !repository.Substring(colonIndex).Contains('/'))
         {
-            repository = repository.Substring(0, colonIndex);
+            return repository.Substring(0, colonIndex);
         }
-
-        string url = $"{registryUrl}/{repository}/manifests/{tag}";
-
-        using HttpRequestMessage request = new(HttpMethod.Get, url);
-
-        if (!string.IsNullOrEmpty(token))
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
-
-        // Accept manifest list and single manifest types
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
-
-        try
-        {
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogDebug("Manifest request failed for {Url} with status {StatusCode}",
-                    url, response.StatusCode);
-                return null;
-            }
-
-            string contentType = response.Content.Headers.ContentType?.MediaType ?? "";
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            // Check if it's a manifest list
-            if (contentType.Contains("manifest.list") || contentType.Contains("image.index"))
-            {
-                return ExtractDigestFromManifestList(content, architecture);
-            }
-
-            // Single manifest - get digest from header
-            if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
-            {
-                return digestValues.FirstOrDefault();
-            }
-
-            return null;
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogDebug(ex, "HTTP request failed for {Url}", url);
-            return null;
-        }
+        return repository;
     }
 
     private async Task<string?> GetTokenViaWwwAuthenticateAsync(
@@ -302,9 +231,9 @@ public class GenericOciRegistryClient : IRegistryClient
             string url = $"{registryUrl}/{repository}/manifests/latest";
 
             using HttpRequestMessage request = new(HttpMethod.Get, url);
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+            HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
 
-            if (response.StatusCode != System.Net.HttpStatusCode.Unauthorized)
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
             {
                 return null;
             }
@@ -320,7 +249,6 @@ public class GenericOciRegistryClient : IRegistryClient
                 return null;
             }
 
-            // Parse bearer parameters
             var parameters = ParseBearerParameters(authHeader);
 
             if (!parameters.TryGetValue("realm", out string? realm))
@@ -351,8 +279,7 @@ public class GenericOciRegistryClient : IRegistryClient
                 tokenUrl += (tokenUrl.Contains('?') ? '&' : '?') + string.Join('&', queryParams);
             }
 
-            // Request token
-            HttpResponseMessage tokenResponse = await _httpClient.GetAsync(tokenUrl, cancellationToken);
+            HttpResponseMessage tokenResponse = await HttpClient.GetAsync(tokenUrl, cancellationToken);
 
             if (!tokenResponse.IsSuccessStatusCode)
             {
@@ -376,86 +303,7 @@ public class GenericOciRegistryClient : IRegistryClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to get token via WWW-Authenticate");
-            return null;
-        }
-    }
-
-    private Dictionary<string, string> ParseBearerParameters(string authHeader)
-    {
-        var result = new Dictionary<string, string>();
-
-        // Remove "Bearer " prefix
-        string parameters = authHeader.Substring(7);
-
-        // Parse key="value" pairs
-        var regex = new System.Text.RegularExpressions.Regex(@"(\w+)=""([^""]*)""");
-        foreach (System.Text.RegularExpressions.Match match in regex.Matches(parameters))
-        {
-            result[match.Groups[1].Value] = match.Groups[2].Value;
-        }
-
-        return result;
-    }
-
-    private string? ExtractDigestFromManifestList(string manifestListJson, string architecture)
-    {
-        try
-        {
-            using JsonDocument doc = JsonDocument.Parse(manifestListJson);
-
-            if (!doc.RootElement.TryGetProperty("manifests", out JsonElement manifests))
-            {
-                return null;
-            }
-
-            // First pass: exact match for architecture and linux
-            foreach (JsonElement manifest in manifests.EnumerateArray())
-            {
-                if (!manifest.TryGetProperty("platform", out JsonElement platform))
-                    continue;
-
-                string? arch = platform.TryGetProperty("architecture", out JsonElement archElement)
-                    ? archElement.GetString()
-                    : null;
-
-                string? os = platform.TryGetProperty("os", out JsonElement osElement)
-                    ? osElement.GetString()
-                    : null;
-
-                if (arch == architecture && (os == "linux" || os == null))
-                {
-                    if (manifest.TryGetProperty("digest", out JsonElement digestElement))
-                    {
-                        return digestElement.GetString();
-                    }
-                }
-            }
-
-            // Second pass: any manifest with matching architecture
-            foreach (JsonElement manifest in manifests.EnumerateArray())
-            {
-                if (!manifest.TryGetProperty("platform", out JsonElement platform))
-                    continue;
-
-                string? arch = platform.TryGetProperty("architecture", out JsonElement archElement)
-                    ? archElement.GetString()
-                    : null;
-
-                if (arch == architecture)
-                {
-                    if (manifest.TryGetProperty("digest", out JsonElement digestElement))
-                    {
-                        return digestElement.GetString();
-                    }
-                }
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error parsing manifest list");
+            Logger.LogDebug(ex, "Failed to get token via WWW-Authenticate");
             return null;
         }
     }
@@ -468,30 +316,19 @@ public class GenericOciRegistryClient : IRegistryClient
         string? token,
         CancellationToken cancellationToken)
     {
-        // Remove tag from repository if present
-        int colonIndex = repository.LastIndexOf(':');
-        if (colonIndex > 0 && !repository.Substring(colonIndex).Contains('/'))
-        {
-            repository = repository.Substring(0, colonIndex);
-        }
-
+        repository = StripTag(repository);
         string url = $"{registryUrl}/{repository}/manifests/{tag}";
 
         using HttpRequestMessage request = new(HttpMethod.Get, url);
-
         if (!string.IsNullOrEmpty(token))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
-
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+        AddManifestAcceptHeaders(request);
 
         try
         {
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+            HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -500,7 +337,7 @@ public class GenericOciRegistryClient : IRegistryClient
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogDebug("Manifest request failed for {Url} with status {StatusCode}",
+                Logger.LogDebug("Manifest request failed for {Url} with status {StatusCode}",
                     url, response.StatusCode);
                 return (null, null);
             }
@@ -508,20 +345,18 @@ public class GenericOciRegistryClient : IRegistryClient
             string contentType = response.Content.Headers.ContentType?.MediaType ?? "";
             string content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            // Get the digest from Docker-Content-Digest header - this is what Docker stores locally
-            // For multi-arch images, this is the manifest list digest
-            // For single-arch images, this is the manifest digest
+            // Get the digest from Docker-Content-Digest header - this is what Docker stores locally.
+            // For multi-arch images this is the manifest list digest; for single-arch the manifest digest.
             string? digest = null;
             if (response.Headers.TryGetValues("Docker-Content-Digest", out IEnumerable<string>? digestValues))
             {
                 digest = digestValues.FirstOrDefault();
             }
 
-            // Check if it's a manifest list
             if (contentType.Contains("manifest.list") || contentType.Contains("image.index"))
             {
-                // For multi-arch, we use the manifest list digest (from header above) for comparison
-                // But we need to fetch the architecture-specific manifest to get the config for creation date
+                // For multi-arch we use the manifest list digest (from header) for comparison, but fetch
+                // the architecture-specific manifest to get the config for the creation date.
                 string? archManifestDigest = ExtractDigestFromManifestList(content, architecture);
                 if (archManifestDigest == null)
                 {
@@ -549,110 +384,8 @@ public class GenericOciRegistryClient : IRegistryClient
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogDebug(ex, "HTTP request failed for {Url}", url);
+            Logger.LogDebug(ex, "HTTP request failed for {Url}", url);
             return (null, null);
-        }
-    }
-
-    private async Task<string?> FetchConfigDigestFromManifestAsync(
-        string registryUrl,
-        string repository,
-        string manifestDigest,
-        string? token,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            string url = $"{registryUrl}/{repository}/manifests/{manifestDigest}";
-
-            using HttpRequestMessage request = new(HttpMethod.Get, url);
-            if (!string.IsNullOrEmpty(token))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
-
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-            return ExtractConfigDigestFromManifest(content);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to fetch config digest from manifest {Digest}", manifestDigest);
-            return null;
-        }
-    }
-
-    private string? ExtractConfigDigestFromManifest(string manifestJson)
-    {
-        try
-        {
-            using JsonDocument doc = JsonDocument.Parse(manifestJson);
-
-            if (doc.RootElement.TryGetProperty("config", out JsonElement config) &&
-                config.TryGetProperty("digest", out JsonElement digestElement))
-            {
-                return digestElement.GetString();
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private async Task<DateTime?> FetchConfigCreatedAtAsync(
-        string registryUrl,
-        string repository,
-        string configDigest,
-        string? token,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            string url = $"{registryUrl}/{repository}/blobs/{configDigest}";
-
-            using HttpRequestMessage request = new(HttpMethod.Get, url);
-            if (!string.IsNullOrEmpty(token))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
-
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogDebug("Failed to fetch config blob {ConfigDigest}", configDigest);
-                return null;
-            }
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-            using JsonDocument doc = JsonDocument.Parse(content);
-
-            if (doc.RootElement.TryGetProperty("created", out JsonElement createdElement))
-            {
-                string? createdStr = createdElement.GetString();
-                if (!string.IsNullOrEmpty(createdStr) && DateTime.TryParse(createdStr, out DateTime created))
-                {
-                    return created;
-                }
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to fetch config created date for {ConfigDigest}", configDigest);
-            return null;
         }
     }
 }
