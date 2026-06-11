@@ -4,6 +4,7 @@
   import { Settings, RefreshCw, Download, CheckCircle, ExternalLink, AlertTriangle, Check, X, Bell, Send, FolderOpen } from 'lucide-svelte';
   import { updateApi } from '$lib/api/update';
   import configApi from '$lib/api/config';
+  import { composeApi } from '$lib/api/compose';
   import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
   import FilePicker from '$lib/components/common/FilePicker.svelte';
   import ChangelogDisplay from '$lib/components/update/ChangelogDisplay.svelte';
@@ -227,11 +228,9 @@
 
   async function loadEnvPickerInitialPath() {
     try {
-      const paths = await configApi.getPaths();
-      // Prefer an enabled managed path; fall back to the first one if none is flagged enabled.
-      const preferred = paths.find((p) => p.isEnabled) ?? paths[0];
-      if (preferred) {
-        envPickerInitialPath = preferred.path;
+      const health = await composeApi.getComposeHealth();
+      if (health.composeDiscovery.accessible) {
+        envPickerInitialPath = health.composeDiscovery.rootPath;
       }
     } catch {
       // Non-blocking: the picker just opens at the filesystem root instead.
