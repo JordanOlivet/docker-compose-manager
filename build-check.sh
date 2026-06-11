@@ -23,11 +23,11 @@ dotnet build --nologo -v q || backend_result=$?
 popd > /dev/null
 
 echo -e "\n${CYAN}========================================${NC}"
-echo -e "${CYAN}  Frontend Check (SvelteKit)${NC}"
+echo -e "${CYAN}  Frontend Check + Lint + Test (SvelteKit)${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
 pushd lighthouse-front > /dev/null
-npm run check || frontend_result=$?
+{ npm run check && npm run lint && npm run test; } || frontend_result=$?
 popd > /dev/null
 
 echo -e "\n${CYAN}========================================${NC}"
