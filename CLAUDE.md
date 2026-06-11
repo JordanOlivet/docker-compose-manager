@@ -96,8 +96,8 @@ docker compose up -d
 # View logs
 docker compose logs -f
 
-# View logs for specific process (backend or nginx)
-docker compose logs -f app
+# View logs for the unified container (backend + nginx via Supervisor)
+docker compose logs -f lighthouse
 
 # Stop service
 docker compose down
@@ -106,7 +106,7 @@ docker compose down
 docker compose down -v
 
 # Rebuild the unified image
-docker compose build app
+docker compose build lighthouse
 
 # For development with local builds
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
