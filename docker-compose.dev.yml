@@ -1,13 +1,13 @@
 # docker-compose.dev.yml
-# Fichier de configuration pour le développement local
-# Utilise les builds locaux au lieu des images du registry
+# Local development configuration.
+# Uses local builds instead of the registry images.
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 services:
-  app:
-    # Override l'image par un build local
+  lighthouse:
+    # Override the registry image with a local build
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,7 +21,7 @@ services:
         VITE_GIT_COMMIT: dev
     image: lighthouse:dev
     environment:
-      # Configuration pour le développement
+      # Development configuration
       - ASPNETCORE_ENVIRONMENT=Development
       - Serilog__MinimumLevel__Default=Debug
     volumes:
