@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using Lighthouse.DTOs;
+using Lighthouse.Exceptions;
+using Lighthouse.Services.Registry;
 using FluentValidation;
 
 namespace Lighthouse.Middleware;
@@ -38,6 +40,19 @@ public class ErrorHandlingMiddleware
 
         switch (exception)
         {
+            // Domain failures carry their own status + error code.
+            case AppException appException:
+                statusCode = appException.StatusCode;
+                errorCode = appException.ErrorCode;
+                message = appException.Message;
+                break;
+
+            case RegistryRateLimitException:
+                statusCode = HttpStatusCode.TooManyRequests;
+                errorCode = "REGISTRY_RATE_LIMITED";
+                message = exception.Message;
+                break;
+
             case ValidationException validationException:
                 statusCode = HttpStatusCode.BadRequest;
                 errorCode = "VALIDATION_ERROR";
