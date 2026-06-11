@@ -291,8 +291,6 @@ builder.Services.AddHttpClient<Lighthouse.Services.Notifications.INotificationSe
     Lighthouse.Services.Notifications.DiscordNotificationService>();
 
 // Register background services
-// DEPRECATED: File discovery service replaced by Docker-only discovery
-// builder.Services.AddHostedService<Lighthouse.BackgroundServices.ComposeFileDiscoveryService>();
 builder.Services.AddHostedService<DockerEventsMonitorService>();
 builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
 builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
