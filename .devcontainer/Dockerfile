@@ -19,8 +19,12 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $VERSION_CODENAME stable" > /etc/apt/sources.list.d/docker.list; \
        fi \
     && chmod a+r /etc/apt/keyrings/docker.gpg \
+    # Add GitHub CLI repo
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && chmod a+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin gh \
     # Cleanup
     && apt-get autoremove -y && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
@@ -37,6 +41,10 @@ RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || true \
 
 # Add user to docker group (will be created if socket is mounted)
 RUN groupadd -f docker && usermod -aG docker $USERNAME
+
+# Claude Code CLI (installed via npm rather than the devcontainer feature,
+# which is unreliable under envbuilder/kaniko)
+RUN npm install -g @anthropic-ai/claude-code
 
 # Literal user name: kaniko/envbuilder stores USER with unexpanded ARG in the
 # image config, which breaks envbuilder's user lookup ("unknown user $USERNAME").
