@@ -33,7 +33,6 @@ user-password-maker/obj
 NUL
 node_modules
 logs
-lighthouse-front/.vscode/chrome-debug-profile
 lighthouse-back/lighthouse-back.Tests/obj
 lighthouse-back/lighthouse-back.Tests/bin
 lighthouse-back/lighthouse-back/bin
