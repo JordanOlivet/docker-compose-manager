@@ -69,7 +69,7 @@
     }
   },
 
-  "postCreateCommand": "cd lighthouse-back && dotnet restore && cd ../lighthouse-front && npm install && cd ../lighthouse-back/lighthouse-back && { [ -f appsettings.Development.local.json ] || printf '{\\n  \"Docker\": {\\n    \"Host\": \"unix:///var/run/docker.sock\"\\n  }\\n}\\n' > appsettings.Development.local.json; }",
+  "postCreateCommand": "bash dev-setup/setup.sh",
 
   "remoteUser": "vscode"
 }

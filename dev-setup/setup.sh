@@ -132,6 +132,9 @@ if [ -f "$LOCAL_SETTINGS" ]; then
 else
     cat > "$LOCAL_SETTINGS" <<EOF
 {
+  "Docker": {
+    "Host": "unix:///var/run/docker.sock"
+  },
   "ComposeDiscovery": {
     "HostPathMapping": "$SAMPLE_DIR"
   }
