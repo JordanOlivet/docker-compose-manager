@@ -4,7 +4,6 @@
   import { enUS, fr, es } from 'date-fns/locale';
   import { t, locale as localeStore } from '$lib/i18n';
   import type { Activity } from '$lib/api/dashboard';
-  import { get } from 'svelte/store';
 
   interface Props {
     item: Activity;
@@ -22,7 +21,7 @@
   const localeMap: Record<string, typeof enUS> = { en: enUS, fr, es };
 
   const resourceIcon = $derived(iconMap[item.resourceType] || null);
-  const currentLocaleCode = $derived(get(localeStore));
+  const currentLocaleCode = $derived($localeStore);
   const currentLocale = $derived(localeMap[currentLocaleCode] || enUS);
   const timeAgo = $derived(formatDistanceToNow(new Date(item.timestamp), {
     addSuffix: true,
