@@ -17,7 +17,6 @@ namespace Lighthouse.Controllers;
 public class ComposeController : BaseController
 {
     private readonly AppDbContext _context;
-    private readonly FileService _fileService;
     private readonly ComposeService _composeService;
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly IComposeOperationService _operationService;
@@ -38,7 +37,6 @@ public class ComposeController : BaseController
 
     public ComposeController(
         AppDbContext context,
-        FileService fileService,
         ComposeService composeService,
         IComposeDiscoveryService discoveryService,
         IComposeOperationService operationService,
@@ -58,7 +56,6 @@ public class ComposeController : BaseController
         ISelfFilterService selfFilterService)
     {
         _context = context;
-        _fileService = fileService;
         _composeService = composeService;
         _discoveryService = discoveryService;
         _operationService = operationService;
@@ -145,119 +142,6 @@ public class ComposeController : BaseController
             _logger.LogError(ex, "Error getting compose conflicts");
             return StatusCode(500, ApiResponse.Fail<ConflictsResponse>("Error retrieving conflicts", "SERVER_ERROR"));
         }
-    }
-
-    // ============================================
-    // File Editing Endpoints (DEPRECATED)
-    // ============================================
-    // File editing is temporarily disabled due to cross-platform path mapping issues.
-    // All file-related endpoints return HTTP 501 (Not Implemented).
-    //=============================================
-
-    /// <summary>
-    /// Gets a compose file by ID with content (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpGet("files/{id}")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<ComposeFileContentDto>> GetFile(int id)
-    {
-        return StatusCode(501, ApiResponse.Fail<ComposeFileContentDto>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Gets a compose file by path (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpGet("files/by-path")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<ComposeFileContentDto>> GetFileByPath([FromQuery] string path)
-    {
-        return StatusCode(501, ApiResponse.Fail<ComposeFileContentDto>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Creates a new compose file (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpPost("files")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<ComposeFileDto>> CreateFile([FromBody] CreateComposeFileRequest request)
-    {
-        return StatusCode(501, ApiResponse.Fail<ComposeFileDto>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Updates a compose file (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpPut("files/{id}")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<ComposeFileDto>> UpdateFile(int id, [FromBody] UpdateComposeFileRequest request)
-    {
-        return StatusCode(501, ApiResponse.Fail<ComposeFileDto>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Deletes a compose file (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpDelete("files/{id}")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<bool>> DeleteFile(int id)
-    {
-        return StatusCode(501, ApiResponse.Fail<bool>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Validate YAML syntax and docker-compose structure of a compose file (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpPost("files/{id}/validate")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<ComposeValidationResult>> ValidateFile(int id)
-    {
-        return StatusCode(501, ApiResponse.Fail<ComposeValidationResult>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Duplicate/clone a compose file (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpPost("files/{id}/duplicate")]
-    [Obsolete("File editing is temporarily disabled")]
-    public ActionResult<ApiResponse<ComposeFileDto>> DuplicateFile(
-        int id,
-        [FromBody] DuplicateFileRequest request)
-    {
-        return StatusCode(501, ApiResponse.Fail<ComposeFileDto>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
-    }
-
-    /// <summary>
-    /// Download a compose file (DEPRECATED - Returns HTTP 501)
-    /// </summary>
-    [HttpGet("files/{id}/download")]
-    [Obsolete("File editing is temporarily disabled")]
-    public IActionResult DownloadFile(int id)
-    {
-        return StatusCode(501, ApiResponse.Fail<object>(
-            "File editing is temporarily disabled due to cross-platform path mapping issues.",
-            "FEATURE_DISABLED"
-        ));
     }
 
     // ============================================
