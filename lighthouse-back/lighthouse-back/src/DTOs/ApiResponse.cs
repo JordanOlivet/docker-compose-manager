@@ -10,7 +10,7 @@ public record ApiResponse<T>(
 
 public static class ApiResponse
 {
-    public static ApiResponse<T> Ok<T>(T data, string? message = null)
+    public static ApiResponse<T> Ok<T>(T? data, string? message = null)
         => new(data, true, message);
 
     public static ApiResponse<T> Fail<T>(string message, string? errorCode = null, Dictionary<string, string[]>? errors = null)

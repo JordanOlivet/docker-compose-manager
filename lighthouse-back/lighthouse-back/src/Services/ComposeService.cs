@@ -1,49 +1,14 @@
-using Lighthouse.Data;
 using System.Text.Json;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace Lighthouse.Services;
 
 public class ComposeService
 {
-    private readonly AppDbContext _context;
-    private readonly FileService _fileService;
     private readonly ILogger<ComposeService> _logger;
-    private readonly IDeserializer _yamlDeserializer;
 
-    public ComposeService(AppDbContext context, FileService fileService, ILogger<ComposeService> logger)
+    public ComposeService(ILogger<ComposeService> logger)
     {
-        _context = context;
-        _fileService = fileService;
         _logger = logger;
-        _yamlDeserializer = new DeserializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .Build();
-    }
-
-    /// <summary>
-    /// Parses a docker-compose.yml file
-    /// </summary>
-    public async Task<(bool Success, Dictionary<string, object>? ParsedContent, string? Error)> ParseComposeFileAsync(
-        string filePath)
-    {
-        try
-        {
-            (bool success, string content, string error) = await _fileService.ReadFileAsync(filePath);
-            if (!success || content == null)
-            {
-                return (false, null, error);
-            }
-
-            Dictionary<string, object>? parsed = _yamlDeserializer.Deserialize<Dictionary<string, object>>(content);
-            return (true, parsed, null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error parsing compose file: {FilePath}", filePath);
-            return (false, null, ex.Message);
-        }
     }
 
     /// <summary>

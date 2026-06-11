@@ -11,7 +11,7 @@ namespace Lighthouse.Services;
 /// Docker does not persist the <c>--env-file</c> originally used to start a project, so when the
 /// manager recreates containers (e.g. during an image update) a custom global env file is lost and
 /// interpolation variables (network names, etc.) resolve to blank. This resolver re-applies a
-/// configurable global env file (the <see cref="ComposeGlobalEnvFileKey"/> setting) on every
+/// configurable global env file (the <c>ComposeGlobalEnvFileKey</c> setting) on every
 /// manager-issued <c>up</c>/<c>pull</c>, combined with the project-adjacent <c>.env</c>.
 /// </para>
 /// </summary>

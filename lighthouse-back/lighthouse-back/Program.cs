@@ -233,7 +233,6 @@ builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<ComposeService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<OperationService>();

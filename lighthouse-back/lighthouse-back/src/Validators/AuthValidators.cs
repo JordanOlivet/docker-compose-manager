@@ -125,7 +125,7 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
             // Apply same rules conditionally on environment, like all other validators
             When(x => ValidationConfig.ShouldEnforceStrictPasswordRules, () =>
             {
-                RuleFor(x => x.NewPassword)
+                RuleFor(x => x.NewPassword!)
                     .ApplyPasswordRules();
             });
         });
