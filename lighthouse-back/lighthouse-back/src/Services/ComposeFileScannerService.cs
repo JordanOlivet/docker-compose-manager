@@ -36,7 +36,7 @@ public class ComposeFileScannerService : IComposeFileScanner
 
         if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
         {
-            path = _options.HostPathMapping;
+            path = _options.HostPathMapping ?? string.Empty;
         }
 
         List<DiscoveredComposeFile> discoveredFiles = await ScanComposeFilesRecursive(path, 0);
@@ -223,7 +223,7 @@ public class ComposeFileScannerService : IComposeFileScanner
             var autoUpdateEnabled = ExtractAutoUpdateFlag(composeContent);
 
             // 8. Extract list of service names
-            List<string?> serviceNames = services.Keys.Select(k => k.ToString()).Where(s => s != null).ToList()!;
+            List<string> serviceNames = services.Keys.Select(k => k.ToString()).Where(s => !string.IsNullOrEmpty(s)).Select(s => s!).ToList();
 
             return new DiscoveredComposeFile
             {

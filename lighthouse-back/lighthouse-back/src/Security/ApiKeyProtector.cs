@@ -42,8 +42,7 @@ public static class ApiKeyProtector
             byte[] ciphertext = encrypted[(OpenSslMagic.Length + SaltLength)..];
 
             // Derive key (32 bytes) + IV (16 bytes) using PBKDF2-SHA256
-            using var kdf = new Rfc2898DeriveBytes(Passphrase, salt, Iterations, HashAlgorithmName.SHA256);
-            byte[] keyAndIv = kdf.GetBytes(32 + 16);
+            byte[] keyAndIv = Rfc2898DeriveBytes.Pbkdf2(Passphrase, salt, Iterations, HashAlgorithmName.SHA256, 32 + 16);
 
             using var aes = Aes.Create();
             aes.Key = keyAndIv[..32];

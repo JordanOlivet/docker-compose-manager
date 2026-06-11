@@ -63,47 +63,24 @@ public record ComposeProjectDto(
     DateTime? LastUpdated,
 
     // New fields for compose discovery revamp
-    /// <summary>
-    /// Path to the primary compose file associated with this project (null if not found)
-    /// </summary>
+    // Path to the primary compose file associated with this project (null if not found)
     string? ComposeFilePath = null,
-
-    /// <summary>
-    /// Indicates whether a compose file was found for this project
-    /// </summary>
+    // Indicates whether a compose file was found for this project
     bool HasComposeFile = false,
-
-    /// <summary>
-    /// Warning message if project has issues (e.g., "No compose file found for this project")
-    /// </summary>
+    // Warning message if project has issues (e.g., "No compose file found for this project")
     string? Warning = null,
-
-    /// <summary>
-    /// Dictionary of available actions and whether they can be performed.
-    /// Actions that require a compose file (up, build, recreate, pull) will be false if HasComposeFile is false.
-    /// Actions that work with project name only (start, stop, restart, pause, logs, ps, down) are always true for running projects.
-    /// </summary>
+    // Dictionary of available actions and whether they can be performed.
+    // Actions that require a compose file (up, build, recreate, pull) will be false if HasComposeFile is false.
+    // Actions that work with project name only (start, stop, restart, pause, logs, ps, down) are always true for running projects.
     Dictionary<string, bool>? AvailableActions = null,
-
-    /// <summary>
-    /// Number of services with available updates (from cache, null if not checked)
-    /// </summary>
+    // Number of services with available updates (from cache, null if not checked)
     int? ServicesWithUpdates = null,
-
-    /// <summary>
-    /// When the last update check was performed (from cache, null if not checked)
-    /// </summary>
+    // When the last update check was performed (from cache, null if not checked)
     DateTime? LastUpdateCheck = null,
-
-    /// <summary>
-    /// Whether any service in this project is crash-looping
-    /// </summary>
+    // Whether any service in this project is crash-looping
     bool IsCrashLooping = false,
-
-    /// <summary>
-    /// Whether automatic updates are enabled for this project (false if the
-    /// compose file is flagged with x-auto-update: false). Defaults to true.
-    /// </summary>
+    // Whether automatic updates are enabled for this project (false if the
+    // compose file is flagged with x-auto-update: false). Defaults to true.
     bool AutoUpdateEnabled = true
 );
 
@@ -326,7 +303,7 @@ public record VolumeDetailsDto(
 public record OperationResult
 {
     public bool Success { get; init; }
-    public string Message { get; init; }
+    public string Message { get; init; } = string.Empty;
     public string? Output { get; init; }
     public string? Error { get; init; }
 }

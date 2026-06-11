@@ -539,6 +539,7 @@ public class ContainersController : BaseController
     /// </summary>
     /// <param name="id">Container ID</param>
     /// <param name="tail">Number of historical lines (default 100)</param>
+    /// <param name="cancellationToken">Cancels the stream when the client disconnects.</param>
     [HttpGet("{id}/logs/stream")]
     public async Task StreamContainerLogs(string id, [FromQuery] int tail = 100, CancellationToken cancellationToken = default)
     {
