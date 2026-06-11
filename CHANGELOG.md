@@ -1,3 +1,11 @@
+## Changes in v1.24.3
+
+**Merged Pull Requests:**
+- Fix removed endpoints still used (#141)
+
+**Commits:**
+
+
 ## Changes in v1.24.2
 
 **Merged Pull Requests:**
