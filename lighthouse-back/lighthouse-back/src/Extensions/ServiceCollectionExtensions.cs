@@ -17,20 +17,13 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAppOptions(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<PasswordHashingOptions>(
-            configuration.GetSection(PasswordHashingOptions.SectionName));
-        services.Configure<EmailOptions>(
-            configuration.GetSection(EmailOptions.SectionName));
-        services.Configure<PasswordResetOptions>(
-            configuration.GetSection(PasswordResetOptions.SectionName));
-        services.Configure<ComposeDiscoveryOptions>(
-            configuration.GetSection("ComposeDiscovery"));
-        services.Configure<SelfUpdateOptions>(
-            configuration.GetSection("SelfUpdate"));
-        services.Configure<MaintenanceOptions>(
-            configuration.GetSection("Maintenance"));
-        services.Configure<UpdateCheckOptions>(
-            configuration.GetSection("UpdateCheck"));
+        services.Configure<PasswordHashingOptions>(configuration.GetSection(PasswordHashingOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
+        services.Configure<ComposeDiscoveryOptions>(configuration.GetSection("ComposeDiscovery"));
+        services.Configure<SelfUpdateOptions>(configuration.GetSection("SelfUpdate"));
+        services.Configure<MaintenanceOptions>(configuration.GetSection("Maintenance"));
+        services.Configure<UpdateCheckOptions>(configuration.GetSection("UpdateCheck"));
         return services;
     }
 
