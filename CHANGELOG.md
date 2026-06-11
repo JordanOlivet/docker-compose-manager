@@ -1,3 +1,11 @@
+## Changes in v1.24.2
+
+**Merged Pull Requests:**
+- Cleanly return when container does not exist when requested (#140)
+
+**Commits:**
+
+
 ## Changes in v1.24.1
 
 **Merged Pull Requests:**
