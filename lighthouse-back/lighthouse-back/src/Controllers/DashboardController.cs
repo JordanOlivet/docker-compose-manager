@@ -143,9 +143,9 @@ public class DashboardController : BaseController
                 a.UserId,
                 a.User?.Username ?? "System",
                 a.Action,
-                a.ResourceType,
+                a.ResourceType ?? string.Empty,
                 a.ResourceId,
-                a.Details,
+                a.Details ?? string.Empty,
                 a.Timestamp,
                 a.Success
             )).ToList();

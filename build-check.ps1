@@ -19,12 +19,14 @@ try {
     Pop-Location
 
     Write-Host "`n========================================" -ForegroundColor Cyan
-    Write-Host "  Frontend Check (SvelteKit)" -ForegroundColor Cyan
+    Write-Host "  Frontend Check + Lint + Test (SvelteKit)" -ForegroundColor Cyan
     Write-Host "========================================`n" -ForegroundColor Cyan
 
     Push-Location lighthouse-front
-    npm run check
-    $frontendResult = $LASTEXITCODE
+    $frontendResult = 0
+    npm run check; if ($LASTEXITCODE -ne 0) { $frontendResult = $LASTEXITCODE }
+    npm run lint;  if ($LASTEXITCODE -ne 0) { $frontendResult = $LASTEXITCODE }
+    npm run test;  if ($LASTEXITCODE -ne 0) { $frontendResult = $LASTEXITCODE }
     Pop-Location
 
     Write-Host "`n========================================" -ForegroundColor Cyan

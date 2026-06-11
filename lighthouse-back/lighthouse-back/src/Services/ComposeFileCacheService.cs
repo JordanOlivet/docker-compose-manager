@@ -93,7 +93,7 @@ public class ComposeFileCacheService : IComposeFileCacheService
         if (_cache.TryGetValue(CacheKey, out List<DiscoveredComposeFile>? cached))
         {
             _logger.LogDebug("Cache HIT for compose file discovery");
-            return cached;
+            return cached!;
         }
 
         _logger.LogDebug("Cache MISS for compose file discovery - acquiring lock");
@@ -107,7 +107,7 @@ public class ComposeFileCacheService : IComposeFileCacheService
             if (_cache.TryGetValue(CacheKey, out cached))
             {
                 _logger.LogDebug("Cache HIT after lock acquisition (another thread filled cache)");
-                return cached;
+                return cached!;
             }
 
             // Perform filesystem scan
