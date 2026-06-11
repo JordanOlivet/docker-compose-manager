@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Backend .NET (NuGet)
+  - package-ecosystem: "nuget"
+    directory: "/lighthouse-back"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    groups:
+      nuget-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Frontend (npm)
+  - package-ecosystem: "npm"
+    directory: "/lighthouse-front"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/.devcontainer"
+      - "/debug"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+
+  # GitHub Actions (workflows + composite actions)
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/setup-dotnet"
+      - "/.github/actions/setup-node"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
