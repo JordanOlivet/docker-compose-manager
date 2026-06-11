@@ -1,5 +1,6 @@
 using Lighthouse.Configuration;
 using Lighthouse.Data;
+using Lighthouse.Extensions;
 using Lighthouse.Filters;
 using Lighthouse.Middleware;
 using Lighthouse.Services;
@@ -89,8 +90,7 @@ catch (Exception ex)
 
 // Add Database Context
 string connectionString = builder.Configuration["Database:ConnectionString"] ?? "Data Source=Data/app.db";
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+builder.Services.AddDbContext<AppDbContext>(options =>options.UseSqlite(connectionString));
 
 // Configure JWT Authentication
 string jwtSecret = builder.Configuration["Jwt:Secret"] ?? string.Empty;
@@ -165,16 +165,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure password hashing
-builder.Services.Configure<PasswordHashingOptions>(
-    builder.Configuration.GetSection(PasswordHashingOptions.SectionName));
-builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
-
-// Configure Email and Password Reset options
-builder.Services.Configure<Lighthouse.Configuration.EmailOptions>(
-    builder.Configuration.GetSection(Lighthouse.Configuration.EmailOptions.SectionName));
-builder.Services.Configure<Lighthouse.Configuration.PasswordResetOptions>(
-    builder.Configuration.GetSection(Lighthouse.Configuration.PasswordResetOptions.SectionName));
+// Bind all strongly-typed options classes to their configuration sections
+builder.Services.AddAppOptions(builder.Configuration);
 
 // Decrypt embedded Resend API key if present (injected at Docker build time)
 string? encryptedResendKey = builder.Configuration["Email:Resend:EncryptedApiKey"];
@@ -214,89 +206,14 @@ else
 // Add Memory Cache (required for ComposeDiscoveryService)
 builder.Services.AddMemoryCache();
 
-// Configure Compose Discovery Options
-builder.Services.Configure<Lighthouse.Configuration.ComposeDiscoveryOptions>(
-    builder.Configuration.GetSection("ComposeDiscovery"));
-
-// Configure Self-Update Options
-builder.Services.Configure<SelfUpdateOptions>(
-    builder.Configuration.GetSection("SelfUpdate"));
-builder.Services.Configure<MaintenanceOptions>(
-    builder.Configuration.GetSection("Maintenance"));
-
-// Configure Update Check Options (for compose project updates)
-builder.Services.Configure<UpdateCheckOptions>(
-    builder.Configuration.GetSection("UpdateCheck"));
-
-// Register application services
-builder.Services.AddScoped<JwtTokenService>();
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ComposeService>();
-builder.Services.AddScoped<IAuditService, AuditService>();
-builder.Services.AddScoped<OperationService>();
-builder.Services.AddScoped<IPermissionService, PermissionService>();
-builder.Services.AddSingleton<DockerService>();
-
-// Register Docker Compose services (new architecture)
-builder.Services.AddSingleton<DockerCommandExecutorService>();
-builder.Services.AddSingleton<IComposeEnvFileResolver, ComposeEnvFileResolver>();
-builder.Services.AddScoped<IComposeDiscoveryService, ComposeDiscoveryService>();
-builder.Services.AddScoped<IComposeOperationService, ComposeOperationService>();
-
-// Register Compose Discovery services
-builder.Services.AddScoped<IComposeFileScanner, ComposeFileScannerService>();
-builder.Services.AddScoped<IPathValidator, PathValidatorService>();
-builder.Services.AddScoped<IComposeFileCacheService, ComposeFileCacheService>();
-builder.Services.AddScoped<IPathMappingService, PathMappingService>();
-builder.Services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
-builder.Services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
-// Note: ComposeCommandClassifier is static, no DI registration needed
-
-// Register Self-Update services
-builder.Services.AddHttpClient<IGitHubReleaseService, GitHubReleaseService>();
-builder.Services.AddSingleton<IImageReferenceParser, ImageReferenceParser>();
-builder.Services.AddSingleton<IComposeFileDetectorService, ComposeFileDetectorService>();
-builder.Services.AddSingleton<IVersionDetectionService, VersionDetectionService>();
-builder.Services.AddSingleton<ISelfFilterService, SelfFilterService>();
-builder.Services.AddSingleton<IInstanceIdentifierService, InstanceIdentifierService>();
-builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
-
-// Register Compose Update services (for project updates)
-builder.Services.AddHttpClient<Lighthouse.Services.Registry.DockerHubRegistryClient>();
-builder.Services.AddHttpClient<Lighthouse.Services.Registry.GhcrRegistryClient>();
-builder.Services.AddHttpClient<Lighthouse.Services.Registry.GenericOciRegistryClient>();
-builder.Services.AddScoped<Lighthouse.Services.Registry.IRegistryClient, Lighthouse.Services.Registry.DockerHubRegistryClient>();
-builder.Services.AddScoped<Lighthouse.Services.Registry.IRegistryClient, Lighthouse.Services.Registry.GhcrRegistryClient>();
-builder.Services.AddScoped<Lighthouse.Services.Registry.IRegistryClient, Lighthouse.Services.Registry.GenericOciRegistryClient>();
-builder.Services.AddScoped<Lighthouse.Services.Registry.IRegistryClientFactory, Lighthouse.Services.Registry.RegistryClientFactory>();
-// Shared across scoped registry clients and successive check cycles → singleton.
-builder.Services.AddSingleton<Lighthouse.Services.Registry.IRegistryRateLimitGate, Lighthouse.Services.Registry.RegistryRateLimitGate>();
-builder.Services.AddScoped<IImageDigestService, ImageDigestService>();
-// Shared interval published by the periodic check and consumed by the cache service → singleton.
-builder.Services.AddSingleton<UpdateCheckIntervalState>();
-builder.Services.AddSingleton<IImageUpdateCacheService, ImageUpdateCacheService>();
-builder.Services.AddSingleton<IContainerUpdateCacheService, ContainerUpdateCacheService>();
-builder.Services.AddSingleton<DockerPullProgressParser>();
-builder.Services.AddScoped<IComposeUpdateService, ComposeUpdateService>();
-builder.Services.AddScoped<IContainerUpdateService, ContainerUpdateService>();
-
-// Register Registry Credential service
-builder.Services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
-
-// Register notification services (Discord webhook)
-builder.Services.AddHttpClient<Lighthouse.Services.Notifications.INotificationService,
-    Lighthouse.Services.Notifications.DiscordNotificationService>();
-
-// Register background services
-builder.Services.AddHostedService<DockerEventsMonitorService>();
-builder.Services.AddHostedService<ComposeDiscoveryInitializer>();
-builder.Services.AddHostedService<ProjectUpdateCheckBackgroundService>();
-builder.Services.AddHostedService<AutoUpdateComposeBackgroundService>();
-builder.Services.AddHostedService<AutoUpdateAppBackgroundService>();
-builder.Services.AddHostedService<AppUpdateNotificationStartupService>();
-builder.Services.AddHostedService<Lighthouse.BackgroundServices.CleanupBackgroundService>();
+// Register application services, grouped by subsystem (see ServiceCollectionExtensions).
+builder.Services
+    .AddApplicationServices()
+    .AddComposeServices()
+    .AddSelfUpdateServices()
+    .AddImageUpdateServices()
+    .AddNotificationServices()
+    .AddAppBackgroundServices();
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -309,9 +226,7 @@ builder.Services.ConfigureRateLimiting();
 builder.Services.AddRequestTimeouts();
 
 // Add SSE connection manager, event handler, and crash loop detection (singletons)
-builder.Services.AddSingleton<SseConnectionManagerService>();
-builder.Services.AddSingleton<CrashLoopDetectionService>();
-builder.Services.AddSingleton<DockerEventHandlerService>();
+builder.Services.AddRealtimeServices();
 
 // Add controllers with validation filter
 builder.Services.AddControllers(options =>
