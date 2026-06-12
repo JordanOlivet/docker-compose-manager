@@ -93,7 +93,9 @@ jobs:
         run: |
           # Get branch name and replace / with -
           BRANCH_NAME="${{ github.head_ref }}"
-          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
+          # Underscores excluded: the tag is also used as the NuGet /p:Version
+          # prerelease suffix, where SemVer forbids '_' (e.g. dependabot/github_actions/* branches)
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9.-]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
           echo "tag=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
           echo "Branch: $BRANCH_NAME -> Tag: $SANITIZED_BRANCH"
 
