@@ -119,6 +119,11 @@ public class DockerService
                 Ports: simplePorts
             );
         }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Container {ContainerId} not found", containerId);
+            return null;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting container details for {ContainerId}", containerId);
@@ -133,6 +138,11 @@ public class DockerService
             await _dockerClient.Containers.StartContainerAsync(containerId, new ContainerStartParameters());
             _logger.LogDebug("Container {ContainerId} started", containerId);
             return true;
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Cannot start container {ContainerId}: not found", containerId);
+            return false;
         }
         catch (Exception ex)
         {
@@ -149,6 +159,11 @@ public class DockerService
             _logger.LogDebug("Container {ContainerId} stopped", containerId);
             return true;
         }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Cannot stop container {ContainerId}: not found", containerId);
+            return false;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error stopping container {ContainerId}", containerId);
@@ -164,6 +179,11 @@ public class DockerService
             _logger.LogDebug("Container {ContainerId} restarted", containerId);
             return true;
         }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Cannot restart container {ContainerId}: not found", containerId);
+            return false;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error restarting container {ContainerId}", containerId);
@@ -178,6 +198,11 @@ public class DockerService
             await _dockerClient.Containers.RemoveContainerAsync(containerId, new ContainerRemoveParameters { Force = force });
             _logger.LogDebug("Container {ContainerId} removed", containerId);
             return true;
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Cannot remove container {ContainerId}: not found", containerId);
+            return false;
         }
         catch (Exception ex)
         {
@@ -220,6 +245,11 @@ public class DockerService
 
             _logger.LogDebug("Retrieved {LineCount} log lines from container {ContainerId}", logLines.Count, containerId);
             return logLines;
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Cannot get logs for container {ContainerId}: not found", containerId);
+            throw;
         }
         catch (Exception ex)
         {
