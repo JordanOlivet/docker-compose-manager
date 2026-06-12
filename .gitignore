@@ -3,7 +3,7 @@ lighthouse-back/bin/
 lighthouse-back/obj/
 lighthouse-back/Data/*.db
 lighthouse-back/Data/*.db-*
-lighthouse-back/logs/
+lighthouse-back/Logs/
 
 # Frontend
 lighthouse-front/node_modules/

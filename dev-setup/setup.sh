@@ -132,6 +132,9 @@ if [ -f "$LOCAL_SETTINGS" ]; then
 else
     cat > "$LOCAL_SETTINGS" <<EOF
 {
+  "Docker": {
+    "Host": "unix:///var/run/docker.sock"
+  },
   "ComposeDiscovery": {
     "HostPathMapping": "$SAMPLE_DIR"
   }
@@ -144,7 +147,9 @@ FRONT_ENV="$FRONT_DIR/.env.development"
 if [ -f "$FRONT_ENV" ]; then
     echo -e "${YELLOW}  .env.development already exists - leaving as is.${NC}"
 else
-    echo "VITE_API_URL=http://localhost:5050" > "$FRONT_ENV"
+    # API calls are proxied through the Vite dev server (see vite.config.ts).
+    # Set VITE_API_URL here only if your backend runs on a non-default host/port.
+    printf "# VITE_API_URL=http://localhost:5050\n" > "$FRONT_ENV"
     echo -e "  ${GREEN}Created${NC} $FRONT_ENV"
 fi
 

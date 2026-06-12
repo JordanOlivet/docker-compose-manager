@@ -167,7 +167,9 @@ $frontEnv = Join-Path $FrontDir ".env.development"
 if (Test-Path $frontEnv) {
     Write-Host "  .env.development already exists - leaving as is." -ForegroundColor Yellow
 } else {
-    "VITE_API_URL=http://localhost:5050`n" | Set-Content -Path $frontEnv -Encoding utf8
+    # API calls are proxied through the Vite dev server (see vite.config.ts).
+    # Set VITE_API_URL here only if your backend runs on a non-default host/port.
+    "# VITE_API_URL=http://localhost:5050`n" | Set-Content -Path $frontEnv -Encoding utf8
     Write-Host "  Created $frontEnv" -ForegroundColor Green
 }
 

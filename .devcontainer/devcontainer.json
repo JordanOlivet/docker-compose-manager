@@ -5,6 +5,18 @@
     "context": "."
   },
 
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false
+    }
+  },
+
+  "containerEnv": {
+    // inotify instances are a per-uid host-wide kernel limit (128 by default);
+    // several workspaces/watchers easily exhaust it. Poll instead.
+    "DOTNET_USE_POLLING_FILE_WATCHER": "1"
+  },
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -57,11 +69,7 @@
     }
   },
 
-  "postCreateCommand": "cd lighthouse-back && dotnet restore && cd ../lighthouse-front && npm install",
-
-  "mounts": [
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-  ],
+  "postCreateCommand": "bash dev-setup/setup.sh",
 
   "remoteUser": "vscode"
 }
