@@ -24,7 +24,7 @@ Then open <http://localhost:5173> and log in with **`admin` / `adminadmin`**
 `setup.ps1` / `setup.sh` is **install + configure only — it never launches the app**:
 
 1. **Detects prerequisites** and prints each version (or `MISSING`):
-   - git, .NET SDK (>= 10), Node.js (>= 26), npm, Docker (+ daemon reachable).
+   - git, .NET SDK (>= 10), Node.js (>= 24), npm, Docker (+ daemon reachable).
 2. **Prompts before installing** anything missing (hybrid — nothing is installed
    without a `Y`). Uses `winget`/`choco` on Windows, `brew` on macOS, and
    `apt`/`dnf`/`pacman` on Linux. If no package manager is found it prints the
@@ -84,7 +84,7 @@ npm run dev
 |-------------|----------|--------------------------------------------------------------|
 | Git         | yes      | <https://git-scm.com/downloads>                              |
 | .NET SDK 10 | yes      | <https://dotnet.microsoft.com/download/dotnet/10.0>          |
-| Node.js 26+ | yes      | <https://nodejs.org/>                                        |
+| Node.js 24+ | yes      | <https://nodejs.org/>                                        |
 | Docker      | yes      | <https://www.docker.com/products/docker-desktop/>           |
 
 Then create the two config files listed in step 3 above and run

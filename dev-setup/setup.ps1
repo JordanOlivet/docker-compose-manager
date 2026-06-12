@@ -93,11 +93,11 @@ $nodeOk = $false
 if (Test-Command node) {
     $nodeVer = (node -v).TrimStart('v')
     $nodeMajor = [int]($nodeVer.Split('.')[0])
-    if ($nodeMajor -ge 26) {
+    if ($nodeMajor -ge 24) {
         Write-Host "  Node      OK   v$nodeVer" -ForegroundColor Green
         $nodeOk = $true
     } else {
-        Write-Host "  Node      TOO OLD (v$nodeVer, need >= 26)" -ForegroundColor Red
+        Write-Host "  Node      TOO OLD (v$nodeVer, need >= 24)" -ForegroundColor Red
         $missing += "node"
     }
 } else {

@@ -83,10 +83,10 @@ fi
 node_ok=0
 if has node; then
     nver="$(node -v)"; nver="${nver#v}"; nmaj="${nver%%.*}"
-    if [ "$nmaj" -ge 26 ] 2>/dev/null; then
+    if [ "$nmaj" -ge 24 ] 2>/dev/null; then
         echo -e "  Node      ${GREEN}OK${NC}   v$nver"; node_ok=1
     else
-        echo -e "  Node      ${RED}TOO OLD${NC} (v$nver, need >= 26)"; missing+=("node")
+        echo -e "  Node      ${RED}TOO OLD${NC} (v$nver, need >= 24)"; missing+=("node")
     fi
 else
     echo -e "  Node      ${RED}MISSING${NC}"; missing+=("node")
