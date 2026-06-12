@@ -6,7 +6,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         git curl wget sudo ca-certificates gnupg2 \
         procps lsb-release openssh-client socat \
     # Add NodeSource repo for Node.js 24
-    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     # Add Docker CLI (detect distro automatically)
     && install -m 0755 -d /etc/apt/keyrings \

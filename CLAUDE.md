@@ -325,7 +325,7 @@ The application can update itself via GitHub releases:
 
 - Docker Desktop (Windows/Mac) or Docker Engine (Linux)
 - .NET 10 SDK
-- Node.js 24+ and npm
+- Node.js 26+ and npm
 - Git
 
 ### Local Development (Without Docker)
