@@ -1,3 +1,11 @@
+## Changes in v1.25.0
+
+**Merged Pull Requests:**
+- Chore/add dev setup (#154)
+
+**Commits:**
+
+
 ## Changes in v1.24.3
 
 **Merged Pull Requests:**
