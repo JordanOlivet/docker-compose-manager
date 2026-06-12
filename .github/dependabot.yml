@@ -32,6 +32,9 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 3
+    groups:
+      docker-all:
+        patterns: ["*"]
 
   # GitHub Actions (workflows + composite actions)
   - package-ecosystem: "github-actions"
@@ -43,3 +46,6 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 3
+    groups:
+      actions-all:
+        patterns: ["*"]
