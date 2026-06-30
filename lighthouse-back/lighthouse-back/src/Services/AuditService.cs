@@ -360,6 +360,10 @@ public static class AuditActions
     public const string ContainerList = "container.list";
     public const string ContainerInspect = "container.inspect";
 
+    // Image actions
+    public const string ImageRemove = "image.remove";
+    public const string ImagePrune = "image.prune";
+
     // Compose file actions
     public const string FileCreate = "file.create";
     public const string FileUpdate = "file.update";

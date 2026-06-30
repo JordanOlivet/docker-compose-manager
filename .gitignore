@@ -48,3 +48,4 @@ lighthouse-back/lighthouse-back/obj
 !build-check.ps1
 !run.sh
 !run.ps1
+*.user

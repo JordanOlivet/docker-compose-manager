@@ -5,7 +5,7 @@ using Lighthouse.src.Utils;
 
 namespace Lighthouse.Services;
 
-public class DockerService
+public class DockerService : IDockerImageOperations
 {
     private readonly DockerClient _dockerClient;
     private readonly ILogger<DockerService> _logger;
@@ -477,4 +477,99 @@ public class DockerService
     /// </summary>
     private static string NormalizeName(string? rawName)
         => string.IsNullOrWhiteSpace(rawName) ? "unknown" : rawName.TrimStart('/');
+
+    // --- IDockerImageOperations -------------------------------------------------
+
+    /// <inheritdoc />
+    public async Task<IList<ImagesListResponse>> ListImagesRawAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _dockerClient.Images.ListImagesAsync(new ImagesListParameters { All = false }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing images");
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IList<ContainerListResponse>> ListContainersRawAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _dockerClient.Containers.ListContainersAsync(
+                new ContainersListParameters { All = true }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing containers for image mapping");
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteImageRawAsync(string id, bool force, CancellationToken ct = default)
+    {
+        try
+        {
+            await _dockerClient.Images.DeleteImageAsync(
+                id, new ImageDeleteParameters { Force = force }, ct);
+            _logger.LogDebug("Image {ImageId} removed (force={Force})", id, force);
+            return true;
+        }
+        catch (DockerImageNotFoundException)
+        {
+            _logger.LogWarning("Cannot remove image {ImageId}: not found", id);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing image {ImageId}", id);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ImagesPruneResponse> PruneImagesRawAsync(bool danglingOnly, CancellationToken ct = default)
+    {
+        try
+        {
+            // Docker's "dangling" filter: true => only untagged images,
+            // false => every image not referenced by a container.
+            var filters = new Dictionary<string, IDictionary<string, bool>>
+            {
+                ["dangling"] = new Dictionary<string, bool> { [danglingOnly ? "true" : "false"] = true }
+            };
+
+            return await _dockerClient.Images.PruneImagesAsync(
+                new ImagesPruneParameters { Filters = filters }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error pruning images (danglingOnly={DanglingOnly})", danglingOnly);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> GetContainerImageIdRawAsync(string containerId, CancellationToken ct = default)
+    {
+        try
+        {
+            ContainerInspectResponse container = await _dockerClient.Containers.InspectContainerAsync(containerId, ct);
+            return container.Image;
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            _logger.LogWarning("Cannot resolve image id for container {ContainerId}: not found", containerId);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resolving image id for container {ContainerId}", containerId);
+            return null;
+        }
+    }
 }
