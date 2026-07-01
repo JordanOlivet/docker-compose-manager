@@ -17,8 +17,9 @@ public class ImagesControllerTests
 
     private ImagesController CreateSut(bool withUser = false)
     {
+        var sse = new SseConnectionManagerService(NullLogger<SseConnectionManagerService>.Instance);
         var controller = new ImagesController(
-            _imageService.Object, _auditService.Object, NullLogger<ImagesController>.Instance);
+            _imageService.Object, _auditService.Object, sse, NullLogger<ImagesController>.Instance);
 
         if (withUser)
         {

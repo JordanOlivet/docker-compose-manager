@@ -23,6 +23,12 @@ export interface ComposeProjectStateChangedEvent {
   isCrashLooping?: boolean;
 }
 
+export interface ImagesChangedEvent {
+  action: string;
+  imageId?: string;
+  timestamp: Date;
+}
+
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 // Centralized SSE state using Svelte 5 runes
@@ -45,6 +51,7 @@ export const isReconnecting = {
 // Callback sets for different event types
 const containerCallbacks = new Set<(event: ContainerStateChangedEvent) => void>();
 const composeProjectCallbacks = new Set<(event: ComposeProjectStateChangedEvent) => void>();
+const imagesChangedCallbacks = new Set<(event: ImagesChangedEvent) => void>();
 const operationCallbacks = new Set<(event: OperationUpdateEvent) => void>();
 const maintenanceModeCallbacks = new Set<(notification: MaintenanceModeNotification) => void>();
 const pullProgressCallbacks = new Set<(event: UpdateProgressEvent) => void>();
@@ -258,6 +265,17 @@ export async function initializeSSEConnection(): Promise<void> {
       }
     });
 
+    eventSource.addEventListener('ImagesChanged', (e: MessageEvent) => {
+      resetHeartbeatTimer();
+      try {
+        const event: ImagesChangedEvent = JSON.parse(e.data);
+        logger.log('[SSE Store] ImagesChanged:', event.action, event.imageId ?? '');
+        imagesChangedCallbacks.forEach(cb => cb(event));
+      } catch (err) {
+        logger.error('[SSE Store] Failed to parse ImagesChanged:', err);
+      }
+    });
+
     eventSource.addEventListener('OperationUpdate', (e: MessageEvent) => {
       resetHeartbeatTimer();
       try {
@@ -421,6 +439,18 @@ export function onComposeProjectStateChanged(callback: (event: ComposeProjectSta
   return () => {
     composeProjectCallbacks.delete(callback);
     logger.log('[SSE Store] Compose callback unregistered, total:', composeProjectCallbacks.size);
+  };
+}
+
+/**
+ * Subscribe to image change events (emitted after image delete/prune)
+ */
+export function onImagesChanged(callback: (event: ImagesChangedEvent) => void): () => void {
+  imagesChangedCallbacks.add(callback);
+  logger.log('[SSE Store] ImagesChanged callback registered, total:', imagesChangedCallbacks.size);
+  return () => {
+    imagesChangedCallbacks.delete(callback);
+    logger.log('[SSE Store] ImagesChanged callback unregistered, total:', imagesChangedCallbacks.size);
   };
 }
 

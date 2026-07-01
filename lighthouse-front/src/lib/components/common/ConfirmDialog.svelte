@@ -11,6 +11,7 @@
     confirmText?: string;
     cancelText?: string;
     confirmVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+    confirmDisabled?: boolean;
     onconfirm: () => void;
     oncancel: () => void;
     children?: Snippet;
@@ -23,6 +24,7 @@
     confirmText = $t('common.confirm'),
     cancelText = $t('common.cancel'),
     confirmVariant = 'destructive',
+    confirmDisabled = false,
     onconfirm,
     oncancel,
     children
@@ -79,7 +81,7 @@
         <Button variant="outline" onclick={oncancel} class="cursor-pointer">
           {cancelText}
         </Button>
-        <Button variant={confirmVariant} onclick={onconfirm} class="cursor-pointer">
+        <Button variant={confirmVariant} onclick={onconfirm} disabled={confirmDisabled} class="cursor-pointer">
           {confirmText}
         </Button>
       </div>

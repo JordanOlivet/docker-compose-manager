@@ -512,16 +512,35 @@ public class DockerService : IDockerImageOperations
     /// <inheritdoc />
     public async Task<bool> DeleteImageRawAsync(string id, bool force, CancellationToken ct = default)
     {
+        // Bound the call: the Docker daemon can hang on some delete requests
+        // (e.g. force-removing an image still referenced by a container). Without
+        // this, the request would block on the client's default 100s timeout.
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+
         try
         {
             await _dockerClient.Images.DeleteImageAsync(
-                id, new ImageDeleteParameters { Force = force }, ct);
+                id, new ImageDeleteParameters { Force = force }, timeoutCts.Token);
             _logger.LogDebug("Image {ImageId} removed (force={Force})", id, force);
             return true;
         }
         catch (DockerImageNotFoundException)
         {
             _logger.LogWarning("Cannot remove image {ImageId}: not found", id);
+            return false;
+        }
+        catch (DockerApiException ex)
+        {
+            // e.g. 409 conflict: the image is still referenced by a container.
+            // Docker refuses this even with force, so report a clean failure.
+            _logger.LogWarning("Cannot remove image {ImageId}: {Message}", id, ex.Message);
+            return false;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Our safety timeout fired (the daemon hung), not a client cancellation.
+            _logger.LogWarning("Timed out removing image {ImageId}", id);
             return false;
         }
         catch (Exception ex)

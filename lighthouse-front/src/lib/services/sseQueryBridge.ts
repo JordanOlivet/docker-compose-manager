@@ -2,10 +2,12 @@ import type { QueryClient } from '@tanstack/svelte-query';
 import {
   onContainerStateChanged,
   onComposeProjectStateChanged,
+  onImagesChanged,
   onOperationUpdate,
   onReconnected,
   type ContainerStateChangedEvent,
   type ComposeProjectStateChangedEvent,
+  type ImagesChangedEvent,
 } from '$lib/stores/sse.svelte';
 import type { OperationUpdateEvent } from '$lib/types';
 import { composeApi } from '$lib/api/compose';
@@ -279,6 +281,20 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
   });
   unsubscribers.push(unsubContainer);
 
+  // Handle ImagesChanged events (emitted after image delete/prune)
+  const unsubImages = onImagesChanged((event: ImagesChangedEvent) => {
+    // During a bulk delete the dialog suppresses refreshes and invalidates once
+    // at the end, so skip the per-item churn.
+    if (isBatchOperationActive()) {
+      logger.log(`[Bridge] Skipping images event (batch operation active): ${event.action}`);
+      return;
+    }
+
+    logger.log(`[Bridge] Images event: ${event.action}`);
+    scheduleRefetch([['images']]);
+  });
+  unsubscribers.push(unsubImages);
+
   // Handle OperationUpdate events
   const unsubOperation = onOperationUpdate((event: OperationUpdateEvent) => {
     if (event.status !== 'completed' && event.status !== 'failed') {
@@ -316,6 +332,7 @@ export function setupSSEQueryBridge(queryClient: QueryClient): () => void {
     queryClient.refetchQueries({ queryKey: ['containers'], exact: false });
     queryClient.refetchQueries({ queryKey: ['compose'], exact: false });
     queryClient.refetchQueries({ queryKey: ['dashboard'], exact: false });
+    queryClient.refetchQueries({ queryKey: ['images'], exact: false });
   });
   unsubscribers.push(unsubReconnected);
 
