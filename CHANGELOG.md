@@ -1,3 +1,11 @@
+## Changes in v1.26.0
+
+**Merged Pull Requests:**
+- feat(images): scheduled auto-prune of unused images (#164)
+
+**Commits:**
+
+
 ## Changes in v1.25.0
 
 **Merged Pull Requests:**
