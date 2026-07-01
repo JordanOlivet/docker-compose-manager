@@ -143,6 +143,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<ProjectUpdateCheckBackgroundService>();
         services.AddHostedService<AutoUpdateComposeBackgroundService>();
         services.AddHostedService<AutoUpdateAppBackgroundService>();
+        services.AddHostedService<AutoPruneImagesBackgroundService>();
         services.AddHostedService<AppUpdateNotificationStartupService>();
         services.AddHostedService<Lighthouse.BackgroundServices.CleanupBackgroundService>();
         return services;

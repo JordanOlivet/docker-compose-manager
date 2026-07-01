@@ -31,6 +31,11 @@
     AUTO_UPDATE_KEYS
   } from '$lib/stores/autoUpdate.svelte';
   import {
+    autoPruneState,
+    loadAutoPruneSettings,
+    AUTO_PRUNE_KEYS
+  } from '$lib/stores/autoPrune.svelte';
+  import {
     notificationsState,
     loadNotificationSettings,
     saveNotificationSetting,
@@ -201,6 +206,11 @@
   );
   let appCountdown = $derived(formatCountdown(appCronValidation.nextRun, countdownLabels, now));
 
+  let autoPruneCronValidation = $derived(validateCron(autoPruneState.cron, cronstrueLocale));
+  let autoPruneCountdown = $derived(
+    formatCountdown(autoPruneCronValidation.nextRun, countdownLabels, now)
+  );
+
   // Discord notification state
   // Webhook URL is write-only: the API returns it masked, so we only persist a
   // new value once the user actually edits the field.
@@ -267,6 +277,7 @@
 
   onMount(() => {
     void loadAutoUpdateSettings();
+    void loadAutoPruneSettings();
     void loadNotificationSettings();
     void loadGlobalEnvFile();
     void loadEnvPickerInitialPath();
@@ -320,6 +331,31 @@
   async function commitAppCron() {
     if (!appCronValidation.valid) return;
     await persistSetting(AUTO_UPDATE_KEYS.appCron, autoUpdateState.appCron.trim());
+  }
+
+  async function toggleAutoPruneEnabled(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const previous = autoPruneState.enabled;
+    autoPruneState.enabled = checked;
+    const ok = await persistSetting(AUTO_PRUNE_KEYS.enabled, checked ? 'true' : 'false');
+    if (!ok) autoPruneState.enabled = previous;
+  }
+
+  async function toggleAutoPruneDanglingOnly(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const previous = autoPruneState.danglingOnly;
+    autoPruneState.danglingOnly = checked;
+    const ok = await persistSetting(AUTO_PRUNE_KEYS.danglingOnly, checked ? 'true' : 'false');
+    if (!ok) autoPruneState.danglingOnly = previous;
+  }
+
+  function onAutoPruneCronInput(e: Event) {
+    autoPruneState.cron = (e.target as HTMLInputElement).value;
+  }
+
+  async function commitAutoPruneCron() {
+    if (!autoPruneCronValidation.valid) return;
+    await persistSetting(AUTO_PRUNE_KEYS.cron, autoPruneState.cron.trim());
   }
 
   async function persistNotificationSetting(key: string, value: string) {
@@ -780,6 +816,100 @@
                       — {$t('settings.autoUpdate.nextRun')}: {formatNextRun(composeCronValidation.nextRun)}
                       {#if composeCountdown}
                         <span class="text-gray-400 dark:text-gray-500">({$t('settings.autoUpdate.countdownIn')} {composeCountdown})</span>
+                      {/if}
+                    {/if}
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {$t('settings.autoUpdate.cronUtcHint')}
+                  </p>
+                {:else}
+                  <p class="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {$t('settings.autoUpdate.cronInvalid')}
+                  </p>
+                {/if}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Auto Prune Images Card -->
+        <Card class="mt-6">
+          <CardHeader>
+            <CardTitle>{$t('settings.autoPrune.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {$t('settings.autoPrune.description')}
+            </p>
+
+            <div class="space-y-4">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoPruneState.enabled}
+                  onchange={toggleAutoPruneEnabled}
+                  disabled={savingKey === AUTO_PRUNE_KEYS.enabled}
+                  class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.autoPrune.enableLabel')}
+                </span>
+                {#if savingKey === AUTO_PRUNE_KEYS.enabled}
+                  <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                {/if}
+              </label>
+
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoPruneState.danglingOnly}
+                  onchange={toggleAutoPruneDanglingOnly}
+                  disabled={!autoPruneState.enabled || savingKey === AUTO_PRUNE_KEYS.danglingOnly}
+                  class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:opacity-50"
+                />
+                <span class="flex flex-col">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {$t('settings.autoPrune.danglingOnlyLabel')}
+                  </span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">
+                    {$t('settings.autoPrune.danglingOnlyHint')}
+                  </span>
+                </span>
+                {#if savingKey === AUTO_PRUNE_KEYS.danglingOnly}
+                  <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                {/if}
+              </label>
+
+              <div class="flex flex-col gap-1">
+                <label for="auto-prune-cron" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {$t('settings.autoPrune.cronLabel')}
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="auto-prune-cron"
+                    type="text"
+                    value={autoPruneState.cron}
+                    oninput={onAutoPruneCronInput}
+                    onblur={commitAutoPruneCron}
+                    placeholder={$t('settings.autoUpdate.cronPlaceholder')}
+                    disabled={!autoPruneState.enabled || savingKey === AUTO_PRUNE_KEYS.cron}
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                  />
+                  {#if savingKey === AUTO_PRUNE_KEYS.cron}
+                    <RefreshCw class="w-4 h-4 animate-spin text-gray-500" />
+                  {:else if autoPruneCronValidation.valid}
+                    <Check class="w-4 h-4 text-green-600 dark:text-green-400" />
+                  {:else}
+                    <X class="w-4 h-4 text-red-600 dark:text-red-400" />
+                  {/if}
+                </div>
+                {#if autoPruneCronValidation.valid}
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {autoPruneCronValidation.humanReadable ?? ''}
+                    {#if autoPruneCronValidation.nextRun}
+                      — {$t('settings.autoUpdate.nextRun')}: {formatNextRun(autoPruneCronValidation.nextRun)}
+                      {#if autoPruneCountdown}
+                        <span class="text-gray-400 dark:text-gray-500">({$t('settings.autoUpdate.countdownIn')} {autoPruneCountdown})</span>
                       {/if}
                     {/if}
                   </p>
