@@ -453,6 +453,14 @@ const es = {
       saveFailed: 'Error al guardar el archivo .env global',
     },
     // Auto-update settings
+    autoPrune: {
+      title: 'Limpieza automática de imágenes',
+      description: 'Elimina automáticamente las imágenes Docker sin usar según una programación para liberar espacio en disco. Las imágenes en uso por un contenedor (incluido Lighthouse) nunca se eliminan.',
+      enableLabel: 'Activar la limpieza automática de imágenes',
+      danglingOnlyLabel: 'Solo imágenes huérfanas',
+      danglingOnlyHint: 'Desactivado: elimina toda imagen no usada por ningún contenedor.',
+      cronLabel: 'Programación (expresión cron)',
+    },
     autoUpdate: {
       composeTitle: 'Actualización automática',
       composeDescription: 'Actualiza automáticamente las imágenes y recrea los contenedores de los proyectos compose según una programación. Para excluir un proyecto, añada "x-auto-update: false" en la raíz de su archivo compose.',

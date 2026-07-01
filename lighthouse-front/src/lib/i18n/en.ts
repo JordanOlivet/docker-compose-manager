@@ -400,6 +400,14 @@ export default {
     checkInterval: 'Check Interval',
     intervalSaved: 'Check interval saved',
     // Auto-update settings
+    autoPrune: {
+      title: 'Auto Prune Images',
+      description: 'Automatically remove unused Docker images on a schedule to reclaim disk space. Images in use by a container (including Lighthouse itself) are never removed.',
+      enableLabel: 'Enable automatic image pruning',
+      danglingOnlyLabel: 'Dangling images only',
+      danglingOnlyHint: 'Off: remove every image not used by any container.',
+      cronLabel: 'Schedule (cron expression)',
+    },
     autoUpdate: {
       composeTitle: 'Auto Update',
       composeDescription: 'Automatically pull updated images and recreate containers for compose projects on a schedule. Exclude a project by adding "x-auto-update: false" at the root of its compose file.',

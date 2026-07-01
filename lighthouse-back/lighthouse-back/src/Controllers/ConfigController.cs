@@ -336,7 +336,9 @@ public class ConfigController : BaseController
         }
 
         if (key == AutoUpdateComposeBackgroundService.EnabledKey
-            || key == AutoUpdateAppBackgroundService.EnabledKey)
+            || key == AutoUpdateAppBackgroundService.EnabledKey
+            || key == AutoPruneImagesBackgroundService.EnabledKey
+            || key == AutoPruneImagesBackgroundService.DanglingOnlyKey)
         {
             if (!bool.TryParse(value, out _))
             {
@@ -346,7 +348,8 @@ public class ConfigController : BaseController
         }
 
         if (key == AutoUpdateComposeBackgroundService.CronKey
-            || key == AutoUpdateAppBackgroundService.CronKey)
+            || key == AutoUpdateAppBackgroundService.CronKey
+            || key == AutoPruneImagesBackgroundService.CronKey)
         {
             try
             {

@@ -134,6 +134,48 @@ public class DiscordNotificationService : INotificationService
         return SendEmbedAsync(embed, ct);
     }
 
+    public Task NotifyImagePruneAsync(IReadOnlyList<string> images, long spaceReclaimed, bool danglingOnly, CancellationToken ct = default)
+    {
+        if (images == null || images.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var embed = new DiscordEmbed
+        {
+            Title = $"🧹 Image auto-prune — {images.Count} removed",
+            Description = $"Reclaimed **{FormatBytes(spaceReclaimed)}** · {(danglingOnly ? "dangling images only" : "all unused images")}.",
+            Color = ColorSuccess,
+            Timestamp = DateTime.UtcNow
+        };
+
+        const int maxLines = 20;
+        var sb = new StringBuilder();
+        foreach (string entry in images.Take(maxLines))
+        {
+            sb.AppendLine($"• `{FormatImageRef(entry)}`");
+        }
+        if (images.Count > maxLines)
+        {
+            sb.AppendLine($"… +{images.Count - maxLines} more");
+        }
+        embed.Fields.Add(new DiscordField("Removed", Truncate(sb.ToString().TrimEnd(), MaxFieldValueLength), false));
+
+        return SendEmbedAsync(embed, ct);
+    }
+
+    /// <summary>Shortens a sha256 reference to 12 chars; leaves repo:tag names as-is.</summary>
+    private static string FormatImageRef(string entry)
+    {
+        const string prefix = "sha256:";
+        if (entry.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            string hex = entry[prefix.Length..];
+            return hex.Length > 12 ? hex[..12] : hex;
+        }
+        return entry;
+    }
+
     public async Task<NotificationTestResult> SendTestAsync(string? overrideWebhookUrl, CancellationToken ct = default)
     {
         string? webhookUrl = !string.IsNullOrWhiteSpace(overrideWebhookUrl)
@@ -220,6 +262,19 @@ public class DiscordNotificationService : INotificationService
     {
         AppSetting? setting = await _db.AppSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, ct);
         return setting?.Value;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        double size = bytes;
+        int u = 0;
+        while (size >= 1024 && u < units.Length - 1)
+        {
+            size /= 1024;
+            u++;
+        }
+        return $"{size:0.##} {units[u]}";
     }
 
     private static string Truncate(string value, int max)

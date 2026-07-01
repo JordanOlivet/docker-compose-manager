@@ -363,6 +363,7 @@ public static class AuditActions
     // Image actions
     public const string ImageRemove = "image.remove";
     public const string ImagePrune = "image.prune";
+    public const string AutoPruneImages = "auto_prune.images";
 
     // Compose file actions
     public const string FileCreate = "file.create";
