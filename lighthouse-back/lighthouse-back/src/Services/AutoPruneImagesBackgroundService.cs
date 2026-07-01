@@ -136,7 +136,7 @@ public class AutoPruneImagesBackgroundService : BackgroundService
 
                 // Best-effort Discord summary, mirroring the compose auto-update flow.
                 await notificationService.NotifyImagePruneAsync(
-                    result.ImagesDeleted.Count, result.SpaceReclaimed, danglingOnly, ct);
+                    result.ImagesDeleted, result.SpaceReclaimed, danglingOnly, ct);
             }
         }
         catch (Exception ex)

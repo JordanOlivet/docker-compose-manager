@@ -33,8 +33,10 @@ public interface INotificationService
 
     /// <summary>
     /// Notify that an automatic image-prune cycle removed one or more images.
+    /// <paramref name="images"/> holds the removed references (repo:tag when
+    /// available, otherwise a sha256 id for dangling images).
     /// </summary>
-    Task NotifyImagePruneAsync(int removedCount, long spaceReclaimed, bool danglingOnly, CancellationToken ct = default);
+    Task NotifyImagePruneAsync(IReadOnlyList<string> images, long spaceReclaimed, bool danglingOnly, CancellationToken ct = default);
 
     /// <summary>
     /// Send a test notification to verify the configuration. When
