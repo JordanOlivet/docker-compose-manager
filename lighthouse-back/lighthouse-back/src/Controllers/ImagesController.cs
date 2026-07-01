@@ -16,15 +16,18 @@ public class ImagesController : BaseController
 {
     private readonly IImageService _imageService;
     private readonly IAuditService _auditService;
+    private readonly SseConnectionManagerService _sse;
     private readonly ILogger<ImagesController> _logger;
 
     public ImagesController(
         IImageService imageService,
         IAuditService auditService,
+        SseConnectionManagerService sse,
         ILogger<ImagesController> logger)
     {
         _imageService = imageService;
         _auditService = auditService;
+        _sse = sse;
         _logger = logger;
     }
 
@@ -87,6 +90,12 @@ public class ImagesController : BaseController
                         GetCurrentUserIdRequired(), AuditActions.ImageRemove, GetUserIpAddress(),
                         details: $"Deleted image {id} (force={force})",
                         resourceType: "image", resourceId: id);
+                    await _sse.BroadcastAsync("ImagesChanged", new
+                    {
+                        action = "delete",
+                        imageId = id,
+                        timestamp = DateTime.UtcNow
+                    });
                     return Ok(ApiResponse.Ok(true, "Image deleted successfully"));
             }
         }
@@ -116,6 +125,15 @@ public class ImagesController : BaseController
                 GetCurrentUserIdRequired(), AuditActions.ImagePrune, GetUserIpAddress(),
                 details: $"Pruned {result.ImagesDeleted.Count} image(s), reclaimed {result.SpaceReclaimed} bytes (danglingOnly={danglingOnly})",
                 resourceType: "image");
+
+            if (result.ImagesDeleted.Count > 0)
+            {
+                await _sse.BroadcastAsync("ImagesChanged", new
+                {
+                    action = "prune",
+                    timestamp = DateTime.UtcNow
+                });
+            }
 
             return Ok(ApiResponse.Ok(result));
         }

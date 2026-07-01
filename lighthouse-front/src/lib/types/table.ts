@@ -25,4 +25,4 @@ export interface ColumnPreferences {
 /**
  * Table identifiers for localStorage keys
  */
-export type TableId = 'containers' | 'compose-projects' | 'compose-services';
+export type TableId = 'containers' | 'compose-projects' | 'compose-services' | 'images';

@@ -1,6 +1,7 @@
 // Re-export all types from individual modules
 export * from './compose';
 export * from './container';
+export * from './image';
 export * from './operations';
 export * from './audit';
 export * from './permissions';
