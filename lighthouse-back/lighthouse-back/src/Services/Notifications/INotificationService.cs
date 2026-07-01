@@ -32,6 +32,11 @@ public interface INotificationService
     Task NotifyComposeAutoUpdateAsync(ComposeAutoUpdateReport report, CancellationToken ct = default);
 
     /// <summary>
+    /// Notify that an automatic image-prune cycle removed one or more images.
+    /// </summary>
+    Task NotifyImagePruneAsync(int removedCount, long spaceReclaimed, bool danglingOnly, CancellationToken ct = default);
+
+    /// <summary>
     /// Send a test notification to verify the configuration. When
     /// <paramref name="overrideWebhookUrl"/> is provided it is tested instead of
     /// the saved one (lets the user verify before saving).

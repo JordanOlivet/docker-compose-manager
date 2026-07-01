@@ -2,6 +2,7 @@ using Cronos;
 using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Models;
+using Lighthouse.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lighthouse.Services;
@@ -110,6 +111,7 @@ public class AutoPruneImagesBackgroundService : BackgroundService
 
             IImageService imageService = scope.ServiceProvider.GetRequiredService<IImageService>();
             IAuditService auditService = scope.ServiceProvider.GetRequiredService<IAuditService>();
+            INotificationService notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             PruneImagesResultDto result = await imageService.PruneImagesAsync(danglingOnly, ct);
 
@@ -131,6 +133,10 @@ public class AutoPruneImagesBackgroundService : BackgroundService
                     action = "prune",
                     timestamp = DateTime.UtcNow
                 });
+
+                // Best-effort Discord summary, mirroring the compose auto-update flow.
+                await notificationService.NotifyImagePruneAsync(
+                    result.ImagesDeleted.Count, result.SpaceReclaimed, danglingOnly, ct);
             }
         }
         catch (Exception ex)

@@ -134,6 +134,23 @@ public class DiscordNotificationService : INotificationService
         return SendEmbedAsync(embed, ct);
     }
 
+    public Task NotifyImagePruneAsync(int removedCount, long spaceReclaimed, bool danglingOnly, CancellationToken ct = default)
+    {
+        if (removedCount <= 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var embed = new DiscordEmbed
+        {
+            Title = $"🧹 Image auto-prune — {removedCount} removed",
+            Description = $"Reclaimed **{FormatBytes(spaceReclaimed)}** · {(danglingOnly ? "dangling images only" : "all unused images")}.",
+            Color = ColorSuccess,
+            Timestamp = DateTime.UtcNow
+        };
+        return SendEmbedAsync(embed, ct);
+    }
+
     public async Task<NotificationTestResult> SendTestAsync(string? overrideWebhookUrl, CancellationToken ct = default)
     {
         string? webhookUrl = !string.IsNullOrWhiteSpace(overrideWebhookUrl)
@@ -220,6 +237,19 @@ public class DiscordNotificationService : INotificationService
     {
         AppSetting? setting = await _db.AppSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, ct);
         return setting?.Value;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        double size = bytes;
+        int u = 0;
+        while (size >= 1024 && u < units.Length - 1)
+        {
+            size /= 1024;
+            u++;
+        }
+        return $"{size:0.##} {units[u]}";
     }
 
     private static string Truncate(string value, int max)
