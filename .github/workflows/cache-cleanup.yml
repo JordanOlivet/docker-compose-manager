@@ -1,0 +1,17 @@
+name: Cache Cleanup
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily at 03:00 UTC
+  workflow_dispatch: # allow manual trigger
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cache-cleanup:
+    uses: JordanOlivet/ci-workflows/.github/workflows/cache-cleanup.yml@v1
+    with:
+      threshold-gb: 9
+    secrets: inherit
