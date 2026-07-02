@@ -1,3 +1,11 @@
+## Changes in v1.26.1
+
+**Merged Pull Requests:**
+- ci: scheduled GitHub Actions cache cleanup (#165)
+
+**Commits:**
+
+
 ## Changes in v1.26.0
 
 **Merged Pull Requests:**
