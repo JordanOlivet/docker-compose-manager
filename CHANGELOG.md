@@ -1,3 +1,11 @@
+## Changes in v1.26.2
+
+**Merged Pull Requests:**
+- fix(security): critical/high fixes from full app review (#166)
+
+**Commits:**
+
+
 ## Changes in v1.26.1
 
 **Merged Pull Requests:**
