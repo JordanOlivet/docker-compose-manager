@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 import * as auth from '$lib/stores/auth.svelte';
 import { reconnectSSEWithNewToken } from '$lib/stores/sse.svelte';
+import { refreshAccessToken } from '$lib/api/tokenRefresh';
 import { browser } from '$app/environment';
 
 // Extend InternalAxiosRequestConfig to include _retry property for token refresh
@@ -53,29 +54,18 @@ async function proactiveTokenRefresh(): Promise<boolean> {
     return true; // Token is still valid, no refresh needed
   }
 
-  try {
-    // The refresh token is sent automatically via the HttpOnly `lh_refresh` cookie
-    // (withCredentials), so no token is read from or written to JavaScript storage.
-    const refreshUrl = API_URL ? `${API_URL}/api/auth/refresh` : '/api/auth/refresh';
-    const response = await axios.post(refreshUrl, {}, { withCredentials: true });
-
-    const { accessToken } = response.data.data;
-
-    localStorage.setItem('accessToken', accessToken);
-
-    // Synchronize with Svelte store
-    auth.refreshTokens(accessToken);
-
-    // Reconnect SSE with the new token
-    reconnectSSEWithNewToken();
-
-    return true;
-  } catch (error) {
+  // Shared, deduplicated refresh (see tokenRefresh.ts). Concurrent callers reuse one request.
+  const accessToken = await refreshAccessToken();
+  if (!accessToken) {
     // If refresh fails, log out the user
     auth.logout();
     window.location.href = '/login';
     return false;
   }
+
+  // Reconnect SSE with the new token
+  reconnectSSEWithNewToken();
+  return true;
 }
 
 // Proactive token refresh: check every 60 seconds
@@ -138,29 +128,21 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      try {
-        // Refresh via the HttpOnly cookie (withCredentials); no token in JS storage.
-        const refreshUrl = API_URL ? `${API_URL}/api/auth/refresh` : '/api/auth/refresh';
-        const response = await axios.post(refreshUrl, {}, { withCredentials: true });
-
-        const { accessToken } = response.data.data;
-
-        localStorage.setItem('accessToken', accessToken);
-
-        // Synchronise le store Svelte après refresh
-        auth.refreshTokens(accessToken);
-
-        // Reconnect SSE with the new token
-        reconnectSSEWithNewToken();
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return apiClient(originalRequest);
-      } catch (refreshError) {
+      // Shared, deduplicated refresh (see tokenRefresh.ts): parallel 401s across
+      // requests/tabs reuse a single refresh call and one cookie rotation.
+      const accessToken = await refreshAccessToken();
+      if (!accessToken) {
         // Refresh failed, logout user via store
         auth.logout();
         window.location.href = '/login';
-        return Promise.reject(refreshError);
+        return Promise.reject(error);
       }
+
+      // Reconnect SSE with the new token
+      reconnectSSEWithNewToken();
+
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      return apiClient(originalRequest);
     }
 
     return Promise.reject(error);
