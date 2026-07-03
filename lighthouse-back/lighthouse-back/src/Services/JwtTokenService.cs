@@ -21,7 +21,7 @@ public class JwtTokenService
         var secret = _configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
         var issuer = _configuration["Jwt:Issuer"] ?? "lighthouse";
         var audience = _configuration["Jwt:Audience"] ?? "lighthouse-client";
-        var expirationMinutes = int.Parse(_configuration["Jwt:ExpirationMinutes"] ?? "60");
+        var expirationMinutes = int.Parse(_configuration["Jwt:ExpirationMinutes"] ?? "15");
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -31,6 +31,9 @@ public class JwtTokenService
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.Role, user.Role?.Name ?? "user"),
+            // Security stamp: checked on every request so the token can be revoked
+            // (password change, disable, role change) before its natural expiry.
+            new Claim("sstamp", user.SecurityStamp),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
         };

@@ -59,6 +59,14 @@ public class CleanupBackgroundService : BackgroundService
                 {
                     _logger.LogInformation("Operation cleanup completed. Deleted {Count} old operations", operationDeletedCount);
                 }
+
+                // Cleanup expired / long-revoked refresh sessions
+                AuthService authService = scope.ServiceProvider.GetRequiredService<AuthService>();
+                var sessionDeletedCount = await authService.CleanupExpiredSessionsAsync();
+                if (sessionDeletedCount > 0)
+                {
+                    _logger.LogInformation("Session cleanup completed. Deleted {Count} stale sessions", sessionDeletedCount);
+                }
             }
             catch (OperationCanceledException)
             {
