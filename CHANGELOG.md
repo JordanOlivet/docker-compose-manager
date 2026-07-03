@@ -1,3 +1,11 @@
+## Changes in v1.26.7
+
+**Merged Pull Requests:**
+- perf: remove N+1 queries in PermissionService (Batch B) (#171)
+
+**Commits:**
+
+
 ## Changes in v1.26.6
 
 **Merged Pull Requests:**
