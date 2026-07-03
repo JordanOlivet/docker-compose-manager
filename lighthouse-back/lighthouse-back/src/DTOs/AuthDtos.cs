@@ -11,7 +11,9 @@ public record LoginResponse(
     bool MustAddEmail
 );
 
-public record RefreshTokenRequest(string RefreshToken);
+// RefreshToken is optional: browsers send it via the HttpOnly `lh_refresh` cookie.
+// The body field is kept for non-browser clients / backward compatibility.
+public record RefreshTokenRequest(string? RefreshToken = null);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 

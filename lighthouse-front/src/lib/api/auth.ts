@@ -7,8 +7,9 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
   return response.data.data!;
 };
 
-export const logout = async (refreshToken: string): Promise<void> => {
-  await apiClient.post('/auth/logout', { refreshToken });
+export const logout = async (): Promise<void> => {
+  // The refresh token is sent via the HttpOnly cookie (withCredentials).
+  await apiClient.post('/auth/logout');
 };
 
 export const getCurrentUser = async (): Promise<User> => {

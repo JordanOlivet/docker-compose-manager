@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 
 namespace Lighthouse.Middleware;
@@ -15,50 +16,65 @@ public static class RateLimitingConfiguration
     {
         services.AddRateLimiter(options =>
         {
-            // Auth endpoints: 20 attempts per 15 minutes per IP
-            options.AddFixedWindowLimiter(AuthPolicy, limiterOptions =>
-            {
-                limiterOptions.PermitLimit = 20;
-                limiterOptions.Window = TimeSpan.FromMinutes(15);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0; // No queueing
-            });
+            // Auth endpoints: 20 attempts per 15 minutes per client IP
+            options.AddPolicy(AuthPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetClientIp(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(15),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
 
-            // Refresh token endpoint: 20 attempts per 15 minutes per IP
-            options.AddFixedWindowLimiter(RefreshPolicy, limiterOptions =>
-            {
-                limiterOptions.PermitLimit = 20;
-                limiterOptions.Window = TimeSpan.FromMinutes(15);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0; // No queueing
-            });
+            // Refresh token endpoint: 20 attempts per 15 minutes per client IP
+            options.AddPolicy(RefreshPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetClientIp(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(15),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
 
-            // General API: 100 requests per minute per user
-            options.AddFixedWindowLimiter(GeneralApiPolicy, limiterOptions =>
-            {
-                limiterOptions.PermitLimit = 100;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 10;
-            });
+            // General API: 100 requests per minute per authenticated user (falls back to IP)
+            options.AddPolicy(GeneralApiPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetUserOrIpKey(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 100,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 10
+                    }));
 
-            // Forgot password: 3 attempts per hour per IP
-            options.AddFixedWindowLimiter(ForgotPasswordPolicy, limiterOptions =>
-            {
-                limiterOptions.PermitLimit = 5;
-                limiterOptions.Window = TimeSpan.FromHours(1);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0; // No queueing
-            });
+            // Forgot password: 5 attempts per hour per client IP
+            options.AddPolicy(ForgotPasswordPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetClientIp(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromHours(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
 
-            // Reset password: 5 attempts per hour per IP
-            options.AddFixedWindowLimiter(ResetPasswordPolicy, limiterOptions =>
-            {
-                limiterOptions.PermitLimit = 5;
-                limiterOptions.Window = TimeSpan.FromHours(1);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0; // No queueing
-            });
+            // Reset password: 5 attempts per hour per client IP
+            options.AddPolicy(ResetPasswordPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetClientIp(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromHours(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
 
             // Global rejection response
             options.OnRejected = async (context, token) =>
@@ -81,5 +97,37 @@ public static class RateLimitingConfiguration
                 }, cancellationToken: token);
             };
         });
+    }
+
+    /// <summary>
+    /// Resolves the real client IP. Behind the bundled nginx reverse proxy the socket
+    /// remote address is always the proxy (127.0.0.1), so the forwarded headers set by
+    /// nginx (X-Forwarded-For / X-Real-IP) must be used to partition per real client.
+    /// </summary>
+    private static string GetClientIp(HttpContext httpContext)
+    {
+        string? forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(forwardedFor))
+        {
+            // X-Forwarded-For may be a comma-separated chain: the first entry is the origin client.
+            string first = forwardedFor.Split(',')[0].Trim();
+            if (!string.IsNullOrEmpty(first))
+                return first;
+        }
+
+        string? realIp = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(realIp))
+            return realIp.Trim();
+
+        return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+
+    /// <summary>
+    /// Partition key for authenticated endpoints: the user id when present, otherwise the client IP.
+    /// </summary>
+    private static string GetUserOrIpKey(HttpContext httpContext)
+    {
+        string? userId = httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return !string.IsNullOrEmpty(userId) ? $"user:{userId}" : $"ip:{GetClientIp(httpContext)}";
     }
 }

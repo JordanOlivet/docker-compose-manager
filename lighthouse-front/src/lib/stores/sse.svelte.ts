@@ -107,31 +107,26 @@ async function ensureFreshToken(): Promise<string | null> {
 
   logger.log('[SSE Store] Token expired or missing, attempting refresh');
 
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    logger.warn('[SSE Store] No refresh token available');
-    return null;
-  }
-
   try {
     const apiUrl = getApiUrl();
     const refreshUrl = apiUrl
       ? `${apiUrl}/api/auth/refresh`
       : '/api/auth/refresh';
 
+    // The refresh token is sent via the HttpOnly `lh_refresh` cookie (credentials: 'include').
     const response = await fetch(refreshUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
+      body: '{}',
     });
 
     if (response.ok) {
       const data = await response.json();
-      const { accessToken, refreshToken: newRefreshToken } = data.data;
+      const { accessToken } = data.data;
 
       localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', newRefreshToken);
-      updateAuthTokens(accessToken, newRefreshToken);
+      updateAuthTokens(accessToken);
 
       logger.log('[SSE Store] Token refreshed successfully');
       return accessToken;

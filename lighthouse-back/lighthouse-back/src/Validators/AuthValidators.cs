@@ -33,9 +33,12 @@ public class RefreshTokenRequestValidator : AbstractValidator<RefreshTokenReques
 {
     public RefreshTokenRequestValidator()
     {
+        // The refresh token is normally carried by the HttpOnly `lh_refresh` cookie, so the
+        // body value is optional. When a non-browser client does supply it in the body,
+        // enforce a minimum length; the controller rejects a genuinely missing token.
         RuleFor(x => x.RefreshToken)
-            .NotEmpty().WithMessage("Refresh token is required")
-            .MinimumLength(20).WithMessage("Invalid refresh token format");
+            .MinimumLength(20).WithMessage("Invalid refresh token format")
+            .When(x => !string.IsNullOrEmpty(x.RefreshToken));
     }
 }
 

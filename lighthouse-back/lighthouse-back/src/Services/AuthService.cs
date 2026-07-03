@@ -25,7 +25,7 @@ public class AuthService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<(bool Success, LoginResponse? Response, string? Error)> LoginAsync(LoginRequest request, string ipAddress, string deviceInfo)
+    public async Task<(bool Success, LoginResponse? Response, DateTime? RefreshExpiresAt, string? Error)> LoginAsync(LoginRequest request, string ipAddress, string deviceInfo)
     {
         var user = await _context.Users
             .Include(u => u.Role)
@@ -33,12 +33,12 @@ public class AuthService
 
         if (user == null || !user.IsEnabled)
         {
-            return (false, null, "Invalid credentials");
+            return (false, null, null, "Invalid credentials");
         }
 
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
-            return (false, null, "Invalid credentials");
+            return (false, null, null, "Invalid credentials");
         }
 
         // Generate tokens
@@ -79,10 +79,10 @@ public class AuthService
             user.MustAddEmail
         );
 
-        return (true, response, null);
+        return (true, response, expiresAt, null);
     }
 
-    public async Task<(bool Success, LoginResponse? Response, string? Error)> RefreshTokenAsync(string refreshToken, string ipAddress)
+    public async Task<(bool Success, LoginResponse? Response, DateTime? RefreshExpiresAt, string? Error)> RefreshTokenAsync(string refreshToken, string ipAddress)
     {
         var session = await _context.Sessions
             .Include(s => s.User)
@@ -91,7 +91,7 @@ public class AuthService
 
         if (session == null || session.ExpiresAt < DateTime.UtcNow || !session.User.IsEnabled)
         {
-            return (false, null, "Invalid or expired refresh token");
+            return (false, null, null, "Invalid or expired refresh token");
         }
 
         // Update session
@@ -115,7 +115,8 @@ public class AuthService
             session.User.MustAddEmail
         );
 
-        return (true, response, null);
+        // Refresh token rotation keeps the original session expiry (no sliding window here).
+        return (true, response, session.ExpiresAt, null);
     }
 
     public async Task<bool> LogoutAsync(string refreshToken)
@@ -132,7 +133,7 @@ public class AuthService
         return false;
     }
 
-    public async Task<(bool Success, string? AccessToken, string? RefreshToken)> ChangePasswordAsync(int userId, string currentPassword, string newPassword, string ipAddress, string userAgent)
+    public async Task<(bool Success, string? AccessToken, string? RefreshToken, DateTime? RefreshExpiresAt)> ChangePasswordAsync(int userId, string currentPassword, string newPassword, string ipAddress, string userAgent)
     {
         var user = await _context.Users
             .Include(u => u.Role)
@@ -140,7 +141,7 @@ public class AuthService
 
         if (user == null || !_passwordHasher.VerifyPassword(currentPassword, user.PasswordHash))
         {
-            return (false, null, null);
+            return (false, null, null, null);
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(newPassword);
@@ -154,12 +155,14 @@ public class AuthService
         // Create a new session with new tokens
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
+        var expiresAt = DateTime.UtcNow.AddDays(
+            int.Parse(_configuration["Jwt:RefreshExpirationDays"] ?? "1"));
 
         var newSession = new Session
         {
             UserId = user.Id,
             RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            ExpiresAt = expiresAt,
             IpAddress = ipAddress,
             DeviceInfo = userAgent,
             CreatedAt = DateTime.UtcNow
@@ -168,7 +171,7 @@ public class AuthService
         _context.Sessions.Add(newSession);
         await _context.SaveChangesAsync();
 
-        return (true, accessToken, refreshToken);
+        return (true, accessToken, refreshToken, expiresAt);
     }
 
     public async Task<bool> AddEmailAsync(int userId, string email)

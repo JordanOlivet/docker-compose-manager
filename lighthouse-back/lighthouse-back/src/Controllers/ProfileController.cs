@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Lighthouse.DTOs;
+using Lighthouse.Extensions;
 using Lighthouse.Services;
 using System.Security.Claims;
 
@@ -146,7 +147,7 @@ public class ProfileController : BaseController
 
             // Password complexity is validated by ChangePasswordRequestValidator (FluentValidation)
 
-            var (success, accessToken, refreshToken) = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ipAddress, userAgent);
+            var (success, accessToken, refreshToken, refreshExpiresAt) = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ipAddress, userAgent);
 
             if (!success)
             {
@@ -165,9 +166,12 @@ public class ProfileController : BaseController
             // Get updated user info
             var user = await _userService.GetUserByIdAsync(userId);
 
+            // Rotate the refresh token via the HttpOnly cookie only, never in the body.
+            Response.SetRefreshCookie(refreshToken!, refreshExpiresAt!.Value, Request.IsHttps);
+
             var response = new LoginResponse(
                 AccessToken: accessToken!,
-                RefreshToken: refreshToken!,
+                RefreshToken: string.Empty,
                 Username: user!.Username,
                 Role: user.Role,
                 MustChangePassword: user.MustChangePassword,

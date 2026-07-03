@@ -287,7 +287,7 @@
 
 				{#if error}
 					<div class="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg text-sm whitespace-pre-line">
-					{@html error}
+					{error}
 					</div>
 				{/if}
 

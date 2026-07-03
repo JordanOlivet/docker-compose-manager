@@ -53,24 +53,18 @@ async function proactiveTokenRefresh(): Promise<boolean> {
     return true; // Token is still valid, no refresh needed
   }
 
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    auth.logout();
-    window.location.href = '/login';
-    return false;
-  }
-
   try {
+    // The refresh token is sent automatically via the HttpOnly `lh_refresh` cookie
+    // (withCredentials), so no token is read from or written to JavaScript storage.
     const refreshUrl = API_URL ? `${API_URL}/api/auth/refresh` : '/api/auth/refresh';
-    const response = await axios.post(refreshUrl, { refreshToken });
+    const response = await axios.post(refreshUrl, {}, { withCredentials: true });
 
-    const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+    const { accessToken } = response.data.data;
 
     localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', newRefreshToken);
 
     // Synchronize with Svelte store
-    auth.refreshTokens(accessToken, newRefreshToken);
+    auth.refreshTokens(accessToken);
 
     // Reconnect SSE with the new token
     reconnectSSEWithNewToken();
@@ -103,6 +97,8 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Send the HttpOnly refresh-token cookie on auth requests (login/refresh/logout).
+  withCredentials: true,
 });
 
 // Request interceptor to add auth token
@@ -143,23 +139,16 @@ apiClient.interceptors.response.use(
       }
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
+        // Refresh via the HttpOnly cookie (withCredentials); no token in JS storage.
         const refreshUrl = API_URL ? `${API_URL}/api/auth/refresh` : '/api/auth/refresh';
-        const response = await axios.post(refreshUrl, {
-          refreshToken,
-        });
+        const response = await axios.post(refreshUrl, {}, { withCredentials: true });
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+        const { accessToken } = response.data.data;
 
         localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
 
         // Synchronise le store Svelte après refresh
-        auth.refreshTokens(accessToken, newRefreshToken);
+        auth.refreshTokens(accessToken);
 
         // Reconnect SSE with the new token
         reconnectSSEWithNewToken();

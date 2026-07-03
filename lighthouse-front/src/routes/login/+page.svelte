@@ -34,17 +34,17 @@
     try {
       const response = await authApi.login({ username, password, rememberMe });
 
-      // Store tokens
+      // Store the access token only. The refresh token is set by the backend as an
+      // HttpOnly cookie and is never exposed to JavaScript.
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('accessToken', response.accessToken);
-        localStorage.setItem('refreshToken', response.refreshToken);
       }
 
       // Fetch complete user data
       const user = await authApi.getCurrentUser();
 
       // Update auth store
-      auth.login(response.accessToken, response.refreshToken, user);
+      auth.login(response.accessToken, user);
 
       if (response.mustAddEmail) {
         goto('/add-email');
@@ -56,7 +56,6 @@
     } catch (err: any) {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
       }
       // Extract detailed validation errors if available
       const responseData = err.response?.data;
