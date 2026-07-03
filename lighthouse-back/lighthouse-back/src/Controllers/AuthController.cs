@@ -112,13 +112,33 @@ public class AuthController : BaseController
 
     [HttpGet("me")]
     [Authorize]
-    public ActionResult<ApiResponse<UserDto>> GetCurrentUser()
+    public async Task<ActionResult<ApiResponse<UserDto>>> GetCurrentUser()
     {
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-        var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
-        var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
 
-        var userDto = new UserDto(userId, username, null, role, true, false, false, DateTime.UtcNow, null);
+        // Load the current state from the database rather than trusting the (potentially
+        // stale) JWT claims: fields like email, isEnabled, mustChangePassword and
+        // mustAddEmail can change while an access token is still valid.
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null || !user.IsEnabled)
+        {
+            return Unauthorized(ApiResponse.Fail<UserDto>("User not found or disabled", "AUTH_USER_INVALID"));
+        }
+
+        var userDto = new UserDto(
+            user.Id,
+            user.Username,
+            user.Email,
+            user.Role?.Name ?? "user",
+            user.IsEnabled,
+            user.MustChangePassword,
+            user.MustAddEmail,
+            user.CreatedAt,
+            user.LastLoginAt
+        );
 
         return Ok(ApiResponse.Ok(userDto, null));
     }

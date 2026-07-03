@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import type { OperationUpdateEvent } from '$lib/types';
 import type { MaintenanceModeNotification, UpdateProgressEvent, ProjectUpdatesCheckedEvent, ContainerUpdatesCheckedEvent } from '$lib/types/update';
 import { logger } from '$lib/utils/logger';
-import { refreshTokens as updateAuthTokens } from './auth.svelte';
+import { refreshAccessToken } from '$lib/api/tokenRefresh';
 
 // Types for SSE events
 export interface ContainerStateChangedEvent {
@@ -94,9 +94,10 @@ function isTokenExpired(token: string): boolean {
 }
 
 /**
- * Refresh the access token using the refresh token.
- * Uses fetch directly (not Axios) to avoid circular dependency.
- * Returns the new access token, or null if refresh failed.
+ * Ensure a fresh access token before (re)connecting the SSE stream.
+ * Reuses the shared, deduplicated refresh (see tokenRefresh.ts) so an SSE reconnect
+ * never races the axios interceptor or the proactive timer into rotating the cookie
+ * twice. Returns the current token if still valid, a refreshed one, or null.
  */
 async function ensureFreshToken(): Promise<string | null> {
   const token = localStorage.getItem('accessToken');
@@ -106,38 +107,13 @@ async function ensureFreshToken(): Promise<string | null> {
   }
 
   logger.log('[SSE Store] Token expired or missing, attempting refresh');
-
-  try {
-    const apiUrl = getApiUrl();
-    const refreshUrl = apiUrl
-      ? `${apiUrl}/api/auth/refresh`
-      : '/api/auth/refresh';
-
-    // The refresh token is sent via the HttpOnly `lh_refresh` cookie (credentials: 'include').
-    const response = await fetch(refreshUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: '{}',
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const { accessToken } = data.data;
-
-      localStorage.setItem('accessToken', accessToken);
-      updateAuthTokens(accessToken);
-
-      logger.log('[SSE Store] Token refreshed successfully');
-      return accessToken;
-    }
-
-    logger.warn('[SSE Store] Token refresh failed with status:', response.status);
-    return null;
-  } catch (err) {
-    logger.error('[SSE Store] Token refresh error:', err);
-    return null;
+  const accessToken = await refreshAccessToken();
+  if (accessToken) {
+    logger.log('[SSE Store] Token refreshed successfully');
+  } else {
+    logger.warn('[SSE Store] Token refresh failed');
   }
+  return accessToken;
 }
 
 function resetHeartbeatTimer() {

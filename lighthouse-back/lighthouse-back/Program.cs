@@ -264,7 +264,10 @@ using (IServiceScope scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "Error applying database migrations");
+        // Fail fast: continuing with an unmigrated/broken schema only produces opaque
+        // runtime failures later. Surface the problem at startup instead.
+        Log.Fatal(ex, "Error applying database migrations - aborting startup");
+        throw;
     }
 }
 
