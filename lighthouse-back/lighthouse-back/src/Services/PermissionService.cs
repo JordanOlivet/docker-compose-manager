@@ -9,6 +9,11 @@ public class PermissionService : IPermissionService
     private readonly AppDbContext _context;
     private readonly ILogger<PermissionService> _logger;
 
+    // PermissionService is scoped (per request). Within a request the admin check for a
+    // given user is stable, so memoize it to avoid reloading the user on every call
+    // (HasPermission -> GetUserPermissions each used to re-query the admin flag).
+    private readonly Dictionary<int, bool> _adminCache = new();
+
     public PermissionService(AppDbContext context, ILogger<PermissionService> logger)
     {
         _context = context;
@@ -17,30 +22,26 @@ public class PermissionService : IPermissionService
 
     public async Task<bool> IsAdminAsync(int userId)
     {
-        var user = await _context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == userId);
-
-        if (user?.Role == null)
+        if (_adminCache.TryGetValue(userId, out bool cached))
         {
-            return false;
+            return cached;
         }
 
-        // Check if user has admin role
-        return user.Role.Name.Equals("admin", StringComparison.OrdinalIgnoreCase);
+        // Only the role name is needed — no need to materialize the whole user.
+        string? roleName = await _context.Users
+            .Where(u => u.Id == userId)
+            .Select(u => u.Role != null ? u.Role.Name : null)
+            .FirstOrDefaultAsync();
+
+        bool isAdmin = string.Equals(roleName, "admin", StringComparison.OrdinalIgnoreCase);
+        _adminCache[userId] = isAdmin;
+        return isAdmin;
     }
 
     public async Task<bool> HasPermissionAsync(int userId, ResourceType resourceType, string resourceName, PermissionFlags requiredPermission)
     {
-        // Admins have full access
-        if (await IsAdminAsync(userId))
-        {
-            return true;
-        }
-
+        // GetUserPermissionsAsync already grants Full to admins, so no separate admin check.
         var userPermissions = await GetUserPermissionsAsync(userId, resourceType, resourceName);
-
-        // Check if user has the required permission
         return userPermissions.HasFlag(requiredPermission);
     }
 
@@ -54,19 +55,17 @@ public class PermissionService : IPermissionService
 
         var permissions = PermissionFlags.None;
 
-        // Get direct user permissions
+        // Direct user permission for this exact resource.
         var directPermission = await _context.ResourcePermissions
-            .FirstOrDefaultAsync(rp =>
+            .Where(rp =>
                 rp.UserId == userId &&
                 rp.ResourceType == resourceType &&
-                rp.ResourceName == resourceName);
+                rp.ResourceName == resourceName)
+            .Select(rp => rp.Permissions)
+            .FirstOrDefaultAsync();
+        permissions |= directPermission;
 
-        if (directPermission != null)
-        {
-            permissions |= directPermission.Permissions;
-        }
-
-        // Get permissions from user groups
+        // Permissions inherited from the user's groups.
         var groupPermissions = await _context.ResourcePermissions
             .Where(rp =>
                 rp.UserGroupId != null &&
@@ -78,13 +77,44 @@ public class PermissionService : IPermissionService
             .Select(rp => rp.Permissions)
             .ToListAsync();
 
-        // Combine all group permissions
         foreach (var groupPermission in groupPermissions)
         {
             permissions |= groupPermission;
         }
 
         return permissions;
+    }
+
+    /// <summary>
+    /// Loads every permission the user has for a resource type in two queries (direct +
+    /// group), OR-combined per resource name. Used by the bulk filter methods to avoid a
+    /// per-resource round trip.
+    /// </summary>
+    private async Task<Dictionary<string, PermissionFlags>> GetAllPermissionsAsync(int userId, ResourceType resourceType)
+    {
+        var direct = await _context.ResourcePermissions
+            .Where(rp => rp.UserId == userId && rp.ResourceType == resourceType)
+            .Select(rp => new { rp.ResourceName, rp.Permissions })
+            .ToListAsync();
+
+        var group = await _context.ResourcePermissions
+            .Where(rp =>
+                rp.UserGroupId != null &&
+                rp.ResourceType == resourceType &&
+                _context.UserGroupMemberships.Any(ugm =>
+                    ugm.UserId == userId &&
+                    ugm.UserGroupId == rp.UserGroupId))
+            .Select(rp => new { rp.ResourceName, rp.Permissions })
+            .ToListAsync();
+
+        var map = new Dictionary<string, PermissionFlags>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in direct.Concat(group))
+        {
+            map[p.ResourceName] = map.TryGetValue(p.ResourceName, out var existing)
+                ? existing | p.Permissions
+                : p.Permissions;
+        }
+        return map;
     }
 
     public async Task<List<string>> FilterAuthorizedResourcesAsync(int userId, ResourceType resourceType, IEnumerable<string> resourceNames)
@@ -95,59 +125,29 @@ public class PermissionService : IPermissionService
             return resourceNames.ToList();
         }
 
-        var authorizedResources = new List<string>();
+        // Fetch all of the user's permissions once, then filter in memory (was N queries).
+        var map = await GetAllPermissionsAsync(userId, resourceType);
 
-        foreach (var resourceName in resourceNames)
-        {
-            var permissions = await GetUserPermissionsAsync(userId, resourceType, resourceName);
-
-            // If user has at least View permission, include the resource
-            if (permissions.HasFlag(PermissionFlags.View))
-            {
-                authorizedResources.Add(resourceName);
-            }
-        }
-
-        return authorizedResources;
+        return resourceNames
+            .Where(name => map.TryGetValue(name, out var flags) && flags.HasFlag(PermissionFlags.View))
+            .ToList();
     }
 
     public async Task<List<string>> GetAuthorizedResourcesAsync(int userId, ResourceType resourceType)
     {
-        // This method returns all resources the user has explicit permissions for
-        // It does NOT return all possible resources - just those with defined permissions
-
-        // Admins would need special handling - we return empty list here
-        // because admins have access to ALL resources without explicit permissions
+        // This method returns all resources the user has explicit View permission for.
+        // Admins have access to ALL resources without explicit permissions, so the caller
+        // must handle the admin case separately; we return an empty list here.
         if (await IsAdminAsync(userId))
         {
-            // For admins, we can't return a definitive list without querying Docker
-            // The calling code should handle admin case separately
             return new List<string>();
         }
 
-        // Get direct user permissions
-        var directResources = await _context.ResourcePermissions
-            .Where(rp =>
-                rp.UserId == userId &&
-                rp.ResourceType == resourceType &&
-                rp.Permissions.HasFlag(PermissionFlags.View))
-            .Select(rp => rp.ResourceName)
-            .ToListAsync();
-
-        // Get permissions from user groups
-        var groupResources = await _context.ResourcePermissions
-            .Where(rp =>
-                rp.UserGroupId != null &&
-                rp.ResourceType == resourceType &&
-                rp.Permissions.HasFlag(PermissionFlags.View) &&
-                _context.UserGroupMemberships.Any(ugm =>
-                    ugm.UserId == userId &&
-                    ugm.UserGroupId == rp.UserGroupId))
-            .Select(rp => rp.ResourceName)
-            .ToListAsync();
-
-        // Combine and return unique resource names
-        return directResources.Union(groupResources).Distinct().ToList();
+        var map = await GetAllPermissionsAsync(userId, resourceType);
+        return map
+            .Where(kv => kv.Value.HasFlag(PermissionFlags.View))
+            .Select(kv => kv.Key)
+            .ToList();
     }
 
     public async Task CopyPermissionsAsync(int? sourceUserId, int? sourceUserGroupId, int? targetUserId, int? targetUserGroupId)
@@ -285,20 +285,22 @@ public class PermissionService : IPermissionService
             return containers.Select(c => c.containerName).ToList();
         }
 
-        // Get all authorized resources in one query for efficiency
-        var authorizedContainers = (await GetAuthorizedResourcesAsync(userId, ResourceType.Container)).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var authorizedProjects = (await GetAuthorizedResourcesAsync(userId, ResourceType.ComposeProject)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Fetch both permission maps once (four queries total, independent of container count).
+        var containerPerms = await GetAllPermissionsAsync(userId, ResourceType.Container);
+        var projectPerms = await GetAllPermissionsAsync(userId, ResourceType.ComposeProject);
+
+        bool CanView(Dictionary<string, PermissionFlags> map, string name) =>
+            map.TryGetValue(name, out var flags) && flags.HasFlag(PermissionFlags.View);
 
         var authorized = new List<string>();
         foreach (var (containerName, projectName) in containers)
         {
-            // Check direct container permission
-            if (authorizedContainers.Contains(containerName))
+            // Direct container permission, or inherited from the project.
+            if (CanView(containerPerms, containerName))
             {
                 authorized.Add(containerName);
             }
-            // Check inherited project permission
-            else if (!string.IsNullOrEmpty(projectName) && authorizedProjects.Contains(projectName))
+            else if (!string.IsNullOrEmpty(projectName) && CanView(projectPerms, projectName))
             {
                 authorized.Add(containerName);
                 _logger.LogDebug(
