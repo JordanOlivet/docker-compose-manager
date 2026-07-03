@@ -28,10 +28,9 @@
   async function handleLogout() {
     isOpen = false;
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        await authApi.logout(refreshToken);
-      }
+      // The refresh token is sent via the HttpOnly cookie; the backend revokes the
+      // session and clears the cookie.
+      await authApi.logout();
     } catch (error) {
       logger.error('Logout error:', error);
     } finally {

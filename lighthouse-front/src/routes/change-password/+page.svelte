@@ -41,17 +41,17 @@
       const response = await authApi.changePassword(currentPassword, newPassword);
       toast.success($t('auth.passwordChanged'));
 
-      // Update tokens in localStorage
+      // Store the new access token only; the rotated refresh token is set as an
+      // HttpOnly cookie by the backend.
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('accessToken', response.accessToken);
-        localStorage.setItem('refreshToken', response.refreshToken);
       }
 
       // Fetch updated user data
       const user = await authApi.getCurrentUser();
 
-      // Update auth store with new tokens and user data
-      auth.login(response.accessToken, response.refreshToken, user);
+      // Update auth store with new token and user data
+      auth.login(response.accessToken, user);
 
       goto('/dashboard');
     } catch (err: any) {

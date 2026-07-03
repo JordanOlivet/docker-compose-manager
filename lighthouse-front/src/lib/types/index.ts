@@ -31,7 +31,8 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
+  /** Deprecated: the refresh token now lives in an HttpOnly cookie and is returned empty. */
+  refreshToken?: string;
   username: string;
   role: string;
   mustChangePassword: boolean;

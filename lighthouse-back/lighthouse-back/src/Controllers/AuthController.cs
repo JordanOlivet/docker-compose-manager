@@ -7,6 +7,7 @@ using Lighthouse.DTOs;
 using Lighthouse.Services;
 using Lighthouse.Middleware;
 using Lighthouse.Data;
+using Lighthouse.Extensions;
 
 namespace Lighthouse.Controllers;
 
@@ -41,7 +42,7 @@ public class AuthController : BaseController
 
         _logger.LogInformation("Login attempt for user {Username} from {IpAddress}", request.Username, ipAddress);
 
-        var (success, response, error) = await _authService.LoginAsync(request, ipAddress, userAgent);
+        var (success, response, refreshExpiresAt, error) = await _authService.LoginAsync(request, ipAddress, userAgent);
 
         if (!success)
         {
@@ -49,44 +50,63 @@ public class AuthController : BaseController
             return Unauthorized(ApiResponse.Fail<LoginResponse>(error ?? "Invalid credentials", "AUTH_INVALID_CREDENTIALS"));
         }
 
+        // Deliver the refresh token exclusively via the HttpOnly cookie; never expose it
+        // to JavaScript in the response body.
+        Response.SetRefreshCookie(response!.RefreshToken, refreshExpiresAt!.Value, Request.IsHttps);
+
         _logger.LogInformation("User {Username} logged in successfully", request.Username);
-        return Ok(ApiResponse.Ok(response, "Login successful"));
+        return Ok(ApiResponse.Ok(response with { RefreshToken = string.Empty }, "Login successful"));
     }
 
     [HttpPost("refresh")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitingConfiguration.RefreshPolicy)]
-    public async Task<ActionResult<ApiResponse<LoginResponse>>> RefreshToken([FromBody] RefreshTokenRequest request)
+    public async Task<ActionResult<ApiResponse<LoginResponse>>> RefreshToken([FromBody] RefreshTokenRequest? request = null)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-        var (success, response, error) = await _authService.RefreshTokenAsync(request.RefreshToken, ipAddress);
+        var refreshToken = Request.GetRefreshToken(request?.RefreshToken);
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            Response.ClearRefreshCookie(Request.IsHttps);
+            return Unauthorized(ApiResponse.Fail<LoginResponse>("Invalid refresh token", "AUTH_TOKEN_INVALID"));
+        }
+
+        var (success, response, refreshExpiresAt, error) = await _authService.RefreshTokenAsync(refreshToken, ipAddress);
 
         if (!success)
         {
+            Response.ClearRefreshCookie(Request.IsHttps);
             return Unauthorized(ApiResponse.Fail<LoginResponse>(error ?? "Invalid refresh token", "AUTH_TOKEN_INVALID"));
         }
 
-        return Ok(ApiResponse.Ok(response, "Token refreshed successfully"));
+        // Rotate the refresh cookie; keep the token out of the response body.
+        Response.SetRefreshCookie(response!.RefreshToken, refreshExpiresAt!.Value, Request.IsHttps);
+
+        return Ok(ApiResponse.Ok(response with { RefreshToken = string.Empty }, "Token refreshed successfully"));
     }
 
     [HttpPost("logout")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> Logout([FromBody] RefreshTokenRequest request)
+    public async Task<ActionResult<ApiResponse<bool>>> Logout([FromBody] RefreshTokenRequest? request = null)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         _logger.LogInformation("User {UserId} logging out", userId);
 
-        var success = await _authService.LogoutAsync(request.RefreshToken);
-
-        if (!success)
+        var refreshToken = Request.GetRefreshToken(request?.RefreshToken);
+        if (!string.IsNullOrEmpty(refreshToken))
         {
-            // Log the issue but still return success - logout is idempotent
-            // If the session doesn't exist, the user is effectively logged out already
-            _logger.LogWarning("User {UserId} attempted to logout with invalid or expired refresh token", userId);
+            var success = await _authService.LogoutAsync(refreshToken);
+            if (!success)
+            {
+                // Log the issue but still return success - logout is idempotent
+                // If the session doesn't exist, the user is effectively logged out already
+                _logger.LogWarning("User {UserId} attempted to logout with invalid or expired refresh token", userId);
+            }
         }
 
-        // Always return success to make logout idempotent
+        // Always clear the cookie and return success to make logout idempotent
+        Response.ClearRefreshCookie(Request.IsHttps);
         return Ok(ApiResponse.Ok(true, "Logged out successfully"));
     }
 
@@ -113,7 +133,7 @@ public class AuthController : BaseController
 
         _logger.LogInformation("User {UserId} attempting to change password", userId);
 
-        var (success, accessToken, refreshToken) = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ipAddress, userAgent);
+        var (success, accessToken, refreshToken, refreshExpiresAt) = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ipAddress, userAgent);
 
         if (!success)
         {
@@ -125,9 +145,13 @@ public class AuthController : BaseController
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
+        // Password change rotates the session: deliver the new refresh token via the
+        // HttpOnly cookie only, never in the response body.
+        Response.SetRefreshCookie(refreshToken!, refreshExpiresAt!.Value, Request.IsHttps);
+
         var response = new LoginResponse(
             AccessToken: accessToken!,
-            RefreshToken: refreshToken!,
+            RefreshToken: string.Empty,
             Username: user!.Username,
             Role: user.Role!.Name,
             MustChangePassword: user.MustChangePassword,

@@ -310,4 +310,30 @@ public class PathValidatorTests : IDisposable
         // Assert
         result.Should().BeTrue();
     }
+
+    [Fact]
+    public void IsValidComposeFilePath_SiblingDirectorySharingRootPrefix_ReturnsFalse()
+    {
+        // Arrange - A sibling directory whose name starts with the root path string
+        // (e.g. root "/app/compose-files" vs "/app/compose-files-evil"). A naive
+        // StartsWith check without a trailing separator would wrongly accept this.
+        var siblingPath = _testRoot + "-evil" + Path.DirectorySeparatorChar + "docker-compose.yml";
+
+        // Act
+        var result = _validator.IsValidComposeFilePath(siblingPath);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsValidComposeFilePath_RootItself_ReturnsTrue()
+    {
+        // Arrange - The root path itself (no trailing separator) must remain valid.
+        // Act
+        var result = _validator.IsValidComposeFilePath(_testRoot);
+
+        // Assert
+        result.Should().BeTrue();
+    }
 }

@@ -123,10 +123,11 @@ public class ComposeFilesController : BaseController
     /// - "degraded": Compose discovery unavailable but Docker accessible (can still manage existing projects)
     /// - "critical": Docker daemon inaccessible (system non-functional)
     ///
-    /// No authentication required - this is a diagnostic endpoint.
+    /// Requires authentication: this endpoint discloses the Docker daemon version and
+    /// raw connection error messages, so it must not be reachable anonymously. The
+    /// frontend only calls it from the authenticated layout.
     /// </remarks>
     [HttpGet("health")]
-    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<ComposeHealthDto>>> GetHealth()
     {
         // Check compose discovery directory

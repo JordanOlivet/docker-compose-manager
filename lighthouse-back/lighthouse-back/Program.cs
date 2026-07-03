@@ -416,7 +416,10 @@ app.MapGet("/health/detailed", async (AppDbContext dbContext, DockerService dock
 })
    .WithName("HealthCheckDetailed")
    .WithTags("Health")
-   .AllowAnonymous();
+   // Detailed health exposes user/container counts and raw dependency error messages,
+   // so it must not be anonymous. The simple /health endpoint stays public for the
+   // Docker container healthcheck.
+   .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "admin" });
 
 app.MapControllers();
 

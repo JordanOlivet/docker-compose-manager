@@ -60,16 +60,25 @@ public class PathValidatorService : IPathValidator
 
         try
         {
-            // Get the absolute path of the configured root directory
+            // Get the absolute path of the configured root directory, normalized with a
+            // trailing separator so prefix comparison cannot be defeated by a sibling
+            // directory sharing the root's name (e.g. "/app/compose-files-evil" must NOT
+            // match root "/app/compose-files").
             var rootPath = Path.GetFullPath(_options.RootPath);
+            var rootWithSeparator = rootPath.EndsWith(Path.DirectorySeparatorChar)
+                ? rootPath
+                : rootPath + Path.DirectorySeparatorChar;
 
             // Get the absolute path of the user-provided path
             // This resolves any relative path segments (like ../)
             var fullPath = Path.GetFullPath(userProvidedPath);
 
-            // Check if the resolved path is within the root directory
-            // This prevents path traversal attacks
-            if (!fullPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
+            // Check if the resolved path is within the root directory.
+            // Accept the root itself, and anything strictly under root/ (with separator).
+            bool isRootItself = string.Equals(fullPath, rootPath, StringComparison.OrdinalIgnoreCase);
+            bool isUnderRoot = fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
+
+            if (!isRootItself && !isUnderRoot)
             {
                 _logger.LogWarning(
                     "Path traversal attempt detected. Path: {Path}, Root: {Root}",

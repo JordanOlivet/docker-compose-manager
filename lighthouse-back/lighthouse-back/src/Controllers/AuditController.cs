@@ -9,7 +9,7 @@ namespace Lighthouse.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "admin")]
 public class AuditController : BaseController
 {
     private readonly IAuditService _auditService;
