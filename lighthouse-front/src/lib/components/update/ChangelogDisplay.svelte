@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronDown, ChevronRight, AlertTriangle, Shield, ExternalLink, Tag } from 'lucide-svelte';
   import { marked } from 'marked';
+  import { sanitizeHtml } from '$lib/utils/sanitizeHtml';
   import { t } from '$lib/i18n';
   import Badge from '$lib/components/ui/badge.svelte';
   import type { ReleaseInfo, ChangelogSummary } from '$lib/types/update';
@@ -47,11 +48,16 @@
   }
 
   function renderMarkdown(text: string): string {
+    // Release notes come from GitHub and are injected via {@html}. Always run the
+    // output through the sanitizer (including the parse-failure fallback) to strip
+    // any scripts / event handlers / unsafe URLs.
+    let html: string;
     try {
-      return marked.parse(text) as string;
+      html = marked.parse(text) as string;
     } catch {
-      return text;
+      html = text;
     }
+    return sanitizeHtml(html);
   }
 </script>
 
