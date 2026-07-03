@@ -4,6 +4,7 @@ using Lighthouse.Models;
 using Lighthouse.Services;
 using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -44,7 +45,7 @@ public class UserServiceTests
         );
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act
         List<UserDto> users = await service.GetAllUsersAsync();
@@ -64,7 +65,7 @@ public class UserServiceTests
         var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
         passwordHasher.Setup(p => p.HashPassword(It.IsAny<string>())).Returns("hashed_password");
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         var request = new CreateUserRequest("testuser", "password123", "user");
 
@@ -103,7 +104,7 @@ public class UserServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
         var request = new CreateUserRequest("existinguser", "password123", "user");
 
         // Act & Assert
@@ -131,7 +132,7 @@ public class UserServiceTests
         context.Users.Add(adminUser);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act & Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteUserAsync(1));
@@ -159,7 +160,7 @@ public class UserServiceTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
         var request = new UpdateUserRequest(Role: "admin", IsEnabled: null, NewPassword: null);
 
         // Act
@@ -191,7 +192,7 @@ public class UserServiceTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act
         UserDto result = await service.EnableUserAsync(1);
@@ -215,7 +216,7 @@ public class UserServiceTests
         );
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object);
+        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act
         UserDto result = await service.DisableUserAsync(2);

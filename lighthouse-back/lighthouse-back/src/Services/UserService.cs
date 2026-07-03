@@ -2,8 +2,10 @@ using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Extensions;
 using Lighthouse.Models;
+using Lighthouse.Services.Security;
 using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Lighthouse.Services;
 
@@ -32,17 +34,20 @@ public class UserService : IUserService
     private readonly ILogger<UserService> _logger;
     private readonly IAuditService _auditService;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IMemoryCache _cache;
 
     public UserService(
         AppDbContext context,
         ILogger<UserService> logger,
         IAuditService auditService,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IMemoryCache cache)
     {
         _context = context;
         _logger = logger;
         _auditService = auditService;
         _passwordHasher = passwordHasher;
+        _cache = cache;
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -225,6 +230,9 @@ public class UserService : IUserService
             throw new InvalidOperationException($"User with ID {id} not found");
 
         var changes = new List<string>();
+        // Tracks whether the change must invalidate outstanding access tokens
+        // (role/disable/password). When set, the security stamp is rotated below.
+        var securityChanged = false;
 
         // Update username if provided
         if (request.Username != null && request.Username != user.Username)
@@ -247,6 +255,7 @@ public class UserService : IUserService
 
             changes.Add($"Role changed from '{user.Role?.Name}' to '{newRole.Name}'");
             user.RoleId = newRole.Id;
+            securityChanged = true; // role is embedded in the access token
         }
 
         // Update email if provided
@@ -280,6 +289,7 @@ public class UserService : IUserService
                 var sessions = await _context.Sessions.Where(s => s.UserId == id).ToListAsync();
                 _context.Sessions.RemoveRange(sessions);
                 changes.Add("All sessions invalidated");
+                securityChanged = true;
             }
         }
 
@@ -294,6 +304,7 @@ public class UserService : IUserService
             var sessions = await _context.Sessions.Where(s => s.UserId == id).ToListAsync();
             _context.Sessions.RemoveRange(sessions);
             changes.Add("All sessions invalidated due to password change");
+            securityChanged = true;
         }
 
         // Update mustChangePassword flag if provided (after password update so admin can set both)
@@ -327,6 +338,14 @@ public class UserService : IUserService
             }
 
             changes.Add($"Permissions updated ({request.Permissions.Count} permissions set)");
+        }
+
+        // Rotate the security stamp when the security context changed so all outstanding
+        // access tokens are rejected on their next request.
+        if (securityChanged)
+        {
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            SecurityStampCache.Invalidate(_cache, user.Id);
         }
 
         await _context.SaveChangesAsync();
@@ -461,6 +480,10 @@ public class UserService : IUserService
         }
 
         user.IsEnabled = false;
+
+        // Rotate the security stamp so existing access tokens are rejected immediately.
+        user.SecurityStamp = Guid.NewGuid().ToString("N");
+        SecurityStampCache.Invalidate(_cache, user.Id);
 
         // Invalidate all sessions
         var sessions = await _context.Sessions.Where(s => s.UserId == id).ToListAsync();

@@ -10,6 +10,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -146,6 +147,40 @@ builder.Services.AddAuthentication(options =>
             }
 
             return Task.CompletedTask;
+        },
+
+        // Enforce the per-user security stamp so access tokens can be revoked before
+        // their natural expiry (password change, disable, role change). The current
+        // stamp/enabled state is cached briefly to avoid a DB hit on every request.
+        OnTokenValidated = async context =>
+        {
+            string? idClaim = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            string? stampClaim = context.Principal?.FindFirst("sstamp")?.Value;
+
+            if (!int.TryParse(idClaim, out int uid) || string.IsNullOrEmpty(stampClaim))
+            {
+                context.Fail("Invalid token subject");
+                return;
+            }
+
+            Microsoft.Extensions.Caching.Memory.IMemoryCache cache =
+                context.HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+
+            Lighthouse.Services.Security.UserSecurityInfo? info =
+                await cache.GetOrCreateAsync(Lighthouse.Services.Security.SecurityStampCache.Key(uid), async entry =>
+                {
+                    entry.AbsoluteExpirationRelativeToNow = Lighthouse.Services.Security.SecurityStampCache.Ttl;
+                    AppDbContext db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                    return await db.Users
+                        .Where(u => u.Id == uid)
+                        .Select(u => new Lighthouse.Services.Security.UserSecurityInfo(u.SecurityStamp, u.IsEnabled))
+                        .FirstOrDefaultAsync();
+                });
+
+            if (info is null || !info.IsEnabled || info.SecurityStamp != stampClaim)
+            {
+                context.Fail("Security stamp mismatch");
+            }
         }
     };
 });

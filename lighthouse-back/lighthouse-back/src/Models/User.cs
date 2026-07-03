@@ -14,6 +14,13 @@ public class User
     public bool IsEnabled { get; set; } = true;
     public bool MustChangePassword { get; set; } = false;
     public bool MustAddEmail { get; set; } = false;
+
+    /// <summary>
+    /// Rotated whenever the account's security context changes (password change, disable,
+    /// role change). Embedded in access tokens as the "sstamp" claim and checked on every
+    /// request, so a stamp change invalidates all outstanding access tokens near-instantly.
+    /// </summary>
+    public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }

@@ -55,6 +55,7 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.RefreshToken).IsUnique();
+            entity.HasIndex(e => e.FamilyId);
             entity.HasOne(e => e.User)
                 .WithMany(u => u.Sessions)
                 .HasForeignKey(e => e.UserId)
@@ -204,6 +205,8 @@ public class AppDbContext : DbContext
                 IsEnabled = true,
                 MustChangePassword = true,
                 MustAddEmail = true,
+                // Fixed value so the seed stays deterministic across migrations.
+                SecurityStamp = "00000000000000000000000000000001",
                 CreatedAt = seedDate
             }
         );

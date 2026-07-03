@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Lighthouse.Configuration;
 using Lighthouse.Data;
 using Lighthouse.Models;
 using Lighthouse.Services.Email;
+using Lighthouse.Services.Security;
 using DockerComposeManager.Services.Security;
 
 namespace Lighthouse.Services;
@@ -17,19 +19,22 @@ public class PasswordResetService : IPasswordResetService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<PasswordResetService> _logger;
     private readonly PasswordResetOptions _options;
+    private readonly IMemoryCache _cache;
 
     public PasswordResetService(
         AppDbContext context,
         IEmailService emailService,
         IPasswordHasher passwordHasher,
         ILogger<PasswordResetService> logger,
-        IOptions<PasswordResetOptions> options)
+        IOptions<PasswordResetOptions> options,
+        IMemoryCache cache)
     {
         _context = context;
         _emailService = emailService;
         _passwordHasher = passwordHasher;
         _logger = logger;
         _options = options.Value;
+        _cache = cache;
     }
 
     public async Task<(bool Success, string? Error)> CreateResetTokenAsync(string usernameOrEmail, string ipAddress)
@@ -203,6 +208,10 @@ public class PasswordResetService : IPasswordResetService
             user.PasswordHash = newPasswordHash;
             user.MustChangePassword = false;
             user.UpdatedAt = DateTime.UtcNow;
+
+            // Rotate the security stamp so any outstanding access tokens are rejected.
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            SecurityStampCache.Invalidate(_cache, user.Id);
 
             // Mark token as used
             var tokenHash = ComputeSha256Hash(token);
