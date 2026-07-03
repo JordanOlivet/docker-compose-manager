@@ -1,3 +1,11 @@
+## Changes in v1.26.4
+
+**Merged Pull Requests:**
+- fix(security): sanitize changelog HTML + validate compose project names (#168)
+
+**Commits:**
+
+
 ## Changes in v1.26.3
 
 **Merged Pull Requests:**
