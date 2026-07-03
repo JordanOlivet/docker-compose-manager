@@ -1,3 +1,11 @@
+## Changes in v1.26.3
+
+**Merged Pull Requests:**
+- fix: medium review follow-ups (refresh race, /me, migration fail-fast) (#167)
+
+**Commits:**
+
+
 ## Changes in v1.26.2
 
 **Merged Pull Requests:**
