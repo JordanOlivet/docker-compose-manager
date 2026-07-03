@@ -16,50 +16,38 @@ namespace Lighthouse.Controllers;
 [Authorize]
 public class ComposeController : BaseController
 {
-    private readonly AppDbContext _context;
-    private readonly ComposeService _composeService;
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly IComposeOperationService _operationService;
     private readonly OperationService _legacyOperationService;
     private readonly IAuditService _auditService;
     private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeController> _logger;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IProjectMatchingService _projectMatchingService;
     private readonly IComposeFileCacheService _composeFileCacheService;
     private readonly IImageUpdateCacheService _imageUpdateCacheService;
-    private readonly IPathValidator _pathValidator;
     private readonly ISelfFilterService _selfFilterService;
 
     public ComposeController(
-        AppDbContext context,
-        ComposeService composeService,
         IComposeDiscoveryService discoveryService,
         IComposeOperationService operationService,
         OperationService legacyOperationService,
         IAuditService auditService,
         IPermissionService permissionService,
         ILogger<ComposeController> logger,
-        IServiceScopeFactory serviceScopeFactory,
         IProjectMatchingService projectMatchingService,
         IComposeFileCacheService composeFileCacheService,
         IImageUpdateCacheService imageUpdateCacheService,
-        IPathValidator pathValidator,
         ISelfFilterService selfFilterService)
     {
-        _context = context;
-        _composeService = composeService;
         _discoveryService = discoveryService;
         _operationService = operationService;
         _legacyOperationService = legacyOperationService;
         _auditService = auditService;
         _permissionService = permissionService;
         _logger = logger;
-        _serviceScopeFactory = serviceScopeFactory;
         _projectMatchingService = projectMatchingService;
         _composeFileCacheService = composeFileCacheService;
         _imageUpdateCacheService = imageUpdateCacheService;
-        _pathValidator = pathValidator;
         _selfFilterService = selfFilterService;
     }
 
@@ -124,152 +112,6 @@ public class ComposeController : BaseController
             return StatusCode(500, ApiResponse.Fail<List<ComposeProjectDto>>("Error listing projects", "SERVER_ERROR"));
         }
     }
-
-    //private async Task<ComposeProjectDto?> GetProjectFromPath(int userId, string projectPath)
-    //{
-    //    string projectName = _composeService.GetProjectName(projectPath);
-
-    //    // Check if user has View permission for this project
-    //    bool hasPermission = await _permissionService.HasPermissionAsync(
-    //        userId,
-    //        ResourceType.ComposeProject,
-    //        projectName,
-    //        PermissionFlags.View);
-
-    //    if (!hasPermission)
-    //    {
-    //        // Skip projects the user doesn't have permission to view
-    //        return null;
-    //    }
-
-    //    EntityState state = EntityState.Unknown;
-
-    //    List<ComposeServiceDto> services = await GetServicesFromProjectPath(projectPath);
-
-    //    // Determine overall project status based on service states
-    //    if (services.Count > 0)
-    //    {
-    //        state = StateHelper.DetermineStateFromServices(services);
-    //    }
-    //    else
-    //    {
-    //        // No services found - project is down
-    //        state = EntityState.Down;
-    //    }
-
-    //    ComposeProjectDto project = new(
-    //        projectName,
-    //        projectPath,
-    //        state.ToStateString(),
-    //        services,
-    //        _composeService.GetComposeFiles(projectPath),
-    //        DateTime.UtcNow
-    //    );
-    //    return project;
-    //}
-
-    //private async Task<List<ComposeServiceDto>> GetServicesFromProjectPath(string projectPath)
-    //{
-    //    string projectName = _composeService.GetProjectName(projectPath);
-
-    //    (bool success, string output, string error) = await _composeService.ListServicesAsync(projectPath);
-
-    //    if (!success)
-    //    {
-    //        _logger.LogWarning("Failed to get services for project {ProjectName}. Error : {error}", projectName, error);
-    //        return new();
-    //    }
-
-    //    List<ComposeServiceDto> services = new();
-
-    //    if (success && !string.IsNullOrWhiteSpace(output))
-    //    {
-    //        try
-    //        {
-    //            // Parse NDJSON output from docker compose ps (each line is a separate JSON object)
-    //            string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-    //            foreach (string line in lines)
-    //            {
-    //                if (string.IsNullOrWhiteSpace(line)) { continue; }
-
-    //                try
-    //                {
-    //                    System.Text.Json.JsonElement svc = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(line);
-
-    //                    // Extract service information from JSON
-    //                    string serviceId = svc.TryGetProperty("ID", out System.Text.Json.JsonElement svcId)
-    //                        ? svcId.GetString() ?? "unknown"
-    //                        : "unknown";
-
-    //                    string serviceName = svc.TryGetProperty("Service", out System.Text.Json.JsonElement svcName)
-    //                        ? svcName.GetString() ?? "unknown"
-    //                        : "unknown";
-
-    //                    string serviceState = svc.TryGetProperty("State", out System.Text.Json.JsonElement svcState)
-    //                        ? svcState.GetString() ?? "unknown"
-    //                        : "unknown";
-
-    //                    string serviceStatus = svc.TryGetProperty("Status", out System.Text.Json.JsonElement svcStatus)
-    //                        ? svcStatus.GetString() ?? "unknown"
-    //                        : "unknown";
-
-    //                    string serviceImage = svc.TryGetProperty("Image", out System.Text.Json.JsonElement svcImg)
-    //                        ? svcImg.GetString() ?? "unknown"
-    //                        : "unknown";
-
-    //                    string? serviceHealth = svc.TryGetProperty("Health", out System.Text.Json.JsonElement svcHealth)
-    //                        ? svcHealth.GetString()
-    //                        : null;
-
-    //                    // Parse ports
-    //                    List<string> ports = new();
-    //                    if (svc.TryGetProperty("Publishers", out System.Text.Json.JsonElement publishers)
-    //                        && publishers.ValueKind == System.Text.Json.JsonValueKind.Array)
-    //                    {
-    //                        foreach (System.Text.Json.JsonElement publisher in publishers.EnumerateArray())
-    //                        {
-    //                            if (publisher.TryGetProperty("URL", out System.Text.Json.JsonElement url) &&
-    //                                publisher.TryGetProperty("PublishedPort", out System.Text.Json.JsonElement publishedPort) &&
-    //                                publisher.TryGetProperty("TargetPort", out System.Text.Json.JsonElement targetPort))
-    //                            {
-    //                                string portMapping = $"{url.GetString()}:{publishedPort.GetInt32()}->{targetPort.GetInt32()}";
-    //                                ports.Add(portMapping);
-    //                            }
-    //                        }
-    //                    }
-
-    //                    services.Add(new ComposeServiceDto(
-    //                        Id: serviceId,
-    //                        Name: serviceName,
-    //                        Image: serviceImage,
-    //                        State: serviceState.ToEntityState().ToStateString(),
-    //                        Status: serviceStatus,
-    //                        Ports: ports,
-    //                        Health: serviceHealth
-    //                    ));
-    //                }
-    //                catch (System.Text.Json.JsonException lineEx)
-    //                {
-    //                    _logger.LogWarning(lineEx, "Failed to parse JSON line for project {ProjectName}: {Line}", projectName, line);
-    //                    services = new();
-    //                }
-    //            }
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            _logger.LogWarning(ex, "Failed to parse docker compose ps output for project: {ProjectName}", projectName);
-    //            services = new();
-    //        }
-    //    }
-    //    else
-    //    {
-    //        // Command failed or no output - project is likely down
-    //        services = new();
-    //    }
-
-    //    return services;
-    //}
 
     /// <summary>
     /// Starts a compose project (docker compose up)
@@ -489,83 +331,6 @@ public class ComposeController : BaseController
             return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error stopping project", "SERVER_ERROR"));
         }
     }
-
-    ///// <summary>
-    ///// Gets logs from a compose project
-    ///// </summary>
-    //[HttpGet("projects/{projectName}/logs")]
-    //public async Task<ActionResult<ApiResponse<string>>> GetProjectLogs(
-    //    string projectName,
-    //    [FromQuery] string? serviceName = null,
-    //    [FromQuery] int? tail = 100)
-    //{
-    //    try
-    //    {
-    //        // Find project path
-    //        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-    //        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
-
-    //        if (projectPath == null)
-    //        {
-    //            return NotFound(ApiResponse.Fail<string>("Project not found", "PROJECT_NOT_FOUND"));
-    //        }
-
-    //        // Check Logs permission
-    //        int? userId = GetCurrentUserId();
-    //        if (!userId.HasValue)
-    //        {
-    //            return Unauthorized(ApiResponse.Fail<string>("User not authenticated"));
-    //        }
-
-    //        bool hasPermission = await _permissionService.HasPermissionAsync(
-    //            userId.Value,
-    //            ResourceType.ComposeProject,
-    //            projectName,
-    //            PermissionFlags.Logs);
-
-    //        if (!hasPermission)
-    //        {
-    //            return StatusCode(403, ApiResponse.Fail<string>(
-    //                "You don't have permission to view logs for this compose project",
-    //                "PERMISSION_DENIED"));
-    //        }
-
-    //        //(bool success, string output, string error) = await _composeService.GetLogsAsync(
-    //        //    projectPath,
-    //        //    serviceName,
-    //        //    tail,
-    //        //    follow: false
-    //        //);
-
-    //        (bool success, string output, string error) = await _composeService.GetLogsAsync(
-    //            projectPath,
-    //            serviceName,
-    //            null,
-    //            follow: false
-    //        );
-
-    //        if (!success)
-    //        {
-    //            return BadRequest(ApiResponse.Fail<string>(error ?? "Error getting logs", "LOGS_ERROR"));
-    //        }
-
-    //        await _auditService.LogActionAsync(
-    //            GetCurrentUserId(),
-    //            AuditActions.ComposeLogs,
-    //            GetUserIpAddress(),
-    //            $"Retrieved logs for project: {projectName}",
-    //            resourceType: "compose_project",
-    //            resourceId: projectName
-    //        );
-
-    //        return Ok(ApiResponse.Ok(output));
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        _logger.LogError(ex, "Error getting logs for project: {ProjectName}", projectName);
-    //        return StatusCode(500, ApiResponse.Fail<string>("Error getting logs", "SERVER_ERROR"));
-    //    }
-    //}
 
     /// <summary>
     /// Get available compose file templates
@@ -983,96 +748,6 @@ volumes:
     #region Helper Methods
 
     /// <summary>
-    /// Generic method to execute compose operations in the background
-    /// </summary>
-    private async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> ExecuteComposeOperationAsync(
-        string projectName,
-        string projectPath,
-        string operationType,
-        PermissionFlags requiredPermission,
-        string auditAction,
-        Func<IServiceScope, ComposeService, OperationService, Task<(bool success, string output, string error)>> operationExecutor)
-    {
-        try
-        {
-            // Check permission
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                requiredPermission);
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    $"You don't have permission to {requiredPermission.ToString().ToLower()} this compose project",
-                    "PERMISSION_DENIED"));
-            }
-
-            // Create operation tracking
-            Operation operation = await _legacyOperationService.CreateOperationAsync(
-                operationType,
-                GetCurrentUserId(),
-                projectPath,
-                projectName
-            );
-
-            // Start operation in background
-            _ = Task.Run(async () =>
-            {
-                using IServiceScope scope = _serviceScopeFactory.CreateScope();
-                OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
-                ComposeService composeService = scope.ServiceProvider.GetRequiredService<ComposeService>();
-
-                await operationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
-
-                (bool success, string output, string error) = await operationExecutor(scope, composeService, operationService);
-
-                await operationService.AppendLogsAsync(operation.OperationId, output);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    await operationService.AppendLogsAsync(operation.OperationId, $"ERROR: {error}");
-                }
-
-                await operationService.UpdateOperationStatusAsync(
-                    operation.OperationId,
-                    success ? OperationStatus.Completed : OperationStatus.Failed,
-                    100,
-                    success ? null : error
-                );
-            });
-
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                auditAction,
-                GetUserIpAddress(),
-                $"Started {operationType}: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                OperationStatus.Pending,
-                $"{operationType} started for project: {projectName}"
-            );
-
-            return Ok(ApiResponse.Ok(response));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error executing {OperationType} for project: {ProjectName}", operationType, projectName);
-            return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>($"Error executing {operationType}", "SERVER_ERROR"));
-        }
-    }
-
-    /// <summary>
     /// Start compose services (docker compose start)
     /// </summary>
     [HttpPost("projects/{projectName}/start")]
@@ -1317,99 +992,6 @@ volumes:
             return StatusCode(500, ApiResponse.Fail<ComposeOperationResponse>("Error restarting project", "SERVER_ERROR"));
         }
     }
-
-    ///// <summary>
-    ///// Get status of all services in a compose project (docker compose ps)
-    ///// </summary>
-    //[HttpGet("projects/{projectName}/ps")]
-    //public async Task<ActionResult<ApiResponse<List<ComposeServiceStatusDto>>>> GetProjectServices(string projectName)
-    //{
-    //    try
-    //    {
-    //        // Find project path
-    //        List<string> projectPaths = await _composeService.DiscoverComposeProjectsAsync();
-    //        string? projectPath = projectPaths.FirstOrDefault(p => _composeService.GetProjectName(p) == projectName);
-
-    //        if (projectPath == null)
-    //        {
-    //            return NotFound(ApiResponse.Fail<List<ComposeServiceStatusDto>>("Project not found", "PROJECT_NOT_FOUND"));
-    //        }
-
-    //        // Check View permission
-    //        int? userId = GetCurrentUserId();
-    //        if (!userId.HasValue)
-    //        {
-    //            return Unauthorized(ApiResponse.Fail<List<ComposeServiceStatusDto>>("User not authenticated"));
-    //        }
-
-    //        bool hasPermission = await _permissionService.HasPermissionAsync(
-    //            userId.Value,
-    //            ResourceType.ComposeProject,
-    //            projectName,
-    //            PermissionFlags.View);
-
-    //        if (!hasPermission)
-    //        {
-    //            return StatusCode(403, ApiResponse.Fail<List<ComposeServiceStatusDto>>(
-    //                "You don't have permission to view services for this compose project",
-    //                "PERMISSION_DENIED"));
-    //        }
-
-    //        (int exitCode, string output, string error) = await _composeService.ExecuteComposeCommandAsync(
-    //            projectPath,
-    //            "ps --format json"
-    //        );
-    //        bool success = exitCode == 0;
-
-    //        if (!success)
-    //        {
-    //            return BadRequest(ApiResponse.Fail<List<ComposeServiceStatusDto>>(error ?? "Error getting services", "PS_ERROR"));
-    //        }
-
-    //        List<ComposeServiceStatusDto> services = new();
-
-    //        if (!string.IsNullOrWhiteSpace(output))
-    //        {
-    //            try
-    //            {
-    //                // Parse JSON output
-    //                List<System.Text.Json.JsonElement>? jsonServices = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(output);
-    //                if (jsonServices != null)
-    //                {
-    //                    foreach (System.Text.Json.JsonElement svc in jsonServices)
-    //                    {
-    //                        services.Add(new ComposeServiceStatusDto(
-    //                            svc.GetProperty("Service").GetString() ?? "unknown",
-    //                            svc.GetProperty("State").GetString() ?? "unknown",
-    //                            svc.GetProperty("Status").GetString() ?? ""
-    //                        ));
-    //                    }
-    //                }
-    //            }
-    //            catch (Exception ex)
-    //            {
-    //                _logger.LogWarning(ex, "Could not parse docker compose ps JSON output");
-    //                // Return empty list if parsing fails
-    //            }
-    //        }
-
-    //        await _auditService.LogActionAsync(
-    //            GetCurrentUserId(),
-    //            "compose.ps",
-    //            GetUserIpAddress(),
-    //            $"Retrieved services status for project: {projectName}",
-    //            resourceType: "compose_project",
-    //            resourceId: projectName
-    //        );
-
-    //        return Ok(ApiResponse.Ok(services, "Services status retrieved successfully"));
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        _logger.LogError(ex, "Error getting services for project: {ProjectName}", projectName);
-    //        return StatusCode(500, ApiResponse.Fail<List<ComposeServiceStatusDto>>("Error getting services", "SERVER_ERROR"));
-    //    }
-    //}
 
     #endregion
 
