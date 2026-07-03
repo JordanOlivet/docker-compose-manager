@@ -1,3 +1,11 @@
+## Changes in v1.26.5
+
+**Merged Pull Requests:**
+- feat(security): refresh token reuse detection + access token revocation (1.10 + 1.11) (#169)
+
+**Commits:**
+
+
 ## Changes in v1.26.4
 
 **Merged Pull Requests:**
