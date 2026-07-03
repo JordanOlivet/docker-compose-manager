@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import type { User } from '$lib/types';
+import { getRoleFromToken } from '$lib/utils/jwt';
 
 // Svelte 5 pattern: export state object with properties (not individual $state variables)
 //
@@ -15,8 +16,13 @@ export const auth = $state({
 export const isAuthenticated = {
   get current() { return !!auth.accessToken; }
 };
+// Prefer the loaded user's role; before /me resolves (e.g. right after a reload) fall
+// back to the role embedded in the access token so admin UI does not flicker.
 export const isAdmin = {
-  get current() { return auth.user?.role?.toLowerCase() === 'admin'; }
+  get current() {
+    const role = auth.user?.role ?? getRoleFromToken(auth.accessToken);
+    return role?.toLowerCase() === 'admin';
+  }
 };
 
 // Actions

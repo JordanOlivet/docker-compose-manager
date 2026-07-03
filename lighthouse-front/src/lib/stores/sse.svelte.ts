@@ -3,6 +3,7 @@ import type { OperationUpdateEvent } from '$lib/types';
 import type { MaintenanceModeNotification, UpdateProgressEvent, ProjectUpdatesCheckedEvent, ContainerUpdatesCheckedEvent } from '$lib/types/update';
 import { logger } from '$lib/utils/logger';
 import { refreshAccessToken } from '$lib/api/tokenRefresh';
+import { isExpired } from '$lib/utils/jwt';
 
 // Types for SSE events
 export interface ContainerStateChangedEvent {
@@ -67,7 +68,8 @@ let isInitializing = false;
 let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let lastEventTime = 0;
 
-const HEARTBEAT_TIMEOUT_MS = 900_000; // Consider disconnected if no event in 15 minutes
+// Server sends a heartbeat every 30s; treat 3 consecutive misses (~90s) as a dead link.
+const HEARTBEAT_TIMEOUT_MS = 90_000;
 const MAX_RECONNECT_ATTEMPTS = 10; // Max consecutive reconnection attempts before giving up
 
 const getApiUrl = () => {
@@ -80,17 +82,9 @@ const getApiUrl = () => {
   return '';
 };
 
-/**
- * Check if a JWT token is expired (with 60s safety margin).
- */
+// Treat the token as expired 60s early to avoid connecting with an about-to-expire token.
 function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    // Add 60 second margin to avoid race conditions
-    return (payload.exp * 1000) < (Date.now() + 60_000);
-  } catch {
-    return true;
-  }
+  return isExpired(token, 60_000);
 }
 
 /**
@@ -125,7 +119,7 @@ function resetHeartbeatTimer() {
 
   heartbeatTimer = setTimeout(() => {
     if (sseState.connectionStatus === 'connected') {
-      logger.warn('[SSE Store] No events received for 15 minutes, reconnecting...');
+      logger.warn('[SSE Store] No events received for 90s, reconnecting...');
       reconnect();
     }
   }, HEARTBEAT_TIMEOUT_MS);
