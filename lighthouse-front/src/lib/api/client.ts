@@ -3,6 +3,7 @@ import type { InternalAxiosRequestConfig } from 'axios';
 import * as auth from '$lib/stores/auth.svelte';
 import { reconnectSSEWithNewToken } from '$lib/stores/sse.svelte';
 import { refreshAccessToken } from '$lib/api/tokenRefresh';
+import { isNearExpiration } from '$lib/utils/jwt';
 import { browser } from '$app/environment';
 
 // Extend InternalAxiosRequestConfig to include _retry property for token refresh
@@ -25,19 +26,11 @@ const getApiUrl = () => {
 
 const API_URL = getApiUrl();
 
-/**
- * Check if a JWT token is near expiration (within 10 minutes).
- */
+// Refresh proactively when less than 10 minutes remain on the access token.
+const PROACTIVE_REFRESH_MARGIN_MS = 10 * 60 * 1000;
+
 function isTokenNearExpiration(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const expiresAt = payload.exp * 1000;
-    const timeLeft = expiresAt - Date.now();
-    // Refresh if less than 10 minutes remaining
-    return timeLeft < 10 * 60 * 1000;
-  } catch {
-    return true; // If parsing fails, consider it expired
-  }
+  return isNearExpiration(token, PROACTIVE_REFRESH_MARGIN_MS);
 }
 
 /**

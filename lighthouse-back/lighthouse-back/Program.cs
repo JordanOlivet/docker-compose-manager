@@ -91,7 +91,10 @@ catch (Exception ex)
 
 // Add Database Context
 string connectionString = builder.Configuration["Database:ConnectionString"] ?? "Data Source=Data/app.db";
-builder.Services.AddDbContext<AppDbContext>(options =>options.UseSqlite(connectionString));
+builder.Services.AddDbContext<AppDbContext>(options => options
+    .UseSqlite(connectionString)
+    // Enable WAL + busy_timeout + FK enforcement on every connection.
+    .AddInterceptors(new Lighthouse.Data.SqliteConnectionInterceptor()));
 
 // Configure JWT Authentication
 string jwtSecret = builder.Configuration["Jwt:Secret"] ?? string.Empty;
