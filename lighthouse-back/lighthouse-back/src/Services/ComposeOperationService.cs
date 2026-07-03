@@ -1,4 +1,5 @@
 using Lighthouse.DTOs;
+using Lighthouse.Utils;
 
 namespace Lighthouse.Services;
 
@@ -22,6 +23,26 @@ public class ComposeOperationService : IComposeOperationService
         _discoveryService = discoveryService;
         _envFileResolver = envFileResolver;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Rejects project names that are not on the safe-character allowlist before they
+    /// are passed to the docker CLI. Returns a failure result to short-circuit, or null
+    /// when the name is valid.
+    /// </summary>
+    private OperationResult? RejectIfInvalidName(string projectName)
+    {
+        if (ComposeProjectNameValidator.IsValid(projectName))
+            return null;
+
+        _logger.LogWarning("Rejected compose operation for invalid project name: {ProjectName}", projectName);
+        return new OperationResult
+        {
+            Success = false,
+            Message = $"Invalid project name '{projectName}'",
+            Output = null,
+            Error = "Project name contains invalid characters"
+        };
     }
 
     /// <summary>
@@ -147,6 +168,9 @@ public class ComposeOperationService : IComposeOperationService
                 removeVolumes
             );
 
+            OperationResult? nameError = RejectIfInvalidName(projectName);
+            if (nameError != null) return nameError;
+
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
             if (!projectExists)
@@ -215,6 +239,9 @@ public class ComposeOperationService : IComposeOperationService
         {
             _logger.LogDebug("Restarting compose project: {ProjectName}", projectName);
 
+            OperationResult? nameError = RejectIfInvalidName(projectName);
+            if (nameError != null) return nameError;
+
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
             if (!projectExists)
@@ -282,6 +309,9 @@ public class ComposeOperationService : IComposeOperationService
         {
             _logger.LogDebug("Stopping compose project (without removing): {ProjectName}", projectName);
 
+            OperationResult? nameError = RejectIfInvalidName(projectName);
+            if (nameError != null) return nameError;
+
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
             if (!projectExists)
@@ -348,6 +378,9 @@ public class ComposeOperationService : IComposeOperationService
         try
         {
             _logger.LogDebug("Starting previously stopped project: {ProjectName}", projectName);
+
+            OperationResult? nameError = RejectIfInvalidName(projectName);
+            if (nameError != null) return nameError;
 
             // Validate project exists
             bool projectExists = await ValidateProjectExistsAsync(projectName);
