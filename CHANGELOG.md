@@ -1,3 +1,11 @@
+## Changes in v1.26.6
+
+**Merged Pull Requests:**
+- perf: Batch A — reliability + quick wins (WAL, startup cleanup, SSE, JWT dedup) (#170)
+
+**Commits:**
+
+
 ## Changes in v1.26.5
 
 **Merged Pull Requests:**
