@@ -41,7 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ComposeService>();
         services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<OperationService>();
+        services.AddScoped<IOperationService, OperationService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<DockerService>();
         services.AddSingleton<IDockerImageOperations>(sp => sp.GetRequiredService<DockerService>());
