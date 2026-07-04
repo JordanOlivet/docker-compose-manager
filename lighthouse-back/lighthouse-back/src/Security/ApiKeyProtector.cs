@@ -5,10 +5,18 @@ namespace Lighthouse.Security;
 
 /// <summary>
 /// Decrypts API keys that were encrypted at build time using OpenSSL AES-256-CBC with PBKDF2.
-/// This prevents keys from appearing in plain text in Docker image layers or config files.
+/// This keeps keys out of plain text in Docker image layers or config files.
 /// </summary>
+/// <remarks>
+/// SECURITY NOTE: the passphrase below is compiled into the binary, so this is
+/// <b>obfuscation, not confidentiality</b>. Anyone with the image/binary can recover the
+/// key. It only raises the bar against casual inspection of image layers; it is not a
+/// substitute for injecting real secrets at runtime (env var / secret store). Do not rely
+/// on it to protect high-value credentials.
+/// </remarks>
 public static class ApiKeyProtector
 {
+    // Obfuscation passphrase only — see the security note on the class. Not a secret.
     private static readonly byte[] Passphrase = Encoding.UTF8.GetBytes("dcm-k3y-sh13ld-x7q9m2v4");
     private const int Iterations = 100000;
     private const int SaltLength = 8;

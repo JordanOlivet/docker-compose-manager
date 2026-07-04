@@ -230,8 +230,9 @@ public class PathValidatorTests : IDisposable
     [Fact]
     public void IsValidComposeFilePath_ExtremelyLongPath_ReturnsFalse()
     {
-        // Arrange - Create an extremely long path (> 260 chars on Windows)
-        var longPath = Path.Combine(_testRoot, new string('a', 300), "docker-compose.yml");
+        // Arrange - Create a path longer than the platform limit (260 Windows / 4096 Unix)
+        var longSegment = new string('a', OperatingSystem.IsWindows() ? 300 : 5000);
+        var longPath = Path.Combine(_testRoot, longSegment, "docker-compose.yml");
 
         // Act
         var result = _validator.IsValidComposeFilePath(longPath);

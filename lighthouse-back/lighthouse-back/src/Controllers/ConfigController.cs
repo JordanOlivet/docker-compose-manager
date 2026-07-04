@@ -21,12 +21,34 @@ public class ConfigController : BaseController
     private readonly AppDbContext _context;
     private readonly ILogger<ConfigController> _logger;
     private readonly LogLevelService _logLevelService;
+    private readonly IConfiguration _configuration;
 
-    public ConfigController(AppDbContext context, ILogger<ConfigController> logger, LogLevelService logLevelService)
+    public ConfigController(AppDbContext context, ILogger<ConfigController> logger, LogLevelService logLevelService, IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
         _logLevelService = logLevelService;
+        _configuration = configuration;
+    }
+
+    /// <summary>
+    /// True when <paramref name="fullPath"/> is one of the allowed roots or lives under one.
+    /// Uses a trailing-separator comparison so a sibling sharing a root's name prefix is rejected.
+    /// </summary>
+    private static bool IsWithinAllowedRoots(string fullPath, string[] allowedRoots)
+    {
+        foreach (string root in allowedRoots)
+        {
+            if (string.Equals(fullPath, root, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string rootWithSep = root.EndsWith(Path.DirectorySeparatorChar)
+                ? root
+                : root + Path.DirectorySeparatorChar;
+            if (fullPath.StartsWith(rootWithSep, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     #region Directory Browser
@@ -42,6 +64,14 @@ public class ConfigController : BaseController
     {
         try
         {
+            // Optional allowlist: when Config:AllowedBrowsePaths is set, the filesystem
+            // browser is restricted to those subtrees. Empty (default) keeps full access
+            // for the admin folder/file picker.
+            string[] allowedRoots = (_configuration.GetSection("Config:AllowedBrowsePaths").Get<string[]>() ?? [])
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(Path.GetFullPath)
+                .ToArray();
+
             // Default to root directories if no path provided
             string currentPath = path ?? string.Empty;
 
@@ -51,6 +81,11 @@ public class ConfigController : BaseController
                 try
                 {
                     currentPath = Path.GetFullPath(currentPath);
+                    if (allowedRoots.Length > 0 && !IsWithinAllowedRoots(currentPath, allowedRoots))
+                    {
+                        _logger.LogWarning("Directory browse denied outside allowed roots: {Path}", currentPath);
+                        return StatusCode(403, ApiResponse.Fail<DirectoryBrowseResult>("Access denied to this directory"));
+                    }
                     if (!Directory.Exists(currentPath))
                     {
                         return BadRequest(ApiResponse.Fail<DirectoryBrowseResult>("Directory does not exist"));
@@ -71,6 +106,16 @@ public class ConfigController : BaseController
 
             if (string.IsNullOrEmpty(currentPath))
             {
+                // With an allowlist configured, the roots are the only entry points.
+                if (allowedRoots.Length > 0)
+                {
+                    result.Directories = allowedRoots
+                        .Where(Directory.Exists)
+                        .Select(root => new DirectoryBrowseInfo { Name = root, Path = root, IsAccessible = true })
+                        .ToList();
+                    return Ok(ApiResponse.Ok(result, "Directory contents retrieved successfully"));
+                }
+
                 // Return root drives/directories
                 if (OperatingSystem.IsWindows())
                 {
