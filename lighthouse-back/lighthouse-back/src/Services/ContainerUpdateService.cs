@@ -39,7 +39,7 @@ public class ContainerUpdateService : IContainerUpdateService
     private readonly IComposeUpdateService _composeUpdateService;
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly DockerPullProgressParser _progressParser;
-    private readonly OperationService _operationService;
+    private readonly IOperationService _operationService;
     private readonly SseConnectionManagerService _sseManager;
     private readonly IAuditService _auditService;
     private readonly ILogger<ContainerUpdateService> _logger;
@@ -52,7 +52,7 @@ public class ContainerUpdateService : IContainerUpdateService
         IComposeUpdateService composeUpdateService,
         DockerCommandExecutorService dockerExecutor,
         DockerPullProgressParser progressParser,
-        OperationService operationService,
+        IOperationService operationService,
         SseConnectionManagerService sseManager,
         IAuditService auditService,
         ILogger<ContainerUpdateService> logger)

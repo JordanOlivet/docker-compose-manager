@@ -16,7 +16,7 @@ public class ContainersController : BaseController
     private readonly IPermissionService _permissionService;
     private readonly IContainerUpdateService _containerUpdateService;
     private readonly ISelfFilterService _selfFilterService;
-    private readonly OperationService _operationTrackingService;
+    private readonly IOperationService _operationTrackingService;
     private readonly ILogger<ContainersController> _logger;
 
     public ContainersController(
@@ -24,7 +24,7 @@ public class ContainersController : BaseController
         IPermissionService permissionService,
         IContainerUpdateService containerUpdateService,
         ISelfFilterService selfFilterService,
-        OperationService operationTrackingService,
+        IOperationService operationTrackingService,
         ILogger<ContainersController> logger)
     {
         _dockerService = dockerService;

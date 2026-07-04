@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Lighthouse.Services;
 
-public class OperationService
+public class OperationService : IOperationService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<OperationService> _logger;

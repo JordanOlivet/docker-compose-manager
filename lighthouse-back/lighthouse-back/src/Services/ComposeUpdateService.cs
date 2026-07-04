@@ -68,7 +68,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly IComposeEnvFileResolver _envFileResolver;
     private readonly DockerPullProgressParser _progressParser;
-    private readonly OperationService _operationService;
+    private readonly IOperationService _operationService;
     private readonly IRegistryRateLimitGate _rateLimitGate;
     private readonly ILogger<ComposeUpdateService> _logger;
     private readonly UpdateCheckOptions _options;
@@ -80,7 +80,7 @@ public class ComposeUpdateService : IComposeUpdateService
         DockerCommandExecutorService dockerExecutor,
         IComposeEnvFileResolver envFileResolver,
         DockerPullProgressParser progressParser,
-        OperationService operationServiceDb,
+        IOperationService operationServiceDb,
         IRegistryRateLimitGate rateLimitGate,
         IOptions<UpdateCheckOptions> options,
         ILogger<ComposeUpdateService> logger)

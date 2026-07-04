@@ -18,7 +18,7 @@ public class ComposeController : BaseController
 {
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly IComposeOperationService _operationService;
-    private readonly OperationService _legacyOperationService;
+    private readonly IOperationService _legacyOperationService;
     private readonly IAuditService _auditService;
     private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeController> _logger;
@@ -30,7 +30,7 @@ public class ComposeController : BaseController
     public ComposeController(
         IComposeDiscoveryService discoveryService,
         IComposeOperationService operationService,
-        OperationService legacyOperationService,
+        IOperationService legacyOperationService,
         IAuditService auditService,
         IPermissionService permissionService,
         ILogger<ComposeController> logger,
@@ -125,38 +125,11 @@ public class ComposeController : BaseController
         {
             projectName = Uri.UnescapeDataString(projectName);
 
-            // Self-protection
-            if (await _selfFilterService.IsSelfProjectAsync(projectName))
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "This project belongs to the application itself and cannot be modified",
-                    "SELF_PROJECT_PROTECTED"));
-            }
+            var (userId, error) = await AuthorizeProjectOperationAsync(projectName, PermissionFlags.Start, "start");
+            if (error != null) return error;
 
-            // Check permission
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Start
-            );
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to start this compose project",
-                    "PERMISSION_DENIED"
-                ));
-            }
-
-            // Get project info to check if compose file exists
-            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
+            // 'up' requires a compose file, so resolve the project first.
+            List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
             ComposeProjectDto? project = projects.FirstOrDefault(p => p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
             if (project == null)
@@ -164,7 +137,6 @@ public class ComposeController : BaseController
                 return NotFound(ApiResponse.Fail<ComposeOperationResponse>("Project not found"));
             }
 
-            // 'up' command requires compose file
             if (!project.HasComposeFile)
             {
                 return BadRequest(ApiResponse.Fail<ComposeOperationResponse>(
@@ -174,56 +146,13 @@ public class ComposeController : BaseController
                 ));
             }
 
-            // Create operation tracking
-            var operation = await _legacyOperationService.CreateOperationAsync(
-                OperationType.ComposeUp, userId.Value, projectPath: project.Path, projectName: projectName);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId, OperationStatus.Running);
-
-            // Execute operation using new service
             OperationResult result = await _operationService.UpAsync(
-                projectName,
-                project.ComposeFilePath,
-                request?.Build ?? false
-            );
+                projectName, project.ComposeFilePath, request?.Build ?? false);
 
-            // Update operation with result — store actual docker compose output
-            string? logs = ComposeOutputHelper.BuildLogs(result);
-            if (!string.IsNullOrEmpty(logs))
-                await _legacyOperationService.AppendLogsAsync(operation.OperationId, logs);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                progress: 100,
-                errorMessage: result.Success ? null : result.Error);
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                AuditActions.ComposeUp,
-                GetUserIpAddress(),
-                $"Started project: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            if (result.Success)
-            {
-                _logger.LogInformation("Project {ProjectName} started successfully by user {UserId}", projectName, userId.Value);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to start project {ProjectName}: {Error}", projectName, result.Error);
-            }
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                result.Message
-            );
-
-            return result.Success
-                ? Ok(ApiResponse.Ok(response))
-                : BadRequest(ApiResponse.Fail<ComposeOperationResponse>(result.Message, "OPERATION_FAILED"));
+            return await FinalizeOperationAsync(
+                OperationType.ComposeUp, userId, projectName, project.Path,
+                AuditActions.ComposeUp, $"Started project: {projectName}",
+                result, ComposeOutputHelper.BuildLogs(result));
         }
         catch (Exception ex)
         {
@@ -244,86 +173,16 @@ public class ComposeController : BaseController
         {
             projectName = Uri.UnescapeDataString(projectName);
 
-            // Self-protection
-            if (await _selfFilterService.IsSelfProjectAsync(projectName))
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "This project belongs to the application itself and cannot be modified",
-                    "SELF_PROJECT_PROTECTED"));
-            }
+            var (userId, error) = await AuthorizeProjectOperationAsync(projectName, PermissionFlags.Stop, "stop");
+            if (error != null) return error;
 
-            // Check permission
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId);
+            OperationResult result = await _operationService.DownAsync(projectName, request?.RemoveVolumes ?? false);
 
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Stop
-            );
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to stop this compose project",
-                    "PERMISSION_DENIED"
-                ));
-            }
-
-            // Create operation tracking
-            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
-            var operation = await _legacyOperationService.CreateOperationAsync(
-                OperationType.ComposeDown, userId.Value, projectPath: projectPath, projectName: projectName);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId, OperationStatus.Running);
-
-            // Execute operation using new service
-            OperationResult result = await _operationService.DownAsync(
-                projectName,
-                request?.RemoveVolumes ?? false
-            );
-
-            // Update operation with result — store actual docker compose output
-            string? logs = ComposeOutputHelper.BuildLogs(result);
-            if (!string.IsNullOrEmpty(logs))
-                await _legacyOperationService.AppendLogsAsync(operation.OperationId, logs);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                progress: 100,
-                errorMessage: result.Success ? null : result.Error);
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                AuditActions.ComposeDown,
-                GetUserIpAddress(),
-                $"Stopped project: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            if (result.Success)
-            {
-                _logger.LogInformation("Project {ProjectName} stopped successfully by user {UserId}", projectName, userId.Value);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to stop project {ProjectName}: {Error}", projectName, result.Error);
-            }
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                result.Message
-            );
-
-            return result.Success
-                ? Ok(ApiResponse.Ok(response))
-                : BadRequest(ApiResponse.Fail<ComposeOperationResponse>(result.Message, "OPERATION_FAILED"));
+            return await FinalizeOperationAsync(
+                OperationType.ComposeDown, userId, projectName, projectPath,
+                AuditActions.ComposeDown, $"Stopped project: {projectName}",
+                result, ComposeOutputHelper.BuildLogs(result));
         }
         catch (Exception ex)
         {
@@ -745,6 +604,82 @@ volumes:
         }
     }
 
+    /// <summary>
+    /// Runs the guards shared by every project lifecycle action: self-protection,
+    /// authentication and permission. Returns the resolved user id on success, or an
+    /// error result to return directly.
+    /// </summary>
+    private async Task<(int UserId, ActionResult<ApiResponse<ComposeOperationResponse>>? Error)> AuthorizeProjectOperationAsync(
+        string projectName, PermissionFlags permission, string permissionVerb)
+    {
+        if (await _selfFilterService.IsSelfProjectAsync(projectName))
+        {
+            return (0, StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                "This project belongs to the application itself and cannot be modified",
+                "SELF_PROJECT_PROTECTED")));
+        }
+
+        int? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return (0, Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated")));
+        }
+
+        bool hasPermission = await _permissionService.HasPermissionAsync(
+            userId.Value, ResourceType.ComposeProject, projectName, permission);
+        if (!hasPermission)
+        {
+            return (0, StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
+                $"You don't have permission to {permissionVerb} this compose project",
+                "PERMISSION_DENIED")));
+        }
+
+        return (userId.Value, null);
+    }
+
+    /// <summary>
+    /// Records an operation for a completed project action (create + running + logs +
+    /// final status), writes the audit entry, and builds the HTTP response. Shared by all
+    /// lifecycle endpoints so the tracking/audit/response shape stays identical.
+    /// </summary>
+    private async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> FinalizeOperationAsync(
+        string operationType, int userId, string projectName, string? projectPath,
+        string auditAction, string auditDetail, OperationResult result, string? logs)
+    {
+        Operation operation = await _legacyOperationService.CreateOperationAsync(
+            operationType, userId, projectPath: projectPath, projectName: projectName);
+        await _legacyOperationService.UpdateOperationStatusAsync(operation.OperationId, OperationStatus.Running);
+
+        if (!string.IsNullOrEmpty(logs))
+            await _legacyOperationService.AppendLogsAsync(operation.OperationId, logs);
+
+        await _legacyOperationService.UpdateOperationStatusAsync(
+            operation.OperationId,
+            result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+            progress: 100,
+            errorMessage: result.Success ? null : result.Error);
+
+        await _auditService.LogActionAsync(
+            userId, auditAction, GetUserIpAddress(), auditDetail,
+            resourceType: "compose_project", resourceId: projectName);
+
+        if (result.Success)
+            _logger.LogInformation("Operation {OperationType} on project {ProjectName} succeeded (user {UserId})",
+                operationType, projectName, userId);
+        else
+            _logger.LogWarning("Operation {OperationType} on project {ProjectName} failed: {Error}",
+                operationType, projectName, result.Error);
+
+        ComposeOperationResponse response = new(
+            operation.OperationId,
+            result.Success ? OperationStatus.Completed : OperationStatus.Failed,
+            result.Message);
+
+        return result.Success
+            ? Ok(ApiResponse.Ok(response))
+            : BadRequest(ApiResponse.Fail<ComposeOperationResponse>(result.Message, "OPERATION_FAILED"));
+    }
+
     #region Helper Methods
 
     /// <summary>
@@ -757,70 +692,16 @@ volumes:
         {
             projectName = Uri.UnescapeDataString(projectName);
 
-            // Self-protection
-            if (await _selfFilterService.IsSelfProjectAsync(projectName))
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "This project belongs to the application itself and cannot be modified",
-                    "SELF_PROJECT_PROTECTED"));
-            }
+            var (userId, error) = await AuthorizeProjectOperationAsync(projectName, PermissionFlags.Start, "start");
+            if (error != null) return error;
 
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Start
-            );
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to start this compose project",
-                    "PERMISSION_DENIED"
-                ));
-            }
-
-            // Create operation tracking
-            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
-            var operation = await _legacyOperationService.CreateOperationAsync(
-                OperationType.ComposeStart, userId.Value, projectPath: projectPath, projectName: projectName);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId, OperationStatus.Running);
-
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId);
             OperationResult result = await _operationService.StartAsync(projectName);
 
-            if (!string.IsNullOrEmpty(result.Message))
-                await _legacyOperationService.AppendLogsAsync(operation.OperationId, result.Message);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                progress: 100,
-                errorMessage: result.Success ? null : result.Error);
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                AuditActions.ComposeStart,
-                GetUserIpAddress(),
-                $"Started services for project: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                result.Message
-            );
-
-            return result.Success
-                ? Ok(ApiResponse.Ok(response))
-                : BadRequest(ApiResponse.Fail<ComposeOperationResponse>(result.Message, "OPERATION_FAILED"));
+            return await FinalizeOperationAsync(
+                OperationType.ComposeStart, userId, projectName, projectPath,
+                AuditActions.ComposeStart, $"Started services for project: {projectName}",
+                result, result.Message);
         }
         catch (Exception ex)
         {
@@ -839,70 +720,16 @@ volumes:
         {
             projectName = Uri.UnescapeDataString(projectName);
 
-            // Self-protection
-            if (await _selfFilterService.IsSelfProjectAsync(projectName))
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "This project belongs to the application itself and cannot be modified",
-                    "SELF_PROJECT_PROTECTED"));
-            }
+            var (userId, error) = await AuthorizeProjectOperationAsync(projectName, PermissionFlags.Stop, "stop");
+            if (error != null) return error;
 
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Stop
-            );
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to stop this compose project",
-                    "PERMISSION_DENIED"
-                ));
-            }
-
-            // Create operation tracking
-            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
-            var operation = await _legacyOperationService.CreateOperationAsync(
-                OperationType.ComposeStop, userId.Value, projectPath: projectPath, projectName: projectName);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId, OperationStatus.Running);
-
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId);
             OperationResult result = await _operationService.StopAsync(projectName);
 
-            if (!string.IsNullOrEmpty(result.Message))
-                await _legacyOperationService.AppendLogsAsync(operation.OperationId, result.Message);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                progress: 100,
-                errorMessage: result.Success ? null : result.Error);
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                AuditActions.ComposeStop,
-                GetUserIpAddress(),
-                $"Stopped services for project: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                result.Message
-            );
-
-            return result.Success
-                ? Ok(ApiResponse.Ok(response))
-                : BadRequest(ApiResponse.Fail<ComposeOperationResponse>(result.Message, "OPERATION_FAILED"));
+            return await FinalizeOperationAsync(
+                OperationType.ComposeStop, userId, projectName, projectPath,
+                AuditActions.ComposeStop, $"Stopped services for project: {projectName}",
+                result, result.Message);
         }
         catch (Exception ex)
         {
@@ -921,70 +748,16 @@ volumes:
         {
             projectName = Uri.UnescapeDataString(projectName);
 
-            // Self-protection
-            if (await _selfFilterService.IsSelfProjectAsync(projectName))
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "This project belongs to the application itself and cannot be modified",
-                    "SELF_PROJECT_PROTECTED"));
-            }
+            var (userId, error) = await AuthorizeProjectOperationAsync(projectName, PermissionFlags.Restart, "restart");
+            if (error != null) return error;
 
-            int? userId = GetCurrentUserId();
-            if (!userId.HasValue)
-            {
-                return Unauthorized(ApiResponse.Fail<ComposeOperationResponse>("User not authenticated"));
-            }
-
-            bool hasPermission = await _permissionService.HasPermissionAsync(
-                userId.Value,
-                ResourceType.ComposeProject,
-                projectName,
-                PermissionFlags.Restart
-            );
-
-            if (!hasPermission)
-            {
-                return StatusCode(403, ApiResponse.Fail<ComposeOperationResponse>(
-                    "You don't have permission to restart this compose project",
-                    "PERMISSION_DENIED"
-                ));
-            }
-
-            // Create operation tracking
-            string? projectPath = await ResolveProjectPathAsync(projectName, userId.Value);
-            var operation = await _legacyOperationService.CreateOperationAsync(
-                OperationType.ComposeRestart, userId.Value, projectPath: projectPath, projectName: projectName);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId, OperationStatus.Running);
-
+            string? projectPath = await ResolveProjectPathAsync(projectName, userId);
             OperationResult result = await _operationService.RestartAsync(projectName);
 
-            if (!string.IsNullOrEmpty(result.Message))
-                await _legacyOperationService.AppendLogsAsync(operation.OperationId, result.Message);
-            await _legacyOperationService.UpdateOperationStatusAsync(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                progress: 100,
-                errorMessage: result.Success ? null : result.Error);
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                AuditActions.ComposeRestart,
-                GetUserIpAddress(),
-                $"Restarted project: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            ComposeOperationResponse response = new(
-                operation.OperationId,
-                result.Success ? OperationStatus.Completed : OperationStatus.Failed,
-                result.Message
-            );
-
-            return result.Success
-                ? Ok(ApiResponse.Ok(response))
-                : BadRequest(ApiResponse.Fail<ComposeOperationResponse>(result.Message, "OPERATION_FAILED"));
+            return await FinalizeOperationAsync(
+                OperationType.ComposeRestart, userId, projectName, projectPath,
+                AuditActions.ComposeRestart, $"Restarted project: {projectName}",
+                result, result.Message);
         }
         catch (Exception ex)
         {

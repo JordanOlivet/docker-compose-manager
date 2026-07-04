@@ -80,7 +80,7 @@ public class CleanupBackgroundService : BackgroundService
         }
 
         // Cleanup old operations (older than 7 days)
-        OperationService operationService = scope.ServiceProvider.GetRequiredService<OperationService>();
+        IOperationService operationService = scope.ServiceProvider.GetRequiredService<IOperationService>();
         var operationDeletedCount = await operationService.CleanupOldOperationsAsync(
             DateTime.UtcNow.AddDays(-7));
         if (operationDeletedCount > 0)

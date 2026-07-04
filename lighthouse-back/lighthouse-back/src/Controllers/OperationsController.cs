@@ -12,12 +12,12 @@ namespace Lighthouse.Controllers;
 [Authorize]
 public class OperationsController : BaseController
 {
-    private readonly OperationService _operationService;
+    private readonly IOperationService _operationService;
     private readonly IAuditService _auditService;
     private readonly ILogger<OperationsController> _logger;
 
     public OperationsController(
-        OperationService operationService,
+        IOperationService operationService,
         IAuditService auditService,
         ILogger<OperationsController> logger)
     {
