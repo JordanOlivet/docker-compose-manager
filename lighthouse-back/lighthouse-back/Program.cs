@@ -145,6 +145,11 @@ builder.Services.AddAuthentication(options =>
     {
         OnMessageReceived = context =>
         {
+            // SSE/EventSource cannot set headers, so the short-lived access token is passed
+            // in the query string. It is kept out of Serilog request logs (which record the
+            // path, not the query), but it can still appear in browser history / upstream
+            // proxy access logs. Acceptable for a 15-min token; a one-time SSE ticket would
+            // remove even that residual (tracked as a future hardening).
             Microsoft.Extensions.Primitives.StringValues accessToken = context.Request.Query["access_token"];
 
             // If the request is for our SSE endpoints
@@ -199,6 +204,13 @@ builder.Services.AddAuthorization();
 
 // Configure CORS
 string[] corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:3030"];
+// A wildcard origin cannot be combined with credentials (the browser rejects it) and is
+// unsafe. Fail fast in production rather than shipping a broken/insecure CORS policy.
+if (builder.Environment.IsProduction() && corsOrigins.Contains("*"))
+{
+    throw new InvalidOperationException(
+        "CORS: wildcard '*' origin is not allowed with credentials. Configure explicit Cors:Origins for production.");
+}
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

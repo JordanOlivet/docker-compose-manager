@@ -42,9 +42,10 @@ public class PathValidatorService : IPathValidator
             return false;
         }
 
-        // Check for path length (Windows MAX_PATH is 260, but modern Windows supports longer paths)
-        // We use a conservative limit to ensure compatibility
-        if (userProvidedPath.Length > 260)
+        // Guard against unreasonably long paths. Windows MAX_PATH is 260; Linux/macOS allow
+        // much longer, so don't reject valid long paths there.
+        int maxPathLength = OperatingSystem.IsWindows() ? 260 : 4096;
+        if (userProvidedPath.Length > maxPathLength)
         {
             _logger.LogWarning("Path validation failed: path too long ({Length} chars)", userProvidedPath.Length);
             return false;
