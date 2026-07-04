@@ -1,3 +1,11 @@
+## Changes in v1.26.11
+
+**Merged Pull Requests:**
+- security: low-severity hardening (1.15–1.19) (#176)
+
+**Commits:**
+
+
 ## Changes in v1.26.10
 
 **Merged Pull Requests:**
