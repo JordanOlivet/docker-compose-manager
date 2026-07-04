@@ -1,3 +1,11 @@
+## Changes in v1.26.10
+
+**Merged Pull Requests:**
+- feat: async audit writer + fail-fast secret validation (Batch E) (#175)
+
+**Commits:**
+
+
 ## Changes in v1.26.9
 
 **Merged Pull Requests:**
