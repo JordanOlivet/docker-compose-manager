@@ -1,3 +1,11 @@
+## Changes in v1.26.9
+
+**Merged Pull Requests:**
+- perf: decouple SSE broadcasts + dedup process executor (Batch D) (#174)
+
+**Commits:**
+
+
 ## Changes in v1.26.8
 
 **Merged Pull Requests:**
