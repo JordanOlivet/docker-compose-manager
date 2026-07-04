@@ -8,6 +8,12 @@ public class SseClient
     public required HttpResponse Response { get; init; }
     public required string ConnectionId { get; init; }
     public required CancellationToken CancellationToken { get; init; }
+
+    /// <summary>
+    /// Serializes writes to this client's response stream. Each client has its own lock so
+    /// a slow client only blocks its own writes, not broadcasts to everyone else.
+    /// </summary>
+    public SemaphoreSlim WriteLock { get; } = new(1, 1);
 }
 
 /// <summary>
@@ -17,8 +23,11 @@ public class SseClient
 public class SseConnectionManagerService
 {
     private readonly ConcurrentDictionary<string, SseClient> _clients = new();
-    private readonly SemaphoreSlim _broadcastLock = new(1, 1);
     private readonly ILogger<SseConnectionManagerService> _logger;
+
+    // A single write to a client may not hang forever: a stalled connection is dropped
+    // instead of holding up its own queue (broadcasts to other clients are unaffected).
+    private static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(10);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -48,8 +57,9 @@ public class SseConnectionManagerService
     }
 
     /// <summary>
-    /// Broadcasts an SSE event to all connected clients.
-    /// Disconnected clients are automatically removed.
+    /// Broadcasts an SSE event to all connected clients concurrently.
+    /// Each client's write is serialized by its own lock and bounded by a timeout, so a
+    /// slow or stalled client is dropped without holding up delivery to the others.
     /// </summary>
     public async Task BroadcastAsync(string eventType, object data)
     {
@@ -59,73 +69,56 @@ public class SseConnectionManagerService
         string json = JsonSerializer.Serialize(data, JsonOptions);
         string sseMessage = $"event: {eventType}\ndata: {json}\n\n";
 
-        // Serialize broadcasts to prevent concurrent writes to the same HttpResponse streams.
-        // Fire-and-forget callers (e.g. pull progress) can trigger overlapping broadcasts,
-        // and HttpResponse.WriteAsync is not thread-safe.
-        await _broadcastLock.WaitAsync();
-        try
+        // _clients.Values is a snapshot, so removals during writes don't disturb iteration.
+        await Task.WhenAll(_clients.Values.Select(client => WriteToClientInternalAsync(client, sseMessage)));
+    }
+
+    /// <summary>
+    /// Writes a raw SSE message to a specific client. Used by the SSE controller for the
+    /// initial connected event and heartbeats.
+    /// </summary>
+    public async Task WriteToClientAsync(string connectionId, string message)
+    {
+        if (_clients.TryGetValue(connectionId, out var client))
         {
-            List<string> disconnected = [];
-
-            foreach (var (connectionId, client) in _clients)
-            {
-                try
-                {
-                    if (client.CancellationToken.IsCancellationRequested)
-                    {
-                        disconnected.Add(connectionId);
-                        continue;
-                    }
-
-                    await client.Response.WriteAsync(sseMessage, client.CancellationToken);
-                    await client.Response.Body.FlushAsync(client.CancellationToken);
-                }
-                catch (Exception)
-                {
-                    disconnected.Add(connectionId);
-                }
-            }
-
-            foreach (string id in disconnected)
-            {
-                RemoveClient(id);
-            }
-        }
-        finally
-        {
-            _broadcastLock.Release();
+            await WriteToClientInternalAsync(client, message);
         }
     }
 
     /// <summary>
-    /// Writes a raw SSE message to a specific client under the broadcast lock,
-    /// preventing concurrent writes with BroadcastAsync from corrupting the stream.
-    /// Used by the SSE controller for the initial connected event and heartbeats.
+    /// Writes to one client under its own write lock with a timeout. Any failure (cancelled,
+    /// timed out, stream error) drops the client. Never throws.
     /// </summary>
-    public async Task WriteToClientAsync(string connectionId, string message)
+    private async Task WriteToClientInternalAsync(SseClient client, string message)
     {
-        await _broadcastLock.WaitAsync();
+        if (client.CancellationToken.IsCancellationRequested)
+        {
+            RemoveClient(client.ConnectionId);
+            return;
+        }
+
+        bool acquired = false;
         try
         {
-            if (!_clients.TryGetValue(connectionId, out var client))
-                return;
+            await client.WriteLock.WaitAsync(client.CancellationToken);
+            acquired = true;
 
-            if (client.CancellationToken.IsCancellationRequested)
-            {
-                RemoveClient(connectionId);
-                return;
-            }
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(client.CancellationToken);
+            cts.CancelAfter(WriteTimeout);
 
-            await client.Response.WriteAsync(message, client.CancellationToken);
-            await client.Response.Body.FlushAsync(client.CancellationToken);
+            await client.Response.WriteAsync(message, cts.Token);
+            await client.Response.Body.FlushAsync(cts.Token);
         }
         catch (Exception)
         {
-            RemoveClient(connectionId);
+            RemoveClient(client.ConnectionId);
         }
         finally
         {
-            _broadcastLock.Release();
+            if (acquired)
+            {
+                client.WriteLock.Release();
+            }
         }
     }
 
