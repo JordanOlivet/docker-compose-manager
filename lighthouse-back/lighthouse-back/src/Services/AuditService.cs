@@ -54,11 +54,13 @@ public interface IAuditService
 public class AuditService : IAuditService
 {
     private readonly AppDbContext _context;
+    private readonly IAuditQueue _queue;
     private readonly ILogger<AuditService> _logger;
 
-    public AuditService(AppDbContext context, ILogger<AuditService> logger)
+    public AuditService(AppDbContext context, IAuditQueue queue, ILogger<AuditService> logger)
     {
         _context = context;
+        _queue = queue;
         _logger = logger;
     }
 
@@ -85,9 +87,10 @@ public class AuditService : IAuditService
     }
 
     /// <summary>
-    /// Logs an audit entry
+    /// Records an audit entry. The entry is enqueued and persisted by a background writer,
+    /// so this never blocks the request on a database write (and never throws).
     /// </summary>
-    public async Task LogActionAsync(
+    public Task LogActionAsync(
         int? userId,
         string action,
         string ipAddress,
@@ -121,22 +124,15 @@ public class AuditService : IAuditService
                 auditLog.AfterState = JsonSerializer.Serialize(after);
             }
 
-            _context.AuditLogs.Add(auditLog);
-            await _context.SaveChangesAsync();
-
-            _logger.LogDebug(
-                "Audit log created: User={UserId}, Action={Action}, Resource={ResourceType}/{ResourceId}",
-                userId,
-                action,
-                resourceType,
-                resourceId
-            );
+            _queue.Enqueue(auditLog);
         }
         catch (Exception ex)
         {
             // Don't throw exceptions from audit logging - log the error but continue
             _logger.LogError(ex, "Error creating audit log entry");
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

@@ -110,6 +110,13 @@ if (jwtSecret.Length < 32)
         $"JWT Secret must be at least 32 characters long. Current length: {jwtSecret.Length}. " +
         "Please set a secure JWT_SECRET environment variable.");
 }
+// Fail fast in production if the shipped placeholder secret was never replaced.
+if (builder.Environment.IsProduction() &&
+    jwtSecret == "CHANGE-THIS-SECRET-KEY-IN-PRODUCTION-MIN-32-CHARS")
+{
+    throw new InvalidOperationException(
+        "JWT Secret is still the default placeholder. Set a unique JWT_SECRET before running in production.");
+}
 string jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "lighthouse";
 string jwtAudience = builder.Configuration["Jwt:Audience"] ?? "lighthouse-client";
 
@@ -235,6 +242,14 @@ else
 {
     if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
     {
+        // In production a missing key almost certainly means misconfiguration; fail fast
+        // rather than silently degrading to a mock that drops password-reset emails.
+        if (builder.Environment.IsProduction())
+        {
+            throw new InvalidOperationException(
+                "Email:Provider is 'Resend' but Email:Resend:ApiKey is not configured. " +
+                "Set the API key or change the provider before running in production.");
+        }
         Log.Warning("Resend provider configured but API key is missing. Falling back to Mock email service");
     }
     builder.Services.AddScoped<Lighthouse.Services.Email.IEmailService, Lighthouse.Services.Email.MockEmailService>();
