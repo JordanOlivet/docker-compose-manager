@@ -78,6 +78,69 @@ public class DockerCommandExecutorService
     }
 
     /// <summary>
+    /// Runs a process to completion, capturing stdout/stderr and optionally streaming each
+    /// line to callbacks and/or feeding stdin. This is the single implementation shared by
+    /// all the Execute* helpers below.
+    /// </summary>
+    private async Task<(int ExitCode, string Output, string Error)> RunProcessAsync(
+        ProcessStartInfo psi,
+        Action<string>? onOutputLine = null,
+        Action<string>? onErrorLine = null,
+        string? stdinInput = null,
+        CancellationToken cancellationToken = default)
+    {
+        StringBuilder output = new();
+        StringBuilder error = new();
+
+        using Process? process = Process.Start(psi);
+        if (process == null)
+        {
+            return (-1, "", $"Failed to start process: {psi.FileName}");
+        }
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data == null) return;
+            output.AppendLine(e.Data);
+            try
+            {
+                onOutputLine?.Invoke(e.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error in output callback for command: {Command}", psi.FileName);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data == null) return;
+            error.AppendLine(e.Data);
+            try
+            {
+                onErrorLine?.Invoke(e.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error in error callback for command: {Command}", psi.FileName);
+            }
+        };
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        if (stdinInput != null)
+        {
+            await process.StandardInput.WriteAsync(stdinInput);
+            process.StandardInput.Close();
+        }
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        return (process.ExitCode, output.ToString(), error.ToString());
+    }
+
+    /// <summary>
     /// Executes a docker compose command
     /// </summary>
     public async Task<(int ExitCode, string Output, string Error)> ExecuteComposeCommandAsync(
@@ -123,48 +186,18 @@ public class DockerCommandExecutorService
             CreateNoWindow = true
         };
 
-        StringBuilder output = new();
-        StringBuilder error = new();
-
-        using Process? process = Process.Start(psi);
-        if (process == null)
-        {
-            return (-1, "", "Failed to start process");
-        }
-
-        process.OutputDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-            }
-        };
-
-        process.ErrorDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-            }
-        };
-
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        string outputStr = output.ToString();
-        string errorStr = error.ToString();
+        (int exitCode, string outputStr, string errorStr) =
+            await RunProcessAsync(psi, cancellationToken: cancellationToken);
 
         _logger.LogDebug(
             "Compose command executed: {Command}, Exit Code: {ExitCode}, Output: {Output}, Error: {Error}",
             arguments,
-            process.ExitCode,
+            exitCode,
             outputStr,
             errorStr
         );
 
-        return (process.ExitCode, outputStr, errorStr);
+        return (exitCode, outputStr, errorStr);
     }
 
     /// <summary>
@@ -185,47 +218,17 @@ public class DockerCommandExecutorService
             CreateNoWindow = true
         };
 
-        StringBuilder output = new();
-        StringBuilder error = new();
-
-        using Process? process = Process.Start(psi);
-        if (process == null)
-        {
-            return (-1, "", $"Failed to start process: {command}");
-        }
-
-        process.OutputDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-            }
-        };
-
-        process.ErrorDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-            }
-        };
-
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        string outputStr = output.ToString();
-        string errorStr = error.ToString();
+        (int exitCode, string outputStr, string errorStr) =
+            await RunProcessAsync(psi, cancellationToken: cancellationToken);
 
         _logger.LogDebug(
             "Command executed: {Command} {Arguments}, Exit Code: {ExitCode}",
             command,
             arguments,
-            process.ExitCode
+            exitCode
         );
 
-        return (process.ExitCode, outputStr, errorStr);
+        return (exitCode, outputStr, errorStr);
     }
 
     /// <summary>
@@ -257,63 +260,17 @@ public class DockerCommandExecutorService
             psi.WorkingDirectory = workingDirectory;
         }
 
-        StringBuilder output = new();
-        StringBuilder error = new();
-
-        using Process? process = Process.Start(psi);
-        if (process == null)
-        {
-            return (-1, "", $"Failed to start process: {command}");
-        }
-
-        process.OutputDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-                try
-                {
-                    onOutputLine?.Invoke(e.Data);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error in output callback for command: {Command}", command);
-                }
-            }
-        };
-
-        process.ErrorDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-                try
-                {
-                    onErrorLine?.Invoke(e.Data);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error in error callback for command: {Command}", command);
-                }
-            }
-        };
-
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        string outputStr = output.ToString();
-        string errorStr = error.ToString();
+        (int exitCode, string outputStr, string errorStr) =
+            await RunProcessAsync(psi, onOutputLine, onErrorLine, cancellationToken: cancellationToken);
 
         _logger.LogDebug(
             "Streaming command executed: {Command} {Arguments}, Exit Code: {ExitCode}",
             command,
             arguments,
-            process.ExitCode
+            exitCode
         );
 
-        return (process.ExitCode, outputStr, errorStr);
+        return (exitCode, outputStr, errorStr);
     }
 
     /// <summary>
@@ -336,51 +293,17 @@ public class DockerCommandExecutorService
             CreateNoWindow = true
         };
 
-        StringBuilder output = new();
-        StringBuilder error = new();
-
-        using Process? process = Process.Start(psi);
-        if (process == null)
-        {
-            return (-1, "", $"Failed to start process: {command}");
-        }
-
-        // Write to stdin and close it
-        await process.StandardInput.WriteAsync(stdinInput);
-        process.StandardInput.Close();
-
-        process.OutputDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-            }
-        };
-
-        process.ErrorDataReceived += (sender, e) =>
-        {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-            }
-        };
-
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        string outputStr = output.ToString();
-        string errorStr = error.ToString();
+        (int exitCode, string outputStr, string errorStr) =
+            await RunProcessAsync(psi, stdinInput: stdinInput, cancellationToken: cancellationToken);
 
         // Don't log sensitive data like passwords
         _logger.LogDebug(
             "Command with stdin executed: {Command} {Arguments}, Exit Code: {ExitCode}",
             command,
             arguments,
-            process.ExitCode
+            exitCode
         );
 
-        return (process.ExitCode, outputStr, errorStr);
+        return (exitCode, outputStr, errorStr);
     }
 }
