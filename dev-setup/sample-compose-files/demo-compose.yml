@@ -3,9 +3,11 @@
 # folder. Drop your own .yml/.yaml files here to experiment.
 name: demo-stack
 services:
-  whoami:
-    image: traefik/whoami:latest
-    container_name: demo-whoami
+  nginx:
+    image: nginx
+    container_name: nginx
     ports:
-      - "8088:80"
+      - "15645:80"
+    environment:
+    - NGINX_PORT=80
     restart: unless-stopped
