@@ -1,3 +1,11 @@
+## Changes in v1.26.8
+
+**Merged Pull Requests:**
+- refactor(compose): C2 — IOperationService + dedup lifecycle endpoints (#173)
+
+**Commits:**
+
+
 ## Changes in v1.26.7
 
 **Merged Pull Requests:**
