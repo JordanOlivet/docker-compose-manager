@@ -2,6 +2,7 @@ using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Extensions;
 using Lighthouse.Models;
+using Lighthouse.Exceptions;
 using Lighthouse.Services.Security;
 using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
@@ -152,12 +153,12 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(u => u.Username == request.Username);
 
         if (existingUser != null)
-            throw new InvalidOperationException($"User with username '{request.Username}' already exists");
+            throw new ConflictException($"User with username '{request.Username}' already exists");
 
         // Get role (case-insensitive)
         var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == request.Role.ToLower());
         if (role == null)
-            throw new InvalidOperationException($"Role '{request.Role}' not found");
+            throw new BadRequestException($"Role '{request.Role}' not found");
 
         // Hash password
         var passwordHash = _passwordHasher.HashPassword(request.Password);
@@ -227,7 +228,7 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
-            throw new InvalidOperationException($"User with ID {id} not found");
+            throw new NotFoundException($"User with ID {id} not found");
 
         var changes = new List<string>();
         // Tracks whether the change must invalidate outstanding access tokens
@@ -240,7 +241,7 @@ public class UserService : IUserService
             // Check if username is already taken
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == request.Username.ToLower() && u.Id != id);
             if (existingUser != null)
-                throw new InvalidOperationException($"Username '{request.Username}' is already taken");
+                throw new ConflictException($"Username '{request.Username}' is already taken");
 
             changes.Add($"Username changed from '{user.Username}' to '{request.Username}'");
             user.Username = request.Username;
@@ -251,7 +252,7 @@ public class UserService : IUserService
         {
             var newRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == request.Role.ToLower());
             if (newRole == null)
-                throw new InvalidOperationException($"Role '{request.Role}' not found");
+                throw new BadRequestException($"Role '{request.Role}' not found");
 
             changes.Add($"Role changed from '{user.Role?.Name}' to '{newRole.Name}'");
             user.RoleId = newRole.Id;
@@ -264,7 +265,7 @@ public class UserService : IUserService
             // Check if email is already in use by another user
             var existingEmail = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email && u.Id != id);
             if (existingEmail != null)
-                throw new InvalidOperationException($"Email '{request.Email}' is already in use");
+                throw new ConflictException($"Email '{request.Email}' is already in use");
 
             changes.Add($"Email changed from '{user.Email ?? "none"}' to '{request.Email}'");
             user.Email = request.Email;
@@ -374,7 +375,7 @@ public class UserService : IUserService
     {
         var user = await _context.Users.FindAsync(id);
         if (user == null)
-            throw new InvalidOperationException($"User with ID {id} not found");
+            throw new NotFoundException($"User with ID {id} not found");
 
         // Prevent deletion of last admin
         var isAdmin = await _context.Users
@@ -389,7 +390,7 @@ public class UserService : IUserService
                 .CountAsync(u => u.Role != null && u.Role.Name == "admin");
 
             if (adminCount <= 1)
-                throw new InvalidOperationException("Cannot delete the last admin user");
+                throw new BadRequestException("Cannot delete the last admin user");
         }
 
         var username = user.Username;
@@ -422,10 +423,10 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
-            throw new InvalidOperationException($"User with ID {id} not found");
+            throw new NotFoundException($"User with ID {id} not found");
 
         if (user.IsEnabled)
-            throw new InvalidOperationException($"User '{user.Username}' is already enabled");
+            throw new BadRequestException($"User '{user.Username}' is already enabled");
 
         user.IsEnabled = true;
         await _context.SaveChangesAsync();
@@ -462,10 +463,10 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
-            throw new InvalidOperationException($"User with ID {id} not found");
+            throw new NotFoundException($"User with ID {id} not found");
 
         if (!user.IsEnabled)
-            throw new InvalidOperationException($"User '{user.Username}' is already disabled");
+            throw new BadRequestException($"User '{user.Username}' is already disabled");
 
         // Prevent disabling last admin
         var isAdmin = user.Role?.Name == "admin";
@@ -476,7 +477,7 @@ public class UserService : IUserService
                 .CountAsync(u => u.IsEnabled && u.Role != null && u.Role.Name == "admin");
 
             if (enabledAdminCount <= 1)
-                throw new InvalidOperationException("Cannot disable the last enabled admin user");
+                throw new BadRequestException("Cannot disable the last enabled admin user");
         }
 
         user.IsEnabled = false;
