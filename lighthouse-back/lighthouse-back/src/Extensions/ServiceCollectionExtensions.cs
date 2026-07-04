@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ComposeService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddSingleton<IAuditQueue, AuditQueue>();
         services.AddScoped<IOperationService, OperationService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<DockerService>();
@@ -146,6 +147,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<AutoPruneImagesBackgroundService>();
         services.AddHostedService<AppUpdateNotificationStartupService>();
         services.AddHostedService<Lighthouse.BackgroundServices.CleanupBackgroundService>();
+        services.AddHostedService<Lighthouse.BackgroundServices.AuditWriterBackgroundService>();
         return services;
     }
 }
