@@ -1,3 +1,11 @@
+## Changes in v1.26.12
+
+**Merged Pull Requests:**
+- fix(email): remove embedded Resend key + Mock fallback (no prod crash) (#178)
+
+**Commits:**
+
+
 ## Changes in v1.26.11
 
 **Merged Pull Requests:**
