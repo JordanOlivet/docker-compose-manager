@@ -225,24 +225,9 @@ builder.Services.AddCors(options =>
 // Bind all strongly-typed options classes to their configuration sections
 builder.Services.AddAppOptions(builder.Configuration);
 
-// Decrypt embedded Resend API key if present (injected at Docker build time)
-string? encryptedResendKey = builder.Configuration["Email:Resend:EncryptedApiKey"];
-if (!string.IsNullOrEmpty(encryptedResendKey))
-{
-    string? decryptedKey = Lighthouse.Security.ApiKeyProtector.Decrypt(encryptedResendKey);
-    if (!string.IsNullOrEmpty(decryptedKey))
-    {
-        builder.Configuration["Email:Resend:ApiKey"] = decryptedKey;
-        Log.Information("Resend API key decrypted successfully from embedded configuration");
-    }
-    else
-    {
-        Log.Warning("Failed to decrypt embedded Resend API key");
-    }
-}
-
-// Register email service (based on configuration provider)
-// Falls back to Mock if Resend is configured but API key is missing
+// Register email service (based on configuration provider).
+// No secret is embedded in the image: Resend is used only when the operator provides
+// Email:Provider=Resend and Email:Resend:ApiKey (e.g. via compose env). Otherwise Mock.
 string emailProvider = builder.Configuration["Email:Provider"] ?? "Mock";
 string? resendApiKey = builder.Configuration["Email:Resend:ApiKey"];
 if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(resendApiKey))
