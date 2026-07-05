@@ -239,10 +239,10 @@ else
 {
     if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
     {
-        // The shipped default is Provider=Resend with no key, and public images carry no
-        // embedded key, so a missing key is the normal self-hosted case — degrade to the
-        // Mock email service (password-reset emails are logged, not sent) instead of
-        // crashing. Operators who want email must set Email:Resend:ApiKey.
+        // The operator explicitly selected Resend but did not configure an API key.
+        // The default provider is Mock, so this only happens on an incomplete Resend
+        // setup — degrade to Mock (password-reset emails are logged, not sent) rather
+        // than crash. Set Email:Resend:ApiKey to actually send email.
         Log.Warning("Resend provider selected but API key is missing. Falling back to Mock email service; password-reset emails will not be sent");
     }
     builder.Services.AddScoped<Lighthouse.Services.Email.IEmailService, Lighthouse.Services.Email.MockEmailService>();
