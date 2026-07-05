@@ -2,6 +2,7 @@ using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Models;
 using Lighthouse.Services;
+using Lighthouse.Exceptions;
 using DockerComposeManager.Services.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -108,7 +109,7 @@ public class UserServiceTests
         var request = new CreateUserRequest("existinguser", "password123", "user");
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateUserAsync(request));
+        await Assert.ThrowsAsync<ConflictException>(() => service.CreateUserAsync(request));
     }
 
     [Fact]
@@ -135,7 +136,7 @@ public class UserServiceTests
         var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act & Assert
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteUserAsync(1));
+        BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(() => service.DeleteUserAsync(1));
         Assert.Contains("Cannot delete the last admin user", exception.Message);
     }
 

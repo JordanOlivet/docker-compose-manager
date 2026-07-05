@@ -108,27 +108,15 @@ public class UsersController : BaseController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ApiResponse<UserDto>>> CreateUser([FromBody] CreateUserRequest request)
     {
-        try
-        {
-            // Validation is handled by CreateUserRequestValidator (FluentValidation)
-
-            var user = await _userService.CreateUserAsync(request);
-            return CreatedAtAction(
-                nameof(GetUser),
-                new { id = user.Id },
-                ApiResponse.Ok(user, "User created successfully")
-            );
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when creating user");
-            return Conflict(ApiResponse.Fail<UserDto>(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating user");
-            return StatusCode(500, ApiResponse.Fail<UserDto>("Failed to create user"));
-        }
+        // Validation is handled by CreateUserRequestValidator (FluentValidation). Domain
+        // failures (duplicate username, invalid role) surface as typed AppExceptions and
+        // are mapped to the right status by ErrorHandlingMiddleware.
+        var user = await _userService.CreateUserAsync(request);
+        return CreatedAtAction(
+            nameof(GetUser),
+            new { id = user.Id },
+            ApiResponse.Ok(user, "User created successfully")
+        );
     }
 
     /// <summary>
@@ -143,23 +131,11 @@ public class UsersController : BaseController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<UserDto>>> UpdateUser(int id, [FromBody] UpdateUserRequest request)
     {
-        try
-        {
-            // Validation is handled by UpdateUserRequestValidator (FluentValidation)
-
-            var user = await _userService.UpdateUserAsync(id, request);
-            return Ok(ApiResponse.Ok(user, "User updated successfully"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when updating user {UserId}", id);
-            return NotFound(ApiResponse.Fail<UserDto>(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating user {UserId}", id);
-            return StatusCode(500, ApiResponse.Fail<UserDto>("Failed to update user"));
-        }
+        // Validation is handled by UpdateUserRequestValidator (FluentValidation). Domain
+        // failures surface as typed AppExceptions mapped by ErrorHandlingMiddleware
+        // (404 not found, 409 conflict, 400 bad request) — no manual status juggling.
+        var user = await _userService.UpdateUserAsync(id, request);
+        return Ok(ApiResponse.Ok(user, "User updated successfully"));
     }
 
     /// <summary>
@@ -173,21 +149,8 @@ public class UsersController : BaseController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<object>>> DeleteUser(int id)
     {
-        try
-        {
-            await _userService.DeleteUserAsync(id);
-            return Ok(ApiResponse.Ok<object>(null, "User deleted successfully"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when deleting user {UserId}", id);
-            return BadRequest(ApiResponse.Fail<object>(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting user {UserId}", id);
-            return StatusCode(500, ApiResponse.Fail<object>("Failed to delete user"));
-        }
+        await _userService.DeleteUserAsync(id);
+        return Ok(ApiResponse.Ok<object>(null, "User deleted successfully"));
     }
 
     /// <summary>
@@ -201,21 +164,8 @@ public class UsersController : BaseController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<UserDto>>> EnableUser(int id)
     {
-        try
-        {
-            var user = await _userService.EnableUserAsync(id);
-            return Ok(ApiResponse.Ok(user, "User enabled successfully"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when enabling user {UserId}", id);
-            return BadRequest(ApiResponse.Fail<UserDto>(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error enabling user {UserId}", id);
-            return StatusCode(500, ApiResponse.Fail<UserDto>("Failed to enable user"));
-        }
+        var user = await _userService.EnableUserAsync(id);
+        return Ok(ApiResponse.Ok(user, "User enabled successfully"));
     }
 
     /// <summary>
@@ -229,20 +179,7 @@ public class UsersController : BaseController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<UserDto>>> DisableUser(int id)
     {
-        try
-        {
-            var user = await _userService.DisableUserAsync(id);
-            return Ok(ApiResponse.Ok(user, "User disabled successfully"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when disabling user {UserId}", id);
-            return BadRequest(ApiResponse.Fail<UserDto>(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error disabling user {UserId}", id);
-            return StatusCode(500, ApiResponse.Fail<UserDto>("Failed to disable user"));
-        }
+        var user = await _userService.DisableUserAsync(id);
+        return Ok(ApiResponse.Ok(user, "User disabled successfully"));
     }
 }
