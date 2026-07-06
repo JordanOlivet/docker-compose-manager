@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Lighthouse.DTOs;
 
 // ============================================
@@ -48,6 +50,60 @@ public record UpdateComposeFileRequest(
 );
 
 // ============================================
+// Compose Project File Editing DTOs
+// ============================================
+
+/// <summary>
+/// Well-known kinds of editable files belonging to a compose project.
+/// </summary>
+public static class ProjectFileKind
+{
+    public const string Compose = "compose";
+    public const string Env = "env";
+}
+
+/// <summary>
+/// An editable file of a compose project (the compose file itself or its adjacent .env).
+/// </summary>
+/// <param name="Kind">One of <see cref="ProjectFileKind"/>.</param>
+/// <param name="FileName">File name only (no path) — the server never exposes or accepts paths.</param>
+/// <param name="Content">Raw file content, null when the file does not exist.</param>
+/// <param name="ETag">SHA-256 of the file bytes for optimistic locking, null when the file does not exist.</param>
+/// <param name="Exists">Whether the file currently exists on disk.</param>
+public record ProjectFileDto(
+    string Kind,
+    string FileName,
+    string? Content,
+    // Force the JSON name to "etag": the default camelCase policy would turn "ETag" into "eTag"
+    // (only the first char is lowercased), which the client reads as undefined -> sends back a
+    // null ETag -> every save is a false conflict.
+    [property: JsonPropertyName("etag")] string? ETag,
+    bool Exists
+);
+
+/// <summary>
+/// All editable files of a compose project.
+/// </summary>
+public record ProjectFilesResponseDto(
+    string ProjectName,
+    List<ProjectFileDto> Files
+);
+
+/// <summary>
+/// Request to update (or create, for .env) an editable project file.
+/// </summary>
+/// <param name="Kind">One of <see cref="ProjectFileKind"/>.</param>
+/// <param name="Content">New file content.</param>
+/// <param name="ETag">ETag from the last read; required when the file exists (optimistic locking).</param>
+public record UpdateProjectFileRequest(
+    string Kind,
+    string Content,
+    // Symmetry with ProjectFileDto: accept "etag" explicitly (request binding is already
+    // case-insensitive, but keep the contract unambiguous).
+    [property: JsonPropertyName("etag")] string? ETag
+);
+
+// ============================================
 // Compose Project DTOs
 // ============================================
 
@@ -81,7 +137,10 @@ public record ComposeProjectDto(
     bool IsCrashLooping = false,
     // Whether automatic updates are enabled for this project (false if the
     // compose file is flagged with x-auto-update: false). Defaults to true.
-    bool AutoUpdateEnabled = true
+    bool AutoUpdateEnabled = true,
+    // Whether the current user may edit this project's compose file. Only populated by the
+    // single-project detail endpoint (the list endpoint leaves it false to stay cheap).
+    bool CanEdit = false
 );
 
 /// <summary>

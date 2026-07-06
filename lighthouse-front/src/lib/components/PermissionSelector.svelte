@@ -107,7 +107,8 @@
 					PermissionFlags.Delete |
 					PermissionFlags.Update |
 					PermissionFlags.Logs |
-					PermissionFlags.Execute
+					PermissionFlags.Execute |
+					PermissionFlags.Edit
 				);
 			default:
 				return flags;
@@ -122,7 +123,8 @@
 		{ flag: PermissionFlags.Delete, label: 'Delete' },
 		{ flag: PermissionFlags.Update, label: 'Update' },
 		{ flag: PermissionFlags.Logs, label: 'Logs' },
-		{ flag: PermissionFlags.Execute, label: 'Execute' }
+		{ flag: PermissionFlags.Execute, label: 'Execute' },
+		{ flag: PermissionFlags.Edit, label: 'Edit' }
 	];
 </script>
 

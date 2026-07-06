@@ -3,7 +3,6 @@
   import { onMount } from 'svelte';
   import {
     LayoutDashboard,
-    FileText,
     Package,
     Container,
     HardDrive,
@@ -49,7 +48,6 @@
     { to: '/user-groups', icon: UsersRound, label: 'navigation.userGroups', category: 'navigation.categories.administration' },
     { to: '/permissions', icon: Shield, label: 'navigation.permissions', category: 'navigation.categories.administration' },
     { to: '/audit', icon: ClipboardList, label: 'navigation.auditLogs', category: 'navigation.categories.administration' },
-    { to: '/compose/files', icon: FileText, label: 'navigation.composeFiles', category: 'navigation.categories.administration' },
     { to: '/settings', icon: Settings, label: 'navigation.settings', category: 'navigation.categories.administration' },
   ];
 

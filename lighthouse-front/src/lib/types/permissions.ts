@@ -10,11 +10,12 @@ export const PermissionFlags = {
   Update: 1 << 5,    // 32
   Logs: 1 << 6,      // 64
   Execute: 1 << 7,   // 128
+  Edit: 1 << 8,      // 256 - compose file editing (compose projects only)
 
   // Composite permissions
   get ReadOnly() { return this.View | this.Logs; },
   get Standard() { return this.View | this.Start | this.Stop | this.Restart | this.Logs; },
-  get Full() { return this.View | this.Start | this.Stop | this.Restart | this.Delete | this.Update | this.Logs | this.Execute; }
+  get Full() { return this.View | this.Start | this.Stop | this.Restart | this.Delete | this.Update | this.Logs | this.Execute | this.Edit; }
 } as const;
 
 export type PermissionFlags = typeof PermissionFlags[keyof typeof PermissionFlags];
@@ -123,6 +124,7 @@ export const getPermissionLabel = (permission: PermissionFlags): string => {
     [PermissionFlags.Update]: 'Update',
     [PermissionFlags.Logs]: 'Logs',
     [PermissionFlags.Execute]: 'Execute',
+    [PermissionFlags.Edit]: 'Edit',
   };
   return labels[permission] || 'Unknown';
 };
@@ -138,6 +140,7 @@ export const getPermissionLabels = (permissions: PermissionFlags): string[] => {
   if (permissions & PermissionFlags.Update) labels.push('Update');
   if (permissions & PermissionFlags.Logs) labels.push('Logs');
   if (permissions & PermissionFlags.Execute) labels.push('Execute');
+  if (permissions & PermissionFlags.Edit) labels.push('Edit');
 
   return labels;
 };

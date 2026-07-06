@@ -1,10 +1,6 @@
 import { apiClient } from './client';
 import type {
   ApiResponseWrapper,
-  ComposeFile,
-  ComposeFileContent,
-  CreateComposeFileRequest,
-  UpdateComposeFileRequest,
   ComposeProject,
   ComposeUpRequest,
   ComposeDownRequest,
@@ -13,7 +9,10 @@ import type {
   DiscoveredComposeFileDto,
   ConflictsResponse,
   ComposeHealthDto,
-  RefreshComposeResponse
+  RefreshComposeResponse,
+  ProjectFilesResponse,
+  ProjectFile,
+  UpdateProjectFileRequest
 } from '$lib/types';
 
 // Compose Files API
@@ -98,63 +97,40 @@ export const composeApi = {
   },
 
   // ============================================
-  // Legacy Compose Files Endpoints
+  // Compose Project File Editing Endpoints
   // ============================================
 
-  // List all compose files
-  listFiles: async (): Promise<ComposeFile[]> => {
-    const response = await apiClient.get<ApiResponseWrapper<ComposeFile[]>>('/compose/files');
-    return response.data.data || [];
-  },
-
-  // Get compose file by ID
-  getFile: async (id: number): Promise<ComposeFileContent> => {
-    const response = await apiClient.get<ApiResponseWrapper<ComposeFileContent>>(`/compose/files/${id}`);
-    if (!response.data.data) {
-      throw new Error('File not found');
-    }
-    return response.data.data;
-  },
-
-  // Get compose file by path
-  getFileByPath: async (path: string): Promise<ComposeFileContent> => {
-    const response = await apiClient.get<ApiResponseWrapper<ComposeFileContent>>(
-      '/compose/files/by-path',
-      { params: { path } }
+  /**
+   * Get the editable files (compose file + adjacent .env) of a project.
+   * Files are resolved server-side from the project name; no path is exposed.
+   * Requires View permission on the project.
+   */
+  getProjectFiles: async (projectName: string): Promise<ProjectFilesResponse> => {
+    const response = await apiClient.get<ApiResponseWrapper<ProjectFilesResponse>>(
+      `/compose/projects/${encodeURIComponent(projectName)}/files`
     );
     if (!response.data.data) {
-      throw new Error('File not found');
+      throw new Error('Failed to load project files');
     }
     return response.data.data;
   },
 
-  // Create new compose file
-  createFile: async (request: CreateComposeFileRequest): Promise<ComposeFileContent> => {
-    const response = await apiClient.post<ApiResponseWrapper<ComposeFileContent>>(
-      '/compose/files',
+  /**
+   * Update one editable file of a project (optimistic locking via ETag).
+   * Requires Edit permission on the project. Returns the file with its new ETag.
+   */
+  updateProjectFile: async (
+    projectName: string,
+    request: UpdateProjectFileRequest
+  ): Promise<ProjectFile> => {
+    const response = await apiClient.put<ApiResponseWrapper<ProjectFile>>(
+      `/compose/projects/${encodeURIComponent(projectName)}/files`,
       request
     );
     if (!response.data.data) {
-      throw new Error('Failed to create file');
+      throw new Error('Failed to update project file');
     }
     return response.data.data;
-  },
-
-  // Update compose file
-  updateFile: async (id: number, request: UpdateComposeFileRequest): Promise<ComposeFileContent> => {
-    const response = await apiClient.put<ApiResponseWrapper<ComposeFileContent>>(
-      `/compose/files/${id}`,
-      request
-    );
-    if (!response.data.data) {
-      throw new Error('Failed to update file');
-    }
-    return response.data.data;
-  },
-
-  // Delete compose file
-  deleteFile: async (id: number): Promise<void> => {
-    await apiClient.delete<ApiResponseWrapper<void>>(`/compose/files/${id}`);
   },
 
   // Compose Projects API

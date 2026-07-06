@@ -24,6 +24,10 @@ public static class ErrorCodes
     public const string SelfProjectProtected = "SELF_PROJECT_PROTECTED";
     public const string SelfContainerProtected = "SELF_CONTAINER_PROTECTED";
 
+    // Compose file editing
+    public const string InvalidComposeFile = "INVALID_COMPOSE_FILE";
+    public const string FileModified = "FILE_MODIFIED";
+
     // Operations
     public const string DockerOperationFailed = "DOCKER_OPERATION_FAILED";
     public const string OperationFailed = "OPERATION_FAILED";

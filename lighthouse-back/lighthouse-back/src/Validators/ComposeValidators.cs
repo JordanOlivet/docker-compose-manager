@@ -31,6 +31,24 @@ public class UpdateComposeFileRequestValidator : AbstractValidator<UpdateCompose
     }
 }
 
+public class UpdateProjectFileRequestValidator : AbstractValidator<UpdateProjectFileRequest>
+{
+    public UpdateProjectFileRequestValidator()
+    {
+        RuleFor(x => x.Kind)
+            .Must(kind => kind == ProjectFileKind.Compose || kind == ProjectFileKind.Env)
+            .WithMessage($"Kind must be '{ProjectFileKind.Compose}' or '{ProjectFileKind.Env}'");
+
+        // .env may legitimately be emptied; a compose file cannot be meaningfully empty.
+        RuleFor(x => x.Content)
+            .NotNull().WithMessage("File content is required");
+
+        RuleFor(x => x.Content)
+            .NotEmpty().WithMessage("A compose file cannot be empty")
+            .When(x => x.Kind == ProjectFileKind.Compose);
+    }
+}
+
 public class ComposeUpRequestValidator : AbstractValidator<ComposeUpRequest>
 {
     public ComposeUpRequestValidator()
