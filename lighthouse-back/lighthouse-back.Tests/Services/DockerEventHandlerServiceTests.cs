@@ -10,13 +10,15 @@ public class DockerEventHandlerServiceTests
 {
     private readonly SseConnectionManagerService _sseManager;
     private readonly CrashLoopDetectionService _crashLoopDetection;
+    private readonly DockerEventBus _eventBus;
     private readonly DockerEventHandlerService _handler;
 
     public DockerEventHandlerServiceTests()
     {
         _sseManager = new SseConnectionManagerService(new NullLogger<SseConnectionManagerService>());
         _crashLoopDetection = new CrashLoopDetectionService(new NullLogger<CrashLoopDetectionService>());
-        _handler = new DockerEventHandlerService(_sseManager, _crashLoopDetection, new NullLogger<DockerEventHandlerService>());
+        _eventBus = new DockerEventBus(new NullLogger<DockerEventBus>());
+        _handler = new DockerEventHandlerService(_sseManager, _crashLoopDetection, _eventBus, new NullLogger<DockerEventHandlerService>());
     }
 
     private SseClient AddFakeSseClient()

@@ -1,3 +1,11 @@
+## Changes in v1.27.0
+
+**Merged Pull Requests:**
+- feat(logs): new log viewer — scroll-up, badges, filters, search, ANSI (PR3/3, #42) (#184)
+
+**Commits:**
+
+
 ## Changes in v1.26.12
 
 **Merged Pull Requests:**

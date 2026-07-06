@@ -215,37 +215,6 @@ public record ComposeTemplateDto(
 );
 
 // ============================================
-// Compose Logs DTOs
-// ============================================
-
-/// <summary>
-/// Request for compose logs
-/// </summary>
-public record ComposeLogsRequest(
-    string? ServiceName = null,
-    int? Tail = 100,
-    bool Follow = false
-);
-
-/// <summary>
-/// Compose logs response
-/// </summary>
-public record ComposeLogsResponse(
-    List<ComposeLogEntry> Logs,
-    string ProjectName
-);
-
-/// <summary>
-/// Single log entry
-/// </summary>
-public record ComposeLogEntry(
-    string ServiceName,
-    string Timestamp,
-    string Message,
-    string Level // info, warning, error
-);
-
-// ============================================
 // Compose Path DTOs
 // ============================================
 

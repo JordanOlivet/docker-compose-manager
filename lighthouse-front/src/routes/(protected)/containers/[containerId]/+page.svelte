@@ -14,7 +14,7 @@
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import StatsCard from '$lib/components/stats/StatsCard.svelte';
 	import ContainerInfoSection from '$lib/components/compose/ContainerInfoSection.svelte';
-	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
+	import LogViewer from '$lib/components/log-viewer/LogViewer.svelte';
 	import ActionButton from '$lib/components/common/ActionButton.svelte';
 	import { t } from '$lib/i18n';
 	import { toast } from 'svelte-sonner';
@@ -255,7 +255,7 @@
 
 		<!-- Logs Section -->
 		<div class="w-full h-[400px] resize-y overflow-auto min-h-[300px] max-h-[800px]">
-			<ComposeLogs containerId={container.id} containerName={container.name} />
+			<LogViewer mode="container" containerId={container.id} containerName={container.name} />
 		</div>
 	{/if}
 </div>
