@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using Lighthouse.Configuration;
@@ -12,11 +13,10 @@ namespace Lighthouse.Services;
 
 /// <summary>
 /// Reads and writes the editable files of a compose project (the compose file itself and its
-/// adjacent <c>.env</c>). Files are always resolved server-side from the project name via
-/// <see cref="IProjectMatchingService"/> — the client never supplies a path, which removes the
-/// path-traversal surface entirely. Writes are protected by SHA-256 ETags (optimistic locking),
-/// validated as compose YAML when applicable, and preceded by a <c>.bak</c> backup of the
-/// previous content.
+/// adjacent <c>.env</c>). Files are always resolved server-side from the project name via the
+/// discovery cache — the client never supplies a path, which removes the path-traversal surface
+/// entirely. Writes are protected by SHA-256 ETags (optimistic locking), validated as compose
+/// YAML when applicable, and preceded by a <c>.bak</c> backup of the previous content.
 /// </summary>
 public interface IComposeFileEditorService
 {
@@ -37,6 +37,16 @@ public class ComposeFileEditorService : IComposeFileEditorService
     // Serializes check-then-write sequences so two concurrent saves cannot both pass the ETag
     // check and silently overwrite each other (single-instance app, in-process lock is enough).
     private static readonly SemaphoreSlim WriteLock = new(1, 1);
+
+    // Short-lived project-name -> compose-file-path cache, shared across requests. Resolving via
+    // the discovery cache triggers a full filesystem rescan whenever its 10s TTL has lapsed, which
+    // on large/slow setups (dozens of projects on network/union storage) can take several seconds
+    // and was blocking saves. A save almost always follows a recent read of the same project, so
+    // this lets the load populate the mapping and the save reuse it without a rescan. Entries are
+    // guarded by File.Exists and expire quickly, so a moved/renamed file self-heals.
+    private static readonly ConcurrentDictionary<string, (string Path, DateTime Expires)> PathCache =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan PathCacheTtl = TimeSpan.FromSeconds(60);
 
     private readonly IComposeFileCacheService _cacheService;
     private readonly IConflictResolutionService _conflictService;
@@ -189,6 +199,14 @@ public class ComposeFileEditorService : IComposeFileEditorService
     /// </summary>
     private async Task<string> ResolveComposeFilePathAsync(string projectName)
     {
+        // Fast path: reuse a recent resolution, but only if the file is still there.
+        if (PathCache.TryGetValue(projectName, out (string Path, DateTime Expires) cached)
+            && cached.Expires > DateTime.UtcNow
+            && File.Exists(cached.Path))
+        {
+            return cached.Path;
+        }
+
         List<DiscoveredComposeFile> files = await _cacheService.GetOrScanAsync();
         List<DiscoveredComposeFile> resolved = _conflictService.ResolveConflicts(files);
 
@@ -197,11 +215,13 @@ public class ComposeFileEditorService : IComposeFileEditorService
 
         if (match == null)
         {
+            PathCache.TryRemove(projectName, out _);
             throw new NotFoundException(
                 "No compose file found for this project. The file may have been moved or deleted.",
                 ErrorCodes.FileNotFound);
         }
 
+        PathCache[projectName] = (match.FilePath, DateTime.UtcNow + PathCacheTtl);
         return match.FilePath;
     }
 

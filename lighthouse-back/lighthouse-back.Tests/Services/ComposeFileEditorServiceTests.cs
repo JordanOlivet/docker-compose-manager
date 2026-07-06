@@ -101,6 +101,18 @@ public class ComposeFileEditorServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProjectFiles_SecondCall_ReusesResolvedPathWithoutRescanning()
+    {
+        // First call resolves via the discovery scan; a following call for the same project reuses
+        // the cached path (as long as the file still exists) instead of triggering another scan —
+        // that rescan is the slow filesystem walk that was blocking saves on large setups.
+        await _service.GetProjectFilesAsync(UserId, ProjectName);
+        await _service.GetProjectFilesAsync(UserId, ProjectName);
+
+        _cache.Verify(c => c.GetOrScanAsync(It.IsAny<bool>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetProjectFiles_ReturnsComposeContentAndMissingEnv()
     {
         ProjectFilesResponseDto result = await _service.GetProjectFilesAsync(UserId, ProjectName);
