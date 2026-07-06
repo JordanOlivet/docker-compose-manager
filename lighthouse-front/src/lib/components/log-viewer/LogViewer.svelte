@@ -40,6 +40,7 @@
   let autoFollow = $state(true);
 
   let scrollContainer = $state<HTMLDivElement>();
+  let content = $state<HTMLDivElement>();
 
   onMount(() => {
     const streamMode: LogStreamMode = isProject
@@ -64,14 +65,19 @@
   });
 
   // Auto-follow: stick to the bottom as new lines arrive, unless the user scrolled up.
+  // A ResizeObserver on the content re-pins after the list's real height settles —
+  // content-visibility only measures off-screen rows lazily, so a one-shot scroll on
+  // length change lands short. Re-pinning on every resize converges to the bottom.
   $effect(() => {
-    // touch length so this re-runs on new entries
-    void filtered.length;
-    if (autoFollow && scrollContainer) {
-      tick().then(() => {
-        if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      });
-    }
+    const list = content;
+    const sc = scrollContainer;
+    if (!list || !sc) return;
+
+    const observer = new ResizeObserver(() => {
+      if (autoFollow) sc.scrollTop = sc.scrollHeight;
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
   });
 
   async function handleScroll() {
@@ -167,18 +173,20 @@
           {controller?.paused ? $t('logs.paused') : $t('logs.waiting')}
         </div>
       {:else}
-        {#each filtered as entry (entry)}
-          <div class="cv">
-            <LogLine
-              {entry}
-              showTimestamp={showTimestamps}
-              showBadge={isProject}
-              badgeClass={badgeClassFor(entry.containerId)}
-              {wrap}
-              {search}
-            />
-          </div>
-        {/each}
+        <div bind:this={content}>
+          {#each filtered as entry (entry)}
+            <div class="cv">
+              <LogLine
+                {entry}
+                showTimestamp={showTimestamps}
+                showBadge={isProject}
+                badgeClass={badgeClassFor(entry.containerId)}
+                {wrap}
+                {search}
+              />
+            </div>
+          {/each}
+        </div>
       {/if}
     </div>
 
