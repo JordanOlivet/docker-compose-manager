@@ -1,18 +1,5 @@
 import type { EntityState } from "./global";
 
-// Compose File Types
-export interface ComposeFile {
-  id: number;
-  fileName: string;
-  fullPath: string;
-  directory: string;
-  size: number;
-  lastModified: string;
-  lastScanned: string;
-  composePathId: number;
-  isDiscovered: boolean;
-}
-
 /**
  * Discovered compose file information from the discovery system.
  * Used by the compose file discovery API.
@@ -32,25 +19,6 @@ export interface DiscoveredComposeFileDto {
   isDisabled: boolean;
   /** List of service names in the compose file */
   services: string[];
-}
-
-export interface ComposeFileContent {
-  id: number;
-  fileName: string;
-  fullPath: string;
-  content: string;
-  etag: string;
-  lastModified: string;
-}
-
-export interface CreateComposeFileRequest {
-  filePath: string;
-  content: string;
-}
-
-export interface UpdateComposeFileRequest {
-  content: string;
-  etag: string;
 }
 
 // Compose Project Types
@@ -78,6 +46,42 @@ export interface ComposeProject {
   isCrashLooping?: boolean;
   /** Whether automatic updates are enabled (false if compose has x-auto-update: false) */
   autoUpdateEnabled?: boolean;
+  /** Whether the current user may edit this project's compose file (detail endpoint only) */
+  canEdit?: boolean;
+}
+
+// ============================================
+// Project File Editing Types
+// ============================================
+
+/** Kind of editable project file. */
+export type ProjectFileKind = 'compose' | 'env';
+
+/** An editable file of a compose project (compose file or adjacent .env). */
+export interface ProjectFile {
+  kind: ProjectFileKind;
+  /** File name only (no path). */
+  fileName: string;
+  /** Raw file content, null when the file does not exist. */
+  content: string | null;
+  /** SHA-256 ETag for optimistic locking, null when the file does not exist. */
+  etag: string | null;
+  /** Whether the file currently exists on disk. */
+  exists: boolean;
+}
+
+/** All editable files of a compose project. */
+export interface ProjectFilesResponse {
+  projectName: string;
+  files: ProjectFile[];
+}
+
+/** Request to update (or create, for .env) a project file. */
+export interface UpdateProjectFileRequest {
+  kind: ProjectFileKind;
+  content: string;
+  /** ETag from the last read; required when the file exists. */
+  etag: string | null;
 }
 
 export interface ComposeService {

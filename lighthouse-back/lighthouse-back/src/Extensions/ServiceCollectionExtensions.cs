@@ -67,6 +67,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPathMappingService, PathMappingService>();
         services.AddScoped<IProjectMatchingService, ProjectMatchingService>();
         services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
+        services.AddScoped<IComposeFileEditorService, ComposeFileEditorService>();
         // Note: ComposeCommandClassifier is static, no DI registration needed.
         return services;
     }

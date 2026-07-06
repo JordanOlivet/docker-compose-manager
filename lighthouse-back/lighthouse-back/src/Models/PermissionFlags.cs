@@ -12,9 +12,10 @@ public enum PermissionFlags
     Update = 1 << 5,    // 32 - Can update/recreate containers/projects
     Logs = 1 << 6,      // 64 - Can view logs
     Execute = 1 << 7,   // 128 - Can execute commands in containers
+    Edit = 1 << 8,      // 256 - Can edit compose files (compose projects only)
 
     // Composite permissions
     ReadOnly = View | Logs,
     Standard = View | Start | Stop | Restart | Logs,
-    Full = View | Start | Stop | Restart | Delete | Update | Logs | Execute
+    Full = View | Start | Stop | Restart | Delete | Update | Logs | Execute | Edit
 }

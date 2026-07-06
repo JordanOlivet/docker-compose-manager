@@ -378,6 +378,15 @@ volumes:
                 return NotFound(ApiResponse.Fail<ComposeProjectDto>("Project not found or access denied", "PROJECT_NOT_FOUND"));
             }
 
+            // Surface whether this user may edit the compose file so the detail page can gate the
+            // edit affordance. Only projects that actually have a file are editable.
+            if (project.HasComposeFile)
+            {
+                bool canEdit = await _permissionService.HasPermissionAsync(
+                    userId.Value, ResourceType.ComposeProject, project.Name, PermissionFlags.Edit);
+                project = project with { CanEdit = canEdit };
+            }
+
             await _auditService.LogActionAsync(
                 userId.Value,
                 "compose.project_view",

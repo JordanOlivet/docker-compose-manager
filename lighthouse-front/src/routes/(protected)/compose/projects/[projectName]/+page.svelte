@@ -450,6 +450,7 @@
 					{projectName}
 					projectPath={project.composeFilePath ?? undefined}
 					hasComposeFile={project.hasComposeFile ?? false}
+					canEdit={project.canEdit ?? false}
 				/>
 			</div>
 
