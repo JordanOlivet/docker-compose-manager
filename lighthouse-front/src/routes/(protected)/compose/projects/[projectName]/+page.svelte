@@ -20,11 +20,10 @@
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ProjectInfoSection from '$lib/components/compose/ProjectInfoSection.svelte';
 	import StatsCard from '$lib/components/stats/StatsCard.svelte';
-	import ComposeLogs from '$lib/components/compose/ComposeLogs.svelte';
+	import LogViewer from '$lib/components/log-viewer/LogViewer.svelte';
 	import ServiceUpdateDialog from '$lib/components/update/ServiceUpdateDialog.svelte';
 	import ActionButton from '$lib/components/common/ActionButton.svelte';
 	import { t } from '$lib/i18n';
-	import { FEATURES } from '$lib/config/features';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { isAdmin } from '$lib/stores/auth.svelte';
@@ -460,13 +459,11 @@
 		</div>
 
 		<!-- Row 3: Logs (full width, resizable) -->
-		{#if FEATURES.COMPOSE_LOGS && project.path}
-			<div class="w-full">
-				<div class="h-[500px] resize-y overflow-auto min-h-[500px] max-h-[1000px]">
-					<ComposeLogs projectPath={project.path} {projectName} />
-				</div>
+		<div class="w-full">
+			<div class="h-[500px] resize-y overflow-auto min-h-[500px] max-h-[1000px]">
+				<LogViewer mode="project" {projectName} />
 			</div>
-		{/if}
+		</div>
 	{/if}
 </div>
 
