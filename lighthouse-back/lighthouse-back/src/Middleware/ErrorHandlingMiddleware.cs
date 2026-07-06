@@ -24,6 +24,15 @@ public class ErrorHandlingMiddleware
         {
             await _next(context);
         }
+        catch (AppException appEx)
+        {
+            // Expected domain outcomes (404/403/409/400). These are not bugs — log them at
+            // Information without a stack trace so they don't pollute the error log.
+            _logger.LogInformation(
+                "Request failed with {StatusCode} {ErrorCode}: {Message}",
+                (int)appEx.StatusCode, appEx.ErrorCode, appEx.Message);
+            await HandleExceptionAsync(context, appEx);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception occurred: {Message}", ex.Message);

@@ -83,6 +83,13 @@ public class ComposeFileEditorService : IComposeFileEditorService
             await ReadFileAsync(ProjectFileKind.Env, envPath)
         };
 
+        // Diagnostic: lets us compare the ETag handed to the client here with the one the client
+        // sends back at save time and the disk state then. Temporary.
+        ProjectFileDto composeDto = files[0];
+        _logger.LogInformation(
+            "Served compose file for {ProjectName} at {Path}: etag={ETag}",
+            projectName, composePath, composeDto.ETag ?? "<null>");
+
         return new ProjectFilesResponseDto(projectName, files);
     }
 
@@ -133,9 +140,17 @@ public class ComposeFileEditorService : IComposeFileEditorService
 
             if (exists)
             {
-                string currentETag = ComputeETag(await File.ReadAllBytesAsync(targetPath));
+                byte[] currentBytes = await File.ReadAllBytesAsync(targetPath);
+                string currentETag = ComputeETag(currentBytes);
                 if (!string.Equals(currentETag, request.ETag, StringComparison.OrdinalIgnoreCase))
                 {
+                    // Diagnostic: distinguishes a stale/absent client ETag from a genuine on-disk
+                    // change (different-but-present hash) or a path mismatch. Temporary.
+                    _logger.LogWarning(
+                        "Compose edit conflict for {ProjectName} ({Kind}) at {Path}. clientETag={ClientETag}, currentETag={CurrentETag}, diskBytes={DiskBytes}",
+                        projectName, request.Kind, targetPath,
+                        request.ETag ?? "<null>", currentETag, currentBytes.Length);
+
                     throw new ConflictException(
                         "The file was modified by someone else since you loaded it. Reload the latest version before saving.",
                         ErrorCodes.FileModified);
