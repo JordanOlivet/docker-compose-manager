@@ -24,13 +24,23 @@ public class ComposeFileEditorServiceTests : IDisposable
     private readonly string _composePath;
     private readonly string _envPath;
 
-    private readonly Mock<IProjectMatchingService> _projectMatching = new();
+    private readonly Mock<IComposeFileCacheService> _cache = new();
+    private readonly Mock<IConflictResolutionService> _conflict = new();
     private readonly Mock<IPermissionService> _permissions = new();
     private readonly Mock<ISelfFilterService> _selfFilter = new();
-    private readonly Mock<IComposeFileCacheService> _cache = new();
     private readonly ComposeFileEditorService _service;
 
     private const string ValidCompose = "services:\n  web:\n    image: nginx:latest\n";
+
+    private void SetupDiscovery(string projectName, string filePath)
+    {
+        _cache
+            .Setup(c => c.GetOrScanAsync(It.IsAny<bool>()))
+            .ReturnsAsync(new List<DiscoveredComposeFile>
+            {
+                new() { ProjectName = projectName, FilePath = filePath, DirectoryPath = Path.GetDirectoryName(filePath)! }
+            });
+    }
 
     public ComposeFileEditorServiceTests()
     {
@@ -52,12 +62,13 @@ public class ComposeFileEditorServiceTests : IDisposable
             MaxFileSizeKB = 1024
         });
 
-        _projectMatching
-            .Setup(s => s.GetUnifiedProjectListAsync(It.IsAny<int>()))
-            .ReturnsAsync(new List<ComposeProjectDto>
-            {
-                new(ProjectName, _projectDir, "up", new(), new(), null, ComposeFilePath: _composePath, HasComposeFile: true)
-            });
+        // Discovery cache resolves the project name to its compose file path.
+        SetupDiscovery(ProjectName, _composePath);
+
+        // ResolveConflicts is a pass-through by default (no duplicate project names).
+        _conflict
+            .Setup(c => c.ResolveConflicts(It.IsAny<List<DiscoveredComposeFile>>()))
+            .Returns((List<DiscoveredComposeFile> files) => files);
 
         // Default: full access, not the self project.
         _permissions
@@ -66,10 +77,10 @@ public class ComposeFileEditorServiceTests : IDisposable
         _selfFilter.Setup(s => s.IsSelfProjectAsync(It.IsAny<string>())).ReturnsAsync(false);
 
         _service = new ComposeFileEditorService(
-            _projectMatching.Object,
+            _cache.Object,
+            _conflict.Object,
             _permissions.Object,
             _selfFilter.Object,
-            _cache.Object,
             new SseConnectionManagerService(new NullLogger<SseConnectionManagerService>()),
             options,
             new NullLogger<ComposeFileEditorService>());
@@ -198,6 +209,19 @@ public class ComposeFileEditorServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetProjectFiles_WhenProjectNotInDiscovery_ThrowsNotFound()
+    {
+        // Discovery returns no file matching the project (e.g. file outside the scan root, or
+        // not yet rescanned). Resolution must fail cleanly rather than hang or return garbage.
+        _cache
+            .Setup(c => c.GetOrScanAsync(It.IsAny<bool>()))
+            .ReturnsAsync(new List<DiscoveredComposeFile>());
+
+        await _service.Invoking(s => s.GetProjectFilesAsync(UserId, ProjectName))
+            .Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
     public async Task UpdateProjectFile_WhenComposePathOutsideRoot_Throws()
     {
         // Point the project at a compose file outside the configured root.
@@ -206,12 +230,7 @@ public class ComposeFileEditorServiceTests : IDisposable
         string outsidePath = Path.Combine(outsideDir, "docker-compose.yml");
         await File.WriteAllTextAsync(outsidePath, ValidCompose);
 
-        _projectMatching
-            .Setup(s => s.GetUnifiedProjectListAsync(It.IsAny<int>()))
-            .ReturnsAsync(new List<ComposeProjectDto>
-            {
-                new(ProjectName, outsideDir, "up", new(), new(), null, ComposeFilePath: outsidePath, HasComposeFile: true)
-            });
+        SetupDiscovery(ProjectName, outsidePath);
 
         try
         {

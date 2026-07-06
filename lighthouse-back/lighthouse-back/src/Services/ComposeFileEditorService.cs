@@ -38,27 +38,27 @@ public class ComposeFileEditorService : IComposeFileEditorService
     // check and silently overwrite each other (single-instance app, in-process lock is enough).
     private static readonly SemaphoreSlim WriteLock = new(1, 1);
 
-    private readonly IProjectMatchingService _projectMatchingService;
+    private readonly IComposeFileCacheService _cacheService;
+    private readonly IConflictResolutionService _conflictService;
     private readonly IPermissionService _permissionService;
     private readonly ISelfFilterService _selfFilterService;
-    private readonly IComposeFileCacheService _cacheService;
     private readonly SseConnectionManagerService _sseManager;
     private readonly ComposeDiscoveryOptions _options;
     private readonly ILogger<ComposeFileEditorService> _logger;
 
     public ComposeFileEditorService(
-        IProjectMatchingService projectMatchingService,
+        IComposeFileCacheService cacheService,
+        IConflictResolutionService conflictService,
         IPermissionService permissionService,
         ISelfFilterService selfFilterService,
-        IComposeFileCacheService cacheService,
         SseConnectionManagerService sseManager,
         IOptions<ComposeDiscoveryOptions> options,
         ILogger<ComposeFileEditorService> logger)
     {
-        _projectMatchingService = projectMatchingService;
+        _cacheService = cacheService;
+        _conflictService = conflictService;
         _permissionService = permissionService;
         _selfFilterService = selfFilterService;
-        _cacheService = cacheService;
         _sseManager = sseManager;
         _options = options.Value;
         _logger = logger;
@@ -74,7 +74,7 @@ public class ComposeFileEditorService : IComposeFileEditorService
             throw new ForbiddenException("You don't have permission to view this compose project");
         }
 
-        string composePath = await ResolveComposeFilePathAsync(userId, projectName);
+        string composePath = await ResolveComposeFilePathAsync(projectName);
         string envPath = GetEnvFilePath(composePath);
 
         var files = new List<ProjectFileDto>
@@ -103,7 +103,7 @@ public class ComposeFileEditorService : IComposeFileEditorService
                 ErrorCodes.SelfProjectProtected);
         }
 
-        string composePath = await ResolveComposeFilePathAsync(userId, projectName);
+        string composePath = await ResolveComposeFilePathAsync(projectName);
         string targetPath = request.Kind switch
         {
             ProjectFileKind.Compose => composePath,
@@ -173,27 +173,31 @@ public class ComposeFileEditorService : IComposeFileEditorService
     }
 
     /// <summary>
-    /// Resolves the compose file path for the project from the unified project list.
+    /// Resolves the compose file path for the project directly from the discovery cache.
+    /// <para>
+    /// This deliberately avoids <c>GetUnifiedProjectListAsync</c>, which queries the Docker daemon
+    /// (compose ls + per-project inspection) and is far too heavy just to map a project name to a
+    /// file path — that path was measured at ~8.5s for a single project. Discovery scan results are
+    /// cached and cover every compose file under the root, which is exactly the set that is editable
+    /// (writes are confined to the root anyway). Caller must have already checked permissions.
+    /// </para>
     /// </summary>
-    private async Task<string> ResolveComposeFilePathAsync(int userId, string projectName)
+    private async Task<string> ResolveComposeFilePathAsync(string projectName)
     {
-        List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId);
-        ComposeProjectDto? project = projects.FirstOrDefault(p =>
-            p.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
+        List<DiscoveredComposeFile> files = await _cacheService.GetOrScanAsync();
+        List<DiscoveredComposeFile> resolved = _conflictService.ResolveConflicts(files);
 
-        if (project == null)
-        {
-            throw new NotFoundException("Project not found", ErrorCodes.ProjectNotFound);
-        }
+        DiscoveredComposeFile? match = resolved.FirstOrDefault(f =>
+            f.ProjectName.Equals(projectName, StringComparison.OrdinalIgnoreCase));
 
-        if (string.IsNullOrEmpty(project.ComposeFilePath))
+        if (match == null)
         {
             throw new NotFoundException(
                 "No compose file found for this project. The file may have been moved or deleted.",
                 ErrorCodes.FileNotFound);
         }
 
-        return project.ComposeFilePath;
+        return match.FilePath;
     }
 
     private static string GetEnvFilePath(string composeFilePath)
