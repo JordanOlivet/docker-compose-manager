@@ -9,8 +9,6 @@ import type {
   ComposeUpRequest,
   ComposeDownRequest,
   ComposeOperationResponse,
-  ComposeLogsResponse,
-  ComposeLogsRequest,
   ComposeFileDetails,
   DiscoveredComposeFileDto,
   ConflictsResponse,
@@ -285,21 +283,6 @@ export const composeApi = {
     );
     if (!response.data.data) {
       throw new Error(`Failed to get parsed details for project ${projectName}`);
-    }
-    return response.data.data;
-  },
-
-  // Get compose project logs
-  getProjectLogs: async (
-    projectName: string,
-    request?: ComposeLogsRequest
-  ): Promise<ComposeLogsResponse> => {
-    const response = await apiClient.post<ApiResponseWrapper<ComposeLogsResponse>>(
-      `/compose/projects/${encodeURIComponent(projectName)}/logs`,
-      request || {}
-    );
-    if (!response.data.data) {
-      throw new Error('Failed to get project logs');
     }
     return response.data.data;
   }

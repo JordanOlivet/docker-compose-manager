@@ -54,6 +54,46 @@ body {
   --radius-xl: 0.75rem;
 }
 
+/* ANSI log palette — tuned for contrast on the light log surface (gray-50). */
+:root {
+  --ansi-black: #24292e;
+  --ansi-red: #cd3131;
+  --ansi-green: #107c10;
+  --ansi-yellow: #8f6b00;
+  --ansi-blue: #0451a5;
+  --ansi-magenta: #bc05bc;
+  --ansi-cyan: #0576a8;
+  --ansi-white: #555555;
+  --ansi-bright-black: #6e7681;
+  --ansi-bright-red: #cd3131;
+  --ansi-bright-green: #14892c;
+  --ansi-bright-yellow: #b58900;
+  --ansi-bright-blue: #0451a5;
+  --ansi-bright-magenta: #bc05bc;
+  --ansi-bright-cyan: #0598bc;
+  --ansi-bright-white: #24292e;
+}
+
+/* ANSI log palette — tuned for contrast on the dark log surface (gray-900). */
+.dark {
+  --ansi-black: #6e7681;
+  --ansi-red: #f14c4c;
+  --ansi-green: #23d18b;
+  --ansi-yellow: #f5f543;
+  --ansi-blue: #3b8eea;
+  --ansi-magenta: #d670d6;
+  --ansi-cyan: #29b8db;
+  --ansi-white: #e5e5e5;
+  --ansi-bright-black: #8b949e;
+  --ansi-bright-red: #ff6a6a;
+  --ansi-bright-green: #35e6a0;
+  --ansi-bright-yellow: #ffff5c;
+  --ansi-bright-blue: #5aa7ff;
+  --ansi-bright-magenta: #e58ae5;
+  --ansi-bright-cyan: #4fd0ee;
+  --ansi-bright-white: #ffffff;
+}
+
 /* Dark theme overrides */
 .dark {
   --color-background: #0a0a0a;

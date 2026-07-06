@@ -145,23 +145,11 @@ export interface ComposeBuildRequest {
   parallel?: boolean;
 }
 
-export interface ComposeLogsRequest {
-  serviceName?: string;
-  tail?: number;
-  follow?: boolean;
-  timestamps?: boolean;
-}
-
 // Compose Operation Response Types
 export interface ComposeOperationResponse {
   operationId: string;
   status: string;
   message: string;
-}
-
-export interface ComposeLogsResponse {
-  logs: string;
-  hasMore: boolean;
 }
 
 // Compose File Parsed Details Types
