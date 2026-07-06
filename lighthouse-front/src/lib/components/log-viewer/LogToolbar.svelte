@@ -139,7 +139,7 @@
         <button
           type="button"
           onclick={() => onToggleContainer(container.id)}
-          class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] border transition-opacity {active
+          class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] border bg-white/70 dark:bg-gray-800/70 text-gray-700 dark:text-gray-200 transition-opacity {active
             ? 'border-gray-300 dark:border-gray-600'
             : 'border-gray-200 dark:border-gray-700 opacity-40'}"
         >
