@@ -24,6 +24,13 @@ public interface IContainerLogService
     Task<ContainerLogSource?> GetLogSourceAsync(string containerId, CancellationToken ct = default);
 
     /// <summary>
+    /// Lists the container IDs belonging to a compose project (via the
+    /// com.docker.compose.project label). When <paramref name="includeStopped"/> is
+    /// true, stopped containers are included (their historical logs still exist).
+    /// </summary>
+    Task<IReadOnlyList<string>> ListProjectContainerIdsAsync(string projectName, bool includeStopped, CancellationToken ct = default);
+
+    /// <summary>
     /// Fetches one page of historical logs, ascending by timestamp.
     /// <paramref name="until"/> is an RFC3339Nano cursor (exclusive-ish: Docker treats
     /// it inclusively, callers dedup the boundary); null means "up to now".
