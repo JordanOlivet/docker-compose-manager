@@ -168,7 +168,7 @@ Domain code can throw `AppException` subclasses (`NotFoundException`,
 | `InstanceIdentifierService` | Unique instance ID for update detection |
 | `SseConnectionManagerService` | Manages SSE connections for real-time updates |
 | `ImageDigestService` | Checks for container image updates |
-| `AuditService` | Logs all user actions to AuditLogs table |
+| `AppLogService` | Reads/streams application logs (CLEF files + live Serilog sink) |
 | `JwtTokenService` | Generates and validates JWT tokens |
 | `UserService` | User CRUD and authentication |
 | `PermissionService` | Role-based access control |
@@ -184,7 +184,7 @@ Domain code can throw `AppException` subclasses (`NotFoundException`,
 
 **Database (SQLite):**
 
-- Schema: Users, Roles, UserGroups, AppSettings, AuditLogs, Sessions, RegistryCredentials
+- Schema: Users, Roles, UserGroups, AppSettings, Sessions, RegistryCredentials
 - Migrations managed via Entity Framework Core
 - Default location: `Data/app.db` (development) or `/app/data/app.db` (Docker)
 - Migrations run automatically on startup
@@ -209,7 +209,7 @@ src/
 │   │   ├── settings/    → App settings & self-update
 │   │   ├── users/       → User management (admin)
 │   │   ├── permissions/ → Role management (admin)
-│   │   ├── audit/       → Audit logs (admin)
+│   │   ├── logs-app/    → Application logs viewer (admin)
 │   │   ├── logs/        → Container logs viewer
 │   │   └── dev/         → Dev test page (dev only)
 │   ├── login/           → Login page
@@ -317,7 +317,7 @@ The application can update itself via GitHub releases:
 3. **Input Validation**: FluentValidation on all endpoints
 4. **Rate Limiting**: 5 auth attempts/15min, 100 requests/min/user
 5. **Password Security**: BCrypt with cost factor 12
-6. **Audit Logging**: All actions logged with user, IP, timestamp
+6. **Application Logging**: Serilog events enriched with the authenticated user (LogContext); admins browse/tail them from the Application Logs page
 
 ## Development Setup
 
@@ -416,7 +416,8 @@ Currently no automated tests configured. Manual testing via dev page.
 
 ### Admin Endpoints
 - `GET /api/users` - User management
-- `GET /api/audit` - Audit logs
+- `GET /api/app-logs/history` - Application logs (paged) — admin
+- `GET /api/app-logs/stream` - Application logs live tail (SSE) — admin
 - `POST /api/system/update` - Trigger self-update
 - `POST /api/compose/refresh` - Force cache refresh
 

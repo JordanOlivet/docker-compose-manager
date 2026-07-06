@@ -19,16 +19,13 @@ namespace Lighthouse.Controllers;
 public class RolesController : BaseController
 {
     private readonly AppDbContext _context;
-    private readonly IAuditService _auditService;
     private readonly ILogger<RolesController> _logger;
 
     public RolesController(
         AppDbContext context,
-        IAuditService auditService,
         ILogger<RolesController> logger)
     {
         _context = context;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -159,22 +156,11 @@ public class RolesController : BaseController
             _context.Roles.Add(role);
             await _context.SaveChangesAsync();
 
-            // Audit log
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
                 return Unauthorized(ApiResponse.Fail<RoleDto>("User not authenticated"));
             }
-            string ipAddress = GetUserIpAddress();
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "role.create",
-                ipAddress,
-                $"Created role: {role.Name}",
-                resourceType: "role",
-                resourceId: role.Id.ToString(),
-                after: role
-            );
 
             RoleDto roleDto = new RoleDto(
                 role.Id,
@@ -226,14 +212,6 @@ public class RolesController : BaseController
                 return BadRequest(ApiResponse.Fail<RoleDto>("Cannot modify permissions of built-in admin role"));
             }
 
-            // Store original state for audit
-            var originalRole = new
-            {
-                role.Name,
-                role.Permissions,
-                role.Description
-            };
-
             // Update permissions if provided
             if (request.Permissions != null && request.Permissions.Count > 0)
             {
@@ -251,23 +229,11 @@ public class RolesController : BaseController
 
             await _context.SaveChangesAsync();
 
-            // Audit log
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
                 return Unauthorized(ApiResponse.Fail<RoleDto>("User not authenticated"));
             }
-            string ipAddress = GetUserIpAddress();
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "role.update",
-                ipAddress,
-                $"Updated role: {role.Name}",
-                resourceType: "role",
-                resourceId: role.Id.ToString(),
-                before: originalRole,
-                after: new { role.Name, role.Permissions, role.Description }
-            );
 
             RoleDto roleDto = new RoleDto(
                 role.Id,
@@ -328,22 +294,11 @@ public class RolesController : BaseController
             _context.Roles.Remove(role);
             await _context.SaveChangesAsync();
 
-            // Audit log
             int? userId = GetCurrentUserId();
             if (!userId.HasValue)
             {
                 return Unauthorized(ApiResponse.Fail<bool>("User not authenticated"));
             }
-            string ipAddress = GetUserIpAddress();
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "role.delete",
-                ipAddress,
-                $"Deleted role: {role.Name}",
-                resourceType: "role",
-                resourceId: role.Id.ToString(),
-                before: role
-            );
 
             _logger.LogInformation("Role {RoleName} deleted by user {UserId}", role.Name, userId);
 

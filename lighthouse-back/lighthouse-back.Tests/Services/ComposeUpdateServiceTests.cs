@@ -20,7 +20,6 @@ public class ComposeUpdateServiceTests
     private ComposeUpdateService CreateService() => new(
         _checker.Object,
         cacheService: null!,
-        auditService: null!,
         dockerExecutor: null!,
         envFileResolver: null!,
         progressParser: null!,

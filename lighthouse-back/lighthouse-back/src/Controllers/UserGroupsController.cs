@@ -15,16 +15,13 @@ namespace Lighthouse.Controllers;
 public class UserGroupsController : BaseController
 {
     private readonly AppDbContext _context;
-    private readonly IAuditService _auditService;
     private readonly ILogger<UserGroupsController> _logger;
 
     public UserGroupsController(
         AppDbContext context,
-        IAuditService auditService,
         ILogger<UserGroupsController> logger)
     {
         _context = context;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -146,7 +143,7 @@ public class UserGroupsController : BaseController
             await _context.SaveChangesAsync();
         }
 
-        await _auditService.LogActionAsync(GetCurrentUserId(), $"Created user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetUserIpAddress());
+        _logger.LogInformation("User group created: {GroupName} with {PermissionCount} permissions", group.Name, request.Permissions?.Count ?? 0);
 
         var dto = new UserGroupDto
         {
@@ -212,7 +209,7 @@ public class UserGroupsController : BaseController
         }
 
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetCurrentUserId(), $"Updated user group: {group.Name} with {request.Permissions?.Count ?? 0} permissions", GetUserIpAddress());
+        _logger.LogInformation("User group updated: {GroupName} with {PermissionCount} permissions", group.Name, request.Permissions?.Count ?? 0);
 
         var dto = new UserGroupDto
         {
@@ -243,7 +240,7 @@ public class UserGroupsController : BaseController
 
         _context.UserGroups.Remove(group);
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetCurrentUserId(), $"Deleted user group: {group.Name}", GetUserIpAddress());
+        _logger.LogInformation("User group deleted: {GroupName}", group.Name);
 
         return Ok(ApiResponse.Ok<object?>(null, "User group deleted successfully"));
     }
@@ -281,7 +278,7 @@ public class UserGroupsController : BaseController
 
         _context.UserGroupMemberships.Add(membership);
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetCurrentUserId(), $"Added user {user.Username} to group {group.Name}", GetUserIpAddress());
+        _logger.LogInformation("User {MemberUsername} added to group {GroupName}", user.Username, group.Name);
 
         return Ok(ApiResponse.Ok<object?>(null, "User added to group successfully"));
     }
@@ -304,7 +301,7 @@ public class UserGroupsController : BaseController
 
         _context.UserGroupMemberships.Remove(membership);
         await _context.SaveChangesAsync();
-        await _auditService.LogActionAsync(GetCurrentUserId(), $"Removed user {membership.User?.Username} from group {membership.UserGroup?.Name}", GetUserIpAddress());
+        _logger.LogInformation("User {MemberUsername} removed from group {GroupName}", membership.User?.Username, membership.UserGroup?.Name);
 
         return Ok(ApiResponse.Ok<object?>(null, "User removed from group successfully"));
     }

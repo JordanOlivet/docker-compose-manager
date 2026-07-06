@@ -18,14 +18,14 @@ namespace Lighthouse.Controllers;
 public class ComposeFileEditorController : BaseController
 {
     private readonly IComposeFileEditorService _editorService;
-    private readonly IAuditService _auditService;
+    private readonly ILogger<ComposeFileEditorController> _logger;
 
     public ComposeFileEditorController(
         IComposeFileEditorService editorService,
-        IAuditService auditService)
+        ILogger<ComposeFileEditorController> logger)
     {
         _editorService = editorService;
-        _auditService = auditService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -56,13 +56,8 @@ public class ComposeFileEditorController : BaseController
 
         ProjectFileDto updated = await _editorService.UpdateProjectFileAsync(userId, projectName, request);
 
-        await _auditService.LogActionAsync(
-            userId,
-            "compose.file_edit",
-            GetUserIpAddress(),
-            $"Edited {request.Kind} file '{updated.FileName}' of project '{projectName}'",
-            resourceType: "ComposeProject",
-            resourceId: projectName);
+        _logger.LogInformation("Compose file edited: {Kind} file {FileName} of project {ProjectName}",
+            request.Kind, updated.FileName, projectName);
 
         return Ok(ApiResponse.Ok(updated));
     }

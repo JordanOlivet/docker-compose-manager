@@ -110,7 +110,6 @@ public class AutoPruneImagesBackgroundService : BackgroundService
             }
 
             IImageService imageService = scope.ServiceProvider.GetRequiredService<IImageService>();
-            IAuditService auditService = scope.ServiceProvider.GetRequiredService<IAuditService>();
             INotificationService notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             PruneImagesResultDto result = await imageService.PruneImagesAsync(danglingOnly, ct);
@@ -118,13 +117,6 @@ public class AutoPruneImagesBackgroundService : BackgroundService
             _logger.LogInformation(
                 "AutoPruneImages cycle complete: {Count} image(s) removed, {Bytes} bytes reclaimed (danglingOnly={DanglingOnly})",
                 result.ImagesDeleted.Count, result.SpaceReclaimed, danglingOnly);
-
-            await auditService.LogActionAsync(
-                userId: null,
-                action: AuditActions.AutoPruneImages,
-                ipAddress: "system",
-                details: $"Removed {result.ImagesDeleted.Count} image(s), reclaimed {result.SpaceReclaimed} bytes (danglingOnly={danglingOnly})",
-                resourceType: "image");
 
             if (result.ImagesDeleted.Count > 0)
             {

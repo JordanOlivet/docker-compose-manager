@@ -191,7 +191,7 @@ openssl rand -base64 32
 | `/app/data` | SQLite database (persist this!) |
 | `/var/run/docker.sock` | Docker socket (required) |
 | `/app/compose-files` | Your compose files to manage |
-| `/app/logs` | Application logs (optional) |
+| `/app/logs` | Application logs — structured JSON, browsable in-app (optional) |
 | `/root/.docker` | Docker config for registry credentials (optional) |
 
 ### Compose Project Update Checking

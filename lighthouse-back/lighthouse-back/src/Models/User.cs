@@ -1,4 +1,4 @@
-namespace Lighthouse.Models;
+﻿namespace Lighthouse.Models;
 
 public class User
 {
@@ -27,7 +27,6 @@ public class User
 
     // Navigation properties
     public ICollection<Session> Sessions { get; set; } = new List<Session>();
-    public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
     public ICollection<UserGroupMembership> UserGroupMemberships { get; set; } = new List<UserGroupMembership>();
     public ICollection<ResourcePermission> ResourcePermissions { get; set; } = new List<ResourcePermission>();
     public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();

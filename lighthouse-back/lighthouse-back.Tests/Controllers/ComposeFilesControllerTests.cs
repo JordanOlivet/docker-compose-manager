@@ -23,7 +23,6 @@ public class ComposeFilesControllerTests
     private readonly Mock<IComposeFileCacheService> _cache = new();
     private readonly Mock<IConflictResolutionService> _conflicts = new();
     private readonly Mock<ISelfFilterService> _selfFilter = new();
-    private readonly Mock<IAuditService> _audit = new();
 
     private ComposeFilesController CreateController(bool authenticated)
     {
@@ -31,7 +30,6 @@ public class ComposeFilesControllerTests
             _cache.Object,
             _conflicts.Object,
             _selfFilter.Object,
-            _audit.Object,
             Options.Create(new ComposeDiscoveryOptions()),
             dockerService: null!, // only used by GetHealth, which these tests don't call
             new NullLogger<ComposeFilesController>());
@@ -113,7 +111,7 @@ public class ComposeFilesControllerTests
     }
 
     [Fact]
-    public async Task RefreshComposeFiles_Authenticated_InvalidatesScansAndAudits()
+    public async Task RefreshComposeFiles_Authenticated_InvalidatesAndScans()
     {
         _cache.Setup(c => c.GetOrScanAsync(true)).ReturnsAsync(new List<DiscoveredComposeFile> { File("a") });
         ComposeFilesController controller = CreateController(authenticated: true);
@@ -123,8 +121,5 @@ public class ComposeFilesControllerTests
         result.Result.Should().BeOfType<OkObjectResult>();
         _cache.Verify(c => c.Invalidate(), Times.Once);
         _cache.Verify(c => c.GetOrScanAsync(true), Times.Once);
-        _audit.Verify(a => a.LogActionAsync(1, "compose.cache_refresh",
-            It.IsAny<string>(), It.IsAny<string>(), "System", "ComposeDiscovery", It.IsAny<object?>(), It.IsAny<object?>()),
-            Times.Once);
     }
 }

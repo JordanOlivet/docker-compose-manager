@@ -16,18 +16,15 @@ public class PermissionsController : BaseController
 {
     private readonly AppDbContext _context;
     private readonly IPermissionService _permissionService;
-    private readonly IAuditService _auditService;
     private readonly ILogger<PermissionsController> _logger;
 
     public PermissionsController(
         AppDbContext context,
         IPermissionService permissionService,
-        IAuditService auditService,
         ILogger<PermissionsController> logger)
     {
         _context = context;
         _permissionService = permissionService;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -173,10 +170,8 @@ public class PermissionsController : BaseController
             ? $"user {permission.User?.Username}"
             : $"group {permission.UserGroup?.Name}";
 
-        await _auditService.LogActionAsync(
-            GetCurrentUserId(),
-            $"Created permission for {permission.ResourceType} '{permission.ResourceName}' to {target}",
-            GetUserIpAddress());
+        _logger.LogInformation("Permission created for {ResourceType} {ResourceName} to {Target}",
+            permission.ResourceType, permission.ResourceName, target);
 
         var dto = new ResourcePermissionDto
         {
@@ -221,10 +216,8 @@ public class PermissionsController : BaseController
             ? $"user {permission.User?.Username}"
             : $"group {permission.UserGroup?.Name}";
 
-        await _auditService.LogActionAsync(
-            GetCurrentUserId(),
-            $"Updated permission for {permission.ResourceType} '{permission.ResourceName}' to {target}",
-            GetUserIpAddress());
+        _logger.LogInformation("Permission updated for {ResourceType} {ResourceName} to {Target}",
+            permission.ResourceType, permission.ResourceName, target);
 
         var dto = new ResourcePermissionDto
         {
@@ -267,10 +260,8 @@ public class PermissionsController : BaseController
         _context.ResourcePermissions.Remove(permission);
         await _context.SaveChangesAsync();
 
-        await _auditService.LogActionAsync(
-            GetCurrentUserId(),
-            $"Deleted permission for {permission.ResourceType} '{permission.ResourceName}' from {target}",
-            GetUserIpAddress());
+        _logger.LogInformation("Permission deleted for {ResourceType} {ResourceName} from {Target}",
+            permission.ResourceType, permission.ResourceName, target);
 
         return Ok(ApiResponse.Ok<object?>(null, "Permission deleted successfully"));
     }
@@ -331,10 +322,7 @@ public class PermissionsController : BaseController
             await _context.Entry(permission).Reference(p => p.UserGroup).LoadAsync();
         }
 
-        await _auditService.LogActionAsync(
-            GetCurrentUserId(),
-            $"Bulk created {createdPermissions.Count} permissions",
-            GetUserIpAddress());
+        _logger.LogInformation("Bulk created {PermissionCount} permissions", createdPermissions.Count);
 
         var dtos = createdPermissions.Select(p => new ResourcePermissionDto
         {
@@ -561,10 +549,8 @@ public class PermissionsController : BaseController
             var sourceId = request.SourceUserId ?? request.SourceUserGroupId;
             var targetId = request.TargetUserId ?? request.TargetUserGroupId;
 
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                $"Copied permissions from {sourceType} {sourceId} to {targetType} {targetId}",
-                GetUserIpAddress());
+            _logger.LogInformation("Permissions copied from {SourceType} {SourceId} to {TargetType} {TargetId}",
+                sourceType, sourceId, targetType, targetId);
 
             return Ok(ApiResponse.Ok<object?>(null, "Permissions copied successfully"));
         }

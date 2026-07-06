@@ -1,4 +1,4 @@
-using Lighthouse.Data;
+﻿using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Models;
 using Lighthouse.Services;
@@ -37,7 +37,6 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
 
         context.Users.AddRange(
@@ -46,7 +45,7 @@ public class UserServiceTests
         );
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act
         List<UserDto> users = await service.GetAllUsersAsync();
@@ -63,10 +62,9 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
         passwordHasher.Setup(p => p.HashPassword(It.IsAny<string>())).Returns("hashed_password");
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         var request = new CreateUserRequest("testuser", "password123", "user");
 
@@ -92,7 +90,6 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
 
         context.Users.Add(new User
@@ -105,7 +102,7 @@ public class UserServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
         var request = new CreateUserRequest("existinguser", "password123", "user");
 
         // Act & Assert
@@ -118,7 +115,6 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
 
         var adminUser = new User
@@ -133,7 +129,7 @@ public class UserServiceTests
         context.Users.Add(adminUser);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act & Assert
         BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(() => service.DeleteUserAsync(1));
@@ -146,7 +142,6 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
 
         var user = new User
@@ -161,7 +156,7 @@ public class UserServiceTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
         var request = new UpdateUserRequest(Role: "admin", IsEnabled: null, NewPassword: null);
 
         // Act
@@ -178,7 +173,6 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
 
         var user = new User
@@ -193,7 +187,7 @@ public class UserServiceTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act
         UserDto result = await service.EnableUserAsync(1);
@@ -208,7 +202,6 @@ public class UserServiceTests
         // Arrange
         AppDbContext context = GetInMemoryDbContext();
         var logger = new Mock<ILogger<UserService>>();
-        var auditService = new Mock<IAuditService>();
         var passwordHasher = new Mock<IPasswordHasher>();
 
         context.Users.AddRange(
@@ -217,7 +210,7 @@ public class UserServiceTests
         );
         await context.SaveChangesAsync();
 
-        var service = new UserService(context, logger.Object, auditService.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
+        var service = new UserService(context, logger.Object, passwordHasher.Object, new MemoryCache(new MemoryCacheOptions()));
 
         // Act
         UserDto result = await service.DisableUserAsync(2);

@@ -12,20 +12,18 @@ namespace Lighthouse.Tests.Controllers;
 
 /// <summary>
 /// Behavioural tests for <see cref="ComposeUpdatesController"/> (extracted from ComposeController in PR6).
-/// They lock in the auth / self-protection / audit wiring of the six update endpoints so the split
+/// They lock in the auth / self-protection wiring of the six update endpoints so the split
 /// stays behaviour-preserving.
 /// </summary>
 public class ComposeUpdatesControllerTests
 {
     private readonly Mock<IComposeUpdateService> _updateService = new();
-    private readonly Mock<IAuditService> _auditService = new();
     private readonly Mock<ISelfFilterService> _selfFilter = new();
 
     private ComposeUpdatesController CreateController(bool authenticated)
     {
         var controller = new ComposeUpdatesController(
             _updateService.Object,
-            _auditService.Object,
             _selfFilter.Object,
             new NullLogger<ComposeUpdatesController>());
 
@@ -48,7 +46,7 @@ public class ComposeUpdatesControllerTests
     }
 
     [Fact]
-    public async Task CheckProjectUpdates_Authenticated_ReturnsOkAndAudits()
+    public async Task CheckProjectUpdates_Authenticated_ReturnsOk()
     {
         var response = new ProjectUpdateCheckResponse("proj", new List<ImageUpdateStatus>(), false, DateTime.UtcNow);
         _updateService.Setup(s => s.CheckProjectUpdatesAsync("proj", false, It.IsAny<CancellationToken>()))
@@ -59,9 +57,6 @@ public class ComposeUpdatesControllerTests
             await controller.CheckProjectUpdates("proj");
 
         Payload(result).Should().Be(response);
-        _auditService.Verify(a => a.LogActionAsync(1, "compose.check_updates",
-            It.IsAny<string>(), It.IsAny<string>(), "compose_project", "proj", It.IsAny<object?>(), It.IsAny<object?>()),
-            Times.Once);
     }
 
     [Fact]
@@ -159,7 +154,7 @@ public class ComposeUpdatesControllerTests
     }
 
     [Fact]
-    public async Task ClearUpdateCache_Authenticated_ClearsAndAudits()
+    public async Task ClearUpdateCache_Authenticated_ClearsCache()
     {
         ComposeUpdatesController controller = CreateController(authenticated: true);
 
@@ -167,13 +162,10 @@ public class ComposeUpdatesControllerTests
 
         result.Result.Should().BeOfType<OkObjectResult>();
         _updateService.Verify(s => s.ClearCache(), Times.Once);
-        _auditService.Verify(a => a.LogActionAsync(1, "compose.clear_update_cache",
-            It.IsAny<string>(), It.IsAny<string>(), "System", "UpdateCache", It.IsAny<object?>(), It.IsAny<object?>()),
-            Times.Once);
     }
 
     [Fact]
-    public async Task CheckAllProjectUpdates_Authenticated_ReturnsOkAndAudits()
+    public async Task CheckAllProjectUpdates_Authenticated_ReturnsOk()
     {
         _updateService.Setup(s => s.CheckAllProjectsUpdatesAsync(1, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CheckAllUpdatesResponse(new List<ProjectUpdateSummary>(), 3, 1, 1, DateTime.UtcNow));
@@ -183,8 +175,5 @@ public class ComposeUpdatesControllerTests
             await controller.CheckAllProjectUpdates();
 
         Payload(result).ProjectsChecked.Should().Be(3);
-        _auditService.Verify(a => a.LogActionAsync(1, "compose.check_all_updates",
-            It.IsAny<string>(), It.IsAny<string>(), "System", "BulkUpdateCheck", It.IsAny<object?>(), It.IsAny<object?>()),
-            Times.Once);
     }
 }

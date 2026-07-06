@@ -19,7 +19,6 @@ public class ContainersController : BaseController
     private readonly ISelfFilterService _selfFilterService;
     private readonly IOperationService _operationTrackingService;
     private readonly IContainerLogService _containerLogService;
-    private readonly IAuditService _auditService;
     private readonly ILogger<ContainersController> _logger;
 
     public ContainersController(
@@ -29,7 +28,6 @@ public class ContainersController : BaseController
         ISelfFilterService selfFilterService,
         IOperationService operationTrackingService,
         IContainerLogService containerLogService,
-        IAuditService auditService,
         ILogger<ContainersController> logger)
     {
         _dockerService = dockerService;
@@ -38,7 +36,6 @@ public class ContainersController : BaseController
         _selfFilterService = selfFilterService;
         _operationTrackingService = operationTrackingService;
         _containerLogService = containerLogService;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -682,14 +679,6 @@ public class ContainersController : BaseController
                 return;
             }
         }
-
-        await _auditService.LogActionAsync(
-            userId.Value,
-            AuditActions.ContainerLogs,
-            GetUserIpAddress(),
-            details: $"Streaming logs for container {source.Name}",
-            resourceType: "container",
-            resourceId: source.Id);
 
         await SseLogStreamWriter.RunAsync(
             HttpContext,

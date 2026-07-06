@@ -1,4 +1,4 @@
-using Lighthouse.Data;
+﻿using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Extensions;
 using Lighthouse.Models;
@@ -33,20 +33,17 @@ public class UserService : IUserService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<UserService> _logger;
-    private readonly IAuditService _auditService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IMemoryCache _cache;
 
     public UserService(
         AppDbContext context,
         ILogger<UserService> logger,
-        IAuditService auditService,
         IPasswordHasher passwordHasher,
         IMemoryCache cache)
     {
         _context = context;
         _logger = logger;
-        _auditService = auditService;
         _passwordHasher = passwordHasher;
         _cache = cache;
     }
@@ -207,16 +204,6 @@ public class UserService : IUserService
         _logger.LogInformation("User {Username} created with role {Role} and {PermCount} permissions",
             user.Username, role.Name, request.Permissions?.Count ?? 0);
 
-        // Audit log
-        await _auditService.LogAsync(
-            userId: null, // System action, no specific user
-            action: "UserCreated",
-            resourceType: "User",
-            resourceId: user.Id.ToString(),
-            details: $"User '{user.Username}' created with role '{role.Name}' and {request.Permissions?.Count ?? 0} permissions",
-            ipAddress: null,
-            userAgent: null
-        );
 
         return user.ToDto();
     }
@@ -354,16 +341,6 @@ public class UserService : IUserService
         _logger.LogInformation("User {Username} (ID: {UserId}) updated: {Changes}",
             user.Username, user.Id, string.Join(", ", changes));
 
-        // Audit log
-        await _auditService.LogAsync(
-            userId: null,
-            action: "UserUpdated",
-            resourceType: "User",
-            resourceId: user.Id.ToString(),
-            details: $"User '{user.Username}' updated: {string.Join(", ", changes)}",
-            ipAddress: null,
-            userAgent: null
-        );
 
         // Reload role after changes
         await _context.Entry(user).Reference(u => u.Role).LoadAsync();
@@ -404,16 +381,6 @@ public class UserService : IUserService
 
         _logger.LogInformation("User {Username} (ID: {UserId}) deleted", username, id);
 
-        // Audit log
-        await _auditService.LogAsync(
-            userId: null,
-            action: "UserDeleted",
-            resourceType: "User",
-            resourceId: id.ToString(),
-            details: $"User '{username}' deleted",
-            ipAddress: null,
-            userAgent: null
-        );
     }
 
     public async Task<UserDto> EnableUserAsync(int id)
@@ -433,15 +400,6 @@ public class UserService : IUserService
 
         _logger.LogInformation("User {Username} (ID: {UserId}) enabled", user.Username, user.Id);
 
-        await _auditService.LogAsync(
-            userId: null,
-            action: "UserEnabled",
-            resourceType: "User",
-            resourceId: user.Id.ToString(),
-            details: $"User '{user.Username}' enabled",
-            ipAddress: null,
-            userAgent: null
-        );
 
         return new UserDto(
             user.Id,
@@ -494,15 +452,6 @@ public class UserService : IUserService
 
         _logger.LogInformation("User {Username} (ID: {UserId}) disabled", user.Username, user.Id);
 
-        await _auditService.LogAsync(
-            userId: null,
-            action: "UserDisabled",
-            resourceType: "User",
-            resourceId: user.Id.ToString(),
-            details: $"User '{user.Username}' disabled",
-            ipAddress: null,
-            userAgent: null
-        );
 
         return user.ToDto();
     }

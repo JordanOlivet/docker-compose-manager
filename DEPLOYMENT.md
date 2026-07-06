@@ -365,15 +365,18 @@ docker compose start
 
 ### Log Management
 
-Logs are written to `/app/logs` with daily rotation (30 days retention).
+Logs are written to `/app/logs` with daily rotation (30 days retention). The file
+sink writes structured JSON (CLEF, `app-*.clef`); the console sink (visible via
+`docker compose logs`) stays human-readable plain text. Admins can also browse and
+live-tail these logs from the **Application Logs** page in the UI.
 
 ```bash
-# View logs
+# View logs (human-readable console output)
 docker compose logs -f lighthouse
 
-# Or access log files directly
+# Or read the structured log files directly (JSON; pipe through jq)
 ls -la ./logs/
-tail -f ./logs/app-*.log
+tail -f ./logs/app-*.clef | jq
 ```
 
 ---

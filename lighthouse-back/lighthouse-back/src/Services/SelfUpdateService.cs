@@ -1,4 +1,4 @@
-using Docker.DotNet;
+﻿using Docker.DotNet;
 using Docker.DotNet.Models;
 using Lighthouse.Configuration;
 using Lighthouse.DTOs;
@@ -22,7 +22,6 @@ public class SelfUpdateService : ISelfUpdateService
     private readonly IPathMappingService _pathMappingService;
     private readonly DockerCommandExecutorService _dockerCommandExecutor;
     private readonly DockerClient? _dockerClient;
-    private readonly IAuditService _auditService;
     private readonly SelfUpdateOptions _selfUpdateOptions;
     private readonly MaintenanceOptions _maintenanceOptions;
     private readonly ILogger<SelfUpdateService> _logger;
@@ -49,7 +48,6 @@ public class SelfUpdateService : ISelfUpdateService
         IPathMappingService pathMappingService,
         DockerCommandExecutorService dockerCommandExecutor,
         IConfiguration configuration,
-        IAuditService auditService,
         IOptions<SelfUpdateOptions> selfUpdateOptions,
         IOptions<MaintenanceOptions> maintenanceOptions,
         ILogger<SelfUpdateService> logger,
@@ -60,7 +58,6 @@ public class SelfUpdateService : ISelfUpdateService
         _composeFileDetector = composeFileDetector;
         _pathMappingService = pathMappingService;
         _dockerCommandExecutor = dockerCommandExecutor;
-        _auditService = auditService;
         _selfUpdateOptions = selfUpdateOptions.Value;
         _maintenanceOptions = maintenanceOptions.Value;
         _logger = logger;
@@ -142,20 +139,8 @@ public class SelfUpdateService : ISelfUpdateService
                 return new UpdateTriggerResponse(false, "No update available. Current version is already the latest.", null);
             }
 
-            _logger.LogInformation("Starting application update from {Current} to {Latest} using compose file: {ComposeFile} (Host: {HostPath})",
-                updateInfo.CurrentVersion, updateInfo.LatestVersion, paths.ContainerPath, paths.HostPath);
-
-            // Log the update action
-            await _auditService.LogActionAsync(
-                userId: userId,
-                action: AuditActions.AppUpdate,
-                ipAddress: ipAddress,
-                details: $"Updating application from {updateInfo.CurrentVersion} to {updateInfo.LatestVersion}",
-                resourceType: "application",
-                resourceId: "self",
-                before: new { Version = updateInfo.CurrentVersion },
-                after: new { Version = updateInfo.LatestVersion }
-            );
+            _logger.LogInformation("Starting application update from {Current} to {Latest} using compose file: {ComposeFile} (Host: {HostPath}) triggered by user {UserId}",
+                updateInfo.CurrentVersion, updateInfo.LatestVersion, paths.ContainerPath, paths.HostPath, userId);
 
             // Notify all clients about maintenance mode
             _logger.LogDebug("Broadcasting maintenance mode notification with instance ID {InstanceId}",

@@ -1,4 +1,4 @@
-using Lighthouse.DTOs;
+﻿using Lighthouse.DTOs;
 using Lighthouse.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,18 +15,15 @@ namespace Lighthouse.Controllers;
 public class ImagesController : BaseController
 {
     private readonly IImageService _imageService;
-    private readonly IAuditService _auditService;
     private readonly SseConnectionManagerService _sse;
     private readonly ILogger<ImagesController> _logger;
 
     public ImagesController(
         IImageService imageService,
-        IAuditService auditService,
         SseConnectionManagerService sse,
         ILogger<ImagesController> logger)
     {
         _imageService = imageService;
-        _auditService = auditService;
         _sse = sse;
         _logger = logger;
     }
@@ -86,10 +83,7 @@ public class ImagesController : BaseController
                         "Failed to delete image", "DOCKER_OPERATION_FAILED"));
 
                 default:
-                    await _auditService.LogActionAsync(
-                        GetCurrentUserIdRequired(), AuditActions.ImageRemove, GetUserIpAddress(),
-                        details: $"Deleted image {id} (force={force})",
-                        resourceType: "image", resourceId: id);
+                    _logger.LogInformation("Image deleted: {ImageId} (force={Force})", id, force);
                     await _sse.BroadcastAsync("ImagesChanged", new
                     {
                         action = "delete",
@@ -121,10 +115,8 @@ public class ImagesController : BaseController
             bool danglingOnly = request?.DanglingOnly ?? true;
             PruneImagesResultDto result = await _imageService.PruneImagesAsync(danglingOnly, ct);
 
-            await _auditService.LogActionAsync(
-                GetCurrentUserIdRequired(), AuditActions.ImagePrune, GetUserIpAddress(),
-                details: $"Pruned {result.ImagesDeleted.Count} image(s), reclaimed {result.SpaceReclaimed} bytes (danglingOnly={danglingOnly})",
-                resourceType: "image");
+            _logger.LogInformation("Images pruned: {Count} image(s), reclaimed {SpaceReclaimed} bytes (danglingOnly={DanglingOnly})",
+                result.ImagesDeleted.Count, result.SpaceReclaimed, danglingOnly);
 
             if (result.ImagesDeleted.Count > 0)
             {

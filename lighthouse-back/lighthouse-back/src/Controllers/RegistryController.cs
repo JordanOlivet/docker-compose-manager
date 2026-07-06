@@ -1,4 +1,4 @@
-using Lighthouse.DTOs;
+﻿using Lighthouse.DTOs;
 using Lighthouse.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,16 +14,13 @@ namespace Lighthouse.Controllers;
 public class RegistryController : BaseController
 {
     private readonly IRegistryCredentialService _registryService;
-    private readonly IAuditService _auditService;
     private readonly ILogger<RegistryController> _logger;
 
     public RegistryController(
         IRegistryCredentialService registryService,
-        IAuditService auditService,
         ILogger<RegistryController> logger)
     {
         _registryService = registryService;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -93,16 +90,9 @@ public class RegistryController : BaseController
         {
             var result = await _registryService.LoginAsync(request);
 
-            // Audit log (without sensitive data)
-            await _auditService.LogAsync(
-                GetCurrentUserId(),
-                "RegistryLogin",
-                "Registry",
-                request.RegistryUrl,
-                result.Success ? "Success" : $"Failed: {result.Error}",
-                GetUserIpAddress(),
-                GetUserAgent()
-            );
+            // No credentials in the log â€” only the registry URL and the outcome.
+            _logger.LogInformation("Registry login to {RegistryUrl}: {Outcome}",
+                request.RegistryUrl, result.Success ? "success" : $"failed ({result.Error})");
 
             if (result.Success)
             {
@@ -136,16 +126,8 @@ public class RegistryController : BaseController
         {
             var result = await _registryService.LogoutAsync(request.RegistryUrl);
 
-            // Audit log
-            await _auditService.LogAsync(
-                GetCurrentUserId(),
-                "RegistryLogout",
-                "Registry",
-                request.RegistryUrl,
-                result.Success ? "Success" : $"Failed: {result.Message}",
-                GetUserIpAddress(),
-                GetUserAgent()
-            );
+            _logger.LogInformation("Registry logout from {RegistryUrl}: {Outcome}",
+                request.RegistryUrl, result.Success ? "success" : $"failed ({result.Message})");
 
             if (result.Success)
             {

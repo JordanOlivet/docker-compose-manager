@@ -3,7 +3,6 @@ export * from './compose';
 export * from './container';
 export * from './image';
 export * from './operations';
-export * from './audit';
 export * from './permissions';
 export * from './global';
 export * from './api';

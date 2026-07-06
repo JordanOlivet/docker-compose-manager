@@ -15,7 +15,6 @@ public class SelfUpdateServiceTests
     private readonly Mock<IComposeFileDetectorService> _composeFileDetectorMock;
     private readonly Mock<IPathMappingService> _pathMappingServiceMock;
     private readonly Mock<DockerCommandExecutorService> _dockerCommandExecutorMock;
-    private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<ILogger<SelfUpdateService>> _loggerMock;
     private readonly Mock<SseConnectionManagerService> _sseConnectionManagerMock;
     private readonly Mock<IInstanceIdentifierService> _instanceIdentifierServiceMock;
@@ -31,7 +30,6 @@ public class SelfUpdateServiceTests
         _pathMappingServiceMock = new Mock<IPathMappingService>();
         _dockerCommandExecutorMock = new Mock<DockerCommandExecutorService>(
             Mock.Of<ILogger<DockerCommandExecutorService>>());
-        _auditServiceMock = new Mock<IAuditService>();
         _loggerMock = new Mock<ILogger<SelfUpdateService>>();
         _sseConnectionManagerMock = new Mock<SseConnectionManagerService>(
             Mock.Of<ILogger<SseConnectionManagerService>>());
@@ -53,7 +51,6 @@ public class SelfUpdateServiceTests
             _pathMappingServiceMock.Object,
             _dockerCommandExecutorMock.Object,
             _configurationMock.Object,
-            _auditServiceMock.Object,
             Options.Create(_selfUpdateOptions),
             Options.Create(_maintenanceOptions),
             _loggerMock.Object,
@@ -260,7 +257,6 @@ public class SelfUpdateServiceTests
             _pathMappingServiceMock.Object,
             _dockerCommandExecutorMock.Object,
             _configurationMock.Object,
-            _auditServiceMock.Object,
             Options.Create(_selfUpdateOptions),
             Options.Create(new MaintenanceOptions { GracePeriodSeconds = 0 }),
             _loggerMock.Object,

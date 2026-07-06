@@ -29,7 +29,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Core application services: auth, users, permissions, audit, Docker and
+    /// Core application services: auth, users, permissions, Docker and
     /// the compose domain.
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
@@ -41,13 +41,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ComposeService>();
-        services.AddScoped<IAuditService, AuditService>();
-        services.AddSingleton<IAuditQueue, AuditQueue>();
         services.AddScoped<IOperationService, OperationService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<DockerService>();
         services.AddSingleton<IDockerImageOperations>(sp => sp.GetRequiredService<DockerService>());
         services.AddSingleton<IContainerLogService, ContainerLogService>();
+        services.AddSingleton<IAppLogService, AppLogService>();
         services.AddTransient<ComposeLogStreamCoordinator>();
         services.AddScoped<IImageService, ImageService>();
         services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
@@ -152,7 +151,6 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<AutoPruneImagesBackgroundService>();
         services.AddHostedService<AppUpdateNotificationStartupService>();
         services.AddHostedService<Lighthouse.BackgroundServices.CleanupBackgroundService>();
-        services.AddHostedService<Lighthouse.BackgroundServices.AuditWriterBackgroundService>();
         return services;
     }
 }

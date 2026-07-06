@@ -21,7 +21,6 @@ public class ComposeController : BaseController
     private readonly IComposeDiscoveryService _discoveryService;
     private readonly IComposeOperationService _operationService;
     private readonly IOperationService _legacyOperationService;
-    private readonly IAuditService _auditService;
     private readonly IPermissionService _permissionService;
     private readonly ILogger<ComposeController> _logger;
     private readonly IProjectMatchingService _projectMatchingService;
@@ -35,7 +34,6 @@ public class ComposeController : BaseController
         IComposeDiscoveryService discoveryService,
         IComposeOperationService operationService,
         IOperationService legacyOperationService,
-        IAuditService auditService,
         IPermissionService permissionService,
         ILogger<ComposeController> logger,
         IProjectMatchingService projectMatchingService,
@@ -48,7 +46,6 @@ public class ComposeController : BaseController
         _discoveryService = discoveryService;
         _operationService = operationService;
         _legacyOperationService = legacyOperationService;
-        _auditService = auditService;
         _permissionService = permissionService;
         _logger = logger;
         _projectMatchingService = projectMatchingService;
@@ -103,13 +100,6 @@ public class ComposeController : BaseController
             // Get unified project list from matching service (includes permission filtering)
             List<ComposeProjectDto> projects = await _projectMatchingService.GetUnifiedProjectListAsync(userId.Value);
 
-            await _auditService.LogActionAsync(
-                userId.Value,
-                AuditActions.ComposeList,
-                GetUserIpAddress(),
-                "Listed compose projects"
-            );
-
             _logger.LogDebug("User {UserId} listed {Count} compose projects", userId.Value, projects.Count);
 
             return Ok(ApiResponse.Ok(projects));
@@ -159,7 +149,6 @@ public class ComposeController : BaseController
 
             return await FinalizeOperationAsync(
                 OperationType.ComposeUp, userId, projectName, project.Path,
-                AuditActions.ComposeUp, $"Started project: {projectName}",
                 result, ComposeOutputHelper.BuildLogs(result));
         }
         catch (Exception ex)
@@ -189,7 +178,6 @@ public class ComposeController : BaseController
 
             return await FinalizeOperationAsync(
                 OperationType.ComposeDown, userId, projectName, projectPath,
-                AuditActions.ComposeDown, $"Stopped project: {projectName}",
                 result, ComposeOutputHelper.BuildLogs(result));
         }
         catch (Exception ex)
@@ -395,14 +383,6 @@ volumes:
                 project = project with { CanEdit = canEdit };
             }
 
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "compose.project_view",
-                GetUserIpAddress(),
-                $"Viewed project details: {projectName}",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
 
             return Ok(ApiResponse.Ok(project, "Project details retrieved successfully"));
         }
@@ -580,14 +560,6 @@ volumes:
                     Volumes: volumesDict
                 );
 
-                await _auditService.LogActionAsync(
-                    userId.Value,
-                    "compose.parsed_details",
-                    GetUserIpAddress(),
-                    $"Retrieved parsed details for project: {projectName}",
-                    resourceType: "compose_project",
-                    resourceId: projectName
-                );
 
                 return Ok(ApiResponse.Ok(result, "Parsed compose file details retrieved successfully"));
             }
@@ -741,11 +713,6 @@ volumes:
 
             LogPageDto merged = LogMerger.MergeTail(pages.Where(p => p != null).Cast<LogPageDto>().ToList(), tail);
 
-            await _auditService.LogActionAsync(
-                userId, AuditActions.ComposeLogs, GetUserIpAddress(),
-                $"Viewed logs for project: {projectName}",
-                resourceType: "compose_project", resourceId: projectName);
-
             return Ok(ApiResponse.Ok(merged, $"Retrieved {merged.Entries.Count} log lines"));
         }
         catch (FormatException)
@@ -819,11 +786,6 @@ volumes:
             }
         }
 
-        await _auditService.LogActionAsync(
-            userId.Value, AuditActions.ComposeLogs, GetUserIpAddress(),
-            $"Streaming logs for project: {projectName}",
-            resourceType: "compose_project", resourceId: projectName);
-
         HashSet<string>? serviceFilter = ParseServiceFilter(services);
 
         await SseLogStreamWriter.RunAsync(
@@ -835,12 +797,12 @@ volumes:
 
     /// <summary>
     /// Records an operation for a completed project action (create + running + logs +
-    /// final status), writes the audit entry, and builds the HTTP response. Shared by all
-    /// lifecycle endpoints so the tracking/audit/response shape stays identical.
+    /// final status) and builds the HTTP response. Shared by all lifecycle endpoints so
+    /// the tracking/response shape stays identical.
     /// </summary>
     private async Task<ActionResult<ApiResponse<ComposeOperationResponse>>> FinalizeOperationAsync(
         string operationType, int userId, string projectName, string? projectPath,
-        string auditAction, string auditDetail, OperationResult result, string? logs)
+        OperationResult result, string? logs)
     {
         Operation operation = await _legacyOperationService.CreateOperationAsync(
             operationType, userId, projectPath: projectPath, projectName: projectName);
@@ -854,10 +816,6 @@ volumes:
             result.Success ? OperationStatus.Completed : OperationStatus.Failed,
             progress: 100,
             errorMessage: result.Success ? null : result.Error);
-
-        await _auditService.LogActionAsync(
-            userId, auditAction, GetUserIpAddress(), auditDetail,
-            resourceType: "compose_project", resourceId: projectName);
 
         if (result.Success)
             _logger.LogInformation("Operation {OperationType} on project {ProjectName} succeeded (user {UserId})",
@@ -896,7 +854,6 @@ volumes:
 
             return await FinalizeOperationAsync(
                 OperationType.ComposeStart, userId, projectName, projectPath,
-                AuditActions.ComposeStart, $"Started services for project: {projectName}",
                 result, result.Message);
         }
         catch (Exception ex)
@@ -924,7 +881,6 @@ volumes:
 
             return await FinalizeOperationAsync(
                 OperationType.ComposeStop, userId, projectName, projectPath,
-                AuditActions.ComposeStop, $"Stopped services for project: {projectName}",
                 result, result.Message);
         }
         catch (Exception ex)
@@ -952,7 +908,6 @@ volumes:
 
             return await FinalizeOperationAsync(
                 OperationType.ComposeRestart, userId, projectName, projectPath,
-                AuditActions.ComposeRestart, $"Restarted project: {projectName}",
                 result, result.Message);
         }
         catch (Exception ex)

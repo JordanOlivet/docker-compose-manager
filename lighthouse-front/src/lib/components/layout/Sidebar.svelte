@@ -6,7 +6,7 @@
     Package,
     Container,
     HardDrive,
-    ClipboardList,
+    ScrollText,
     Users,
     UsersRound,
     Shield,
@@ -47,7 +47,7 @@
     { to: '/users', icon: Users, label: 'navigation.userManagement', category: 'navigation.categories.administration' },
     { to: '/user-groups', icon: UsersRound, label: 'navigation.userGroups', category: 'navigation.categories.administration' },
     { to: '/permissions', icon: Shield, label: 'navigation.permissions', category: 'navigation.categories.administration' },
-    { to: '/audit', icon: ClipboardList, label: 'navigation.auditLogs', category: 'navigation.categories.administration' },
+    { to: '/logs-app', icon: ScrollText, label: 'navigation.appLogs', category: 'navigation.categories.administration' },
     { to: '/settings', icon: Settings, label: 'navigation.settings', category: 'navigation.categories.administration' },
   ];
 

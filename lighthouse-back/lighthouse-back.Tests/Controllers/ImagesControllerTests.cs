@@ -13,13 +13,12 @@ namespace Lighthouse.Tests.Controllers;
 public class ImagesControllerTests
 {
     private readonly Mock<IImageService> _imageService = new();
-    private readonly Mock<IAuditService> _auditService = new();
 
     private ImagesController CreateSut(bool withUser = false)
     {
         var sse = new SseConnectionManagerService(NullLogger<SseConnectionManagerService>.Instance);
         var controller = new ImagesController(
-            _imageService.Object, _auditService.Object, sse, NullLogger<ImagesController>.Instance);
+            _imageService.Object, sse, NullLogger<ImagesController>.Instance);
 
         if (withUser)
         {
@@ -94,7 +93,7 @@ public class ImagesControllerTests
     }
 
     [Fact]
-    public async Task DeleteImage_ReturnsOkAndAudits_WhenDeleted()
+    public async Task DeleteImage_ReturnsOk_WhenDeleted()
     {
         _imageService.Setup(s => s.DeleteImageAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImageDeleteResult(ImageDeleteStatus.Deleted));
@@ -104,13 +103,10 @@ public class ImagesControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ApiResponse<bool>>(ok.Value);
         Assert.True(response.Success);
-        _auditService.Verify(a => a.LogActionAsync(
-            1, AuditActions.ImageRemove, It.IsAny<string>(),
-            It.IsAny<string>(), "image", "sha256:aaa", null, null), Times.Once);
     }
 
     [Fact]
-    public async Task PruneImages_ReturnsOkAndAudits()
+    public async Task PruneImages_ReturnsOk()
     {
         _imageService.Setup(s => s.PruneImagesAsync(true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PruneImagesResultDto(new List<string> { "sha256:aaa" }, 1024));
@@ -121,8 +117,5 @@ public class ImagesControllerTests
         var response = Assert.IsType<ApiResponse<PruneImagesResultDto>>(ok.Value);
         Assert.True(response.Success);
         Assert.Equal(1024, response.Data!.SpaceReclaimed);
-        _auditService.Verify(a => a.LogActionAsync(
-            1, AuditActions.ImagePrune, It.IsAny<string>(),
-            It.IsAny<string>(), "image", null, null, null), Times.Once);
     }
 }

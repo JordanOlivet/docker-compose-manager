@@ -12,7 +12,6 @@ public class SystemControllerTests
 {
     private readonly Mock<ILogger<SystemController>> _loggerMock;
     private readonly Mock<ISelfUpdateService> _selfUpdateServiceMock;
-    private readonly Mock<IAuditService> _auditServiceMock;
     private readonly Mock<IVersionDetectionService> _versionDetectionServiceMock;
     private readonly Mock<IInstanceIdentifierService> _instanceIdentifierServiceMock;
 
@@ -20,7 +19,6 @@ public class SystemControllerTests
     {
         _loggerMock = new Mock<ILogger<SystemController>>();
         _selfUpdateServiceMock = new Mock<ISelfUpdateService>();
-        _auditServiceMock = new Mock<IAuditService>();
         _versionDetectionServiceMock = new Mock<IVersionDetectionService>();
         _instanceIdentifierServiceMock = new Mock<IInstanceIdentifierService>();
     }
@@ -30,7 +28,6 @@ public class SystemControllerTests
         return new SystemController(
             _loggerMock.Object,
             _selfUpdateServiceMock.Object,
-            _auditServiceMock.Object,
             _versionDetectionServiceMock.Object,
             _instanceIdentifierServiceMock.Object);
     }
