@@ -20,6 +20,26 @@
 		raw: string;
 	}
 
+	// Matches the backend LogEntryDto (PR1 SSE contract).
+	interface BackendLogEntry {
+		timestamp: string;
+		containerId: string;
+		containerName: string;
+		service: string | null;
+		stream: 'stdout' | 'stderr';
+		message: string;
+	}
+
+	function toLogEntry(entry: BackendLogEntry): LogEntry {
+		const parsed = entry.timestamp ? new Date(entry.timestamp) : new Date();
+		return {
+			timestamp: isNaN(parsed.getTime()) ? new Date() : parsed,
+			service: entry.service || entry.containerName || entry.containerId.substring(0, 12),
+			message: entry.message,
+			raw: entry.message
+		};
+	}
+
 	let logs = $state<LogEntry[]>([]);
 	let isStreaming = $state(false);
 	let error = $state<string | null>(null);
@@ -49,43 +69,6 @@
 			serviceColors.set(serviceName, colorPalette[colorIndex]);
 		}
 		return serviceColors.get(serviceName)!;
-	}
-
-	function parseLogLine(rawLog: string): LogEntry {
-		const pipeIndex = rawLog.indexOf('|');
-
-		if (pipeIndex === -1) {
-			const svc = containerId ? containerName || containerId.substring(0, 12) : 'unknown';
-			return {
-				timestamp: new Date(),
-				service: svc,
-				message: rawLog,
-				raw: rawLog
-			};
-		}
-
-		const serviceName = rawLog.substring(0, pipeIndex).trim();
-		const content = rawLog.substring(pipeIndex + 1).trim();
-
-		const timestampMatch = content.match(
-			/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)\s+(.*)$/
-		);
-
-		if (timestampMatch) {
-			return {
-				timestamp: new Date(timestampMatch[1]),
-				service: serviceName,
-				message: timestampMatch[2],
-				raw: rawLog
-			};
-		}
-
-		return {
-			timestamp: new Date(),
-			service: serviceName,
-			message: content,
-			raw: rawLog
-		};
 	}
 
 	// Auto-scroll effect
@@ -132,15 +115,25 @@
 
 			eventSource = new EventSource(streamUrl);
 
-			eventSource.addEventListener('log', (e: MessageEvent) => {
-				const line = e.data;
-				const parsed = parseLogLine(line);
-				logs = [...logs, parsed];
+			// New SSE contract (PR1): batched `logs` events carrying structured JSON entries.
+			// This is a compatibility shim until the dedicated LogViewer (PR3) lands.
+			eventSource.addEventListener('logs', (e: MessageEvent) => {
+				try {
+					const payload = JSON.parse(e.data) as { entries: BackendLogEntry[] };
+					const mapped = payload.entries.map(toLogEntry);
+					logs = [...logs, ...mapped];
+				} catch (err) {
+					logger.error('[STREAMING] Failed to parse log batch:', err);
+				}
 			});
 
 			eventSource.addEventListener('error', (e: MessageEvent) => {
 				if (e.data) {
-					error = e.data;
+					try {
+						error = (JSON.parse(e.data) as { message?: string }).message ?? e.data;
+					} catch {
+						error = e.data;
+					}
 				}
 			});
 

@@ -1,6 +1,7 @@
 using Lighthouse.DTOs;
 using Lighthouse.Models;
 using Lighthouse.Services;
+using Lighthouse.Services.LogStreaming;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -17,6 +18,8 @@ public class ContainersController : BaseController
     private readonly IContainerUpdateService _containerUpdateService;
     private readonly ISelfFilterService _selfFilterService;
     private readonly IOperationService _operationTrackingService;
+    private readonly IContainerLogService _containerLogService;
+    private readonly IAuditService _auditService;
     private readonly ILogger<ContainersController> _logger;
 
     public ContainersController(
@@ -25,6 +28,8 @@ public class ContainersController : BaseController
         IContainerUpdateService containerUpdateService,
         ISelfFilterService selfFilterService,
         IOperationService operationTrackingService,
+        IContainerLogService containerLogService,
+        IAuditService auditService,
         ILogger<ContainersController> logger)
     {
         _dockerService = dockerService;
@@ -32,6 +37,8 @@ public class ContainersController : BaseController
         _containerUpdateService = containerUpdateService;
         _selfFilterService = selfFilterService;
         _operationTrackingService = operationTrackingService;
+        _containerLogService = containerLogService;
+        _auditService = auditService;
         _logger = logger;
     }
 
@@ -534,15 +541,109 @@ public class ContainersController : BaseController
     }
 
     /// <summary>
-    /// Stream container logs in real-time via SSE.
-    /// Sends historical logs first, then follows new logs.
+    /// Get a page of historical container logs, for infinite scroll-up pagination.
+    /// Entries are sorted ascending by timestamp.
     /// </summary>
     /// <param name="id">Container ID</param>
-    /// <param name="tail">Number of historical lines (default 100)</param>
+    /// <param name="tail">Number of lines per page (default 100, max 1000)</param>
+    /// <param name="until">RFC3339Nano cursor — return lines up to this timestamp (default: now)</param>
+    /// <param name="cancellationToken">Request cancellation.</param>
+    [HttpGet("{id}/logs/history")]
+    [ProducesResponseType(typeof(ApiResponse<LogPageDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<LogPageDto>>> GetContainerLogHistory(
+        string id,
+        [FromQuery] int tail = 100,
+        [FromQuery] string? until = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            tail = Math.Clamp(tail, 1, 1000);
+
+            int? userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse.Fail<LogPageDto>("User not authenticated"));
+            }
+
+            ContainerLogSource? source = await _containerLogService.GetLogSourceAsync(id, cancellationToken);
+            if (source == null)
+            {
+                return NotFound(ApiResponse.Fail<LogPageDto>(
+                    "Container not found", "RESOURCE_NOT_FOUND"));
+            }
+
+            // Self-protection
+            if (await _selfFilterService.IsSelfContainerAsync(id))
+            {
+                return StatusCode(403, ApiResponse.Fail<LogPageDto>(
+                    "This container belongs to the application itself and cannot be accessed",
+                    "SELF_CONTAINER_PROTECTED"));
+            }
+
+            // Check Logs permission (direct or inherited from project)
+            bool hasPermission = await _permissionService.HasContainerPermissionAsync(
+                userId.Value, source.Name, source.Project, PermissionFlags.Logs);
+            if (!hasPermission)
+            {
+                return StatusCode(403, ApiResponse.Fail<LogPageDto>(
+                    "You don't have permission to view logs for this container",
+                    "PERMISSION_DENIED"));
+            }
+
+            LogPageDto page = await _containerLogService.GetHistoryAsync(source, tail, until, cancellationToken);
+            return Ok(ApiResponse.Ok(page, $"Retrieved {page.Entries.Count} log lines"));
+        }
+        catch (FormatException)
+        {
+            return BadRequest(ApiResponse.Fail<LogPageDto>(
+                "Invalid 'until' timestamp", "VALIDATION_ERROR"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving log history for container {ContainerId}", id);
+            return StatusCode(500, ApiResponse.Fail<LogPageDto>(
+                "Failed to retrieve container logs", "DOCKER_OPERATION_FAILED"));
+        }
+    }
+
+    /// <summary>
+    /// Stream container logs in real-time via SSE.
+    /// Sends the last <paramref name="tail"/> lines first, then follows new logs.
+    /// Events: connected, logs (batched JSON), error. See LogEntryDto for the entry shape.
+    /// </summary>
+    /// <param name="id">Container ID</param>
+    /// <param name="tail">Number of historical lines (default 100, max 1000)</param>
+    /// <param name="since">RFC3339Nano resume cursor — replay all lines since this timestamp (tail is ignored)</param>
     /// <param name="cancellationToken">Cancels the stream when the client disconnects.</param>
     [HttpGet("{id}/logs/stream")]
-    public async Task StreamContainerLogs(string id, [FromQuery] int tail = 100, CancellationToken cancellationToken = default)
+    public async Task StreamContainerLogs(
+        string id,
+        [FromQuery] int tail = 100,
+        [FromQuery] string? since = null,
+        CancellationToken cancellationToken = default)
     {
+        tail = Math.Clamp(tail, 1, 1000);
+
+        int? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            Response.StatusCode = 401;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "User not authenticated", "UNAUTHORIZED"), cancellationToken);
+            return;
+        }
+
+        ContainerLogSource? source = await _containerLogService.GetLogSourceAsync(id, cancellationToken);
+        if (source == null)
+        {
+            Response.StatusCode = 404;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "Container not found", "RESOURCE_NOT_FOUND"), cancellationToken);
+            return;
+        }
+
         // Self-protection
         if (await _selfFilterService.IsSelfContainerAsync(id))
         {
@@ -553,46 +654,48 @@ public class ContainersController : BaseController
             return;
         }
 
-        Response.Headers.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-
-        // Only set Connection header for HTTP/1.1 (not valid for HTTP/2+)
-        if (Request.Protocol == "HTTP/1.1")
+        // Check Logs permission (direct or inherited from project) — same rule as the
+        // one-shot and history endpoints.
+        bool hasPermission = await _permissionService.HasContainerPermissionAsync(
+            userId.Value, source.Name, source.Project, PermissionFlags.Logs);
+        if (!hasPermission)
         {
-            Response.Headers.Connection = "keep-alive";
+            Response.StatusCode = 403;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "You don't have permission to view logs for this container",
+                "PERMISSION_DENIED"), cancellationToken);
+            return;
         }
 
-        try
+        // Validate the resume cursor before committing to SSE headers
+        if (since != null)
         {
-            await _dockerService.StreamContainerLogsAsync(
-                id,
-                tail,
-                async (line) =>
-                {
-                    string escaped = line.Replace("\\", "\\\\").Replace("\n", "\\n").Replace("\r", "");
-                    await Response.WriteAsync($"event: log\ndata: {escaped}\n\n", cancellationToken);
-                    await Response.Body.FlushAsync(cancellationToken);
-                },
-                cancellationToken
-            );
-        }
-        catch (OperationCanceledException)
-        {
-            // Client disconnected — normal behavior
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error streaming logs for container {ContainerId}", id);
             try
             {
-                await Response.WriteAsync($"event: error\ndata: Failed to stream logs\n\n", cancellationToken);
-                await Response.Body.FlushAsync(cancellationToken);
+                LogTimestampUtil.ToUnixNano(since);
             }
-            catch
+            catch (FormatException)
             {
-                // Client already disconnected
+                Response.StatusCode = 400;
+                await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                    "Invalid 'since' timestamp", "VALIDATION_ERROR"), cancellationToken);
+                return;
             }
         }
+
+        await _auditService.LogActionAsync(
+            userId.Value,
+            AuditActions.ContainerLogs,
+            GetUserIpAddress(),
+            details: $"Streaming logs for container {source.Name}",
+            resourceType: "container",
+            resourceId: source.Id);
+
+        await SseLogStreamWriter.RunAsync(
+            HttpContext,
+            _containerLogService.StreamAsync(source, tail, since, cancellationToken),
+            _logger,
+            cancellationToken);
     }
 
     /// <summary>
