@@ -10,6 +10,7 @@ public class DockerEventHandlerService
 {
     private readonly SseConnectionManagerService _sseManager;
     private readonly CrashLoopDetectionService _crashLoopDetection;
+    private readonly IDockerEventBus _eventBus;
     private readonly ILogger<DockerEventHandlerService> _logger;
 
     private static readonly string[] RelevantActions =
@@ -21,10 +22,12 @@ public class DockerEventHandlerService
     public DockerEventHandlerService(
         SseConnectionManagerService sseManager,
         CrashLoopDetectionService crashLoopDetection,
+        IDockerEventBus eventBus,
         ILogger<DockerEventHandlerService> logger)
     {
         _sseManager = sseManager;
         _crashLoopDetection = crashLoopDetection;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -63,6 +66,10 @@ public class DockerEventHandlerService
         // Record event for crash loop detection
         _crashLoopDetection.RecordEvent(containerId, message.Action);
         bool isCrashLooping = _crashLoopDetection.IsContainerCrashLooping(containerId);
+
+        // Fan out the raw event to in-process consumers (e.g. compose log coordinators
+        // that attach/detach per-container follow streams as containers come and go).
+        await _eventBus.PublishAsync(message);
 
         // Broadcast container state change to all connected SSE clients
         await _sseManager.BroadcastAsync("ContainerStateChanged", new

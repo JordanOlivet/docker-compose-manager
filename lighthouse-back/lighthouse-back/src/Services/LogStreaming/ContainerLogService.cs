@@ -56,6 +56,21 @@ public class ContainerLogService : IContainerLogService, IDisposable
         }
     }
 
+    public async Task<IReadOnlyList<string>> ListProjectContainerIdsAsync(string projectName, bool includeStopped, CancellationToken ct = default)
+    {
+        var parameters = new ContainersListParameters
+        {
+            All = includeStopped,
+            Filters = new Dictionary<string, IDictionary<string, bool>>
+            {
+                ["label"] = new Dictionary<string, bool> { [$"{ComposeProjectLabel}={projectName}"] = true }
+            }
+        };
+
+        IList<ContainerListResponse> containers = await _dockerClient.Containers.ListContainersAsync(parameters, ct);
+        return containers.Select(c => c.ID).ToList();
+    }
+
     public async Task<LogPageDto> GetHistoryAsync(ContainerLogSource source, int tail, string? until, CancellationToken ct = default)
     {
         ContainerLogsParameters parameters = new()

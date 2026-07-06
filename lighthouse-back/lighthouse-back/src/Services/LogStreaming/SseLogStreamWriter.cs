@@ -23,7 +23,7 @@ public static class SseLogStreamWriter
 
     public static async Task RunAsync(
         HttpContext httpContext,
-        IAsyncEnumerable<LogEntryDto> entries,
+        IAsyncEnumerable<ILogStreamItem> items,
         ILogger logger,
         CancellationToken ct)
     {
@@ -42,14 +42,14 @@ public static class SseLogStreamWriter
             await WriteEventAsync(response, "connected",
                 JsonSerializer.Serialize(new { streamId = Guid.NewGuid().ToString() }, JsonOptions), ct);
 
-            Channel<LogEntryDto> channel = Channel.CreateBounded<LogEntryDto>(new BoundedChannelOptions(ChannelCapacity)
+            Channel<ILogStreamItem> channel = Channel.CreateBounded<ILogStreamItem>(new BoundedChannelOptions(ChannelCapacity)
             {
                 SingleReader = true,
                 SingleWriter = true,
                 FullMode = BoundedChannelFullMode.Wait
             });
 
-            Task producer = PumpAsync(entries, channel.Writer, ct);
+            Task producer = PumpAsync(items, channel.Writer, ct);
             await ConsumeAsync(response, channel.Reader, ct);
             await producer;
         }
@@ -74,15 +74,15 @@ public static class SseLogStreamWriter
     }
 
     private static async Task PumpAsync(
-        IAsyncEnumerable<LogEntryDto> entries,
-        ChannelWriter<LogEntryDto> writer,
+        IAsyncEnumerable<ILogStreamItem> items,
+        ChannelWriter<ILogStreamItem> writer,
         CancellationToken ct)
     {
         try
         {
-            await foreach (LogEntryDto entry in entries.WithCancellation(ct))
+            await foreach (ILogStreamItem item in items.WithCancellation(ct))
             {
-                await writer.WriteAsync(entry, ct);
+                await writer.WriteAsync(item, ct);
             }
             writer.Complete();
         }
@@ -94,10 +94,11 @@ public static class SseLogStreamWriter
 
     private static async Task ConsumeAsync(
         HttpResponse response,
-        ChannelReader<LogEntryDto> reader,
+        ChannelReader<ILogStreamItem> reader,
         CancellationToken ct)
     {
         List<LogEntryDto> batch = new(MaxBatchSize);
+        List<ContainersSnapshot> snapshots = new();
         DateTime lastWrite = DateTime.UtcNow;
         DateTime? batchDeadline = null;
 
@@ -128,13 +129,22 @@ public static class SseLogStreamWriter
 
             if (!completed && !timedOut)
             {
-                while (batch.Count < MaxBatchSize && reader.TryRead(out LogEntryDto? entry))
+                while (batch.Count < MaxBatchSize && reader.TryRead(out ILogStreamItem? item))
                 {
-                    batch.Add(entry);
+                    if (item is LogEntryDto entry)
+                    {
+                        batch.Add(entry);
+                    }
+                    else if (item is ContainersSnapshot snapshot)
+                    {
+                        // Control frame: flush pending logs then emit it immediately.
+                        snapshots.Add(snapshot);
+                        break;
+                    }
                 }
                 batchDeadline ??= DateTime.UtcNow + FlushInterval;
 
-                if (batch.Count < MaxBatchSize)
+                if (snapshots.Count == 0 && batch.Count < MaxBatchSize)
                 {
                     continue; // accumulate until the flush deadline or a full batch
                 }
@@ -148,7 +158,18 @@ public static class SseLogStreamWriter
                 batchDeadline = null;
                 lastWrite = DateTime.UtcNow;
             }
-            else if (timedOut)
+
+            if (snapshots.Count > 0)
+            {
+                foreach (ContainersSnapshot snapshot in snapshots)
+                {
+                    await WriteEventAsync(response, "containers",
+                        JsonSerializer.Serialize(new { containers = snapshot.Containers }, JsonOptions), ct);
+                }
+                snapshots.Clear();
+                lastWrite = DateTime.UtcNow;
+            }
+            else if (batch.Count == 0 && timedOut)
             {
                 await response.WriteAsync(": heartbeat\n\n", ct);
                 await response.Body.FlushAsync(ct);

@@ -1,8 +1,10 @@
+using Docker.DotNet;
 using Lighthouse.Configuration;
 using Lighthouse.Data;
 using Lighthouse.DTOs;
 using Lighthouse.Models;
 using Lighthouse.Services;
+using Lighthouse.Services.LogStreaming;
 using Lighthouse.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Timeouts;
@@ -26,6 +28,8 @@ public class ComposeController : BaseController
     private readonly IComposeFileCacheService _composeFileCacheService;
     private readonly IImageUpdateCacheService _imageUpdateCacheService;
     private readonly ISelfFilterService _selfFilterService;
+    private readonly IContainerLogService _containerLogService;
+    private readonly ComposeLogStreamCoordinator _logStreamCoordinator;
 
     public ComposeController(
         IComposeDiscoveryService discoveryService,
@@ -37,7 +41,9 @@ public class ComposeController : BaseController
         IProjectMatchingService projectMatchingService,
         IComposeFileCacheService composeFileCacheService,
         IImageUpdateCacheService imageUpdateCacheService,
-        ISelfFilterService selfFilterService)
+        ISelfFilterService selfFilterService,
+        IContainerLogService containerLogService,
+        ComposeLogStreamCoordinator logStreamCoordinator)
     {
         _discoveryService = discoveryService;
         _operationService = operationService;
@@ -49,6 +55,8 @@ public class ComposeController : BaseController
         _composeFileCacheService = composeFileCacheService;
         _imageUpdateCacheService = imageUpdateCacheService;
         _selfFilterService = selfFilterService;
+        _containerLogService = containerLogService;
+        _logStreamCoordinator = logStreamCoordinator;
     }
 
     // ============================================
@@ -635,6 +643,185 @@ volumes:
         }
 
         return (userId.Value, null);
+    }
+
+    /// <summary>
+    /// Guards the read-only log endpoints: self-protection, authentication and the
+    /// project-level Logs permission. Generic over the endpoint's response type.
+    /// </summary>
+    private async Task<(int UserId, ActionResult<ApiResponse<T>>? Error)> AuthorizeProjectLogsAsync<T>(string projectName)
+    {
+        if (await _selfFilterService.IsSelfProjectAsync(projectName))
+        {
+            return (0, StatusCode(403, ApiResponse.Fail<T>(
+                "This project belongs to the application itself and cannot be accessed",
+                "SELF_PROJECT_PROTECTED")));
+        }
+
+        int? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return (0, Unauthorized(ApiResponse.Fail<T>("User not authenticated")));
+        }
+
+        bool hasPermission = await _permissionService.HasPermissionAsync(
+            userId.Value, ResourceType.ComposeProject, projectName, PermissionFlags.Logs);
+        if (!hasPermission)
+        {
+            return (0, StatusCode(403, ApiResponse.Fail<T>(
+                "You don't have permission to view logs for this compose project",
+                "PERMISSION_DENIED")));
+        }
+
+        return (userId.Value, null);
+    }
+
+    private static HashSet<string>? ParseServiceFilter(string? services) =>
+        string.IsNullOrWhiteSpace(services)
+            ? null
+            : services.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Returns one merged, timestamp-ordered page of historical logs across all of the
+    /// project's containers (including stopped ones), for infinite scroll-up pagination.
+    /// </summary>
+    [HttpGet("projects/{projectName}/logs/history")]
+    [ProducesResponseType(typeof(ApiResponse<LogPageDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<LogPageDto>>> GetProjectLogHistory(
+        string projectName,
+        [FromQuery] int tail = 100,
+        [FromQuery] string? until = null,
+        [FromQuery] string? services = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            projectName = Uri.UnescapeDataString(projectName);
+            tail = Math.Clamp(tail, 1, 1000);
+
+            var (userId, error) = await AuthorizeProjectLogsAsync<LogPageDto>(projectName);
+            if (error != null) return error;
+
+            HashSet<string>? serviceFilter = ParseServiceFilter(services);
+
+            IReadOnlyList<string> containerIds =
+                await _containerLogService.ListProjectContainerIdsAsync(projectName, includeStopped: true, cancellationToken);
+
+            LogPageDto?[] pages = await Task.WhenAll(containerIds.Select(async id =>
+            {
+                ContainerLogSource? source = await _containerLogService.GetLogSourceAsync(id, cancellationToken);
+                if (source == null)
+                {
+                    return null;
+                }
+                if (serviceFilter is { Count: > 0 } && (source.Service == null || !serviceFilter.Contains(source.Service)))
+                {
+                    return null;
+                }
+                try
+                {
+                    return await _containerLogService.GetHistoryAsync(source, tail, until, cancellationToken);
+                }
+                catch (DockerContainerNotFoundException)
+                {
+                    // Container removed between listing and fetch — skip it.
+                    return null;
+                }
+            }));
+
+            LogPageDto merged = LogMerger.MergeTail(pages.Where(p => p != null).Cast<LogPageDto>().ToList(), tail);
+
+            await _auditService.LogActionAsync(
+                userId, AuditActions.ComposeLogs, GetUserIpAddress(),
+                $"Viewed logs for project: {projectName}",
+                resourceType: "compose_project", resourceId: projectName);
+
+            return Ok(ApiResponse.Ok(merged, $"Retrieved {merged.Entries.Count} log lines"));
+        }
+        catch (FormatException)
+        {
+            return BadRequest(ApiResponse.Fail<LogPageDto>("Invalid 'until' timestamp", "VALIDATION_ERROR"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving log history for project: {ProjectName}", projectName);
+            return StatusCode(500, ApiResponse.Fail<LogPageDto>("Failed to retrieve project logs", "SERVER_ERROR"));
+        }
+    }
+
+    /// <summary>
+    /// Streams the unified, real-time logs of every container in the project via SSE.
+    /// Events: connected, logs (batched JSON), containers (roster on attach/detach),
+    /// error. Containers starting/stopping mid-stream attach/detach automatically.
+    /// </summary>
+    [HttpGet("projects/{projectName}/logs/stream")]
+    public async Task StreamProjectLogs(
+        string projectName,
+        [FromQuery] int tail = 150,
+        [FromQuery] string? since = null,
+        [FromQuery] string? services = null,
+        CancellationToken cancellationToken = default)
+    {
+        projectName = Uri.UnescapeDataString(projectName);
+        tail = Math.Clamp(tail, 1, 1000);
+
+        if (await _selfFilterService.IsSelfProjectAsync(projectName))
+        {
+            Response.StatusCode = 403;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "This project belongs to the application itself and cannot be accessed",
+                "SELF_PROJECT_PROTECTED"), cancellationToken);
+            return;
+        }
+
+        int? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            Response.StatusCode = 401;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "User not authenticated", "UNAUTHORIZED"), cancellationToken);
+            return;
+        }
+
+        bool hasPermission = await _permissionService.HasPermissionAsync(
+            userId.Value, ResourceType.ComposeProject, projectName, PermissionFlags.Logs);
+        if (!hasPermission)
+        {
+            Response.StatusCode = 403;
+            await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                "You don't have permission to view logs for this compose project",
+                "PERMISSION_DENIED"), cancellationToken);
+            return;
+        }
+
+        if (since != null)
+        {
+            try
+            {
+                LogTimestampUtil.ToUnixNano(since);
+            }
+            catch (FormatException)
+            {
+                Response.StatusCode = 400;
+                await Response.WriteAsJsonAsync(ApiResponse.Fail<object>(
+                    "Invalid 'since' timestamp", "VALIDATION_ERROR"), cancellationToken);
+                return;
+            }
+        }
+
+        await _auditService.LogActionAsync(
+            userId.Value, AuditActions.ComposeLogs, GetUserIpAddress(),
+            $"Streaming logs for project: {projectName}",
+            resourceType: "compose_project", resourceId: projectName);
+
+        HashSet<string>? serviceFilter = ParseServiceFilter(services);
+
+        await SseLogStreamWriter.RunAsync(
+            HttpContext,
+            _logStreamCoordinator.StreamProjectAsync(projectName, tail, since, serviceFilter, cancellationToken),
+            _logger,
+            cancellationToken);
     }
 
     /// <summary>

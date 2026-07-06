@@ -22,6 +22,7 @@ public class ComposeControllerTests
     private readonly Mock<IComposeFileCacheService> _fileCache = new();
     private readonly Mock<IImageUpdateCacheService> _imageCache = new();
     private readonly Mock<ISelfFilterService> _selfFilter = new();
+    private readonly Mock<Lighthouse.Services.LogStreaming.IContainerLogService> _containerLogService = new();
 
     private ComposeController Build(bool authenticated = true)
     {
@@ -35,10 +36,16 @@ public class ComposeControllerTests
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .ReturnsAsync(new Operation { OperationId = "op1", Type = OperationType.ComposeUp, Status = OperationStatus.Pending });
 
+        var coordinator = new Lighthouse.Services.LogStreaming.ComposeLogStreamCoordinator(
+            _containerLogService.Object,
+            new Lighthouse.Services.DockerEventBus(NullLogger<Lighthouse.Services.DockerEventBus>.Instance),
+            NullLogger<Lighthouse.Services.LogStreaming.ComposeLogStreamCoordinator>.Instance);
+
         var controller = new ComposeController(
             _discovery.Object, _composeOp.Object, _legacyOp.Object, _audit.Object,
             _permission.Object, NullLogger<ComposeController>.Instance, _matching.Object,
-            _fileCache.Object, _imageCache.Object, _selfFilter.Object);
+            _fileCache.Object, _imageCache.Object, _selfFilter.Object,
+            _containerLogService.Object, coordinator);
 
         // Set the current user on the controller context (BaseController reads claims).
         var identity = authenticated
@@ -130,5 +137,95 @@ public class ComposeControllerTests
         var result = await controller.DownProject("proj", new ComposeDownRequest());
 
         StatusOf(result).Should().Be(403);
+    }
+
+    // ---- log history endpoint ----
+
+    private static int? StatusOfLogs(ActionResult<ApiResponse<LogPageDto>> result) =>
+        (result.Result as ObjectResult)?.StatusCode;
+
+    [Fact]
+    public async Task LogHistory_SelfProject_Returns403()
+    {
+        var controller = Build();
+        _selfFilter.Setup(s => s.IsSelfProjectAsync("self")).ReturnsAsync(true);
+
+        var result = await controller.GetProjectLogHistory("self");
+
+        StatusOfLogs(result).Should().Be(403);
+    }
+
+    [Fact]
+    public async Task LogHistory_Unauthenticated_Returns401()
+    {
+        var controller = Build(authenticated: false);
+
+        var result = await controller.GetProjectLogHistory("proj");
+
+        StatusOfLogs(result).Should().Be(401);
+    }
+
+    [Fact]
+    public async Task LogHistory_NoLogsPermission_Returns403()
+    {
+        var controller = Build();
+        _permission.Setup(p => p.HasPermissionAsync(
+                It.IsAny<int>(), ResourceType.ComposeProject, "proj", PermissionFlags.Logs))
+            .ReturnsAsync(false);
+
+        var result = await controller.GetProjectLogHistory("proj");
+
+        StatusOfLogs(result).Should().Be(403);
+    }
+
+    [Fact]
+    public async Task LogHistory_Success_MergesContainersAndAudits()
+    {
+        var controller = Build();
+        _containerLogService.Setup(l => l.ListProjectContainerIdsAsync("proj", true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "a", "b" });
+        _containerLogService.Setup(l => l.GetLogSourceAsync("a", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Lighthouse.Services.LogStreaming.ContainerLogSource("a", "a", "proj", "web", false));
+        _containerLogService.Setup(l => l.GetLogSourceAsync("b", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Lighthouse.Services.LogStreaming.ContainerLogSource("b", "b", "proj", "db", false));
+        _containerLogService.Setup(l => l.GetHistoryAsync(
+                It.Is<Lighthouse.Services.LogStreaming.ContainerLogSource>(s => s.Id == "a"), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LogPageDto(new List<LogEntryDto> { new("2026-07-04T12:00:00.000000000Z", "a", "a", "web", "stdout", "a1") }, false));
+        _containerLogService.Setup(l => l.GetHistoryAsync(
+                It.Is<Lighthouse.Services.LogStreaming.ContainerLogSource>(s => s.Id == "b"), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LogPageDto(new List<LogEntryDto> { new("2026-07-04T12:00:01.000000000Z", "b", "b", "db", "stdout", "b1") }, false));
+
+        var result = await controller.GetProjectLogHistory("proj");
+
+        (result.Result as OkObjectResult)?.StatusCode.Should().Be(200);
+        var page = ((result.Result as OkObjectResult)?.Value as ApiResponse<LogPageDto>)?.Data;
+        page!.Entries.Select(e => e.Message).Should().Equal("a1", "b1");
+        _audit.Verify(a => a.LogActionAsync(
+            1, AuditActions.ComposeLogs, It.IsAny<string>(),
+            It.IsAny<string?>(), "compose_project", "proj", null, null), Times.Once);
+    }
+
+    [Fact]
+    public async Task LogHistory_ServiceFilter_ExcludesOtherServices()
+    {
+        var controller = Build();
+        _containerLogService.Setup(l => l.ListProjectContainerIdsAsync("proj", true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "a", "b" });
+        _containerLogService.Setup(l => l.GetLogSourceAsync("a", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Lighthouse.Services.LogStreaming.ContainerLogSource("a", "a", "proj", "web", false));
+        _containerLogService.Setup(l => l.GetLogSourceAsync("b", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Lighthouse.Services.LogStreaming.ContainerLogSource("b", "b", "proj", "db", false));
+        _containerLogService.Setup(l => l.GetHistoryAsync(
+                It.Is<Lighthouse.Services.LogStreaming.ContainerLogSource>(s => s.Id == "a"), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LogPageDto(new List<LogEntryDto> { new("2026-07-04T12:00:00.000000000Z", "a", "a", "web", "stdout", "a1") }, false));
+
+        var result = await controller.GetProjectLogHistory("proj", services: "web");
+
+        var page = ((result.Result as OkObjectResult)?.Value as ApiResponse<LogPageDto>)?.Data;
+        page!.Entries.Select(e => e.Message).Should().Equal("a1");
+        // 'db' service filtered out → its history is never fetched
+        _containerLogService.Verify(l => l.GetHistoryAsync(
+            It.Is<Lighthouse.Services.LogStreaming.ContainerLogSource>(s => s.Id == "b"),
+            It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
