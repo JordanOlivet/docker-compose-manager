@@ -172,9 +172,11 @@
 	const activeState = $derived(stateFor(activeTab));
 </script>
 
-<div class="space-y-6">
+<!-- Bounded to the viewport (minus app header + main padding) so the editor fills the
+     remaining space instead of overflowing it by a few pixels. -->
+<div class="flex flex-col gap-6 h-[calc(100dvh-9.5rem)]">
 	<!-- Header -->
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between shrink-0">
 		<div class="flex items-center gap-4">
 			<a
 				href={`/compose/projects/${encodeURIComponent(projectName)}`}
@@ -214,8 +216,9 @@
 			</Button>
 		</div>
 	{:else}
+		<div class="flex flex-col flex-1 min-h-0 gap-4">
 		<!-- Tabs -->
-		<div class="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700">
+		<div class="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 shrink-0">
 			<button
 				onclick={() => (activeTab = 'compose')}
 				class="flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer {activeTab ===
@@ -245,7 +248,7 @@
 
 		<!-- Editor Info Bar -->
 		<div
-			class="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-t-lg text-sm"
+			class="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-t-lg text-sm shrink-0"
 		>
 			<div class="flex items-center gap-4 text-gray-600 dark:text-gray-400">
 				<span>{activeTab === 'compose' ? $t('compose.yaml') : '.env'}</span>
@@ -264,16 +267,17 @@
 				value={compose.content}
 				language="yaml"
 				onchange={(v) => handleContentChange('compose', v)}
-				class="h-[600px]"
+				class="flex-1 min-h-0"
 			/>
 		{:else}
 			<MonacoEditor
 				value={env.content}
 				language="ini"
 				onchange={(v) => handleContentChange('env', v)}
-				class="h-[600px]"
+				class="flex-1 min-h-0"
 			/>
 		{/if}
+		</div>
 	{/if}
 </div>
 
