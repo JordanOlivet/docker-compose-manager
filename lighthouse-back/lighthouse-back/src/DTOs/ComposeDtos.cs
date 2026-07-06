@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Lighthouse.DTOs;
 
 // ============================================
@@ -72,7 +74,10 @@ public record ProjectFileDto(
     string Kind,
     string FileName,
     string? Content,
-    string? ETag,
+    // Force the JSON name to "etag": the default camelCase policy would turn "ETag" into "eTag"
+    // (only the first char is lowercased), which the client reads as undefined -> sends back a
+    // null ETag -> every save is a false conflict.
+    [property: JsonPropertyName("etag")] string? ETag,
     bool Exists
 );
 
@@ -93,7 +98,9 @@ public record ProjectFilesResponseDto(
 public record UpdateProjectFileRequest(
     string Kind,
     string Content,
-    string? ETag
+    // Symmetry with ProjectFileDto: accept "etag" explicitly (request binding is already
+    // case-insensitive, but keep the contract unambiguous).
+    [property: JsonPropertyName("etag")] string? ETag
 );
 
 // ============================================
