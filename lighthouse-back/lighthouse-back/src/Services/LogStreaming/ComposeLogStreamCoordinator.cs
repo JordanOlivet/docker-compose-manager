@@ -13,21 +13,24 @@ namespace Lighthouse.Services.LogStreaming;
 /// </summary>
 public class ComposeLogStreamCoordinator
 {
-    private static readonly TimeSpan WarmupWindow = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan DefaultWarmupWindow = TimeSpan.FromMilliseconds(500);
     private const int ChannelCapacity = 10_000;
 
     private readonly IContainerLogService _logService;
     private readonly IDockerEventBus _eventBus;
     private readonly ILogger<ComposeLogStreamCoordinator> _logger;
+    private readonly TimeSpan _warmupWindow;
 
     public ComposeLogStreamCoordinator(
         IContainerLogService logService,
         IDockerEventBus eventBus,
-        ILogger<ComposeLogStreamCoordinator> logger)
+        ILogger<ComposeLogStreamCoordinator> logger,
+        TimeSpan? warmupWindow = null)
     {
         _logService = logService;
         _eventBus = eventBus;
         _logger = logger;
+        _warmupWindow = warmupWindow ?? DefaultWarmupWindow;
     }
 
     /// <summary>
@@ -131,7 +134,7 @@ public class ComposeLogStreamCoordinator
             await AttachAsync(containerId, tailPerContainer, since);
         }
 
-        await foreach (ILogStreamItem item in ReadWithWarmupAsync(channel.Reader, ct))
+        await foreach (ILogStreamItem item in ReadWithWarmupAsync(channel.Reader, _warmupWindow, ct))
         {
             yield return item;
         }
@@ -144,12 +147,13 @@ public class ComposeLogStreamCoordinator
     /// </summary>
     private static async IAsyncEnumerable<ILogStreamItem> ReadWithWarmupAsync(
         ChannelReader<ILogStreamItem> reader,
+        TimeSpan warmupWindow,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var warmup = new List<ILogStreamItem>();
         using (var warmupCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
         {
-            warmupCts.CancelAfter(WarmupWindow);
+            warmupCts.CancelAfter(warmupWindow);
             try
             {
                 await foreach (ILogStreamItem item in reader.ReadAllAsync(warmupCts.Token))
