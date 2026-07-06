@@ -1,6 +1,7 @@
 using DockerComposeManager.Services.Security;
 using Lighthouse.Configuration;
 using Lighthouse.Services;
+using Lighthouse.Services.LogStreaming;
 
 namespace Lighthouse.Extensions;
 
@@ -46,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<DockerService>();
         services.AddSingleton<IDockerImageOperations>(sp => sp.GetRequiredService<DockerService>());
+        services.AddSingleton<IContainerLogService, ContainerLogService>();
         services.AddScoped<IImageService, ImageService>();
         services.AddScoped<IRegistryCredentialService, RegistryCredentialService>();
         return services;

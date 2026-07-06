@@ -355,6 +355,7 @@ public static class AuditActions
     public const string ContainerRemove = "container.remove";
     public const string ContainerList = "container.list";
     public const string ContainerInspect = "container.inspect";
+    public const string ContainerLogs = "container.logs";
 
     // Image actions
     public const string ImageRemove = "image.remove";
