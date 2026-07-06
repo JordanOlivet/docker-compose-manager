@@ -1,3 +1,11 @@
+## Changes in v1.28.0
+
+**Merged Pull Requests:**
+- feat(compose): edit compose + .env files from project detail page (#182)
+
+**Commits:**
+
+
 ## Changes in v1.27.0
 
 **Merged Pull Requests:**
