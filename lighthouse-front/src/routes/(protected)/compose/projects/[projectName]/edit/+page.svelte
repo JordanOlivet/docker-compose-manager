@@ -4,7 +4,7 @@
 	import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
 	import { ArrowLeft, Save, AlertCircle, FileText, Settings2 } from 'lucide-svelte';
 	import { composeApi } from '$lib/api';
-	import type { ProjectFile, ProjectFileKind } from '$lib/types';
+	import type { ProjectFile, ProjectFileKind, ProjectFilesResponse } from '$lib/types';
 	import LoadingState from '$lib/components/common/LoadingState.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import Button from '$lib/components/ui/button.svelte';
@@ -32,6 +32,11 @@
 	let activeTab = $state<ProjectFileKind>('compose');
 	let loaded = $state(false);
 
+	// The last query result already applied to the editor. Used to apply only on a genuine data
+	// change (new fetch), never on unrelated reactivity — so a post-save state (with the fresh
+	// ETag from the PUT response) is not clobbered by re-applying the pre-refetch cached data.
+	let lastAppliedData: ProjectFilesResponse | undefined;
+
 	// Set once a successful save happens so the navigation guard doesn't block the post-save redirect.
 	let savedNavigation = $state(false);
 
@@ -45,7 +50,12 @@
 	const filesQuery = createQuery(() => ({
 		queryKey: ['compose', 'projectFiles', projectName],
 		queryFn: () => composeApi.getProjectFiles(projectName),
-		enabled: !!projectName
+		enabled: !!projectName,
+		// Don't refetch the file under the editor on focus/reconnect: it would replace the buffer
+		// (or, right after a save, the fresh ETag) out from under the user. The mount refetch still
+		// runs (staleTime 0), which is enough to correct a stale cached ETag.
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false
 	}));
 
 	function applyLoaded(files: ProjectFile[]) {
@@ -71,11 +81,18 @@
 		loaded = true;
 	}
 
-	// Populate local state the first time data arrives (and after an explicit reload).
+	// Apply server data only when a genuinely new fetch arrives (reference change) and the user has
+	// no pending edits. This is the single source of the ETag: it self-heals a stale ETag served
+	// from a previous visit's TanStack cache (the background refetch brings a new object and it is
+	// applied) without clobbering either in-progress edits or the fresh ETag set right after a save
+	// (that runs before the invalidation refetch resolves, so the data reference has not changed yet).
 	$effect(() => {
-		if (filesQuery.data && !loaded) {
-			applyLoaded(filesQuery.data.files);
+		const data = filesQuery.data;
+		if (!data || data === lastAppliedData || isDirty) {
+			return;
 		}
+		lastAppliedData = data;
+		applyLoaded(data.files);
 	});
 
 	function stateFor(kind: ProjectFileKind): FileState {
@@ -117,6 +134,10 @@
 				if (file.kind === 'compose') compose = next;
 				else env = next;
 			}
+			// Freeze the sync effect on whatever data is currently cached so it can't re-apply a
+			// pre-save version over the fresh ETag we just set. The invalidation below brings a new
+			// object, which the effect will then apply (identical content, matching ETag).
+			lastAppliedData = filesQuery.data;
 			queryClient.invalidateQueries({ queryKey: ['compose', 'projectFiles', projectName] });
 			queryClient.invalidateQueries({ queryKey: ['compose', 'project', projectName] });
 			queryClient.invalidateQueries({ queryKey: ['projectParsedDetails', projectName] });
@@ -154,10 +175,16 @@
 		goto(`/compose/projects/${encodeURIComponent(projectName)}`);
 	}
 
-	function reloadFromServer() {
+	async function reloadFromServer() {
 		conflictDialogOpen = false;
-		loaded = false;
-		filesQuery.refetch();
+		// Force a network refetch, then overwrite the editor with the fresh version (discarding the
+		// user's edits in this tab, as the dialog warns). Mark the data as applied so the sync
+		// effect does not re-run for the same result.
+		const res = await filesQuery.refetch();
+		if (res.data) {
+			lastAppliedData = res.data;
+			applyLoaded(res.data.files);
+		}
 	}
 
 	// Guard against losing unsaved edits on navigation (link clicks, back button, etc.).
