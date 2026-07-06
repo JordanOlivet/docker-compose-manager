@@ -563,6 +563,7 @@ export default {
     connected: 'Live',
     reconnecting: 'Reconnecting...',
     disconnected: 'Disconnected',
+    goToBottom: 'Latest',
   },
   
   errors: {

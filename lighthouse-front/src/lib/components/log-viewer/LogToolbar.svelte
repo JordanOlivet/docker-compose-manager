@@ -150,3 +150,9 @@
     </div>
   {/if}
 </div>
+
+<style>
+  button {
+    cursor: pointer;
+  }
+</style>

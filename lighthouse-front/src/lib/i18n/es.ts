@@ -563,6 +563,7 @@ const es = {
     connected: 'En vivo',
     reconnecting: 'Reconectando...',
     disconnected: 'Desconectado',
+    goToBottom: 'Recientes',
   },
   
   errors: {

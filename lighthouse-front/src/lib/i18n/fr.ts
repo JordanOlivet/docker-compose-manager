@@ -563,6 +563,7 @@ const fr = {
     connected: 'En direct',
     reconnecting: 'Reconnexion...',
     disconnected: 'Déconnecté',
+    goToBottom: 'Récents',
   },
   
   errors: {

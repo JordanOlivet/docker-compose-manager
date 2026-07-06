@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { FileText, AlertCircle, Loader2 } from 'lucide-svelte';
+  import { FileText, AlertCircle, Loader2, ArrowDown } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import type { LogEntry } from '$lib/types';
   import { LogStreamController, type LogStreamMode } from '$lib/stores/logStream.svelte';
@@ -92,6 +92,11 @@
     }
   }
 
+  function scrollToBottom() {
+    autoFollow = true;
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+  }
+
   function toggleContainer(id: string) {
     const next = new Set(selected);
     // Empty set means "all"; first click narrows to just this one.
@@ -108,8 +113,8 @@
   }
 </script>
 
-<div class="flex flex-col h-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-  <div class="flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+<div class="flex flex-col h-full bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
+  <div class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
     <FileText class="w-4 h-4 text-gray-500" />
     <h3 class="text-sm font-semibold text-gray-900 dark:text-white truncate">
       {isProject ? $t('logs.projectTitle') : $t('logs.containerTitle')}
@@ -145,34 +150,48 @@
     </div>
   {/if}
 
-  <div
-    bind:this={scrollContainer}
-    onscroll={handleScroll}
-    class="flex-1 overflow-y-auto font-mono text-xs bg-gray-50 dark:bg-gray-900"
-  >
-    {#if controller?.loadingOlder}
-      <div class="flex justify-center py-1.5 text-gray-400">
-        <Loader2 class="w-4 h-4 animate-spin" />
-      </div>
-    {/if}
-
-    {#if filtered.length === 0}
-      <div class="flex items-center justify-center h-full text-gray-400 text-sm">
-        {controller?.paused ? $t('logs.paused') : $t('logs.waiting')}
-      </div>
-    {:else}
-      {#each filtered as entry (entry)}
-        <div class="cv">
-          <LogLine
-            {entry}
-            showTimestamp={showTimestamps}
-            showBadge={isProject}
-            badgeClass={badgeClassFor(entry.containerId)}
-            {wrap}
-            {search}
-          />
+  <div class="relative flex-1 min-h-0">
+    <div
+      bind:this={scrollContainer}
+      onscroll={handleScroll}
+      class="absolute inset-0 overflow-y-auto font-mono text-xs bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200"
+    >
+      {#if controller?.loadingOlder}
+        <div class="flex justify-center py-1.5 text-gray-400">
+          <Loader2 class="w-4 h-4 animate-spin" />
         </div>
-      {/each}
+      {/if}
+
+      {#if filtered.length === 0}
+        <div class="flex items-center justify-center h-full text-gray-400 text-sm">
+          {controller?.paused ? $t('logs.paused') : $t('logs.waiting')}
+        </div>
+      {:else}
+        {#each filtered as entry (entry)}
+          <div class="cv">
+            <LogLine
+              {entry}
+              showTimestamp={showTimestamps}
+              showBadge={isProject}
+              badgeClass={badgeClassFor(entry.containerId)}
+              {wrap}
+              {search}
+            />
+          </div>
+        {/each}
+      {/if}
+    </div>
+
+    {#if !autoFollow && filtered.length > 0}
+      <button
+        type="button"
+        onclick={scrollToBottom}
+        class="absolute bottom-3 right-3 flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full shadow-lg cursor-pointer bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+        title={$t('logs.goToBottom')}
+      >
+        <ArrowDown class="w-3.5 h-3.5" />
+        {$t('logs.goToBottom')}
+      </button>
     {/if}
   </div>
 </div>
