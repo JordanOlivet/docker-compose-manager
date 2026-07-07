@@ -32,7 +32,6 @@ user-password-maker/bin
 user-password-maker/obj
 NUL
 node_modules
-logs
 lighthouse-back/lighthouse-back.Tests/obj
 lighthouse-back/lighthouse-back.Tests/bin
 lighthouse-back/lighthouse-back/bin

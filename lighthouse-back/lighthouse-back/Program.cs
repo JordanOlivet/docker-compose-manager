@@ -35,12 +35,16 @@ Serilog.Core.LoggingLevelSwitch logLevelSwitch = new(
         ? parsedLevel
         : Serilog.Events.LogEventLevel.Information);
 
+// In-process broadcast sink powering the application-logs SSE live tail.
+Lighthouse.Services.LogStreaming.AppLogBroadcastSink appLogBroadcastSink = new();
+
 // Configure Serilog with explicit assemblies (single-file publish safe)
 try
 {
     Serilog.Settings.Configuration.ConfigurationReaderOptions readerOptions = new(
         typeof(Serilog.Sinks.SystemConsole.Themes.ConsoleTheme).Assembly,
-        typeof(Serilog.Sinks.File.FileSink).Assembly
+        typeof(Serilog.Sinks.File.FileSink).Assembly,
+        typeof(Serilog.Formatting.Compact.RenderedCompactJsonFormatter).Assembly
     );
 
     Log.Logger = new LoggerConfiguration()
@@ -48,6 +52,9 @@ try
         // Override the global Default level with the switch while keeping the
         // namespaced Override entries (Microsoft/System -> Warning) from config.
         .MinimumLevel.ControlledBy(logLevelSwitch)
+        // Carry LogContext properties (Username/UserId pushed per-request) into events.
+        .Enrich.FromLogContext()
+        .WriteTo.Sink(appLogBroadcastSink)
         .CreateLogger();
 }
 catch (Exception ex)
@@ -55,7 +62,9 @@ catch (Exception ex)
     // Fallback minimal logger if configuration loading fails
     Log.Logger = new LoggerConfiguration()
         .MinimumLevel.ControlledBy(logLevelSwitch)
+        .Enrich.FromLogContext()
         .WriteTo.Console()
+        .WriteTo.Sink(appLogBroadcastSink)
         .CreateLogger();
     Log.Error(ex, "Failed to initialize Serilog from configuration; fallback console logger in use");
 }
@@ -65,6 +74,7 @@ builder.Host.UseSerilog();
 // Register the level switch and the service that drives it at runtime.
 builder.Services.AddSingleton(logLevelSwitch);
 builder.Services.AddSingleton<LogLevelService>();
+builder.Services.AddSingleton(appLogBroadcastSink);
 
 // Ensure log directories exist for any configured file sinks
 try
@@ -156,6 +166,7 @@ builder.Services.AddAuthentication(options =>
             PathString path = context.HttpContext.Request.Path;
             if (!string.IsNullOrEmpty(accessToken) &&
                 (path.StartsWithSegments("/api/events") ||
+                 path.StartsWithSegments("/api/app-logs/stream") ||
                  (path.Value != null && path.Value.Contains("/logs/stream"))))
             {
                 context.Token = accessToken;
@@ -374,6 +385,18 @@ app.UseSerilogRequestLogging(options =>
         // Normal requests as Information
         return Serilog.Events.LogEventLevel.Information;
     };
+
+    // Request-completion events are emitted by the request-logging middleware itself,
+    // outside any LogContext scope pushed further down the pipeline — attach the user
+    // through the diagnostic context instead.
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        string? username = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+        if (!string.IsNullOrEmpty(username))
+        {
+            diagnosticContext.Set("Username", username);
+        }
+    };
 });
 
 app.UseCors();
@@ -389,6 +412,9 @@ app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Enrich all downstream log events with the authenticated user (needs auth to have run).
+app.UseMiddleware<UserContextLoggingMiddleware>();
 
 // Basic health check endpoint (for Docker healthcheck) - just checks if app is running
 app.MapGet("/health", () =>

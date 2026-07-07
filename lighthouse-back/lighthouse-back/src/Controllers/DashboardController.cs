@@ -97,10 +97,10 @@ public class DashboardController : BaseController
             int usersCount = await _context.Users.CountAsync();
             int activeUsersCount = await _context.Users.CountAsync(u => u.IsEnabled);
 
-            // Get recent activity count (last 24 hours)
+            // Get recent activity count (last 24 hours) from recorded operations
             DateTime oneDayAgo = DateTime.UtcNow.AddDays(-1);
-            int recentActivityCount = await _context.AuditLogs
-                .CountAsync(a => a.Timestamp >= oneDayAgo);
+            int recentActivityCount = await _context.Operations
+                .CountAsync(o => o.StartedAt >= oneDayAgo);
 
             DashboardStatsDto stats = new(
                 TotalContainers: containers.Count,
@@ -132,22 +132,22 @@ public class DashboardController : BaseController
     {
         try
         {
-            List<Models.AuditLog> auditLogs = await _context.AuditLogs
-                .Include(a => a.User)
-                .OrderByDescending(a => a.Timestamp)
+            List<Models.Operation> operations = await _context.Operations
+                .Include(o => o.User)
+                .OrderByDescending(o => o.StartedAt)
                 .Take(limit)
                 .ToListAsync();
 
-            List<ActivityDto> activities = auditLogs.Select(a => new ActivityDto(
-                a.Id,
-                a.UserId,
-                a.User?.Username ?? "System",
-                a.Action,
-                a.ResourceType ?? string.Empty,
-                a.ResourceId,
-                a.Details ?? string.Empty,
-                a.Timestamp,
-                a.Success
+            List<ActivityDto> activities = operations.Select(o => new ActivityDto(
+                o.Id,
+                o.UserId,
+                o.User?.Username ?? "System",
+                o.Type,
+                o.ContainerId != null ? "container" : "compose",
+                o.ContainerName ?? o.ProjectName,
+                o.ErrorMessage ?? string.Empty,
+                o.StartedAt,
+                o.Status != Models.OperationStatus.Failed
             )).ToList();
 
             return Ok(ApiResponse.Ok(activities, "Recent activity retrieved successfully"));

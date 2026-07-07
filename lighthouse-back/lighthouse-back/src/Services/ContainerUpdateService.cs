@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Lighthouse.DTOs;
 
 namespace Lighthouse.Services;
@@ -41,7 +41,6 @@ public class ContainerUpdateService : IContainerUpdateService
     private readonly DockerPullProgressParser _progressParser;
     private readonly IOperationService _operationService;
     private readonly SseConnectionManagerService _sseManager;
-    private readonly IAuditService _auditService;
     private readonly ILogger<ContainerUpdateService> _logger;
 
     public ContainerUpdateService(
@@ -54,7 +53,6 @@ public class ContainerUpdateService : IContainerUpdateService
         DockerPullProgressParser progressParser,
         IOperationService operationService,
         SseConnectionManagerService sseManager,
-        IAuditService auditService,
         ILogger<ContainerUpdateService> logger)
     {
         _dockerService = dockerService;
@@ -66,7 +64,6 @@ public class ContainerUpdateService : IContainerUpdateService
         _progressParser = progressParser;
         _operationService = operationService;
         _sseManager = sseManager;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -308,17 +305,8 @@ public class ContainerUpdateService : IContainerUpdateService
                 await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
                 await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
 
-                // Audit log
-                await _auditService.LogActionAsync(
-                    userId,
-                    "container.standalone_update",
-                    ipAddress,
-                    $"Pulled image for standalone container {containerName} ({container.Image}) (pull only, no restart)",
-                    resourceType: "container",
-                    resourceId: container.Id
-                );
-
-                _logger.LogInformation("Successfully pulled image for standalone container {ContainerName} (no restart)", containerName);
+                _logger.LogInformation("Pulled image for standalone container {ContainerName} ({Image}) (pull only, no restart) by user {UserId}",
+                    containerName, container.Image, userId);
 
                 return new UpdateTriggerResponse(true, $"Successfully pulled image for container {containerName} (container not restarted)", operationId);
             }
@@ -431,17 +419,8 @@ public class ContainerUpdateService : IContainerUpdateService
             await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
             await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
 
-            // Audit log
-            await _auditService.LogActionAsync(
-                userId,
-                "container.standalone_update",
-                ipAddress,
-                $"Updated standalone container {containerName} ({container.Image})",
-                resourceType: "container",
-                resourceId: container.Id
-            );
-
-            _logger.LogInformation("Successfully updated standalone container {ContainerName}", containerName);
+            _logger.LogInformation("Updated standalone container {ContainerName} ({Image}) by user {UserId}",
+                containerName, container.Image, userId);
 
             return new UpdateTriggerResponse(true, $"Successfully updated container {containerName}", operationId);
         }

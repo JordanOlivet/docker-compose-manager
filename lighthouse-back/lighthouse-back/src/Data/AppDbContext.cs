@@ -13,7 +13,6 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<Session> Sessions { get; set; } = null!;
     public DbSet<AppSetting> AppSettings { get; set; } = null!;
-    public DbSet<AuditLog> AuditLogs { get; set; } = null!;
     public DbSet<Operation> Operations { get; set; } = null!;
     public DbSet<UserGroup> UserGroups { get; set; } = null!;
     public DbSet<UserGroupMembership> UserGroupMemberships { get; set; } = null!;
@@ -69,20 +68,6 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.Key).IsUnique();
             entity.Property(e => e.Key).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Value).IsRequired();
-        });
-
-        // AuditLog configuration
-        modelBuilder.Entity<AuditLog>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Timestamp);
-            entity.HasIndex(e => e.Action);
-            entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.IpAddress).IsRequired().HasMaxLength(50);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.AuditLogs)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Operation configuration

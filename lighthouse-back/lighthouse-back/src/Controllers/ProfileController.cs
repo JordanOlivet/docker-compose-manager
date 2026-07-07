@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Lighthouse.DTOs;
 using Lighthouse.Extensions;
@@ -17,18 +17,15 @@ public class ProfileController : BaseController
 {
     private readonly IUserService _userService;
     private readonly AuthService _authService;
-    private readonly IAuditService _auditService;
     private readonly ILogger<ProfileController> _logger;
 
     public ProfileController(
         IUserService userService,
         AuthService authService,
-        IAuditService auditService,
         ILogger<ProfileController> logger)
     {
         _userService = userService;
         _authService = authService;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -104,17 +101,8 @@ public class ProfileController : BaseController
                 return BadRequest(ApiResponse.Fail<UserDto>("Failed to update profile"));
             }
 
-            // Audit log
-            await _auditService.LogActionAsync(
-                userId,
-                "profile.update",
-                ipAddress,
-                $"User updated their profile",
-                resourceType: "user",
-                resourceId: userId.ToString(),
-                before: currentUser,
-                after: updatedUser
-            );
+            _logger.LogInformation("User {UserId} updated their profile (username: {OldUsername} -> {NewUsername})",
+                userId, currentUser.Username, updatedUser.Username);
 
             return Ok(ApiResponse.Ok(updatedUser, "Profile updated successfully"));
         }
@@ -153,13 +141,6 @@ public class ProfileController : BaseController
             {
                 _logger.LogWarning("Failed password change attempt for user {UserId} from {IpAddress}", userId, ipAddress);
 
-                await _auditService.LogActionAsync(
-                    userId,
-                    "profile.password_change_failed",
-                    ipAddress,
-                    "Failed password change attempt - incorrect current password"
-                );
-
                 return BadRequest(ApiResponse.Fail<LoginResponse>("Current password is incorrect"));
             }
 
@@ -176,14 +157,6 @@ public class ProfileController : BaseController
                 Role: user.Role,
                 MustChangePassword: user.MustChangePassword,
                 MustAddEmail: user.MustAddEmail
-            );
-
-            // Audit log
-            await _auditService.LogActionAsync(
-                userId,
-                "profile.password_change",
-                ipAddress,
-                "User changed their password successfully"
             );
 
             _logger.LogInformation("User {UserId} changed their password successfully", userId);

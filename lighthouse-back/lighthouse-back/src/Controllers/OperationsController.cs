@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Lighthouse.DTOs;
@@ -13,16 +13,13 @@ namespace Lighthouse.Controllers;
 public class OperationsController : BaseController
 {
     private readonly IOperationService _operationService;
-    private readonly IAuditService _auditService;
     private readonly ILogger<OperationsController> _logger;
 
     public OperationsController(
         IOperationService operationService,
-        IAuditService auditService,
         ILogger<OperationsController> logger)
     {
         _operationService = operationService;
-        _auditService = auditService;
         _logger = logger;
     }
 
@@ -161,14 +158,7 @@ public class OperationsController : BaseController
                 return BadRequest(ApiResponse.Fail<bool>("Unable to cancel operation", "CANCEL_FAILED"));
             }
 
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                "operation.cancel",
-                GetUserIpAddress(),
-                $"Cancelled operation: {operationId}",
-                resourceType: "operation",
-                resourceId: operationId
-            );
+            _logger.LogInformation("Operation cancelled: {OperationId}", operationId);
 
             return Ok(ApiResponse.Ok(true, "Operation cancelled successfully"));
         }
@@ -249,14 +239,7 @@ public class OperationsController : BaseController
         {
             int count = await _operationService.ClearAllOperationsAsync();
 
-            await _auditService.LogActionAsync(
-                GetCurrentUserId(),
-                "operation.clear_history",
-                GetUserIpAddress(),
-                $"Cleared {count} operations from history",
-                resourceType: "operation",
-                resourceId: "all"
-            );
+            _logger.LogInformation("Operation history cleared: {Count} operations removed", count);
 
             return Ok(ApiResponse.Ok(count, $"Cleared {count} operations"));
         }

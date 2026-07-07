@@ -1,4 +1,4 @@
-using Lighthouse.DTOs;
+﻿using Lighthouse.DTOs;
 using Lighthouse.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,20 +15,17 @@ public class SystemController : BaseController
 {
     private readonly ILogger<SystemController> _logger;
     private readonly ISelfUpdateService _selfUpdateService;
-    private readonly IAuditService _auditService;
     private readonly IVersionDetectionService _versionDetectionService;
     private readonly IInstanceIdentifierService _instanceIdentifierService;
 
     public SystemController(
         ILogger<SystemController> logger,
         ISelfUpdateService selfUpdateService,
-        IAuditService auditService,
         IVersionDetectionService versionDetectionService,
         IInstanceIdentifierService instanceIdentifierService)
     {
         _logger = logger;
         _selfUpdateService = selfUpdateService;
-        _auditService = auditService;
         _versionDetectionService = versionDetectionService;
         _instanceIdentifierService = instanceIdentifierService;
     }
@@ -100,18 +97,6 @@ public class SystemController : BaseController
             _logger.LogInformation("User {UserId} checking for updates", GetCurrentUserId());
 
             AppUpdateCheckResponse result = await _selfUpdateService.CheckUpdateAsync(cancellationToken);
-
-            // Log the check action
-            await _auditService.LogActionAsync(
-                userId: GetCurrentUserId(),
-                action: AuditActions.AppUpdateCheck,
-                ipAddress: GetUserIpAddress(),
-                details: result.UpdateAvailable
-                    ? $"Update available: {result.CurrentVersion} -> {result.LatestVersion}"
-                    : $"No update available, current version: {result.CurrentVersion}",
-                resourceType: "application",
-                resourceId: "self"
-            );
 
             string message = result.UpdateAvailable
                 ? $"Update available: {result.LatestVersion}"

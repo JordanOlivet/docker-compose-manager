@@ -97,7 +97,9 @@ public static class SseLogStreamWriter
         ChannelReader<ILogStreamItem> reader,
         CancellationToken ct)
     {
-        List<LogEntryDto> batch = new(MaxBatchSize);
+        // Declared as object so System.Text.Json serializes each entry's runtime type
+        // (container LogEntryDto or AppLogEntryDto), not the ILogStreamItem interface.
+        List<object> batch = new(MaxBatchSize);
         List<ContainersSnapshot> snapshots = new();
         DateTime lastWrite = DateTime.UtcNow;
         DateTime? batchDeadline = null;
@@ -131,16 +133,14 @@ public static class SseLogStreamWriter
             {
                 while (batch.Count < MaxBatchSize && reader.TryRead(out ILogStreamItem? item))
                 {
-                    if (item is LogEntryDto entry)
-                    {
-                        batch.Add(entry);
-                    }
-                    else if (item is ContainersSnapshot snapshot)
+                    if (item is ContainersSnapshot snapshot)
                     {
                         // Control frame: flush pending logs then emit it immediately.
                         snapshots.Add(snapshot);
                         break;
                     }
+
+                    batch.Add(item);
                 }
                 batchDeadline ??= DateTime.UtcNow + FlushInterval;
 

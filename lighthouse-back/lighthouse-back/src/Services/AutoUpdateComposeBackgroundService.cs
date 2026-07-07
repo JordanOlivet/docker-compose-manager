@@ -113,26 +113,16 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
             {
                 _logger.LogInformation("Self-update in progress, deferring compose auto-update cycle");
                 await SetPendingAutoUpdateFlagAsync(scope, true, ct);
-                await LogAuditSafelyAsync(scope, AuditActions.AutoUpdateComposeSkipped, "Skipped because self-update is in progress");
                 return;
             }
 
             IComposeUpdateService composeUpdateService = scope.ServiceProvider.GetRequiredService<IComposeUpdateService>();
             IComposeFileCacheService fileCacheService = scope.ServiceProvider.GetRequiredService<IComposeFileCacheService>();
-            IAuditService auditService = scope.ServiceProvider.GetRequiredService<IAuditService>();
             INotificationService notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             var report = new ComposeAutoUpdateReport();
 
             _logger.LogInformation("AutoUpdateCompose cycle started (trigger: {Trigger})", trigger);
-            await auditService.LogActionAsync(
-                userId: null,
-                action: AuditActions.AutoUpdateComposeStarted,
-                ipAddress: "system",
-                details: $"Trigger: {trigger}",
-                resourceType: "auto_update",
-                resourceId: "compose"
-            );
 
             // Use cached check results (forceRefresh: false) to avoid hammering registries
             // with ~N manifest requests every cycle. ProjectUpdateCheckBackgroundService keeps
@@ -160,14 +150,6 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                 {
                     skippedFlag++;
                     _logger.LogInformation("Skipping auto-update for project {Project}: x-auto-update is false", summary.ProjectName);
-                    await auditService.LogActionAsync(
-                        userId: null,
-                        action: AuditActions.AutoUpdateComposeSkipped,
-                        ipAddress: "system",
-                        details: "Project marked with x-auto-update: false",
-                        resourceType: "compose_project",
-                        resourceId: summary.ProjectName
-                    );
                     continue;
                 }
 
@@ -210,14 +192,8 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
                     if (response.Success)
                     {
                         updated++;
-                        await auditService.LogActionAsync(
-                            userId: null,
-                            action: AuditActions.AutoUpdateComposeProjectUpdated,
-                            ipAddress: "system",
-                            details: $"Operation: {response.OperationId}",
-                            resourceType: "compose_project",
-                            resourceId: summary.ProjectName
-                        );
+                        _logger.LogInformation("Auto-update completed for project {Project} (operation: {OperationId})",
+                            summary.ProjectName, response.OperationId);
                     }
                     else
                     {
@@ -363,25 +339,6 @@ public class AutoUpdateComposeBackgroundService : BackgroundService
             setting.Value = value ? "true" : "false";
         }
         await db.SaveChangesAsync(ct);
-    }
-
-    private static async Task LogAuditSafelyAsync(IServiceScope scope, string action, string details)
-    {
-        try
-        {
-            IAuditService audit = scope.ServiceProvider.GetRequiredService<IAuditService>();
-            await audit.LogActionAsync(
-                userId: null,
-                action: action,
-                ipAddress: "system",
-                details: details,
-                resourceType: "auto_update",
-                resourceId: "compose");
-        }
-        catch
-        {
-            // Best effort
-        }
     }
 
     private static bool TryParseCron(string expression, out CronExpression? parsed)

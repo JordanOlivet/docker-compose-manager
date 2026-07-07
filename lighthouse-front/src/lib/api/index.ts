@@ -5,7 +5,7 @@ export { containersApi } from './containers';
 export { imagesApi } from './images';
 export { composeApi } from './compose';
 export { operationsApi } from './operations';
-export { auditApi } from './audit';
+export { appLogsApi, buildAppLogStreamUrl } from './appLogs';
 export { dashboardApi } from './dashboard';
 export { default as userGroupsApi } from './userGroups';
 export { default as permissionsApi } from './permissions';

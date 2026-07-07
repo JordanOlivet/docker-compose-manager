@@ -1,4 +1,4 @@
-using Lighthouse.DTOs;
+﻿using Lighthouse.DTOs;
 using Lighthouse.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Timeouts;
@@ -16,18 +16,15 @@ namespace Lighthouse.Controllers;
 public class ComposeUpdatesController : BaseController
 {
     private readonly IComposeUpdateService _composeUpdateService;
-    private readonly IAuditService _auditService;
     private readonly ISelfFilterService _selfFilterService;
     private readonly ILogger<ComposeUpdatesController> _logger;
 
     public ComposeUpdatesController(
         IComposeUpdateService composeUpdateService,
-        IAuditService auditService,
         ISelfFilterService selfFilterService,
         ILogger<ComposeUpdatesController> logger)
     {
         _composeUpdateService = composeUpdateService;
-        _auditService = auditService;
         _selfFilterService = selfFilterService;
         _logger = logger;
     }
@@ -62,15 +59,6 @@ public class ComposeUpdatesController : BaseController
             _logger.LogDebug("User {UserId} checking updates for project {ProjectName} (forceRefresh: {ForceRefresh})", userId.Value, projectName, forceRefresh);
 
             ProjectUpdateCheckResponse result = await _composeUpdateService.CheckProjectUpdatesAsync(projectName, forceRefresh, ct);
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "compose.check_updates",
-                GetUserIpAddress(),
-                $"Checked updates for project: {projectName} - {result.Images.Count(i => i.UpdateAvailable)} updates available",
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
 
             return Ok(ApiResponse.Ok(result));
         }
@@ -229,15 +217,6 @@ public class ComposeUpdatesController : BaseController
 
             _composeUpdateService.ClearCache();
 
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "compose.clear_update_cache",
-                GetUserIpAddress(),
-                "Cleared update check cache",
-                resourceType: "System",
-                resourceId: "UpdateCache"
-            );
-
             _logger.LogInformation("User {UserId} cleared update check cache", userId.Value);
 
             return Ok(ApiResponse.Ok(new { success = true, message = "Update cache cleared" }));
@@ -277,15 +256,6 @@ public class ComposeUpdatesController : BaseController
                 userId.Value,
                 forceRefresh,
                 ct
-            );
-
-            await _auditService.LogActionAsync(
-                userId.Value,
-                "compose.check_all_updates",
-                GetUserIpAddress(),
-                $"Checked updates for {result.ProjectsChecked} projects - {result.ProjectsWithUpdates} with updates",
-                resourceType: "System",
-                resourceId: "BulkUpdateCheck"
             );
 
             return Ok(ApiResponse.Ok(result));

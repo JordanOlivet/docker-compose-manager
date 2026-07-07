@@ -16,7 +16,6 @@ public class ComposeControllerTests
     private readonly Mock<IComposeDiscoveryService> _discovery = new();
     private readonly Mock<IComposeOperationService> _composeOp = new();
     private readonly Mock<IOperationService> _legacyOp = new();
-    private readonly Mock<IAuditService> _audit = new();
     private readonly Mock<IPermissionService> _permission = new();
     private readonly Mock<IProjectMatchingService> _matching = new();
     private readonly Mock<IComposeFileCacheService> _fileCache = new();
@@ -42,7 +41,7 @@ public class ComposeControllerTests
             NullLogger<Lighthouse.Services.LogStreaming.ComposeLogStreamCoordinator>.Instance);
 
         var controller = new ComposeController(
-            _discovery.Object, _composeOp.Object, _legacyOp.Object, _audit.Object,
+            _discovery.Object, _composeOp.Object, _legacyOp.Object,
             _permission.Object, NullLogger<ComposeController>.Instance, _matching.Object,
             _fileCache.Object, _imageCache.Object, _selfFilter.Object,
             _containerLogService.Object, coordinator);
@@ -179,7 +178,7 @@ public class ComposeControllerTests
     }
 
     [Fact]
-    public async Task LogHistory_Success_MergesContainersAndAudits()
+    public async Task LogHistory_Success_MergesContainers()
     {
         var controller = Build();
         _containerLogService.Setup(l => l.ListProjectContainerIdsAsync("proj", true, It.IsAny<CancellationToken>()))
@@ -200,9 +199,6 @@ public class ComposeControllerTests
         (result.Result as OkObjectResult)?.StatusCode.Should().Be(200);
         var page = ((result.Result as OkObjectResult)?.Value as ApiResponse<LogPageDto>)?.Data;
         page!.Entries.Select(e => e.Message).Should().Equal("a1", "b1");
-        _audit.Verify(a => a.LogActionAsync(
-            1, AuditActions.ComposeLogs, It.IsAny<string>(),
-            It.IsAny<string?>(), "compose_project", "proj", null, null), Times.Once);
     }
 
     [Fact]

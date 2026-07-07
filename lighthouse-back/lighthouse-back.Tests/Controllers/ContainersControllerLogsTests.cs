@@ -21,7 +21,6 @@ public class ContainersControllerLogsTests
     private readonly Mock<ISelfFilterService> _selfFilter = new();
     private readonly Mock<IOperationService> _operations = new();
     private readonly Mock<IContainerLogService> _logService = new();
-    private readonly Mock<IAuditService> _audit = new();
 
     private static readonly ContainerLogSource Source =
         new("abc123", "web", "proj", "web", Tty: false);
@@ -48,7 +47,7 @@ public class ContainersControllerLogsTests
 
         var controller = new ContainersController(
             docker, _permission.Object, _updates.Object, _selfFilter.Object,
-            _operations.Object, _logService.Object, _audit.Object,
+            _operations.Object, _logService.Object,
             NullLogger<ContainersController>.Instance);
 
         var identity = authenticated
@@ -216,7 +215,7 @@ public class ContainersControllerLogsTests
     }
 
     [Fact]
-    public async Task Stream_Authorized_AuditsAndStreams()
+    public async Task Stream_Authorized_Streams()
     {
         var controller = Build();
         _logService.Setup(l => l.StreamAsync(Source, It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -224,9 +223,6 @@ public class ContainersControllerLogsTests
 
         await controller.StreamContainerLogs("abc123");
 
-        _audit.Verify(a => a.LogActionAsync(
-            1, AuditActions.ContainerLogs, It.IsAny<string>(),
-            It.IsAny<string?>(), "container", "abc123", null, null), Times.Once);
         _logService.Verify(l => l.StreamAsync(Source, It.IsAny<int>(),
             It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }

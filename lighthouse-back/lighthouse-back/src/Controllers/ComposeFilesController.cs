@@ -1,4 +1,4 @@
-using Lighthouse.Configuration;
+﻿using Lighthouse.Configuration;
 using Lighthouse.DTOs;
 using Lighthouse.Models;
 using Lighthouse.Services;
@@ -20,7 +20,6 @@ public class ComposeFilesController : BaseController
     private readonly IComposeFileCacheService _composeFileCacheService;
     private readonly IConflictResolutionService _conflictService;
     private readonly ISelfFilterService _selfFilterService;
-    private readonly IAuditService _auditService;
     private readonly IOptions<ComposeDiscoveryOptions> _composeOptions;
     private readonly DockerService _dockerService;
     private readonly ILogger<ComposeFilesController> _logger;
@@ -29,7 +28,6 @@ public class ComposeFilesController : BaseController
         IComposeFileCacheService composeFileCacheService,
         IConflictResolutionService conflictService,
         ISelfFilterService selfFilterService,
-        IAuditService auditService,
         IOptions<ComposeDiscoveryOptions> composeOptions,
         DockerService dockerService,
         ILogger<ComposeFilesController> logger)
@@ -37,7 +35,6 @@ public class ComposeFilesController : BaseController
         _composeFileCacheService = composeFileCacheService;
         _conflictService = conflictService;
         _selfFilterService = selfFilterService;
-        _auditService = auditService;
         _composeOptions = composeOptions;
         _dockerService = dockerService;
         _logger = logger;
@@ -222,14 +219,7 @@ public class ComposeFilesController : BaseController
         // Trigger fresh scan
         List<DiscoveredComposeFile> files = await _composeFileCacheService.GetOrScanAsync(bypassCache: true);
 
-        await _auditService.LogActionAsync(
-            userId.Value,
-            "compose.cache_refresh",
-            GetUserIpAddress(),
-            $"Manual cache refresh triggered, found {files.Count} files",
-            resourceType: "System",
-            resourceId: "ComposeDiscovery"
-        );
+        _logger.LogInformation("Manual compose cache refresh completed, found {FileCount} files", files.Count);
 
         return Ok(ApiResponse.Ok(new
         {

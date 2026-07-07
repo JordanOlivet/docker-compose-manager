@@ -89,7 +89,6 @@ public class AutoUpdateAppBackgroundService : BackgroundService
     {
         using IServiceScope scope = _serviceProvider.CreateScope();
         ISelfUpdateService selfUpdate = scope.ServiceProvider.GetRequiredService<ISelfUpdateService>();
-        IAuditService audit = scope.ServiceProvider.GetRequiredService<IAuditService>();
         INotificationService notify = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
         try
@@ -115,15 +114,10 @@ public class AutoUpdateAppBackgroundService : BackgroundService
                 ipAddress: "system",
                 cancellationToken: ct);
 
-            await audit.LogActionAsync(
-                userId: null,
-                action: AuditActions.AutoUpdateAppTriggered,
-                ipAddress: "system",
-                details: trigger.Success
-                    ? $"Triggered update {check.CurrentVersion} -> {check.LatestVersion} (op: {trigger.OperationId})"
-                    : $"Trigger failed: {trigger.Message}",
-                resourceType: "auto_update",
-                resourceId: "app");
+            _logger.LogInformation("AutoUpdateApp: {Outcome}",
+                trigger.Success
+                    ? $"triggered update {check.CurrentVersion} -> {check.LatestVersion} (op: {trigger.OperationId})"
+                    : $"trigger failed: {trigger.Message}");
 
             if (trigger.Success)
             {

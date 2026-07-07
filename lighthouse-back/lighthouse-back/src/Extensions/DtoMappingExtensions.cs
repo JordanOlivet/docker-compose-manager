@@ -27,50 +27,6 @@ public static class DtoMappingExtensions
     }
 
     /// <summary>
-    /// Convert AuditLog entity to AuditLogDto
-    /// </summary>
-    public static AuditLogDto ToDto(this AuditLog log)
-    {
-        return new AuditLogDto(
-            log.Id,
-            log.UserId,
-            log.User?.Username,
-            log.Action,
-            log.ResourceType,
-            log.ResourceId,
-            log.Details,
-            log.IpAddress,
-            log.UserAgent,
-            log.Timestamp,
-            log.Success,
-            log.ErrorMessage
-        );
-    }
-
-    /// <summary>
-    /// Convert AuditLog entity to AuditLogDetailsDto (with full details)
-    /// </summary>
-    public static AuditLogDetailsDto ToDetailsDto(this AuditLog log)
-    {
-        return new AuditLogDetailsDto(
-            log.Id,
-            log.UserId,
-            log.User?.Username,
-            log.Action,
-            log.ResourceType,
-            log.ResourceId,
-            log.Details,
-            log.BeforeState,
-            log.AfterState,
-            log.IpAddress,
-            log.UserAgent,
-            log.Timestamp,
-            log.Success,
-            log.ErrorMessage
-        );
-    }
-
-    /// <summary>
     /// Convert Operation entity to OperationDto
     /// </summary>
     public static OperationDto ToDto(this Operation operation)
@@ -98,14 +54,6 @@ public static class DtoMappingExtensions
     public static List<UserDto> ToDtoList(this IEnumerable<User> users)
     {
         return users.Select(u => u.ToDto()).ToList();
-    }
-
-    /// <summary>
-    /// Convert list of AuditLogs to list of AuditLogDtos
-    /// </summary>
-    public static List<AuditLogDto> ToDtoList(this IEnumerable<AuditLog> logs)
-    {
-        return logs.Select(l => l.ToDto()).ToList();
     }
 
     /// <summary>

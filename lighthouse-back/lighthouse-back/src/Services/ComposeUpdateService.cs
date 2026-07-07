@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Lighthouse.Configuration;
 using Lighthouse.DTOs;
 using Lighthouse.Services.Registry;
@@ -64,7 +64,6 @@ public class ComposeUpdateService : IComposeUpdateService
 {
     private readonly IComposeUpdateChecker _checker;
     private readonly IImageUpdateCacheService _cacheService;
-    private readonly IAuditService _auditService;
     private readonly DockerCommandExecutorService _dockerExecutor;
     private readonly IComposeEnvFileResolver _envFileResolver;
     private readonly DockerPullProgressParser _progressParser;
@@ -76,7 +75,6 @@ public class ComposeUpdateService : IComposeUpdateService
     public ComposeUpdateService(
         IComposeUpdateChecker checker,
         IImageUpdateCacheService cacheService,
-        IAuditService auditService,
         DockerCommandExecutorService dockerExecutor,
         IComposeEnvFileResolver envFileResolver,
         DockerPullProgressParser progressParser,
@@ -87,7 +85,6 @@ public class ComposeUpdateService : IComposeUpdateService
     {
         _checker = checker;
         _cacheService = cacheService;
-        _auditService = auditService;
         _dockerExecutor = dockerExecutor;
         _envFileResolver = envFileResolver;
         _progressParser = progressParser;
@@ -382,20 +379,9 @@ public class ComposeUpdateService : IComposeUpdateService
                 // Invalidate cache for this project
                 _cacheService.InvalidateProject(projectName);
 
-                // Audit log
-                await _auditService.LogActionAsync(
-                    userId,
-                    "compose.project_update",
-                    ipAddress,
-                    $"Pulled images for {servicesToUpdate.Count} services in project {projectName}: {servicesArg} (pull only, no restart)",
-                    resourceType: "compose_project",
-                    resourceId: projectName
-                );
-
-                _logger.LogDebug(
-                    "Successfully pulled images for {Count} services in project {ProjectName} (no restart)",
-                    servicesToUpdate.Count,
-                    projectName);
+                _logger.LogInformation(
+                    "Pulled images for {Count} services in project {ProjectName}: {Services} (pull only, no restart) by user {UserId}",
+                    servicesToUpdate.Count, projectName, servicesArg, userId);
 
                 return new UpdateTriggerResponse(
                     Success: true,
@@ -499,23 +485,9 @@ public class ComposeUpdateService : IComposeUpdateService
             // Invalidate cache for this project
             _cacheService.InvalidateProject(projectName);
 
-            // Audit log
-            string auditDetail = restartFullProject
-                ? $"Updated {servicesToUpdate.Count} services in project {projectName}: {servicesArg} (full project restart)"
-                : $"Updated {servicesToUpdate.Count} services in project {projectName}: {servicesArg}";
-            await _auditService.LogActionAsync(
-                userId,
-                "compose.project_update",
-                ipAddress,
-                auditDetail,
-                resourceType: "compose_project",
-                resourceId: projectName
-            );
-
-            _logger.LogDebug(
-                "Successfully updated {Count} services in project {ProjectName}",
-                servicesToUpdate.Count,
-                projectName);
+            _logger.LogInformation(
+                "Updated {Count} services in project {ProjectName}: {Services} (fullProjectRestart={FullRestart}) by user {UserId}",
+                servicesToUpdate.Count, projectName, servicesArg, restartFullProject, userId);
 
             return new UpdateTriggerResponse(
                 Success: true,
@@ -631,14 +603,8 @@ public class ComposeUpdateService : IComposeUpdateService
             }
         }, ct);
 
-        await _auditService.LogActionAsync(
-            userId,
-            "compose.update_all",
-            ipAddress,
-            $"Started update-all for {projectsWithUpdates.Count} projects",
-            resourceType: "System",
-            resourceId: "UpdateAll"
-        );
+        _logger.LogInformation("Started update-all for {ProjectCount} projects by user {UserId}",
+            projectsWithUpdates.Count, userId);
 
         return new UpdateAllResponse(
             OperationId: operationId,
@@ -662,16 +628,16 @@ public class ComposeUpdateService : IComposeUpdateService
         if (lower.Contains("toomanyrequests") || lower.Contains("pull rate limit") || lower.Contains("429"))
         {
             return "Docker registry pull rate limit reached. If a registry is configured, its "
-                + "credentials may be invalid or expired (the pull then falls back to anonymous) — "
-                + "re-authenticate in Settings → Registry Management. Otherwise wait for the limit to "
+                + "credentials may be invalid or expired (the pull then falls back to anonymous) â€” "
+                + "re-authenticate in Settings â†’ Registry Management. Otherwise wait for the limit to "
                 + $"reset or add credentials to raise it. Details: {raw}";
         }
 
         if (lower.Contains("unauthorized") || lower.Contains("authentication required")
             || lower.Contains("access denied") || lower.Contains("denied: requested access"))
         {
-            return "Registry authentication failed — the stored credentials are missing, invalid, or "
-                + $"lack access to this image. Re-authenticate in Settings → Registry Management. Details: {raw}";
+            return "Registry authentication failed â€” the stored credentials are missing, invalid, or "
+                + $"lack access to this image. Re-authenticate in Settings â†’ Registry Management. Details: {raw}";
         }
 
         return $"Failed to pull images: {raw}";
