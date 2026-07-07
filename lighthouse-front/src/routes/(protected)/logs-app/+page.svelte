@@ -129,6 +129,28 @@
     return parts[parts.length - 1];
   }
 
+  interface TextSegment {
+    text: string;
+    match: boolean;
+  }
+
+  function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Split text into alternating non-match / match segments for the active search term
+  // (case-insensitive). Returns a single non-match segment when there is no term.
+  function splitOnMatch(text: string, term: string): TextSegment[] {
+    const trimmed = term.trim();
+    if (!trimmed) return [{ text, match: false }];
+
+    const regex = new RegExp(`(${escapeRegExp(trimmed)})`, 'ig');
+    return text
+      .split(regex)
+      .filter((part) => part !== '')
+      .map((part) => ({ text: part, match: part.toLowerCase() === trimmed.toLowerCase() }));
+  }
+
   function downloadLogs() {
     const text = entries
       .map((e: AppLogEntry) => {
@@ -274,9 +296,9 @@
               {#if entry.username}
                 <span class="text-teal-400"> ({entry.username})</span>
               {/if}
-              <span class="text-gray-100"> {entry.message}</span>
+              <span class="text-gray-100"> {#each splitOnMatch(entry.message, search) as seg, si (si)}{#if seg.match}<mark class="bg-yellow-400/30 text-yellow-200 rounded-sm">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</span>
               {#if entry.exception}
-                <div class="text-red-300 mt-1 pl-4">{entry.exception}</div>
+                <div class="text-red-300 mt-1 pl-4">{#each splitOnMatch(entry.exception, search) as seg, si (si)}{#if seg.match}<mark class="bg-yellow-400/30 text-yellow-200 rounded-sm">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</div>
               {/if}
             </div>
           {/each}
