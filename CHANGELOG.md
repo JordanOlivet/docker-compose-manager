@@ -1,3 +1,11 @@
+## Changes in v1.29.0
+
+**Merged Pull Requests:**
+- feat(logs): replace audit logs with application log viewer (#185)
+
+**Commits:**
+
+
 ## Changes in v1.28.0
 
 **Merged Pull Requests:**
