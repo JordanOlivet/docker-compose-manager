@@ -243,6 +243,7 @@ const fr = {
     actions: 'Actions',
     technicalDetails: 'Détails techniques',
     liveResourceStats: 'Statistiques des ressources en direct',
+    timeWindow: 'Fenêtre de temps',
     containerNotRunning: 'Le conteneur n\'est pas en cours d\'exécution',
     noContainers: 'Aucun conteneur trouvé',
     noContainer: 'Pas de conteneur',

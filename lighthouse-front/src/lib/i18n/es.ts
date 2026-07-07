@@ -243,6 +243,7 @@ const es = {
     actions: 'Acciones',
     technicalDetails: 'Detalles técnicos',
     liveResourceStats: 'Estadísticas de recursos en vivo',
+    timeWindow: 'Ventana de tiempo',
     containerNotRunning: 'El contenedor no está en ejecución',
     noContainers: 'No se encontraron contenedores',
     noContainer: 'Sin contenedor',

@@ -2,10 +2,10 @@
 	import { untrack } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { containersApi } from '$lib/api';
-	import { Activity, Cpu, HardDrive } from 'lucide-svelte';
+	import { Activity, Cpu, HardDrive, MemoryStick, Network } from 'lucide-svelte';
 	import { t } from '$lib/i18n';
 	import { logger } from '$lib/utils/logger';
-	import LineChart from '$lib/components/charts/LineChart.svelte';
+	import StreamingLineChart from '$lib/components/charts/StreamingLineChart.svelte';
 	import type { ComposeService, ContainerStats } from '$lib/types';
 	import {
 		formatBytes,
@@ -80,6 +80,16 @@
 		mode === 'container' ? $t('containers.containerNotRunning') : $t('common.noRunningServices')
 	);
 
+	// Visible time window selector. The in-memory buffer always keeps ~5 min,
+	// so all options render instantly without any extra fetching.
+	// (Windows of 1h+ would require a backend time-series feature.)
+	const WINDOWS = [
+		{ label: '1m', ms: 60_000 },
+		{ label: '2m', ms: 120_000 },
+		{ label: '5m', ms: 300_000 }
+	] as const;
+	let windowMs = $state<number>(60_000);
+
 	// Fetch stats for all containers every 1 second
 	const statsQuery = createQuery(() => ({
 		queryKey: ['stats', ...containerIds.sort()],
@@ -104,10 +114,14 @@
 		retry: false
 	}));
 
-	// Update current stats and history when new data arrives
+	// Update current stats and history when new data arrives.
+	// Depend on `dataUpdatedAt` (bumped on every fetch) rather than `data`:
+	// TanStack Query structural-sharing keeps the same `data` reference when the
+	// values are unchanged (idle container), which would otherwise freeze sampling.
 	$effect(() => {
+		const updatedAt = statsQuery.dataUpdatedAt;
 		const allStats = statsQuery.data;
-		if (!allStats || allStats.length === 0) return;
+		if (!updatedAt || !allStats || allStats.length === 0) return;
 
 		const aggregated: AggregatedStats = {
 			cpuPercentage: 0,
@@ -239,164 +253,186 @@
 		class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden"
 	>
 		<!-- Header -->
-		<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-			<div class="flex items-center gap-2">
-				<Activity class="h-5 w-5 text-gray-600 dark:text-gray-400" />
-				<h3 class="text-lg font-semibold text-gray-900 dark:text-white">{displayTitle}</h3>
+		<div
+			class="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700"
+		>
+			<div class="flex items-center gap-2 min-w-0">
+				<Activity class="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+				<h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">{displayTitle}</h3>
+			</div>
+			<!-- Time window selector -->
+			<div
+				class="flex items-center gap-0.5 rounded-lg bg-gray-100 dark:bg-gray-900/60 p-0.5 flex-shrink-0"
+				role="group"
+				aria-label={$t('containers.timeWindow')}
+			>
+				{#each WINDOWS as w (w.ms)}
+					<button
+						type="button"
+						onclick={() => (windowMs = w.ms)}
+						aria-pressed={windowMs === w.ms}
+						class="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer {windowMs ===
+						w.ms
+							? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+							: 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}"
+					>
+						{w.label}
+					</button>
+				{/each}
 			</div>
 		</div>
 
 		<!-- Stats Content -->
-		<div class="p-6 space-y-6">
+		<div class="p-4 sm:p-5 space-y-4">
 			<!-- CPU Usage -->
-			<div class="space-y-3">
-				<div class="flex items-center justify-between">
+			<div
+				class="rounded-xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/30 p-4"
+			>
+				<div class="mb-2 flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<Cpu class="h-4 w-4 text-blue-600 dark:text-blue-400" />
-						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{$t('containers.cpu')}</span
+						<span
+							class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400"
 						>
+							<Cpu class="h-4 w-4" />
+						</span>
+						<span class="text-sm font-semibold text-gray-900 dark:text-white">
+							{$t('containers.cpu')}
+						</span>
 					</div>
 					{#if currentStats}
-						<span class="text-sm font-mono text-blue-600 dark:text-blue-400">
+						<span
+							class="rounded-md bg-blue-500/10 px-2 py-0.5 font-mono text-sm font-semibold text-blue-600 dark:text-blue-400"
+						>
 							{currentStats.cpuPercentage.toFixed(2)}%
 						</span>
 					{/if}
 				</div>
-				<LineChart
+				<StreamingLineChart
 					data={cpuChartData}
-					lines={[{ key: 'cpu', label: 'CPU %', color: '#3b82f6' }]}
+					lines={[{ key: 'cpu', label: 'CPU', color: '#3b82f6' }]}
 					height={150}
+					{windowMs}
 					formatValue={(v) => `${v.toFixed(1)}%`}
+					formatTooltipValue={(v) => `${v.toFixed(2)}%`}
 				/>
 			</div>
 
 			<!-- Memory Usage -->
-			<div class="space-y-3">
-				<div class="flex items-center justify-between">
+			<div
+				class="rounded-xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/30 p-4"
+			>
+				<div class="mb-2 flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<HardDrive class="h-4 w-4 text-green-600 dark:text-green-400" />
-						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{$t('containers.ram')}</span
+						<span
+							class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
 						>
+							<MemoryStick class="h-4 w-4" />
+						</span>
+						<span class="text-sm font-semibold text-gray-900 dark:text-white">
+							{$t('containers.ram')}
+						</span>
 					</div>
 					{#if currentStats}
-						<span class="text-sm font-mono text-green-600 dark:text-green-400">
+						<span
+							class="rounded-md bg-emerald-500/10 px-2 py-0.5 font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400"
+						>
 							{formatBytes(currentStats.memoryUsage)} / {formatBytes(currentStats.memoryLimit)}
 						</span>
 					{/if}
 				</div>
-				<LineChart
+				<StreamingLineChart
 					data={memoryChartData}
-					lines={[{ key: 'memory', label: `Memory (${memoryUnit.unit})`, color: '#10b981' }]}
+					lines={[{ key: 'memory', label: 'Memory', color: '#10b981' }]}
 					height={150}
-					formatValue={(v) => `${v.toFixed(2)} ${memoryUnit.unit}`}
+					{windowMs}
+					formatValue={(v) => `${v.toFixed(1)} ${memoryUnit.unit}`}
+					formatTooltipValue={(v) => `${v.toFixed(2)} ${memoryUnit.unit}`}
 				/>
 			</div>
 
 			<!-- Network Usage -->
-			<div class="space-y-3">
-				<div class="flex items-center justify-between">
+			<div
+				class="rounded-xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/30 p-4"
+			>
+				<div class="mb-2 flex items-center justify-between gap-2">
 					<div class="flex items-center gap-2">
-						<svg
-							class="h-4 w-4 text-purple-600 dark:text-purple-400"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
+						<span
+							class="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400"
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-							/>
-						</svg>
-						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{$t('containers.networkStats')} (RX / TX)</span
-						>
+							<Network class="h-4 w-4" />
+						</span>
+						<span class="text-sm font-semibold text-gray-900 dark:text-white">
+							{$t('containers.networkStats')}
+						</span>
 					</div>
-					{#if currentStats}
-						<div class="text-right space-y-0.5">
-							<div class="flex items-center justify-end gap-1">
-								<span class="text-[12px] text-gray-500 dark:text-gray-400">Total:</span>
-								<span class="text-sm font-mono" style="color: #8b5cf6;">
-									{formatBytes(currentStats.networkRx)}
-								</span>
-								<span class="text-sm font-mono text-gray-400">/</span>
-								<span class="text-sm font-mono" style="color: #f59e0b;">
-									{formatBytes(currentStats.networkTx)}
-								</span>
-							</div>
-							{#if currentRates}
-								<div class="flex items-center justify-end gap-1">
-									<span class="text-[12px] text-gray-500 dark:text-gray-400">Rate:</span>
-									<span class="text-xs font-mono" style="color: #8b5cf6;">
-										{formatBytes(currentRates.networkRxRate)}/s
-									</span>
-									<span class="text-xs font-mono text-gray-400">/</span>
-									<span class="text-xs font-mono" style="color: #f59e0b;">
-										{formatBytes(currentRates.networkTxRate)}/s
-									</span>
-								</div>
-							{/if}
+					{#if currentStats && currentRates}
+						<div class="flex items-center gap-1.5 font-mono text-xs">
+							<span
+								class="rounded-md bg-violet-500/10 px-1.5 py-0.5 font-semibold text-violet-600 dark:text-violet-400"
+							>
+								↓ {formatBytes(currentRates.networkRxRate)}/s
+							</span>
+							<span
+								class="rounded-md bg-amber-500/10 px-1.5 py-0.5 font-semibold text-amber-600 dark:text-amber-400"
+							>
+								↑ {formatBytes(currentRates.networkTxRate)}/s
+							</span>
 						</div>
 					{/if}
 				</div>
-				<LineChart
+				<StreamingLineChart
 					data={networkChartData}
 					lines={[
-						{ key: 'rx', label: `RX (${networkRateUnit.unit})`, color: '#8b5cf6' },
-						{ key: 'tx', label: `TX (${networkRateUnit.unit})`, color: '#f59e0b' }
+						{ key: 'rx', label: 'RX', color: '#8b5cf6' },
+						{ key: 'tx', label: 'TX', color: '#f59e0b' }
 					]}
 					height={150}
-					formatValue={(v) => `${v.toFixed(2)} ${networkRateUnit.unit}`}
+					{windowMs}
+					formatValue={(v) => `${v.toFixed(1)} ${networkRateUnit.unit}`}
+					formatTooltipValue={(v) => `${v.toFixed(2)} ${networkRateUnit.unit}`}
 				/>
 			</div>
 
 			<!-- Disk I/O -->
-			<div class="space-y-3">
-				<div class="flex items-center justify-between">
+			<div
+				class="rounded-xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/30 p-4"
+			>
+				<div class="mb-2 flex items-center justify-between gap-2">
 					<div class="flex items-center gap-2">
-						<HardDrive class="h-4 w-4 text-pink-600 dark:text-pink-400" />
-						<span class="text-sm font-semibold text-gray-900 dark:text-white"
-							>{$t('containers.diskStats')} (Read / Write)</span
+						<span
+							class="flex h-7 w-7 items-center justify-center rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400"
 						>
+							<HardDrive class="h-4 w-4" />
+						</span>
+						<span class="text-sm font-semibold text-gray-900 dark:text-white">
+							{$t('containers.diskStats')}
+						</span>
 					</div>
-					{#if currentStats}
-						<div class="text-right space-y-0.5">
-							<div class="flex items-center justify-end gap-1">
-								<span class="text-[12px] text-gray-500 dark:text-gray-400">Total:</span>
-								<span class="text-sm font-mono" style="color: #8b5cf6;">
-									{formatBytes(currentStats.diskRead)}
-								</span>
-								<span class="text-sm font-mono text-gray-400">/</span>
-								<span class="text-sm font-mono" style="color: #ec4899;">
-									{formatBytes(currentStats.diskWrite)}
-								</span>
-							</div>
-							{#if currentRates}
-								<div class="flex items-center justify-end gap-1">
-									<span class="text-[12px] text-gray-500 dark:text-gray-400">Rate:</span>
-									<span class="text-xs font-mono" style="color: #8b5cf6;">
-										{formatBytes(currentRates.diskReadRate)}/s
-									</span>
-									<span class="text-xs font-mono text-gray-400">/</span>
-									<span class="text-xs font-mono" style="color: #ec4899;">
-										{formatBytes(currentRates.diskWriteRate)}/s
-									</span>
-								</div>
-							{/if}
+					{#if currentStats && currentRates}
+						<div class="flex items-center gap-1.5 font-mono text-xs">
+							<span
+								class="rounded-md bg-violet-500/10 px-1.5 py-0.5 font-semibold text-violet-600 dark:text-violet-400"
+							>
+								R {formatBytes(currentRates.diskReadRate)}/s
+							</span>
+							<span
+								class="rounded-md bg-pink-500/10 px-1.5 py-0.5 font-semibold text-pink-600 dark:text-pink-400"
+							>
+								W {formatBytes(currentRates.diskWriteRate)}/s
+							</span>
 						</div>
 					{/if}
 				</div>
-				<LineChart
+				<StreamingLineChart
 					data={diskChartData}
 					lines={[
-						{ key: 'read', label: `Read (${diskRateUnit.unit})`, color: '#8b5cf6' },
-						{ key: 'write', label: `Write (${diskRateUnit.unit})`, color: '#ec4899' }
+						{ key: 'read', label: 'Read', color: '#8b5cf6' },
+						{ key: 'write', label: 'Write', color: '#ec4899' }
 					]}
 					height={150}
-					formatValue={(v) => `${v.toFixed(2)} ${diskRateUnit.unit}`}
+					{windowMs}
+					formatValue={(v) => `${v.toFixed(1)} ${diskRateUnit.unit}`}
+					formatTooltipValue={(v) => `${v.toFixed(2)} ${diskRateUnit.unit}`}
 				/>
 			</div>
 		</div>
