@@ -267,9 +267,7 @@
           {#each entries as entry, i (i)}
             <div class="py-0.5 hover:bg-gray-800/50 rounded px-2 whitespace-pre-wrap break-all">
               <span class="text-gray-500">{formatTimestamp(entry.timestamp)}</span>
-              <span class="font-semibold {levelClasses[entry.level] ?? 'text-gray-300'}">
-                {' '}[{entry.level}]
-              </span>
+              <span class="font-semibold {levelClasses[entry.level] ?? 'text-gray-300'}"> [{entry.level}]</span>
               {#if entry.category}
                 <span class="text-purple-400" title={entry.category}> {shortCategory(entry.category)}</span>
               {/if}
