@@ -6,6 +6,7 @@
 	"engines": {
 		"node": ">=24"
 	},
+	"packageManager": "npm@10.9.2",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -17,6 +18,7 @@
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
+		"relock": "npx -y npm@10.9.2 install --package-lock-only",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},

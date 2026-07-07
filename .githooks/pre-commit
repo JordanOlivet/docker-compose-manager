@@ -1,0 +1,22 @@
+#!/bin/sh
+# Auto-relock the frontend lockfile with the CI-pinned npm version.
+#
+# CI installs with npm 10 (Node 24). A locally installed npm 11 (Node 25+)
+# resolves package-lock.json differently, which makes CI's `npm ci` fail with
+# EUSAGE. Whenever the frontend manifest or lockfile is staged, regenerate the
+# lockfile with the pinned npm via npx so the committed lockfile always matches
+# what CI expects - regardless of which npm the developer has installed.
+
+staged=$(git diff --cached --name-only)
+case "$staged" in
+	*lighthouse-front/package.json* | *lighthouse-front/package-lock.json*)
+		echo "[pre-commit] frontend deps changed -> relocking with npm@10.9.2"
+		if ( cd lighthouse-front && npx -y npm@10.9.2 install --package-lock-only >/dev/null 2>&1 ); then
+			git add lighthouse-front/package-lock.json
+		else
+			echo "[pre-commit] relock failed (offline?) - leaving lockfile untouched"
+		fi
+		;;
+esac
+
+exit 0
