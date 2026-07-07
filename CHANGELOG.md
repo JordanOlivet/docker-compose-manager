@@ -1,3 +1,11 @@
+## Changes in v1.30.0
+
+**Merged Pull Requests:**
+- feat(stats): smooth streaming resource charts with hover tooltips (#186)
+
+**Commits:**
+
+
 ## Changes in v1.29.0
 
 **Merged Pull Requests:**
