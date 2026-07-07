@@ -1,0 +1,29 @@
+# Stress-test stack to exercise the live resource charts (CPU / RAM / Network / Disk).
+# Open this project's details page to watch all four graphs move at once.
+#   - stress-ng   -> CPU, memory and disk I/O load
+#   - iperf3      -> sustained network traffic (client <-> server)
+# Everything stops on its own after --timeout / -t (10 min). Tune the numbers
+# to your machine, then `up` again to re-run.
+name: stress-test
+services:
+  stress:
+    image: colinianking/stress-ng
+    container_name: stress-ng
+    # 2 CPU workers, 2 memory workers (1G each), 2 disk workers (1G each).
+    command: --cpu 2 --vm 2 --vm-bytes 1G --hdd 2 --hdd-bytes 1G --timeout 600s --metrics-brief
+    restart: "no"
+
+  iperf-server:
+    image: networkstatic/iperf3
+    container_name: iperf-server
+    command: -s
+    restart: unless-stopped
+
+  iperf-client:
+    image: networkstatic/iperf3
+    container_name: iperf-client
+    # Push traffic to the server for 10 min, reporting every second.
+    command: -c iperf-server -t 600 -i 1
+    depends_on:
+      - iperf-server
+    restart: "no"

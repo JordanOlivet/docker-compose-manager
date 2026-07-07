@@ -243,6 +243,7 @@ export default {
     actions: 'Actions',
     technicalDetails: 'Technical Details',
     liveResourceStats: 'Live Resource Stats',
+    timeWindow: 'Time window',
     containerNotRunning: 'Container is not running',
     noContainers: 'No containers found',
     noContainer: 'No container',

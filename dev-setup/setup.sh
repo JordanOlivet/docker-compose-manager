@@ -153,6 +153,12 @@ else
     echo -e "  ${GREEN}Created${NC} $FRONT_ENV"
 fi
 
+# Arm the shared git hooks (auto-relock the frontend lockfile - see
+# .githooks/pre-commit) so a locally installed npm never commits a lockfile
+# that CI's npm rejects.
+( cd "$REPO_ROOT" && git config core.hooksPath .githooks )
+echo -e "  ${GREEN}Git hooks armed${NC} (core.hooksPath = .githooks)"
+
 # ---------------------------------------------------------------------------
 header "Install dependencies"
 if [ "$dotnet_ok" -eq 1 ]; then
@@ -163,8 +169,11 @@ else
 fi
 
 if [ "$node_ok" -eq 1 ]; then
-    echo -e "${CYAN}  npm install (frontend)...${NC}"
-    ( cd "$FRONT_DIR" && npm install )
+    # Node 25+ ships npm 11, which resolves the lockfile differently from CI's
+    # npm 10 (Node 24). Always run the install through the pinned npm@10.9.2 via
+    # npx so setup never churns the lockfile, whatever npm is installed locally.
+    echo -e "${CYAN}  npm install (frontend, pinned npm@10.9.2)...${NC}"
+    ( cd "$FRONT_DIR" && npx -y npm@10.9.2 install )
 else
     echo -e "${YELLOW}  Skipped npm install (Node not ready).${NC}"
 fi
