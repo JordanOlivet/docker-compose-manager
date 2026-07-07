@@ -194,19 +194,9 @@ if ($dotnetOk) {
 }
 
 if ($nodeOk) {
-    # Node 25+ dropped the bundled corepack and ships npm 11, which resolves the
-    # lockfile differently from CI's npm 10 (Node 24). Ensure corepack (best
-    # effort, so in-repo `npm` may resolve to the pinned version) and always run
-    # the install itself through the pinned npm@10.9.2 via npx (guaranteed).
-    if (-not (Test-Command corepack)) {
-        Write-Host "  corepack not found - installing globally..." -ForegroundColor Yellow
-        npm install -g corepack | Out-Null
-    }
-    if (Test-Command corepack) {
-        corepack enable npm 2>$null | Out-Null
-        corepack prepare npm@10.9.2 --activate 2>$null | Out-Null
-    }
-
+    # Node 25+ ships npm 11, which resolves the lockfile differently from CI's
+    # npm 10 (Node 24). Always run the install through the pinned npm@10.9.2 via
+    # npx so setup never churns the lockfile, whatever npm is installed locally.
     Write-Host "  npm install (frontend, pinned npm@10.9.2)..." -ForegroundColor Cyan
     Push-Location $FrontDir
     npx -y npm@10.9.2 install

@@ -169,19 +169,9 @@ else
 fi
 
 if [ "$node_ok" -eq 1 ]; then
-    # Node 25+ dropped the bundled corepack and ships npm 11, which resolves the
-    # lockfile differently from CI's npm 10 (Node 24). Ensure corepack (best
-    # effort, so in-repo `npm` may resolve to the pinned version) and always run
-    # the install itself through the pinned npm@10.9.2 via npx (guaranteed).
-    if ! has corepack; then
-        echo -e "${YELLOW}  corepack not found - installing globally...${NC}"
-        npm install -g corepack >/dev/null 2>&1 || true
-    fi
-    if has corepack; then
-        corepack enable npm >/dev/null 2>&1 || true
-        corepack prepare npm@10.9.2 --activate >/dev/null 2>&1 || true
-    fi
-
+    # Node 25+ ships npm 11, which resolves the lockfile differently from CI's
+    # npm 10 (Node 24). Always run the install through the pinned npm@10.9.2 via
+    # npx so setup never churns the lockfile, whatever npm is installed locally.
     echo -e "${CYAN}  npm install (frontend, pinned npm@10.9.2)...${NC}"
     ( cd "$FRONT_DIR" && npx -y npm@10.9.2 install )
 else
