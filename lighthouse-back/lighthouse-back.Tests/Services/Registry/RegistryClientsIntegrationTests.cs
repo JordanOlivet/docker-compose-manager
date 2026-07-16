@@ -45,13 +45,13 @@ public class RegistryClientsIntegrationTests
     private static GenericOciRegistryClient Generic()
         => new(new HttpClient(), Options(), new NullLogger<GenericOciRegistryClient>());
 
-    private async Task AssertResolvesAsync(IRegistryClient client, string repositoryOrImage, string tag)
+    private async Task AssertResolvesAsync(IRegistryClient client, string registry, string repository, string tag)
     {
-        string? headDigest = await client.GetManifestDigestAsync(repositoryOrImage, tag, Architecture);
+        string? headDigest = await client.GetManifestDigestAsync(registry, repository, tag, Architecture);
         (string? getDigest, DateTime? createdAt) =
-            await client.GetManifestDigestAndCreatedAtAsync(repositoryOrImage, tag, Architecture);
+            await client.GetManifestDigestAndCreatedAtAsync(registry, repository, tag, Architecture);
 
-        _output.WriteLine($"{repositoryOrImage}:{tag}");
+        _output.WriteLine($"{registry}/{repository}:{tag}");
         _output.WriteLine($"  HEAD digest : {headDigest}");
         _output.WriteLine($"  GET  digest : {getDigest}");
         _output.WriteLine($"  created at  : {createdAt:O}");
@@ -65,13 +65,17 @@ public class RegistryClientsIntegrationTests
 
     [IntegrationFact]
     public async Task DockerHub_ResolvesDigestForLibraryNginx()
-        => await AssertResolvesAsync(DockerHub(), "library/nginx", "latest");
+        => await AssertResolvesAsync(DockerHub(), "docker.io", "library/nginx", "latest");
 
     [IntegrationFact]
     public async Task Ghcr_ResolvesDigestForPublicImage()
-        => await AssertResolvesAsync(Ghcr(), "home-assistant/home-assistant", "stable");
+        => await AssertResolvesAsync(Ghcr(), "ghcr.io", "home-assistant/home-assistant", "stable");
 
     [IntegrationFact]
     public async Task GenericOci_ResolvesDigestForMcr()
-        => await AssertResolvesAsync(Generic(), "mcr.microsoft.com/dotnet/aspnet", "10.0-noble");
+        => await AssertResolvesAsync(Generic(), "mcr.microsoft.com", "dotnet/aspnet", "10.0-noble");
+
+    [IntegrationFact]
+    public async Task GenericOci_ResolvesDigestForLscr()
+        => await AssertResolvesAsync(Generic(), "lscr.io", "linuxserver/radarr", "latest");
 }

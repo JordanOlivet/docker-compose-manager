@@ -38,21 +38,23 @@ public class DockerHubRegistryClient : RegistryClientBase
     }
 
     public override async Task<string?> GetManifestDigestAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default)
     {
+        // The registry parameter is ignored: this client always talks to registry-1.docker.io.
         try
         {
-            string? token = await GetAuthTokenAsync(image, cancellationToken);
+            string? token = await GetAuthTokenAsync(repository, cancellationToken);
             if (token == null)
             {
-                Logger.LogWarning("Failed to get auth token for image {Image}", image);
+                Logger.LogWarning("Failed to get auth token for repository {Repository}", repository);
                 return null;
             }
 
-            return await FetchManifestDigestViaHeadAsync(image, tag, architecture, token, cancellationToken);
+            return await FetchManifestDigestViaHeadAsync(repository, tag, architecture, token, cancellationToken);
         }
         catch (RegistryRateLimitException)
         {
@@ -60,7 +62,7 @@ public class DockerHubRegistryClient : RegistryClientBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest (HEAD) for {Repository}:{Tag}", repository, tag);
             return null;
         }
     }
@@ -121,21 +123,23 @@ public class DockerHubRegistryClient : RegistryClientBase
     }
 
     public override async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default)
     {
+        // The registry parameter is ignored: this client always talks to registry-1.docker.io.
         try
         {
-            string? token = await GetAuthTokenAsync(image, cancellationToken);
+            string? token = await GetAuthTokenAsync(repository, cancellationToken);
             if (token == null)
             {
-                Logger.LogWarning("Failed to get auth token for image {Image}", image);
+                Logger.LogWarning("Failed to get auth token for repository {Repository}", repository);
                 return (null, null);
             }
 
-            var (digest, configDigest) = await FetchManifestDigestAndConfigAsync(image, tag, architecture, token, cancellationToken);
+            var (digest, configDigest) = await FetchManifestDigestAndConfigAsync(repository, tag, architecture, token, cancellationToken);
 
             if (digest == null)
             {
@@ -145,7 +149,7 @@ public class DockerHubRegistryClient : RegistryClientBase
             DateTime? createdAt = null;
             if (configDigest != null)
             {
-                createdAt = await FetchConfigCreatedAtAsync(RegistryUrl, image, configDigest, token, cancellationToken);
+                createdAt = await FetchConfigCreatedAtAsync(RegistryUrl, repository, configDigest, token, cancellationToken);
             }
 
             return (digest, createdAt);
@@ -156,7 +160,7 @@ public class DockerHubRegistryClient : RegistryClientBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest for {Repository}:{Tag}", repository, tag);
             return (null, null);
         }
     }

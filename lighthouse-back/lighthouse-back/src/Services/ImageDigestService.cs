@@ -272,13 +272,13 @@ public class ImageDigestService : IImageDigestService
             {
                 // GET: also returns the creation date (counts against the pull-rate limit).
                 (digest, createdAt) = await client.GetManifestDigestAndCreatedAtAsync(
-                    imageRef.Repository, imageRef.Tag, architecture, ct);
+                    imageRef.Registry, imageRef.Repository, imageRef.Tag, architecture, ct);
             }
             else
             {
                 // HEAD: digest only, not counted against the pull-rate limit.
                 digest = await client.GetManifestDigestAsync(
-                    imageRef.Repository, imageRef.Tag, architecture, ct);
+                    imageRef.Registry, imageRef.Repository, imageRef.Tag, architecture, ct);
             }
 
             return new ImageDigestInfo(

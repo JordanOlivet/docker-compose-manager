@@ -31,15 +31,17 @@ public class GhcrRegistryClient : RegistryClientBase
     }
 
     public override async Task<string?> GetManifestDigestAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default)
     {
+        // The registry parameter is ignored: this client always talks to ghcr.io.
         try
         {
             string? token = GetAuthToken();
-            return await FetchManifestDigestViaHeadAsync(image, tag, architecture, token, cancellationToken);
+            return await FetchManifestDigestViaHeadAsync(repository, tag, architecture, token, cancellationToken);
         }
         catch (RegistryRateLimitException)
         {
@@ -47,7 +49,7 @@ public class GhcrRegistryClient : RegistryClientBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting manifest digest (HEAD) for ghcr.io/{Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest (HEAD) for ghcr.io/{Repository}:{Tag}", repository, tag);
             return null;
         }
     }
@@ -91,7 +93,7 @@ public class GhcrRegistryClient : RegistryClientBase
 
         if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
         {
-            var (fallbackDigest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+            var (fallbackDigest, _) = await GetManifestDigestAndCreatedAtAsync("ghcr.io", repository, tag, architecture, cancellationToken);
             return fallbackDigest;
         }
 
@@ -107,7 +109,7 @@ public class GhcrRegistryClient : RegistryClientBase
             return digestValues.FirstOrDefault();
         }
 
-        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+        var (digest, _) = await GetManifestDigestAndCreatedAtAsync("ghcr.io", repository, tag, architecture, cancellationToken);
         return digest;
     }
 
@@ -133,7 +135,7 @@ public class GhcrRegistryClient : RegistryClientBase
 
         if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
         {
-            var (fallbackDigest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+            var (fallbackDigest, _) = await GetManifestDigestAndCreatedAtAsync("ghcr.io", repository, tag, architecture, cancellationToken);
             return fallbackDigest;
         }
 
@@ -149,22 +151,24 @@ public class GhcrRegistryClient : RegistryClientBase
             return digestValues.FirstOrDefault();
         }
 
-        var (digest, _) = await GetManifestDigestAndCreatedAtAsync(repository, tag, architecture, cancellationToken);
+        var (digest, _) = await GetManifestDigestAndCreatedAtAsync("ghcr.io", repository, tag, architecture, cancellationToken);
         return digest;
     }
 
     public override async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default)
     {
+        // The registry parameter is ignored: this client always talks to ghcr.io.
         try
         {
             // Get token for GHCR (anonymous or authenticated)
             string? token = GetAuthToken();
 
-            return await FetchManifestDigestAndCreatedAtAsync(image, tag, architecture, token, cancellationToken);
+            return await FetchManifestDigestAndCreatedAtAsync(repository, tag, architecture, token, cancellationToken);
         }
         catch (RegistryRateLimitException)
         {
@@ -172,7 +176,7 @@ public class GhcrRegistryClient : RegistryClientBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting manifest digest for ghcr.io/{Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest for ghcr.io/{Repository}:{Tag}", repository, tag);
             return (null, null);
         }
     }
