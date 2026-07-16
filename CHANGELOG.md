@@ -1,3 +1,11 @@
+## Changes in v1.31.0
+
+**Merged Pull Requests:**
+- feat(update): preserve container run state after image update (#192)
+
+**Commits:**
+
+
 ## Changes in v1.30.1
 
 **Merged Pull Requests:**
