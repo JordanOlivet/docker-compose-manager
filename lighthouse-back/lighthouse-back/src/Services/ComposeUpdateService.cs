@@ -1,7 +1,9 @@
 ﻿using System.Text;
+using Docker.DotNet.Models;
 using Lighthouse.Configuration;
 using Lighthouse.DTOs;
 using Lighthouse.Services.Registry;
+using Lighthouse.Utils;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 
@@ -65,6 +67,7 @@ public class ComposeUpdateService : IComposeUpdateService
     private readonly IComposeUpdateChecker _checker;
     private readonly IImageUpdateCacheService _cacheService;
     private readonly DockerCommandExecutorService _dockerExecutor;
+    private readonly IDockerImageOperations _dockerOps;
     private readonly IComposeEnvFileResolver _envFileResolver;
     private readonly DockerPullProgressParser _progressParser;
     private readonly IOperationService _operationService;
@@ -76,6 +79,7 @@ public class ComposeUpdateService : IComposeUpdateService
         IComposeUpdateChecker checker,
         IImageUpdateCacheService cacheService,
         DockerCommandExecutorService dockerExecutor,
+        IDockerImageOperations dockerOps,
         IComposeEnvFileResolver envFileResolver,
         DockerPullProgressParser progressParser,
         IOperationService operationServiceDb,
@@ -86,6 +90,7 @@ public class ComposeUpdateService : IComposeUpdateService
         _checker = checker;
         _cacheService = cacheService;
         _dockerExecutor = dockerExecutor;
+        _dockerOps = dockerOps;
         _envFileResolver = envFileResolver;
         _progressParser = progressParser;
         _operationService = operationServiceDb;
@@ -402,11 +407,15 @@ public class ComposeUpdateService : IComposeUpdateService
             }
             await SendProgressUpdateAsync(operationId, projectName, "recreate", serviceProgress, "Recreating containers...", restartAfterUpdate);
 
-            // Recreate containers with new images
-            string recreateArgs = restartFullProject
-                ? $"compose {envFileArgs}-f \"{composeFilePath}\" up -d --force-recreate"
-                : $"compose {envFileArgs}-f \"{composeFilePath}\" up -d --force-recreate {servicesArg}";
-            _logger.LogDebug("Recreating containers - RestartFullProject: {RestartFullProject}, Command args: {Args}", restartFullProject, recreateArgs);
+            // Determine which services were running before the update so the recreate phase
+            // can restore the previous run state: running services are recreated and started,
+            // stopped services are recreated with the new image but left stopped.
+            (List<string> servicesToStart, List<string> servicesToLeaveStopped) =
+                await SplitServicesByRunStateAsync(projectName, servicesToUpdate, restartFullProject, ct);
+
+            _logger.LogDebug(
+                "Recreating containers for {ProjectName} - Start: [{Start}], LeaveStopped: [{LeaveStopped}], RestartFullProject: {RestartFullProject}",
+                projectName, string.Join(", ", servicesToStart), string.Join(", ", servicesToLeaveStopped), restartFullProject);
 
             var recreateLogs = new StringBuilder();
 
@@ -427,13 +436,36 @@ public class ComposeUpdateService : IComposeUpdateService
                 }
             }
 
-            (int upExitCode, string upOutput, string upError) = await _dockerExecutor.ExecuteWithStreamingAsync(
-                "docker",
-                recreateArgs,
-                OnRecreateOutput,
-                OnRecreateOutput,
-                ct,
-                workingDirectory: composeDirectory);
+            List<string> recreateCommands = new();
+            if (servicesToStart.Count > 0)
+            {
+                recreateCommands.Add($"compose {envFileArgs}-f \"{composeFilePath}\" up -d --force-recreate {string.Join(" ", servicesToStart)}");
+            }
+            if (servicesToLeaveStopped.Count > 0)
+            {
+                // `compose create --force-recreate` swaps in the new image without starting
+                // the container, preserving the pre-update stopped state.
+                recreateCommands.Add($"compose {envFileArgs}-f \"{composeFilePath}\" create --force-recreate {string.Join(" ", servicesToLeaveStopped)}");
+            }
+
+            int upExitCode = 0;
+            string upError = string.Empty;
+
+            foreach (string recreateArgs in recreateCommands)
+            {
+                _logger.LogDebug("Recreate command args: {Args}", recreateArgs);
+
+                (upExitCode, _, upError) = await _dockerExecutor.ExecuteWithStreamingAsync(
+                    "docker",
+                    recreateArgs,
+                    OnRecreateOutput,
+                    OnRecreateOutput,
+                    ct,
+                    workingDirectory: composeDirectory);
+
+                if (upExitCode != 0)
+                    break;
+            }
 
             if (upExitCode != 0)
             {
@@ -478,6 +510,10 @@ public class ComposeUpdateService : IComposeUpdateService
             filteredLogs.AppendLine($"Pull completed for {servicesToUpdate.Count} services");
             filteredLogs.AppendLine("Recreating containers...");
             filteredLogs.Append(recreateLogs);
+            if (servicesToLeaveStopped.Count > 0)
+            {
+                filteredLogs.AppendLine($"Left stopped (previous state preserved): {string.Join(", ", servicesToLeaveStopped)}");
+            }
             filteredLogs.AppendLine("Update completed successfully");
             await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
             await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
@@ -518,6 +554,52 @@ public class ComposeUpdateService : IComposeUpdateService
                 OperationId: operationId
             );
         }
+    }
+
+    /// <summary>
+    /// Splits the services to recreate into those that should be started (they had at least
+    /// one running container before the update) and those that should be recreated but left
+    /// stopped, so the update preserves the pre-update run state. With
+    /// <paramref name="restartFullProject"/> the split covers every service of the project
+    /// that has a container, not just the updated ones. If container states cannot be read,
+    /// all services are started (previous behavior).
+    /// </summary>
+    private async Task<(List<string> ToStart, List<string> ToLeaveStopped)> SplitServicesByRunStateAsync(
+        string projectName,
+        List<string> servicesToUpdate,
+        bool restartFullProject,
+        CancellationToken ct)
+    {
+        Dictionary<string, bool> runStates;
+        try
+        {
+            IList<ContainerListResponse> containers = await _dockerOps.ListContainersRawAsync(ct);
+            runStates = ContainerRunStateHelper.GetComposeServiceRunStates(containers, projectName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to read container states for {ProjectName}; recreated containers will all be started",
+                projectName);
+            return (servicesToUpdate.ToList(), new List<string>());
+        }
+
+        IEnumerable<string> targetServices = restartFullProject
+            ? runStates.Keys.Union(servicesToUpdate, StringComparer.Ordinal)
+            : servicesToUpdate;
+
+        List<string> toStart = new();
+        List<string> toLeaveStopped = new();
+        foreach (string service in targetServices)
+        {
+            // A service with no pre-existing container was not running, so it stays stopped.
+            if (runStates.TryGetValue(service, out bool isRunning) && isRunning)
+                toStart.Add(service);
+            else
+                toLeaveStopped.Add(service);
+        }
+
+        return (toStart, toLeaveStopped);
     }
 
     private async Task SendProgressUpdateAsync(
