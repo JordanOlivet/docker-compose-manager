@@ -54,7 +54,7 @@ public class DockerHubRegistryClientTests
             return RegistryResponses.NotFound();
         }, out _);
 
-        string? digest = await client.GetManifestDigestAsync("library/nginx", "latest", "amd64");
+        string? digest = await client.GetManifestDigestAsync("docker.io", "library/nginx", "latest", "amd64");
 
         digest.Should().Be("sha256:headdigest");
     }
@@ -69,7 +69,7 @@ public class DockerHubRegistryClientTests
             return RegistryResponses.Head(System.Net.HttpStatusCode.OK, "sha256:never");
         }, out _);
 
-        string? digest = await client.GetManifestDigestAsync("library/nginx", "latest", "amd64");
+        string? digest = await client.GetManifestDigestAsync("docker.io", "library/nginx", "latest", "amd64");
 
         digest.Should().BeNull();
     }
@@ -79,7 +79,7 @@ public class DockerHubRegistryClientTests
     {
         DockerHubRegistryClient client = CreateClient(_ => RegistryResponses.TooManyRequests(), out _);
 
-        Func<Task> act = () => client.GetManifestDigestAsync("library/nginx", "latest", "amd64");
+        Func<Task> act = () => client.GetManifestDigestAsync("docker.io", "library/nginx", "latest", "amd64");
 
         await act.Should().ThrowAsync<RegistryRateLimitException>();
     }
@@ -105,7 +105,7 @@ public class DockerHubRegistryClientTests
         }, out _);
 
         (string? digest, DateTime? createdAt) =
-            await client.GetManifestDigestAndCreatedAtAsync("library/nginx", "latest", "amd64");
+            await client.GetManifestDigestAndCreatedAtAsync("docker.io", "library/nginx", "latest", "amd64");
 
         digest.Should().Be("sha256:listdigest");
         createdAt.Should().Be(new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc).ToLocalTime());
@@ -128,7 +128,7 @@ public class DockerHubRegistryClientTests
         }, out _);
 
         (string? digest, DateTime? createdAt) =
-            await client.GetManifestDigestAndCreatedAtAsync("library/nginx", "latest", "amd64");
+            await client.GetManifestDigestAndCreatedAtAsync("docker.io", "library/nginx", "latest", "amd64");
 
         digest.Should().Be("sha256:singledigest");
         createdAt.Should().Be(new DateTime(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc).ToLocalTime());
