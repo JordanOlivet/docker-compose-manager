@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Lighthouse.DTOs;
+using Lighthouse.Utils;
 
 namespace Lighthouse.Services;
 
@@ -219,9 +220,15 @@ public class ContainerUpdateService : IContainerUpdateService
         bool operationCreated = false;
         var filteredLogs = new StringBuilder();
 
+        // Capture the pre-update run state so the recreated container can be left stopped
+        // when the old one was not running.
+        bool wasRunning = ContainerRunStateHelper.IsRunningState(container.State);
+
         try
         {
-            _logger.LogInformation("Updating standalone container {ContainerName} ({Image}), restartAfterUpdate: {RestartAfterUpdate}", containerName, container.Image, restartAfterUpdate);
+            _logger.LogInformation(
+                "Updating standalone container {ContainerName} ({Image}), restartAfterUpdate: {RestartAfterUpdate}, wasRunning: {WasRunning}",
+                containerName, container.Image, restartAfterUpdate, wasRunning);
 
             // Create operation for action log tracking
             await _operationService.CreateOperationAsync(
@@ -372,7 +379,9 @@ public class ContainerUpdateService : IContainerUpdateService
                 return new UpdateTriggerResponse(false, $"Failed to remove container: {rmError}", operationId);
             }
 
-            // 3. Recreate container with same config using docker run
+            // 3. Recreate container with same config. If the old container was running,
+            // start the new one (docker run); otherwise recreate it without starting
+            // (docker create) to preserve the pre-update stopped state.
             filteredLogs.AppendLine("Creating new container...");
             serviceProgress[containerName] = serviceProgress[containerName] with
             {
@@ -381,12 +390,13 @@ public class ContainerUpdateService : IContainerUpdateService
             };
             await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, "Creating new container...", restartAfterUpdate);
 
-            string runArgs = BuildDockerRunArgs(container);
-            _logger.LogDebug("Recreating container with args: docker run {Args}", runArgs);
+            string containerArgs = BuildDockerRunArgs(container);
+            string recreateCommand = wasRunning ? $"run -d {containerArgs}" : $"create {containerArgs}";
+            _logger.LogDebug("Recreating container with args: docker {Args}", recreateCommand);
 
             (int runExitCode, string runOutput, string runError) = await _dockerExecutor.ExecuteAsync(
                 "docker",
-                $"run {runArgs}",
+                recreateCommand,
                 ct);
 
             if (runExitCode != 0)
@@ -407,22 +417,32 @@ public class ContainerUpdateService : IContainerUpdateService
             }
 
             // Mark as completed
+            string completionMessage = wasRunning
+                ? "Update completed"
+                : "Update completed (container left stopped)";
             serviceProgress[containerName] = serviceProgress[containerName] with
             {
                 Status = "completed",
                 ProgressPercent = 100,
-                Message = "Update completed"
+                Message = completionMessage
             };
-            await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, "Update completed", restartAfterUpdate);
+            await SendStandaloneProgressAsync(operationId, containerName, container.Id, "recreate", serviceProgress, completionMessage, restartAfterUpdate);
 
-            filteredLogs.AppendLine("Update completed successfully");
+            filteredLogs.AppendLine(wasRunning
+                ? "Update completed successfully"
+                : "Update completed successfully (container left stopped, previous state preserved)");
             await _operationService.AppendLogsAsync(operationId, filteredLogs.ToString());
             await _operationService.UpdateOperationStatusAsync(operationId, Models.OperationStatus.Completed, progress: 100);
 
-            _logger.LogInformation("Updated standalone container {ContainerName} ({Image}) by user {UserId}",
-                containerName, container.Image, userId);
+            _logger.LogInformation("Updated standalone container {ContainerName} ({Image}) by user {UserId}, wasRunning: {WasRunning}",
+                containerName, container.Image, userId, wasRunning);
 
-            return new UpdateTriggerResponse(true, $"Successfully updated container {containerName}", operationId);
+            return new UpdateTriggerResponse(
+                true,
+                wasRunning
+                    ? $"Successfully updated container {containerName}"
+                    : $"Successfully updated container {containerName} (container left stopped)",
+                operationId);
         }
         catch (Exception ex)
         {
@@ -492,11 +512,12 @@ public class ContainerUpdateService : IContainerUpdateService
     }
 
     /// <summary>
-    /// Builds docker run arguments to recreate a container with the same configuration.
+    /// Builds the shared arguments (name, env, ports, mounts, ...) used to recreate a
+    /// container with the same configuration via `docker run -d` or `docker create`.
     /// </summary>
     private static string BuildDockerRunArgs(ContainerDetailsDto container)
     {
-        List<string> args = new() { "-d" };
+        List<string> args = new();
 
         // Container name
         string containerName = container.Name.TrimStart('/');
