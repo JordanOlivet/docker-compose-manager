@@ -9,6 +9,7 @@
     RefreshCw,
     Search,
     ChevronRight,
+    MoreHorizontal,
     Download,
     Loader2,
     RefreshCwOff
@@ -97,6 +98,7 @@
   });
 
   let openProjects = $state<Record<string, ProjectOpenState>>({});
+  let mobileActionProject = $state<string | null>(null);
   let confirmDialog = $state<{ open: boolean; title: string; description: string; onConfirm: () => void }>({
     open: false,
     title: '',
@@ -315,6 +317,17 @@
     goto(`/compose/projects/${encodeURIComponent(projectName)}`);
   }
 
+  function toggleMobileActions(projectName: string) {
+    mobileActionProject = mobileActionProject === projectName ? null : projectName;
+  }
+
+  function closeMobileActionsOnOutsideClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('[data-mobile-project-actions]')) {
+      mobileActionProject = null;
+    }
+  }
+
   function handleRemoveProject(project: ComposeProject) {
     const isRunning = project.state === EntityState.Running;
     const message = isRunning
@@ -391,11 +404,16 @@
   });
 </script>
 
+<svelte:window
+  onclick={closeMobileActionsOnOutsideClick}
+  onkeydown={(event) => event.key === 'Escape' && (mobileActionProject = null)}
+/>
+
 <div class="space-y-4">
   <!-- Page Header -->
   <div class="mb-2">
-    <div class="flex items-center justify-between">
-      <div>
+    <div class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+      <div class="min-w-0">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
           {$t('compose.projects')}
         </h1>
@@ -403,11 +421,11 @@
           {$t('compose.subtitle')}
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
         {#if isAdmin.current}
         <button
           onclick={() => updateApi.checkAllProjectUpdates(true)}
-          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+          class="order-1 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:order-none"
         >
           <Download class="w-3 h-3" />
           {$t('update.checkForUpdates')}
@@ -415,7 +433,7 @@
         {#if hasAnyUpdates.current}
           <button
             onclick={() => bulkUpdateDialogOpen = true}
-            class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+            class="order-3 col-span-2 flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-700 sm:order-none sm:col-auto"
           >
             <Download class="w-3 h-3" />
             {$t('update.updateAll')} ({projectsWithUpdatesCount.current})
@@ -424,7 +442,7 @@
         {/if}
         <button
           onclick={() => projectsQueryForceRefetch.refetch()}
-          class="flex items-center gap-2 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+          class="order-2 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:order-none"
         >
           <RefreshCw class="w-3 h-3" />
           {$t('common.forceRefresh')}
@@ -477,7 +495,164 @@
       </p>
     </div>
   {:else}
-    <div class="bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-visible shadow hover:shadow-lg transition-all duration-300">
+    <!-- Compact mobile list: one shared surface instead of repeated cards. -->
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 md:hidden">
+      <div class="grid min-h-9 grid-cols-[minmax(0,1fr)_3rem_5.25rem_2.5rem] items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-400">
+        <span>{$t('compose.projectName')}</span>
+        <span class="text-center">{$t('compose.services')}</span>
+        <span>{$t('containers.state')}</span>
+        <span class="sr-only">{$t('containers.actions')}</span>
+      </div>
+
+      {#each filteredAndSortedProjects as project (project.name)}
+        {@const actionsOpen = mobileActionProject === project.name}
+        <article
+          data-mobile-project-actions
+          class="border-b border-gray-200 last:border-b-0 dark:border-gray-700 {actionsOpen ? 'bg-blue-50 dark:bg-blue-950/30' : ''}"
+        >
+          <div
+            class="grid min-h-20 grid-cols-[minmax(0,1fr)_3rem_5.25rem_2.5rem] items-center gap-1 px-3 transition-colors"
+            class:border-l-2={actionsOpen}
+            class:border-blue-500={actionsOpen}
+            class:pl-2.5={actionsOpen}
+          >
+            <div class="min-w-0 pr-1">
+              <div class="flex min-w-0 items-center gap-1.5">
+                <button
+                  class="min-w-0 truncate text-left text-sm font-semibold text-blue-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-400"
+                  onclick={() => navigateToProject(project.name)}
+                  title={$t('compose.projectDetails')}
+                >
+                  {project.name}
+                </button>
+                <ActionStatusBadge entityType="project" entityId={project.name} />
+              </div>
+              {#if project.path}
+                <p class="mt-0.5 truncate font-mono text-[10px] text-gray-500 dark:text-gray-400" title={project.path}>
+                  {project.path}
+                </p>
+              {/if}
+              {#if project.warning}
+                <p class="mt-1 truncate text-[10px] text-amber-600 dark:text-amber-400" title={project.warning}>
+                  {project.warning}
+                </p>
+              {/if}
+            </div>
+
+            <span class="text-center text-xs font-semibold text-gray-700 dark:text-gray-300">
+              {project.services?.length ?? 0}
+            </span>
+
+            <div class="flex min-w-0 flex-col items-start gap-1 overflow-hidden">
+              <StateBadge status={project.state} size="sm" class="max-w-full text-[10px]" />
+              <div class="flex items-center gap-1">
+                <CrashLoopBadge entityType="project" entityId={project.name} />
+                {#if project.autoUpdateEnabled === false}
+                  <RefreshCwOff
+                    class="h-3.5 w-3.5 shrink-0 text-gray-400"
+                    aria-label={$t('compose.autoUpdateDisabled')}
+                  />
+                {/if}
+              </div>
+            </div>
+
+            <button
+              class="relative flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white {actionsOpen ? 'bg-gray-100 dark:bg-gray-700' : ''}"
+              aria-label="{$t('containers.actions')} · {project.name}"
+              aria-controls="mobile-project-actions-{project.name}"
+              aria-expanded={actionsOpen}
+              onclick={(event) => {
+                event.stopPropagation();
+                toggleMobileActions(project.name);
+              }}
+            >
+              <MoreHorizontal class="h-5 w-5" />
+              {#if projectHasUpdates(project.name) || (project.servicesWithUpdates != null && project.servicesWithUpdates > 0)}
+                <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500"></span>
+              {/if}
+            </button>
+          </div>
+
+          {#if actionsOpen}
+            <div
+              id="mobile-project-actions-{project.name}"
+              class="grid grid-cols-2 gap-2 border-t border-gray-200 bg-gray-50 p-2.5 dark:border-gray-700 dark:bg-gray-900/70"
+            >
+              {#if isAdmin.current && project.hasComposeFile}
+                <button
+                  class="relative flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  disabled={checkingUpdatesFor === project.name}
+                  onclick={() => handleCheckUpdates(project.name)}
+                >
+                  {#if checkingUpdatesFor === project.name}
+                    <Loader2 class="h-4 w-4 animate-spin text-blue-500" />
+                  {:else}
+                    <Download class="h-4 w-4 text-blue-500" />
+                  {/if}
+                  {$t('update.checkUpdates')}
+                </button>
+              {/if}
+
+              {#if project.state === EntityState.Down || project.state === EntityState.Stopped || project.state === EntityState.Exited || project.state === EntityState.Degraded || project.state === EntityState.Created || project.state === EntityState.NotStarted}
+                {#if project.availableActions?.up}
+                  <button
+                    class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-green-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700"
+                    onclick={() => upMutation.mutate({ projectName: project.name })}
+                  >
+                    <Play class="h-4 w-4" />
+                    {$t('compose.up')}
+                  </button>
+                  <button
+                    class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-purple-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-gray-700"
+                    onclick={() => upMutation.mutate({ projectName: project.name, forceRecreate: true })}
+                  >
+                    <Zap class="h-4 w-4" />
+                    {$t('compose.forceRecreate')}
+                  </button>
+                {:else if project.availableActions?.start}
+                  <button
+                    class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-green-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700"
+                    onclick={() => restartMutation.mutate(project.name)}
+                  >
+                    <Play class="h-4 w-4" />
+                    {$t('containers.start')}
+                  </button>
+                {/if}
+              {/if}
+
+              {#if project.state === EntityState.Running || project.state === EntityState.Degraded}
+                <button
+                  class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-blue-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-gray-700"
+                  onclick={() => restartMutation.mutate(project.name)}
+                >
+                  <RotateCw class="h-4 w-4" />
+                  {$t('compose.restart')}
+                </button>
+                <button
+                  class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-yellow-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-yellow-400 dark:hover:bg-gray-700"
+                  onclick={() => stopMutation.mutate(project.name)}
+                >
+                  <Square class="h-4 w-4" />
+                  {$t('compose.stop')}
+                </button>
+              {/if}
+
+              {#if project.state !== EntityState.Down && project.state !== EntityState.NotStarted && project.availableActions?.down}
+                <button
+                  class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                  onclick={() => handleRemoveProject(project)}
+                >
+                  <Trash2 class="h-4 w-4" />
+                  {$t('common.delete')}
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </article>
+      {/each}
+    </div>
+
+    <div class="hidden bg-linear-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-visible shadow hover:shadow-lg transition-all duration-300 md:block">
       <div class="overflow-x-auto">
         <table class="w-full">
           <DraggableTableHeader
