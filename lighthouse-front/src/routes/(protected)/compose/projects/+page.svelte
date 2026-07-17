@@ -718,7 +718,7 @@
                   {:else if colId === 'state'}
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-1.5">
-                        <StateBadge status={project.state} size="sm" />
+                        <StateBadge status={project.state} size="sm" class="shrink-0 whitespace-nowrap" />
                         <CrashLoopBadge entityType="project" entityId={project.name} />
                         {#if project.autoUpdateEnabled === false}
                           <span
