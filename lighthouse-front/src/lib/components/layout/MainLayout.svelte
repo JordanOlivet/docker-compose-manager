@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { onMount } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Header from './Header.svelte';
   import ActionLogPanel from './ActionLogPanel.svelte';
@@ -14,22 +13,7 @@
   }
 
   let { children }: Props = $props();
-  let isSidebarOpen = $state(true);
-  let isMobile = $state(false);
-
-  onMount(() => {
-    const mobileQuery = window.matchMedia('(max-width: 767px)');
-
-    function syncSidebarWithViewport() {
-      isMobile = mobileQuery.matches;
-      isSidebarOpen = !mobileQuery.matches;
-    }
-
-    syncSidebarWithViewport();
-    mobileQuery.addEventListener('change', syncSidebarWithViewport);
-
-    return () => mobileQuery.removeEventListener('change', syncSidebarWithViewport);
-  });
+  let isSidebarOpen = $state(false);
 
   function toggleSidebar() {
     isSidebarOpen = !isSidebarOpen;
@@ -40,13 +24,11 @@
   }
 
   function handleSidebarNavigation() {
-    if (isMobile) {
-      closeSidebar();
-    }
+    closeSidebar();
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && isMobile && isSidebarOpen) {
+    if (event.key === 'Escape' && isSidebarOpen) {
       closeSidebar();
     }
   }
@@ -57,10 +39,10 @@
 <div class="flex h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
   <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} onNavigate={handleSidebarNavigation} />
 
-  {#if isSidebarOpen && isMobile}
+  {#if isSidebarOpen}
     <button
       type="button"
-      class="fixed inset-0 z-[110] bg-black/50 backdrop-blur-[1px] md:hidden"
+      class="fixed inset-0 z-[110] bg-black/50 backdrop-blur-[1px]"
       aria-label={$t('common.close')}
       onclick={closeSidebar}
     ></button>
