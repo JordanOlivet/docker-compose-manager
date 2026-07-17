@@ -497,7 +497,7 @@
   {:else}
     <!-- Compact mobile list: one shared surface instead of repeated cards. -->
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 md:hidden">
-      <div class="grid min-h-9 grid-cols-[minmax(0,1fr)_3rem_5.25rem_2.5rem] items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-400">
+      <div class="grid min-h-9 grid-cols-[minmax(0,1fr)_3rem_5.75rem_2.5rem] items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-400">
         <span>{$t('compose.projectName')}</span>
         <span class="text-center">{$t('compose.services')}</span>
         <span>{$t('containers.state')}</span>
@@ -511,7 +511,7 @@
           class="border-b border-gray-200 last:border-b-0 dark:border-gray-700 {actionsOpen ? 'bg-blue-50 dark:bg-blue-950/30' : ''}"
         >
           <div
-            class="grid min-h-20 grid-cols-[minmax(0,1fr)_3rem_5.25rem_2.5rem] items-center gap-1 px-3 transition-colors"
+            class="grid min-h-20 grid-cols-[minmax(0,1fr)_3rem_5.75rem_2.5rem] items-center gap-1 px-3 transition-colors"
             class:border-l-2={actionsOpen}
             class:border-blue-500={actionsOpen}
             class:pl-2.5={actionsOpen}
@@ -544,7 +544,7 @@
             </span>
 
             <div class="flex min-w-0 flex-col items-start gap-1 overflow-hidden">
-              <StateBadge status={project.state} size="sm" class="max-w-full text-[10px]" />
+              <StateBadge status={project.state} size="sm" class="max-w-full whitespace-nowrap text-[10px]" />
               <div class="flex items-center gap-1">
                 <CrashLoopBadge entityType="project" entityId={project.name} />
                 {#if project.autoUpdateEnabled === false}
