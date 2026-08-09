@@ -1,3 +1,27 @@
+## Changes in v1.32.0
+
+**Merged Pull Requests:**
+- Improve Compose projects mobile layout (#193)
+
+**Commits:**
+
+
+## Changes in v1.31.0
+
+**Merged Pull Requests:**
+- feat(update): preserve container run state after image update (#192)
+
+**Commits:**
+
+
+## Changes in v1.30.1
+
+**Merged Pull Requests:**
+- fix(updates): route generic registry digest checks to the parsed registry host (#191)
+
+**Commits:**
+
+
 ## Changes in v1.30.0
 
 **Merged Pull Requests:**

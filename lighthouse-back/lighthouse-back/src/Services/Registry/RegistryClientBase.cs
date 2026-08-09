@@ -24,10 +24,10 @@ public abstract class RegistryClientBase : IRegistryClient
     public abstract bool CanHandle(string registry);
 
     public abstract Task<string?> GetManifestDigestAsync(
-        string image, string tag, string architecture, CancellationToken cancellationToken = default);
+        string registry, string repository, string tag, string architecture, CancellationToken cancellationToken = default);
 
     public abstract Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
-        string image, string tag, string architecture, CancellationToken cancellationToken = default);
+        string registry, string repository, string tag, string architecture, CancellationToken cancellationToken = default);
 
     /// <summary>Adds the manifest-list and single-manifest Accept headers used for digest lookups.</summary>
     protected static void AddManifestAcceptHeaders(HttpRequestMessage request)

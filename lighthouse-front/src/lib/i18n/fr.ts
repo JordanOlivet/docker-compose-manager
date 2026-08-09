@@ -657,7 +657,7 @@ const fr = {
     updateSelected: 'Mettre à jour la sélection',
     updateSuccess: '{count} services mis à jour avec succès',
     restartAfterUpdate: 'Redémarrer après mise à jour',
-    restartAfterUpdateHint: 'Recrée les conteneurs avec les nouvelles images. Décochez pour uniquement télécharger les images sans redémarrer.',
+    restartAfterUpdateHint: 'Recrée les conteneurs avec les nouvelles images. Les conteneurs arrêtés restent arrêtés. Décochez pour uniquement télécharger les images sans redémarrer.',
     restartFullProject: 'Redémarrer le projet en entier',
     restartFullProjectHint: 'Redémarre tous les services du projet, pas uniquement ceux mis à jour',
     // Bulk update keys

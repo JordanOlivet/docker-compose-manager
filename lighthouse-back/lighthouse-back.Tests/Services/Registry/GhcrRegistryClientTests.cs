@@ -41,7 +41,7 @@ public class GhcrRegistryClientTests
                 ? RegistryResponses.Head(System.Net.HttpStatusCode.OK, "sha256:ghcrhead")
                 : RegistryResponses.NotFound());
 
-        string? digest = await client.GetManifestDigestAsync("owner/repo", "latest", "amd64");
+        string? digest = await client.GetManifestDigestAsync("ghcr.io", "owner/repo", "latest", "amd64");
 
         digest.Should().Be("sha256:ghcrhead");
     }
@@ -61,7 +61,7 @@ public class GhcrRegistryClientTests
             return RegistryResponses.NotFound();
         });
 
-        string? digest = await client.GetManifestDigestAsync("owner/repo", "latest", "amd64");
+        string? digest = await client.GetManifestDigestAsync("ghcr.io", "owner/repo", "latest", "amd64");
 
         digest.Should().Be("sha256:authedhead");
     }
@@ -71,7 +71,7 @@ public class GhcrRegistryClientTests
     {
         GhcrRegistryClient client = CreateClient(_ => RegistryResponses.TooManyRequests());
 
-        Func<Task> act = () => client.GetManifestDigestAsync("owner/repo", "latest", "amd64");
+        Func<Task> act = () => client.GetManifestDigestAsync("ghcr.io", "owner/repo", "latest", "amd64");
 
         await act.Should().ThrowAsync<RegistryRateLimitException>();
     }
@@ -91,7 +91,7 @@ public class GhcrRegistryClientTests
         });
 
         (string? digest, DateTime? createdAt) =
-            await client.GetManifestDigestAndCreatedAtAsync("owner/repo", "latest", "amd64");
+            await client.GetManifestDigestAndCreatedAtAsync("ghcr.io", "owner/repo", "latest", "amd64");
 
         digest.Should().Be("sha256:ghcrsingle");
         createdAt.Should().Be(new DateTime(2026, 7, 8, 9, 10, 11, DateTimeKind.Utc).ToLocalTime());

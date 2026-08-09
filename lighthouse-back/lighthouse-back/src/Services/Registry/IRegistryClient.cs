@@ -8,13 +8,15 @@ public interface IRegistryClient
     /// <summary>
     /// Gets the manifest digest for an image from the registry.
     /// </summary>
-    /// <param name="image">The full image reference (e.g., "nginx:latest", "ghcr.io/owner/repo:tag")</param>
+    /// <param name="registry">The registry hostname (e.g., "docker.io", "lscr.io", "localhost:5000")</param>
+    /// <param name="repository">The repository within the registry (e.g., "library/nginx", "linuxserver/radarr")</param>
     /// <param name="tag">The image tag</param>
     /// <param name="architecture">The target architecture (e.g., "amd64", "arm64")</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The manifest digest (sha256:...) or null if not found</returns>
     Task<string?> GetManifestDigestAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default);
@@ -22,13 +24,15 @@ public interface IRegistryClient
     /// <summary>
     /// Gets the manifest digest and creation date for an image from the registry.
     /// </summary>
-    /// <param name="image">The full image reference (e.g., "nginx:latest", "ghcr.io/owner/repo:tag")</param>
+    /// <param name="registry">The registry hostname (e.g., "docker.io", "lscr.io", "localhost:5000")</param>
+    /// <param name="repository">The repository within the registry (e.g., "library/nginx", "linuxserver/radarr")</param>
     /// <param name="tag">The image tag</param>
     /// <param name="architecture">The target architecture (e.g., "amd64", "arm64")</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Tuple of (digest, createdAt) where digest is sha256:... or null if not found</returns>
     Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default);

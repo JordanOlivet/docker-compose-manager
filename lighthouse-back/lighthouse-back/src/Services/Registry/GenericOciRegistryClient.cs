@@ -8,7 +8,7 @@ namespace Lighthouse.Services.Registry;
 
 /// <summary>
 /// Generic registry client for OCI-compliant registries.
-/// Used as a fallback for registries without specific implementations.
+/// Used as a fallback for registries without specific implementations (e.g., lscr.io, mcr.microsoft.com).
 /// </summary>
 public class GenericOciRegistryClient : RegistryClientBase
 {
@@ -27,15 +27,14 @@ public class GenericOciRegistryClient : RegistryClientBase
     }
 
     public override async Task<string?> GetManifestDigestAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            string registry = ExtractRegistry(image);
-            string repository = ExtractRepository(image);
             string registryUrl = $"https://{registry}/v2";
 
             // Try HEAD anonymously first (HEAD is not counted against pull-rate limits).
@@ -46,7 +45,7 @@ public class GenericOciRegistryClient : RegistryClientBase
                 return digest;
             }
 
-            string? token = await GetTokenViaWwwAuthenticateAsync(registryUrl, repository, cancellationToken);
+            string? token = await GetTokenViaWwwAuthenticateAsync(registryUrl, repository, tag, cancellationToken);
             if (token != null)
             {
                 return await TryFetchDigestViaHeadAsync(
@@ -61,7 +60,7 @@ public class GenericOciRegistryClient : RegistryClientBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting manifest digest (HEAD) for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest (HEAD) for {Registry}/{Repository}:{Tag}", registry, repository, tag);
             return null;
         }
     }
@@ -78,7 +77,6 @@ public class GenericOciRegistryClient : RegistryClientBase
         string? token,
         CancellationToken cancellationToken)
     {
-        repository = StripTag(repository);
         string url = $"{registryUrl}/{repository}/manifests/{tag}";
 
         using HttpRequestMessage request = new(HttpMethod.Head, url);
@@ -129,15 +127,14 @@ public class GenericOciRegistryClient : RegistryClientBase
     }
 
     public override async Task<(string? Digest, DateTime? CreatedAt)> GetManifestDigestAndCreatedAtAsync(
-        string image,
+        string registry,
+        string repository,
         string tag,
         string architecture,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            string registry = ExtractRegistry(image);
-            string repository = ExtractRepository(image);
             string registryUrl = $"https://{registry}/v2";
 
             // First, try without authentication
@@ -153,7 +150,7 @@ public class GenericOciRegistryClient : RegistryClientBase
             Logger.LogDebug("Anonymous access failed for {Registry}/{Repository}, attempting token auth", registry, repository);
 
             string? token = await GetTokenViaWwwAuthenticateAsync(
-                registryUrl, repository, cancellationToken);
+                registryUrl, repository, tag, cancellationToken);
 
             if (token != null)
             {
@@ -169,66 +166,23 @@ public class GenericOciRegistryClient : RegistryClientBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting manifest digest for {Image}:{Tag}", image, tag);
+            Logger.LogError(ex, "Error getting manifest digest for {Registry}/{Repository}:{Tag}", registry, repository, tag);
             return (null, null);
         }
-    }
-
-    private string ExtractRegistry(string image)
-    {
-        int slashIndex = image.IndexOf('/');
-        if (slashIndex > 0)
-        {
-            string firstPart = image.Substring(0, slashIndex);
-            if (firstPart.Contains('.') || firstPart.Contains(':') || firstPart == "localhost")
-            {
-                return firstPart;
-            }
-        }
-        return "docker.io";
-    }
-
-    private string ExtractRepository(string image)
-    {
-        int slashIndex = image.IndexOf('/');
-        if (slashIndex > 0)
-        {
-            string firstPart = image.Substring(0, slashIndex);
-            if (firstPart.Contains('.') || firstPart.Contains(':') || firstPart == "localhost")
-            {
-                return image.Substring(slashIndex + 1);
-            }
-        }
-
-        // For Docker Hub official images
-        if (!image.Contains('/'))
-        {
-            return "library/" + image;
-        }
-
-        return image;
-    }
-
-    /// <summary>Removes a trailing <c>:tag</c> from a repository segment, if present.</summary>
-    private static string StripTag(string repository)
-    {
-        int colonIndex = repository.LastIndexOf(':');
-        if (colonIndex > 0 && !repository.Substring(colonIndex).Contains('/'))
-        {
-            return repository.Substring(0, colonIndex);
-        }
-        return repository;
     }
 
     private async Task<string?> GetTokenViaWwwAuthenticateAsync(
         string registryUrl,
         string repository,
+        string tag,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Make a request to trigger 401 and get WWW-Authenticate header
-            string url = $"{registryUrl}/{repository}/manifests/latest";
+            // Make a request to trigger 401 and get WWW-Authenticate header. Use the requested tag:
+            // some registries validate the tag before issuing the challenge, so probing a hardcoded
+            // "latest" would fail for repositories that don't have that tag.
+            string url = $"{registryUrl}/{repository}/manifests/{tag}";
 
             using HttpRequestMessage request = new(HttpMethod.Get, url);
             HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
@@ -316,7 +270,6 @@ public class GenericOciRegistryClient : RegistryClientBase
         string? token,
         CancellationToken cancellationToken)
     {
-        repository = StripTag(repository);
         string url = $"{registryUrl}/{repository}/manifests/{tag}";
 
         using HttpRequestMessage request = new(HttpMethod.Get, url);

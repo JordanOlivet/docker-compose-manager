@@ -21,6 +21,7 @@ public class ComposeUpdateServiceTests
         _checker.Object,
         cacheService: null!,
         dockerExecutor: null!,
+        dockerOps: null!,
         envFileResolver: null!,
         progressParser: null!,
         operationServiceDb: null!,
