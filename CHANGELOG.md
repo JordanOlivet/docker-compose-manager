@@ -1,3 +1,11 @@
+## Changes in v1.32.0
+
+**Merged Pull Requests:**
+- Improve Compose projects mobile layout (#193)
+
+**Commits:**
+
+
 ## Changes in v1.31.0
 
 **Merged Pull Requests:**
